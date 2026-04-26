@@ -50,11 +50,7 @@ export default function DocumentDetailPage() {
   }
 
   const handleCreateReminder = () => {
-    if (!doc?.extracted_json?.rawText) {
-      setError('Kein OCR-Text verfügbar')
-      return
-    }
-    setReminderTitle(docTypeConfig[doc.doc_type]?.label ?? doc.doc_type)
+    setReminderTitle(docTypeConfig[doc?.doc_type]?.label ?? doc?.doc_type ?? 'Dokument')
     setReminderMode(true)
   }
 
@@ -252,16 +248,16 @@ export default function DocumentDetailPage() {
             >
               {rawText}
             </pre>
-
-            {(doc.doc_type === 'vaccination' || doc.doc_type === 'medication') && !reminderMode && (
-              <button className="btn btn-primary btn-full" onClick={handleCreateReminder} style={{ marginTop: 'var(--space-6)' }}>
-                <Calendar size={18} /> Reminder erstellen
-              </button>
-            )}
           </>
         )}
 
         {!rawText && <p className="text-muted" style={{ marginTop: 'var(--space-4)', fontStyle: 'italic' }}>Keine OCR-Daten verfügbar</p>}
+
+        {!reminderMode && (
+          <button className="btn btn-primary btn-full" onClick={handleCreateReminder} style={{ marginTop: 'var(--space-6)' }}>
+            <Calendar size={18} /> Kalender-Erinnerung erstellen
+          </button>
+        )}
       </div>
 
       {reminderMode && (
