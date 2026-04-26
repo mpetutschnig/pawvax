@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  paw-server:
+    build:
+      context: .
+      dockerfile: Containerfile.server
+    container_name: paw-server
+    environment:
+      - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-}
+      - DB_PATH=/data/paw.db
+      - UPLOADS_DIR=/data/uploads
+      - NODE_ENV=production
+    volumes:
+      - paw-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    expose:
+      - "3000"
+
+  paw-web:
+    build:
+      context: .
+      dockerfile: Containerfile.pwa
+    container_name: paw-web
+    ports:
+      - "80:80"
+    depends_on:
+      paw-server:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  paw-data:
+    driver: local

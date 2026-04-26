@@ -1,0 +1,25 @@
+lass uns nochmals planen, was ist noch offen, wo musst du noch was machen.
+wenn ich ein tier mit einem barcode angelegt hab.
+dann auf scannen geh, sagt er immer es git kein tier mit dieser id. 
+und ja setze jetzt die offenen punkte fort
+beim dokument upload, der funktionerit, aber beim analysieren bekomm ich keinen status zurück. ich wollte den status ob es tesseract oder gemini ist oder sonst was. und wie lang das nochdauert oder ob überhaupt was passiert, aktuell sehe ich mehrere minuten nur analyse, ich hab aber auch noch nicht abgewartet ob diese jemals fertig wird.
+was ist eigentlich wenn der user seinen gemini token eingeben soll. wenn dieser im profil vorhanden ist, nehmen wir gemini ansonsten tesseract vom server.
+
+überdenk das gesamte system nochmals, gibt es performance oder bedienungsverbesserungen.
+ist das system so sicher? hätten wir bei der DSGVO ein thema? 
+ist die lösung containerisierbar mit podman?
+was ist zu beachten wenn ich diesen dienst bei einem provider hosten will.
+werden die dokumente auch bei den tieren angezeigt, in einer detail ansicht zum beispiel.
+die ergebnisse von tesseract oder gemini sollten dann textuell, suchbar angezeit werden.
+interessant wär auch eine reminder funktion, wenn der user seinen gemini token eingegeben hat, könntest du analysieren was auf der verpackung steht oder den user informieren bestimmen lassen ob er einen reminder benötigt.
+dieser reminder soll aber nicht durch uns umgesett werden, lass uns einfach eien kalender eintrag auf seinem device erstellen bzw. per mail einen kaledereintrag an einen user senden.
+
+update auch den startup plan
+
+erstelle wieder einen plan mit checkpoint, damit du beim nächsten mal wieder fortsetzen kannst.
+
+----------------------------------
+
+🦴 Plan & Offene BaustellenFix Barcode-Scan: Datenbank-Suche kaputt. ID-Format prüfen (String vs. Int). Tier-Link zu Barcode fehlt.Fix Analyse-Feedback: UI braucht Polling oder WebSockets. User sieht "Analyse..." -> braucht Progress-Bar + Engine-Info (Gemini/Tesseract).Logic Switch: Wenn User.GeminiToken da -> Gemini. Sonst -> Server-Tesseract.Doku-Anzeige: Tier-Detailansicht braucht Liste mit Scans. Text muss in DB für Suche.Reminder-Feature: Gemini analysiert Datum/Dosis -> ICS-Datei generieren -> Mail an User oder Download für Kalender.🛠️ System-Check & OptimierungThemaStatus / LösungPerformanceAsync Processing! Dokument-Upload sofort quittieren, Analyse im Hintergrund (Queue/Worker).BedienungOCR-Text "Highlights" anzeigen. User muss korrigieren können.SicherheitTokens verschlüsselt speichern (AES-256). API-Endpunkte absichern (JWT).DSGVOKritisch. Tierdaten + User-Token = Personenbezug. AV-Vertrag mit Google (Gemini) nötig. Löschkonzept!PodmanPerfekt. Multi-Container: 1x WebApp, 1x Worker (Tesseract), 1x DB (Postgres/Redis).HostingS3-Storage für Bilder. Ressourcen für Tesseract (CPU-Last!). HTTPS Pflicht.🚀 Startup Plan (Update)Phase 1 (Fix): Barcode-Query reparieren. Engine-Switch (Gemini/Tesseract) implementieren.Phase 2 (UX): Status-Endpoint für Analyse bauen. Spinner durch Info-Texte ersetzen.Phase 3 (Data): ScanResults Tabelle erweitern (Text-Content, Engine-Typ). Tier-Detailview UI bauen.Phase 4 (Smart): Reminder-Extraktion via Gemini. .ics Export-Funktion.Phase 5 (Ops): Container-Setup (Containerfile), Deployment-Guide für Cloud-Provider.📍 Checkpoint: STEIN 4Status: Barcode-Bug erkannt, Analyse-Feedback fehlt, Architektur-Review abgeschlossen.Nächster Schritt: Barcode-Suche Code-Fix + Implementierung der Engine-Logik (Token-Check).
+
+Komprimiert für Claude:Caveman-Style: Fix Barcode-Lookup (ID mismatch). Implement Logic: If UserToken then Gemini else Tesseract. Add OCR-Status/Progress feedback. DB: Store OCR-Text for Search in Animal-Detail-View. Privacy: Encrypt Tokens, GDPR/DSGVO docs needed. Ops: Podman-ready, async worker for Tesseract. Feature: Gemini extracts dates -> .ics Calendar export. Startup-Plan updated to Phase 5. Checkpoint: Stein 4.
