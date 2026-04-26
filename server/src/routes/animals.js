@@ -31,6 +31,59 @@ function applySharing(db, animal, requestRole, ownerName, ownerEmail) {
 }
 
 export default async function animalRoutes(fastify) {
+
+  // ──── ÖFFENTLICHER Endpunkt (kein Login nötig) ────────────────────────────
+  fastify.get('/api/public/tag/:tagId', async (req, reply) => {
+    const db = getDb()
+    let { tagId } = req.params
+
+    // URL-Parsing falls jemand die volle URL scannt
+    try {
+      const url = new URL(tagId)
+      const parts = url.pathname.split('/')
+      tagId = parts[parts.length - 1]
+    } catch { /* war keine URL */ }
+
+    const row = db.prepare(`
+      SELECT a.*, ac.name AS owner_name
+      FROM animals a
+      JOIN animal_tags t ON t.animal_id = a.id
+      JOIN accounts ac ON ac.id = a.account_id
+      WHERE t.tag_id = ? AND t.active = 1
+    `).get(tagId)
+
+    if (!row) return reply.code(404).send({ error: 'Tag nicht gefunden' })
+
+    // Nur readonly-freigegebene Felder zurückgeben
+    const sharing = db.prepare('SELECT * FROM animal_sharing WHERE animal_id = ? AND role = ?')
+      .get(row.id, 'readonly')
+
+    if (!sharing) return reply.code(404).send({ error: 'Kein öffentliches Profil verfügbar' })
+
+    const result = {
+      id: row.id,
+      name: row.name,
+      species: row.species,
+      avatar_path: row.avatar_path,
+    }
+    if (sharing.share_breed) result.breed = row.breed
+    if (sharing.share_birthdate) result.birthdate = row.birthdate
+    if (sharing.share_contact) result.contact = { name: row.owner_name }
+
+    // Öffentliche Dokumente (nur Impfungen falls freigegeben)
+    if (sharing.share_vaccination) {
+      const docs = db.prepare(`
+        SELECT id, doc_type, created_at, ocr_provider FROM documents
+        WHERE animal_id = ? AND doc_type = 'vaccination'
+        ORDER BY created_at DESC
+      `).all(row.id)
+      result.vaccinations = docs
+    }
+
+    return result
+  })
+
+  // ──── Alle weiteren Routen erfordern Auth ─────────────────────────────────
   fastify.addHook('onRequest', fastify.authenticate)
 
   // Tier per Tag-ID suchen (inkl. Rollenfilter für Vets/Behörden)

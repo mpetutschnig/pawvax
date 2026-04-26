@@ -10,6 +10,7 @@ import SharingSettingsPage from './pages/SharingSettingsPage'
 import AdminPage from './pages/AdminPage'
 import ProfilePage from './pages/ProfilePage'
 import DocumentDetailPage from './pages/DocumentDetailPage'
+import PublicScanPage from './pages/PublicScanPage'
 
 function RequireAuth({ children, adminOnly }: { children: React.ReactNode; adminOnly?: boolean }) {
   const token = localStorage.getItem('token')
@@ -68,6 +69,7 @@ export default function App() {
     <>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/public-scan" element={<PublicScanPage />} />
         <Route path="/" element={<Navigate to="/animals" replace />} />
         <Route path="/animals" element={<RequireAuth><AnimalsPage /></RequireAuth>} />
         <Route path="/animals/:id" element={<RequireAuth><AnimalPage /></RequireAuth>} />

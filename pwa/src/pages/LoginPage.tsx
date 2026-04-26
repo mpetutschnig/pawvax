@@ -1,7 +1,7 @@
 import { useState, FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { login, register } from '../api/rest'
-import { PawPrint, LogIn, UserPlus } from 'lucide-react'
+import { PawPrint, LogIn, UserPlus, ScanLine } from 'lucide-react'
 
 export default function LoginPage() {
   const navigate = useNavigate()
@@ -76,6 +76,20 @@ export default function LoginPage() {
             {mode === 'login' ? 'Registrieren' : 'Einloggen'}
           </button>
         </p>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', margin: 'var(--space-4) 0' }}>
+          <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+          <span className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>oder</span>
+          <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+        </div>
+
+        <button
+          className="btn btn-ghost btn-full"
+          onClick={() => navigate('/public-scan')}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)' }}
+        >
+          <ScanLine size={18} /> Tier scannen ohne Anmeldung
+        </button>
       </div>
     </div>
   )
