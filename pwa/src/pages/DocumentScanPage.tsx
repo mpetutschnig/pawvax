@@ -15,6 +15,22 @@ const docTypes = [
 export default function DocumentScanPage() {
   const { id: animalId } = useParams<{ id: string }>()
   const navigate = useNavigate()
+
+  // Readonly-User dürfen keine Dokumente hochladen
+  const myRoles: string[] = JSON.parse(localStorage.getItem('roles') || '[]')
+  const isReadOnly = myRoles.length > 0 && myRoles.every(r => r === 'readonly')
+  if (isReadOnly) {
+    return (
+      <div className="container page">
+        <div className="error-card" style={{ textAlign: 'center', padding: 'var(--space-8)' }}>
+          <p style={{ fontWeight: 600 }}>Kein Zugriff</p>
+          <p className="text-muted">Lesende Benutzer dürfen keine Dokumente hochladen.</p>
+          <button className="btn btn-ghost" onClick={() => navigate(-1)}>Zurück</button>
+        </div>
+      </div>
+    )
+  }
+
   const fileRef = useRef<HTMLInputElement>(null)
   const [preview, setPreview] = useState<string | null>(null)
   const [file, setFile] = useState<File | null>(null)

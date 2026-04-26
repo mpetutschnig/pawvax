@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { getDocument } from '../api/rest'
+import { getDocument, deleteDocument, patchDocument } from '../api/rest'
 import { generateICS, downloadBlob } from '../utils/ics'
-import { ChevronLeft, Shield, Pill, FileText, PawPrint, Landmark, Calendar, Download, Mail, Tag, Save, X, Edit2 } from 'lucide-react'
-import { patchDocument } from '../api/rest'
+import { ChevronLeft, Shield, Pill, FileText, PawPrint, Landmark, Calendar, Download, Mail, Tag, Save, X, Edit2, Trash2, CheckCircle } from 'lucide-react'
 
 export default function DocumentDetailPage() {
   const { id: animalId, docId } = useParams<{ id: string; docId: string }>()
@@ -116,6 +115,18 @@ export default function DocumentDetailPage() {
     }
   }
 
+  const handleDeleteDoc = async () => {
+    if (!confirm('Möchtest du dieses Dokument wirklich unwiderruflich löschen?')) return
+    setSaving(true)
+    try {
+      await deleteDocument(docId!)
+      navigate(`/animals/${animalId}`)
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Fehler beim Löschen')
+      setSaving(false)
+    }
+  }
+
   const addTag = () => {
     if (newTag.trim() && !tags.includes(newTag.trim())) {
       setTags([...tags, newTag.trim()])
@@ -155,6 +166,26 @@ export default function DocumentDetailPage() {
       </div>
 
       <div className="card animate-slide-up">
+        {doc.added_by_role === 'vet' && (
+          <div style={{
+            background: 'var(--success-50)', border: '1px solid var(--success-200)',
+            borderRadius: 'var(--radius-md)', padding: 'var(--space-3)',
+            marginBottom: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: 'var(--space-3)'
+          }}>
+            <div style={{ background: 'var(--success-100)', padding: '8px', borderRadius: '50%' }}>
+              <CheckCircle size={24} color="var(--success-600)" />
+            </div>
+            <div>
+              <div style={{ fontWeight: 600, color: 'var(--success-800)', fontSize: 'var(--font-size-sm)' }}>
+                Verifiziertes Tierarztdokument
+              </div>
+              <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--success-700)' }}>
+                Offiziell hochgeladen und medizinisch bestätigt
+              </div>
+            </div>
+          </div>
+        )}
+
         <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center', marginBottom: 'var(--space-4)', flexWrap: 'wrap' }}>
           <span className="badge badge-primary">
             {doc.ocr_provider || 'Unbekannt'}
@@ -251,13 +282,31 @@ export default function DocumentDetailPage() {
           </div>
         ) : (
           <div style={{ marginBottom: 'var(--space-6)' }}>
-            {tags.length > 0 ? (
-              <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
-                {tags.map(t => <span key={t} className="badge badge-info">{t}</span>)}
-              </div>
-            ) : (
-              <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)' }}>Keine Tags vergeben.</p>
-            )}
+            <div style={{ marginBottom: 'var(--space-4)' }}>
+              <h4 style={{ fontSize: 'var(--font-size-sm)', margin: '0 0 var(--space-2) 0', color: 'var(--text-secondary)' }}>Tags</h4>
+              {tags.length > 0 ? (
+                <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+                  {tags.map(t => <span key={t} className="badge badge-info">{t}</span>)}
+                </div>
+              ) : (
+                <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', margin: 0 }}>Keine Tags vergeben.</p>
+              )}
+            </div>
+
+            <div>
+              <h4 style={{ fontSize: 'var(--font-size-sm)', margin: '0 0 var(--space-2) 0', color: 'var(--text-secondary)' }}>Freigegeben für</h4>
+              {visibility.length > 0 ? (
+                <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+                  {visibility.map(r => (
+                    <span key={r} className="badge" style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}>
+                      {r === 'vet' ? 'Tierarzt' : r === 'authority' ? 'Behörde' : 'Lesender Zugriff'}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', margin: 0 }}>Nur für mich sichtbar.</p>
+              )}
+            </div>
           </div>
         )}
 
@@ -304,6 +353,25 @@ export default function DocumentDetailPage() {
           <button className="btn btn-primary btn-full" onClick={handleCreateReminder} style={{ marginTop: 'var(--space-6)' }}>
             <Calendar size={18} /> Kalender-Erinnerung erstellen
           </button>
+        )}
+
+        {(doc.isOwner || doc.isUploader) && !(doc.added_by_role === 'vet' && !doc.isUploader) && (
+          <button 
+            className="btn btn-outline btn-full" 
+            onClick={handleDeleteDoc} 
+            disabled={saving}
+            style={{ marginTop: 'var(--space-4)', color: 'var(--error-500)', borderColor: 'var(--error-500)' }}
+          >
+            <Trash2 size={18} /> Dokument löschen
+          </button>
+        )}
+
+        {(doc.added_by_role === 'vet' && !doc.isUploader) && (
+          <div style={{ marginTop: 'var(--space-4)', padding: 'var(--space-3)', background: 'var(--warning-50)', borderRadius: 'var(--radius-md)', borderLeft: '4px solid var(--warning-500)' }}>
+            <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', color: 'var(--warning-900)' }}>
+              <strong>Verifiziertes Tierarzt-Dokument:</strong> Dieses Dokument wurde durch einen Tierarzt hochgeladen und kann daher nicht gelöscht werden. Du kannst nur die Sichtbarkeit bearbeiten.
+            </p>
+          </div>
         )}
       </div>
 

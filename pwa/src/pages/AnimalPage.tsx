@@ -29,6 +29,9 @@ export default function AnimalPage() {
   const [submitting, setSubmitting] = useState(false)
   const [documentSearch, setDocumentSearch] = useState('')
 
+  const myRoles: string[] = JSON.parse(localStorage.getItem('roles') || '[]')
+  const isReadOnly = myRoles.length === 1 && myRoles[0] === 'readonly'
+
   useEffect(() => {
     if (!id) return
     Promise.all([getAnimal(id), getAnimalDocuments(id), getAnimalTags(id)])
@@ -295,13 +298,18 @@ export default function AnimalPage() {
         .filter(doc => !documentSearch || docTypeLabel[doc.doc_type]?.toLowerCase().includes(documentSearch) || new Date(doc.created_at).toLocaleString('de-AT').includes(documentSearch))
         .map(doc => (
         <Link key={doc.id} to={`/animals/${id}/documents/${doc.id}`} style={{ textDecoration: 'none' }}>
-          <div className="card card-sm" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-3)' }}>
+          <div className="card card-sm" style={{ 
+            display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-3)',
+            border: doc.added_by_role === 'vet' ? '1.5px solid var(--success-500)' : undefined,
+            background: doc.added_by_role === 'vet' ? 'var(--success-50)' : 'var(--bg-elevated)',
+            boxShadow: doc.added_by_role === 'vet' ? '0 4px 12px rgba(16, 185, 129, 0.1)' : undefined
+          }}>
             <div style={{
               width: 36, height: 36, borderRadius: 'var(--radius-sm)', flexShrink: 0,
-              background: 'var(--primary-50)',
+              background: doc.added_by_role === 'vet' ? 'var(--success-100)' : 'var(--primary-50)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
-              {doc.doc_type === 'vaccination' ? <Syringe size={16} color="var(--primary-600)" strokeWidth={2} /> : <FileText size={16} color="var(--primary-600)" strokeWidth={2} />}
+              {doc.doc_type === 'vaccination' ? <Syringe size={16} color={doc.added_by_role === 'vet' ? "var(--success-600)" : "var(--primary-600)"} strokeWidth={2} /> : <FileText size={16} color={doc.added_by_role === 'vet' ? "var(--success-600)" : "var(--primary-600)"} strokeWidth={2} />}
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)' }}>{docTypeLabel[doc.doc_type] ?? doc.doc_type}</div>
@@ -310,8 +318,9 @@ export default function AnimalPage() {
               </div>
             </div>
             <div style={{ display: 'flex', gap: '4px', flexDirection: 'column', alignItems: 'flex-end' }}>
-              {doc.added_by_role === 'vet' && <span className="badge badge-success"><CheckCircle size={10} /> Tierarzt</span>}
-              {doc.added_by_role === 'authority' && <span className="badge badge-info"><ShieldAlert size={10} /> Behörde</span>}
+              {doc.added_by_role === 'vet' && <span className="badge badge-success" style={{ display: 'flex', alignItems: 'center', gap: '3px' }}><CheckCircle size={10} /> Tierarzt</span>}
+              {doc.added_by_role === 'authority' && <span className="badge badge-info" style={{ display: 'flex', alignItems: 'center', gap: '3px' }}><ShieldAlert size={10} /> Behörde</span>}
+              {!['vet', 'authority'].includes(doc.added_by_role ?? '') && <span className="badge" style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: '3px', fontSize: '10px' }}>Besitzer</span>}
               <span className="text-muted" style={{ fontSize: '10px' }}>{doc.ocr_provider}</span>
             </div>
           </div>

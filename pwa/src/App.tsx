@@ -37,12 +37,14 @@ function BottomNav() {
         </div>
         <span>Tiere</span>
       </Link>
-      <Link to="/scan" className={location.pathname.startsWith('/scan') ? 'active' : ''}>
-        <div className="nav-icon-wrap">
-          <ScanLine size={22} strokeWidth={1.8} />
-        </div>
-        <span>Scannen</span>
-      </Link>
+      {!(roles.length > 0 && roles.every((r: string) => r === 'readonly')) && (
+        <Link to="/scan" className={location.pathname.startsWith('/scan') ? 'active' : ''}>
+          <div className="nav-icon-wrap">
+            <ScanLine size={22} strokeWidth={1.8} />
+          </div>
+          <span>Scannen</span>
+        </Link>
+      )}
       <Link to="/profile" className={location.pathname.startsWith('/profile') ? 'active' : ''}>
         <div className="nav-icon-wrap">
           <User size={22} strokeWidth={1.8} />
