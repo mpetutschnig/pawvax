@@ -1,6 +1,6 @@
 # 🐾 PAW — Startup Guide
 
-Digitaler Tierimpfpass mit Audit-Log, Rollenmodell, Freigaben, Admin-Panel und Containerisierung.
+Digitaler Tierimpfpass mit Gemini Vision AI, Audit-Log, Rollenmodell, Freigaben, öffentlichem Scan-Profil und Admin-Panel.
 
 ---
 
@@ -12,7 +12,7 @@ Das System besteht aus **3 Komponenten**:
 |---|---|---|---|
 | **Server** | REST API + WebSocket | 3000 | `http://localhost:3000` |
 | **PWA** | Browser-App + Admin-Panel | 5173 | `http://localhost:5173` (+ Netzwerk-IP) |
-| **Android** (optional) | Mobile App | — | Android Emulator/Gerät |
+| **Android** (optional) | Native Mobile App | — | Android Emulator/Gerät |
 
 > 💡 **VS Code:** Debug-Panel (`Ctrl+Shift+D`) → **PAW Full Stack** → ▶ startet beide Dienste automatisch mit Debugger.
 
@@ -22,8 +22,6 @@ Das System besteht aus **3 Komponenten**:
 
 ### **Schritt 1: Vorbereitung (erste Benutzung)**
 
-Stelle sicher, dass du im Projekt-Root bist:
-
 ```bash
 cd /files/FHJoanneum/2026SS/paw.oxs.at
 ```
@@ -31,17 +29,12 @@ cd /files/FHJoanneum/2026SS/paw.oxs.at
 ### **Schritt 2: Server konfigurieren & starten**
 
 ```bash
-# Terminal 1
 cd server
-
-# Dependencies installieren (falls noch nicht geschehen)
 npm install
-
-# .env-Datei erstellen
 cp .env.example .env
 ```
 
-**In `server/.env` eintragen (optional):**
+**In `server/.env` eintragen:**
 
 ```env
 PORT=3000
@@ -51,8 +44,6 @@ DB_PATH=./paw.db
 UPLOADS_DIR=./uploads
 ADMIN_EMAIL=admin@example.com      # Erste Admin-Email
 ```
-
-**Server starten:**
 
 ```bash
 npm run dev
@@ -64,256 +55,354 @@ Server läuft auf http://0.0.0.0:3000
 ✓ Admin-Rolle für admin@example.com gesetzt
 ```
 
-### **Schritt 3: PWA starten (neues Terminal)**
+### **Schritt 3: PWA starten**
 
 ```bash
-# Terminal 2
 cd pwa
-
-# Dependencies installieren (falls noch nicht geschehen)
 npm install
-
-# Dev-Server starten
 npm run dev
 ```
-
-✅ **Erfolgreich, wenn du siehst:**
-```
-  VITE v... ready in ... ms
-
-  ➜  Local:   http://localhost:5173/
-  ➜  Network: http://192.168.x.x:5173/   ← diese URL am Handy öffnen
-```
-
-> `--host` ist bereits in `vite.config.ts` konfiguriert, kein extra Flag nötig.
 
 ---
 
 ## 📱 Schritt 4: Erster Login & Admin-Setup
 
-### **4a: Normalen User registrieren (falls kein ADMIN_EMAIL gesetzt)**
+### **4a: User registrieren**
 
-1. Browser öffnen: **http://localhost:5173**
-2. Auf "Registrieren" klicken
-3. Daten eingeben:
-   - **Name:** Dein Name
-   - **Email:** `deine@email.com`
-   - **Passwort:** `mindestens 6 Zeichen`
-4. ✅ **Registrieren** klicken → automatisch geloggt
+1. Browser: **http://localhost:5173**
+2. „Registrieren" → Name, E-Mail, Passwort
 
 ### **4b: Admin-Rolle zuweisen**
 
-Du hast zwei Optionen:
-
-**Option A: Über .env (empfohlen)**
-
+**Via .env (empfohlen):**
 ```bash
-# server/.env ändern:
+# server/.env:
 ADMIN_EMAIL=deine@email.com
-
-# Terminal 1: Server neu starten
-# Ctrl+C zum Stoppen
-npm run dev
+# → Server neu starten
 ```
 
-**Option B: Direkt in Datenbank**
-
+**Oder direkt:**
 ```bash
-# Terminal 3 (neues Terminal)
-cd server
-sqlite3 paw.db "UPDATE accounts SET role='admin', verified=1 WHERE email='deine@email.com'"
+sqlite3 server/paw.db "UPDATE accounts SET role='admin', verified=1 WHERE email='deine@email.com'"
 ```
 
-### **4c: Admin-Portal aufrufen**
+### **4c: Admin-Portal**
 
-1. Browser: **http://localhost:5173/admin**
-2. ✅ Du siehst jetzt das Admin-Dashboard mit 4 Tabs:
-   - 📊 **Statistiken** (Accounts, Tiere, Dokumente)
-   - 👥 **Accounts** (Account-Management)
-   - ✓ **Verifikationen** (Vet-Anträge)
-   - 📋 **Audit-Log** (alle Änderungen)
+Öffne: **http://localhost:5173/admin**
 
----
-
-## 👤 Benutzer-Rollen verstehen
-
-### **1. User (Standard)**
-- Kann eigene Tiere anlegen
-- Kann Dokumente hochladen
-- Kann Freigaben pro Tier einstellen
-
-### **2. Vet (Tierarzt)**
-- Kann Verifikation beantragen → Admin genehmigt
-- Nach Genehmigung: grünes 🐾 Paw-Badge auf hochgeladenen Dokumenten
-- Sieht nur Tiere/Daten, die der Besitzer freigibt
-
-### **3. Authority (Behörde)**
-- Automatisch berechtigt (kein Verifikationsprozess)
-- Blaues 🐾 Paw-Badge auf hochgeladenen Dokumenten
-- Sieht nur freigegebene Daten
-
-### **4. Admin**
-- Vollzugriff auf Admin-Panel
-- Verwaltet Accounts und Rollen
-- Genehmigt/lehnt Vet-Verifikationen ab
-- Sieht komplettes Audit-Log
+Tabs:
+- 📊 **Statistiken** — Accounts, Tiere, Dokumente, Audit-Einträge
+- 👥 **Accounts** — Rollen ändern, Accounts verwalten
+- ✓ **Verifikationen** — Vet-Anträge genehmigen/ablehnen
+- 📋 **Audit-Log** — alle Änderungen paginiert
 
 ---
 
-## 📖 Feature-Übersicht & Workflows
+## 👤 Benutzer-Rollen & Permissions
 
-### **Workflow 1: Normaler User — Tier registrieren + Dokument hochladen**
+| Rolle | Scannen | Tiere anlegen | Dokumente hochladen | Dokumente löschen | Freigaben ändern |
+|---|---|---|---|---|---|
+| **readonly** | ✅ (nur public) | ❌ | ❌ | ❌ | ❌ |
+| **user** | ✅ | ✅ | ✅ | ✅ (eigene) | ✅ (eigene Tiere) |
+| **vet** (verifiziert) | ✅ | ✅ | ✅ mit grünem Badge | ✅ (eigene Uploads) | ✅ |
+| **authority** | ✅ | ✅ | ✅ mit blauem Badge | ✅ (eigene Uploads) | ✅ |
+| **admin** | ✅ | ✅ | ✅ | ✅ | ✅ |
 
-**Im Browser (http://localhost:5173):**
+### Besondere Berechtigungsregeln
 
-1. **Login** mit deinen Credentials
-2. **ScanPage** (Startseite):
-   - 📷 **Barcode scannen** — QR-Code lesen
-   - Oder 📡 **NFC lesen** — NFC-Tag auslesen
-   - Oder ⌨️ **ID manuell** — Text eingeben
-3. **Tier nicht gefunden?** → Neues Tier anlegen:
-   - Name, Tierart, Rasse (optional), Geburtsdatum (optional)
-   - ✅ **Tier anlegen** klicken
-4. **AnimalPage** (Tierprofil):
-   - Tier-Info anzeigen
-   - 🏷 **Tags verwalten** — neue Barcodes/NFC hinzufügen
-   - 🔐 **Freigaben** — einstellen wer was sieht
-   - 📷 **Dokument scannen** — Impfpass fotografieren
-5. **DocumentScanPage**:
-   - Foto hochladen
-   - Live-Status während OCR-Analyse
-   - JSON-Ergebnis anzeigen
+- **Verifiziertes Tierarzt-Dokument**: Besitzer kann es **nicht löschen** — nur der Tierarzt der es hochgeladen hat. Besitzer kann nur Sichtbarkeit ändern.
+- **Readonly-User**: Kein „Scannen"-Menüpunkt in der App, kein Dokument-Upload möglich.
+- **Ohne Login (öffentlicher Scan)**: Zeigt nur Felder, die der Besitzer für `readonly` freigegeben hat.
 
-### **Workflow 2: Admin — Vet-Verifikation**
+---
 
-**Im Admin-Panel (http://localhost:5173/admin):**
+## 🔍 Scan-Modi
 
-1. Tab **✓ Verifikationen** aufrufen
-2. Pending-Anfrage sehen (z.B. "Dr. Schmidt")
-3. **Genehmigen** oder **Ablehnen** klicken
-4. ✅ Vet ist nun verifiziert → grüne 🐾 Badges auf seinen Uploads
+### 1. Öffentlicher Scan (ohne Login)
+- Login-Screen → **„Tier scannen ohne Anmeldung"**
+- Barcode/QR-Code scannen → zeigt öffentliches Tierprofil
+- Daten basieren auf den `readonly`-Freigaben des Besitzers
 
-### **Workflow 3: Admin — Account-Rollen verwalten**
+### 2. Authenticated Scan (mit Login)
+- Bottom Nav → **„Scannen"** (nur für non-readonly)
+- **Eigenes Tier** → voller Zugriff, Tier-Detailseite öffnet sich
+- **Fremdes Tier in DB** → Readonly-Ansicht, gefiltert nach Rollenfreigaben
+- **Unbekannter Tag** → Neues Tier registrieren
 
-**Im Admin-Panel:**
+### 3. Dokument-Scan
+- Im Tierprofil → **„Dokument scannen"**
+- Kamera öffnet sich, Bild wird direkt am Gerät komprimiert (max. 1200×1200px)
+- Per WebSocket an Server gesendet (Binary-Chunks + JSON-Kontrollmeldungen)
+- Gemini 3.1 Flash-Lite analysiert → strukturiertes JSON zurück
 
-1. Tab **👥 Accounts** aufrufen
-2. Einen Account klicken
-3. Rolle via Dropdown ändern: user → vet → authority → admin
-4. ✅ Änderung sofort aktiv
+---
 
-### **Workflow 4: Owner — Freigaben einstellen**
+## 🤖 Gemini Vision AI — Dokumentenanalyse
 
-**Im Browser:**
+### Aktivierung
+- **Server-weit**: `GEMINI_API_KEY` in `server/.env`
+- **Pro User**: Im Profil eigenen API-Key hinterlegen → wird für diesen User verwendet
+- **Fallback**: Ohne Key → Tesseract.js lokal
 
-1. Eigenes Tier öffnen
-2. **🔐 Freigaben** klicken
-3. Pro Rolle (Lesezugriff, Behörde, Tierarzt):
-   - ☑️ Impfungen
-   - ☑️ Medikamente
-   - ☑️ Sonstige Dokumente
-   - ☑️ Kontaktdaten (dein Name + Email)
-   - ☑️ Rasse
-   - ☑️ Geburtsdatum
-4. ✅ Sofort gespeichert
+### API-Key Validierung
+Beim Speichern im Profil wird der Key live gegen `GET https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview?key=...` geprüft. Nur bei HTTP 200 wird gespeichert.
 
-### **Workflow 5: Dokument-Detail & Reminder**
+### Analysiertes JSON-Format
 
-1. Tier öffnen → Dokument in der Liste antippen
-2. **DocumentDetailPage** zeigt:
-   - OCR-Text (vollständig lesbar)
-   - OCR-Provider Badge (Gemini Vision / Tesseract.js)
-   - Tierarzt- oder Behörden-Badge
-3. Bei Impfung/Medikament: **📅 Reminder erstellen** klicken
-4. Datum + Titel eingeben → **📥 Datei downloaden** → Gerät öffnet Kalender-App
+**Impfdokument:**
+```json
+{
+  "type": "vaccination",
+  "document_date": "2024-03-15",
+  "summary": "Tollwut-Impfung für Hund Bello, gültig bis 2025-03-15",
+  "animal": { "name": "Bello", "species": "dog", "breed": "Labrador", "birthdate": "2020-01-10" },
+  "vaccinations": [{ "vaccine": "Nobivac Rabies", "date": "2024-03-15", "nextDue": "2025-03-15", "vet": "Dr. Müller" }],
+  "suggested_tags": ["Tollwut", "Nobivac", "Impfpass"]
+}
+```
 
-### **Workflow 6: Eigener Gemini API-Schlüssel**
+**Medikament:**
+```json
+{
+  "type": "medication",
+  "document_date": "2024-04-01",
+  "summary": "Antibiotikum-Verschreibung für Katze Luna",
+  "medications": [{
+    "name": "Amoxicillin",
+    "dosage": "10mg/kg",
+    "frequency": "2x täglich",
+    "startDate": "2024-04-01",
+    "endDate": "2024-04-10",
+    "details": "Breitspektrum-Penicillin, Wirkung gegen gram-positive Bakterien",
+    "manufacturer_link": "https://www.msd-tiergesundheit.de"
+  }],
+  "suggested_tags": ["Antibiotikum", "Rezept", "Amoxicillin"]
+}
+```
 
-1. Bottom Nav → **👤 Profil**
-2. Unter "Gemini Vision API" → API-Schlüssel (`AIza...`) eingeben
-3. **Speichern** → ab sofort werden Uploads mit deinem persönlichen Key analysiert
-4. Server fällt auf Tesseract zurück, wenn kein Key gesetzt ist
+### WebSocket Status-Events während Analyse
+```
+→ Technologie: Gemini 3.1 Flash-Lite wird initialisiert...
+→ Anmeldung bei Google API erfolgreich...
+→ Bild wird an Gemini gesendet (Base64-kodiert)...
+→ Analyse abgeschlossen. Ergebnis wird verarbeitet...
+```
 
-> ⚠️ Mit eigenem Gemini-Schlüssel werden Dokumentbilder an Google gesendet — Datenschutz beachten.
+---
+
+## 📄 Dokumenten-Features
+
+### Optische Hervorhebung nach Uploader
+| Uploader | Darstellung in der Liste |
+|---|---|
+| **Verifizierter Tierarzt** | Grüner Rahmen, grüner Hintergrund, grünes Häkchen-Badge „Tierarzt" |
+| **Behörde** | Blaues Badge „Behörde" |
+| **Besitzer/Admin** | Neutrales Badge „Besitzer" |
+
+### Dokument-Detailseite zeigt
+- **Zusammenfassung** (Gemini `summary`) als blaue Box direkt unter dem Bild
+- **Verifiziertes Tierarzt-Dokument Banner** (grün, mit CheckCircle-Icon) wenn `added_by_role = 'vet'`
+- **Tags** mit Uploader-Badge (unveränderbar: wer hat es hochgeladen)
+- **Freigaben** — wer darf es sehen (Tierarzt / Behörde / Lesender Zugriff)
+- **OCR-Text** — Volltext des erkannten Inhalts
+- **JSON-Details anzeigen** — das komplette Gemini-JSON ausklappen
+- **Kalender-Erinnerung erstellen** — für jedes Dokument, egal welchen Typs
+
+### Kalender-Reminder
+- Pre-fill mit Tier-Name, Dokumenttyp, Produkt (z.B. Impfstoff), erkanntem Datum
+- **Download als .ics** → native Kalender-App (iOS, Android, Desktop)
+- **Per E-Mail senden** → `mailto:`-Link mit Betreff + Inhalt
+
+### Bild-Rotation & Komprimierung
+- Vor dem Upload: Bild kann per Rotations-Button (90°) gedreht werden
+- Komprimierung am Device auf max. 1200×1200px, JPEG 80% Qualität
+- Nutzt `createImageBitmap()` (kein Out-Of-Memory Crash auf mobilen Browsern)
+
+---
+
+## 🔌 API-Endpunkte
+
+### Öffentlich (kein Token nötig)
+
+| Method | Endpoint | Beschreibung |
+|---|---|---|
+| `GET` | `/api/public/tag/:tagId` | Öffentliches Tierprofil — nur readonly-freigegebene Felder |
+
+### Auth-Endpunkte
+
+| Method | Endpoint | Beschreibung |
+|---|---|---|
+| `POST` | `/api/auth/register` | Account erstellen |
+| `POST` | `/api/auth/login` | Login → JWT Token |
+
+### Animals (🔐 JWT erforderlich)
+
+| Method | Endpoint | Beschreibung |
+|---|---|---|
+| `GET` | `/api/animals` | Eigene Tiere auflisten |
+| `POST` | `/api/animals` | Neues Tier anlegen |
+| `GET` | `/api/animals/:id` | Tier-Details |
+| `PATCH` | `/api/animals/:id` | Tier bearbeiten |
+| `DELETE` | `/api/animals/:id` | Tier löschen (nur Besitzer) |
+| `GET` | `/api/animals/by-tag/:tagId` | Tier per Tag-ID suchen |
+| `GET` | `/api/animals/:id/documents` | Dokumente eines Tieres |
+| `GET` | `/api/animals/:id/tags` | Tags eines Tieres |
+| `POST` | `/api/animals/:id/tags` | Neuen Tag hinzufügen |
+| `PATCH` | `/api/animals/:id/tags/:tagId` | Tag aktivieren/deaktivieren |
+| `GET` | `/api/animals/:id/sharing` | Freigaben anzeigen |
+| `PUT` | `/api/animals/:id/sharing` | Freigaben aktualisieren |
+
+### Documents (🔐 JWT erforderlich)
+
+| Method | Endpoint | Beschreibung |
+|---|---|---|
+| `GET` | `/api/documents/:id` | Dokument-Details inkl. JSON |
+| `PATCH` | `/api/documents/:id` | Tags/Sichtbarkeit bearbeiten |
+| `DELETE` | `/api/documents/:id` | Dokument löschen |
+
+> **Löschen-Regeln**: Besitzer oder Uploader darf löschen — **außer** der Uploader war ein verifizierter Vet und du bist nicht dieser Vet.
+
+### WebSocket Upload
+
+| Endpoint | Beschreibung |
+|---|---|
+| `ws://.../ws?token=JWT` | Dokument-Upload via WebSocket |
+
+**Flow:**
+1. Verbinden mit `?token=JWT`
+2. JSON (Text-Frame): `{ "type": "upload_start", "animalId": "...", "filename": "scan.jpg", "mimeType": "image/jpeg", "allowedRoles": ["vet"] }`
+3. Server antwortet (Text-Frame): `{ "type": "ready" }`
+4. Binär-Frames: JPEG-Chunks (max. 64KB each)
+5. JSON (Text-Frame): `{ "type": "upload_end" }` ← **MUSS Text-Frame sein, nicht Binary!**
+6. Server sendet Status-Updates: `{ "type": "status", "message": "..." }`
+7. Server sendet Ergebnis: `{ "type": "done", "document": { ... } }`
+
+### Accounts (🔐 JWT erforderlich)
+
+| Method | Endpoint | Beschreibung |
+|---|---|---|
+| `GET` | `/api/accounts/me` | Eigenes Profil |
+| `PATCH` | `/api/accounts/me` | Profil bearbeiten (inkl. Gemini-Key) |
+| `DELETE` | `/api/accounts/me` | Account löschen (DSGVO Art. 17) |
+| `POST` | `/api/accounts/me/verify-request` | Vet-Verifikation beantragen |
+
+### Admin (🔐 Admin-JWT erforderlich)
+
+| Method | Endpoint | Beschreibung |
+|---|---|---|
+| `GET` | `/api/admin/stats` | Systemstatistiken |
+| `GET` | `/api/admin/accounts` | Alle Accounts |
+| `PATCH` | `/api/admin/accounts/:id` | Rolle/Verifikation ändern |
+| `GET` | `/api/admin/verifications` | Pending Vet-Anträge |
+| `POST` | `/api/admin/verifications/:id/approve` | Vet genehmigen |
+| `POST` | `/api/admin/verifications/:id/reject` | Vet ablehnen |
+| `GET` | `/api/admin/animals` | Alle Tiere |
+| `GET` | `/api/admin/audit` | Audit-Log (paginiert) |
+
+---
+
+## ✅ Verifikationsprozess (Tierarzt)
+
+```
+User → "Verifikation beantragen" (Profil-Seite)
+     → Status: "pending"
+Admin → Admin-Panel → Tab "Verifikationen"
+     → "Genehmigen" klicken
+     → account.verified = 1
+User → Alle künftigen Dokument-Uploads bekommen:
+     → added_by_role = 'vet'
+     → Grünes Tierarzt-Badge in der Dokumentenliste
+     → Grünes Banner "Verifiziertes Tierarztdokument" in der Detailansicht
+     → Dokument kann nur vom Tierarzt selbst gelöscht werden
+```
 
 ---
 
 ## 🔐 Sicherheit & Datenfluss
 
-### **Login-Token (JWT)**
-- Beim Login erhälst du einen **Bearer Token**
-- Token wird in `localStorage` gespeichert
-- Enthält: accountId, name, email, **role**, **verified**
+### Login-Token (JWT)
+- Enthält: `accountId`, `name`, `email`, `role`, `roles[]`, `verified`
+- Gespeichert in `localStorage`
 
-### **Datenisolation**
-- Jeder User sieht NUR seine eigenen Tiere
-- Vets/Behörden sehen nur Tiere, die ihnen freigebeben wurden
-- Feldweise Filterung (z.B. nur Impfungen, nicht Medikamente)
+### Datenisolation
+- User sieht NUR seine eigenen Tiere
+- Vets/Behörden sehen nur freigegebene Tiere und Felder
+- Felderweise Filterung via `animal_sharing`-Tabelle (Impfungen, Medikamente, Kontakt, Rasse, etc.)
 
-### **Audit-Log**
-- JEDE Änderung wird protokolliert:
-  - Wer (account_id + role)
-  - Wann (timestamp)
-  - Was (action: create_animal, add_tag, update_sharing, etc.)
-  - Details (JSON mit before/after)
-- Abrufbar im Admin-Panel → 📋 **Audit-Log**
+### Gemini API Key
+- Wird im Nutzerprofil gespeichert und vor dem Speichern live validiert
+- Beim Analyse-Prozess: Server liest Key aus DB, sendet Request direkt an Google
+
+### Audit-Log
+Jede Änderung wird protokolliert: `who` (accountId + role), `when`, `what` (action), `details` (JSON before/after)
 
 ---
 
-## 📱 Android App (optional)
+## 📱 Android App (Kotlin) — Integration
 
-### **In Android Studio öffnen:**
+Beim Implementieren der Android App müssen folgende Punkte beachtet werden:
 
-```bash
-cd android
-# Dann in Android Studio: File → Open → android/
+### A. Bild-Komprimierung vor Upload
+```kotlin
+// Max. 1200x1200px, JPEG 80%
+Bitmap.compress(Bitmap.CompressFormat.JPEG, 80, outputStream)
 ```
 
-### **Server-URL eintragen:**
+### B. WebSocket Upload-Flow (OkHttp)
+```kotlin
+// 1. Text-Frame (upload_start)
+webSocket.send("""{"type":"upload_start","animalId":"...","filename":"scan.jpg","mimeType":"image/jpeg","allowedRoles":["vet"]}""")
 
-1. App starten
-2. LoginScreen
-3. **Server-URL** eingeben:
+// 2. Binary-Frames (Chunks à 64KB)
+webSocket.send(ByteString.of(*chunk))
 
-| Gerät | URL |
-|---|---|
-| **Emulator** | `http://10.0.2.2:3000/api/` |
-| **USB-Debugging** | `http://localhost:3000/api/` (nach `adb reverse tcp:3000 tcp:3000`) |
-| **LAN-Gerät** | `http://192.168.X.X:3000/api/` (IP des Servers) |
+// 3. Text-Frame (upload_end) — NICHT als ByteString!
+webSocket.send("""{"type":"upload_end"}""")
+```
 
-4. Login mit denselben Credentials wie PWA
+### C. Status-Events lauschen
+```kotlin
+override fun onMessage(webSocket: WebSocket, text: String) {
+    val json = JSONObject(text)
+    when (json.getString("type")) {
+        "status" -> showStatus(json.getString("message"))
+        "done"   -> showResult(json.getJSONObject("document"))
+    }
+}
+```
 
-**Features:**
-- 📷 Barcode-Scanner (ML Kit)
-- 📡 NFC-Reader
-- 🐕 Tierverwaltung
-- 📸 Dokument-Upload
-- 🐾 Paw-Badges auf Dokumenten
+### D. NFC/QR URL-Parsing
+```kotlin
+val tagId = if (payload.startsWith("http")) Uri.parse(payload).lastPathSegment else payload
+```
+
+### E. Gemini Key Validierung
+```kotlin
+val response = okHttpClient.newCall(Request.Builder()
+    .url("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview?key=$key")
+    .build()).execute()
+if (response.isSuccessful) saveKey(key)
+```
 
 ---
 
-## 🐛 Häufige Probleme
+## 📊 Admin-Panel Tabs erklärt
 
-### **Problem: "Tag nicht gefunden"**
-→ Der Barcode/NFC-Tag existiert noch nicht im System
-→ App bietet an, neues Tier anzulegen
+### 📊 Statistiken
+Accounts, Tiere, Dokumente, Audit-Einträge
 
-### **Problem: "Kein Zugriff auf diese Tierdaten"**
-→ Du bist ein Vet/Authority, aber der Besitzer hat dir keine Daten freigegeben
-→ Besitzer muss Freigaben einstellen: `🔐 Freigaben`
+### 👥 Accounts
+- Liste aller User
+- Rolle via Dropdown ändern (user → vet → authority → admin)
+- Verifiziert-Checkbox manuell setzen
 
-### **Problem: JWT-Token abgelaufen**
-→ Du wirst automatisch zu `/login` weitergeleitet
-→ Einfach erneut einloggen
+### ✓ Verifikationen
+- Pending-Anfragen von Tierärzten
+- **Genehmigen** → `verified = 1`, Vet-Badge aktiv
+- **Ablehnen** → Status `rejected`
 
-### **Problem: ML Kit Barcode funktioniert nicht (Android)**
-→ Prüfe, dass die Kamera-Permission gewährt ist
-→ In `AndroidManifest.xml` sind bereits Permissions konfiguriert
-
-### **Problem: Gemini OCR funktioniert nicht**
-→ `GEMINI_API_KEY` in `.env` leer?
-→ Server fällt automatisch auf Tesseract.js zurück
-→ Funktioniert, aber weniger akkurat
+### 📋 Audit-Log
+Paginiert, filterbar nach Resource und Account-ID
 
 ---
 
@@ -321,91 +410,51 @@ cd android
 
 ```bash
 # server/.env
-
-# Server
 PORT=3000
-
-# JWT
 JWT_SECRET=changeme_to_something_secure
-
-# OCR Provider
 GEMINI_API_KEY=                          # Leer = Tesseract fallback
-
-# Database
-DB_PATH=./paw.db                         # SQLite Datei
-UPLOADS_DIR=./uploads                    # Dokumentbilder speichern
-
-# Admin Bootstrap
-ADMIN_EMAIL=admin@example.com            # Optional: beim Start admin setzen
+DB_PATH=./paw.db
+UPLOADS_DIR=./uploads
+ADMIN_EMAIL=admin@example.com
 ```
 
 ---
 
-## 📊 Admin-Panel Tabs erklärt
+## 🐳 Container-Deployment (Podman)
 
-### **📊 Statistiken**
-Zeigt 4 Kennzahlen:
-- **Accounts:** Gesamtanzahl registrierter User
-- **Tiere:** Alle Tiere im System
-- **Dokumente:** Alle hochgeladenen Dokumente
-- **Audit-Einträge:** Log-Größe
+```bash
+# .env im Projekt-Root:
+JWT_SECRET=ein_langer_zufallsstring_hier
+ADMIN_EMAIL=deine@email.com
 
-### **👥 Accounts**
-- Liste aller User
-- Pro User:
-  - Name, Email
-  - **Rolle ändern** via Dropdown
-  - **Verifiziert** Checkbox (manuell setzen)
+# Starten:
+podman compose up --build
 
-### **✓ Verifikationen**
-- Pending-Anfragen von Tierärzten
-- Pro Anfrage:
-  - Name, Email
-  - **Genehmigen** (grüner Button) → verifiziert, bekommt grünes 🐾
-  - **Ablehnen** (roter Button) → rejected, kein Badge
+# Stoppen:
+podman compose down
 
-### **📋 Audit-Log**
-- Paginierte Liste aller Aktionen
-- Columns: Action, Account, Resource, IP, Timestamp
-- Filterbar nach:
-  - Resource (animal, tag, document, account, sharing)
-  - Account-ID
-- **Seiten-Navigation:** ← Zurück / Weiter →
+# Logs:
+podman compose logs -f
+```
+
+| Gerät | URL |
+|---|---|
+| **Lokal** | `http://localhost` |
+| **Handy im LAN** | `http://192.168.x.x` |
 
 ---
 
-## ✨ Tipps & Tricks
+## 🐛 Häufige Probleme
 
-### **1. Mehrere Accounts testen**
-```bash
-# Terminal 2: PWA lädt automatisch neu
-# Öffne: http://localhost:5173
-# Registriere: user1@test.com
-# Logout → Registriere: user2@test.com
-# Beide lokal speichern
-```
-
-### **2. QR-Code zum Testen generieren**
-Online-Tool: https://qr-code-generator.com
-- Text eingeben: `TEST-BARCODE-12345`
-- QR downloaden
-- Mit Barcode-Scanner in App einscannen
-
-### **3. NFC-Tag simulieren (Android Emulator)**
-```bash
-adb emu gsm send-nfc-test-event nfc_data
-# oder: Android Studio → Extended controls → NFC → "Tap tag"
-```
-
-### **4. Passwort vergessen?**
-→ Leider nicht implementiert (wäre Schritt 3 in realer App)
-→ Workaround: Neuer Account mit anderer Email
-
-### **5. Datenbank zurücksetzen**
-```bash
-rm server/paw.db
-# Server neu starten → neue Datenbank wird erstellt
-```
+| Problem | Lösung |
+|---|---|
+| „Tag nicht gefunden" | Tag existiert noch nicht → Neues Tier anlegen |
+| „Kein Zugriff auf diese Tierdaten" | Besitzer muss Freigaben setzen (🔐 Freigaben) |
+| Seite lädt nach Kamera-Foto neu | Normales Verhalten bei sehr alten Browsern — Update des Browsers |
+| Gemini liefert falschen Dokumenttyp | Gemini prüft jetzt doppelt — Bilder von weiter weg fotografieren |
+| API-Key wird nicht gespeichert | Key wird live validiert — ungültiger Key wird abgelehnt |
+| Menu-Icons fehlen | Token leer? → Neu einloggen |
+| WebSocket upload_end wird nicht erkannt | `upload_end` muss als Text-Frame (nicht Binary) gesendet werden |
 
 ---
 
@@ -415,130 +464,24 @@ rm server/paw.db
 - [ ] PWA starten (`npm run dev` in `pwa/`)
 - [ ] PWA öffnen: http://localhost:5173
 - [ ] Registrieren mit Email + Passwort
-- [ ] Admin-Rolle zuweisen (ADMIN_EMAIL in .env oder SQLite)
+- [ ] Admin-Rolle zuweisen (ADMIN_EMAIL in .env)
 - [ ] Admin-Panel öffnen: http://localhost:5173/admin
-- [ ] Statistiken anschauen
-- [ ] Logout → Login mit neuem Account
-- [ ] Barcode scannen / Tier anlegen
-- [ ] Dokument hochladen
+- [ ] Gemini API-Key im Profil hinterlegen (optional)
+- [ ] Barcode/QR-Code scannen → Tier anlegen
+- [ ] Dokument fotografieren → Gemini-Analyse abwarten
+- [ ] Tags & Zusammenfassung prüfen
 - [ ] Freigaben einstellen
+- [ ] Öffentliches Profil testen (logout → „Tier scannen ohne Anmeldung")
 - [ ] Audit-Log ansehen
-
----
-
-## 🐳 Podman / Container-Deployment
-
-Für Produktion oder einfaches Setup ohne manuelle Node.js-Installation.
-
-### **Voraussetzungen**
-
-```bash
-# Podman + podman-compose installieren
-# Arch/Manjaro:
-sudo pacman -S podman podman-compose
-
-# Fedora/RHEL:
-sudo dnf install podman podman-compose
-
-# Ubuntu:
-sudo apt install podman podman-compose
-```
-
-### **Schritt 1: `.env` im Projekt-Root erstellen**
-
-```bash
-cd /files/FHJoanneum/2026SS/paw.oxs.at
-
-cat > .env << 'EOF'
-JWT_SECRET=ein_langer_zufallsstring_hier
-GEMINI_API_KEY=                    # optional
-ADMIN_EMAIL=deine@email.com
-EOF
-```
-
-> ⚠️ `JWT_SECRET` in Produktion mindestens 32 Zeichen Zufallsstring!
-
-### **Schritt 2: Container bauen & starten**
-
-```bash
-podman compose up --build
-```
-
-Beim ersten Start wird alles gebaut (~2-3 Minuten). Danach:
-
-```text
-✅ paw-server  läuft auf Port 3000 (intern)
-✅ paw-web     läuft auf http://localhost:80
-```
-
-### **Schritt 3: PWA aufrufen**
-
-| Gerät | URL |
-| --- | --- |
-| **Lokal** | `http://localhost` |
-| **Handy im LAN** | `http://192.168.x.x` (IP des Rechners) |
-
-### **Nützliche Befehle**
-
-```bash
-# Starten (im Hintergrund)
-podman compose up -d
-
-# Stoppen
-podman compose down
-
-# Logs anzeigen
-podman compose logs -f
-
-# Nur Server-Logs
-podman compose logs -f paw-server
-
-# Neu bauen (nach Code-Änderungen)
-podman compose up --build
-
-# Daten-Volume anzeigen (SQLite + Uploads)
-podman volume inspect paw_paw-data
-```
-
-### **Daten & Persistenz**
-
-Alle Daten (SQLite-Datenbank + hochgeladene Dokumente) liegen im Volume `paw_paw-data`.
-
-```bash
-# Volume-Pfad auf dem Host finden
-podman volume inspect paw_paw-data --format '{{.Mountpoint}}'
-
-# Datenbank direkt öffnen
-sqlite3 $(podman volume inspect paw_paw-data --format '{{.Mountpoint}}')/paw.db
-```
-
-### **Hosting bei einem Cloud-Provider**
-
-| Thema | Empfehlung |
-| --- | --- |
-| **HTTPS** | Nginx + Let's Encrypt (Certbot) vor die Container schalten |
-| **Reverse Proxy** | `nginx.conf` bereits konfiguriert für `/api/`, `/ws`, `/uploads/` |
-| **Port** | Container lauscht auf Port 80 → Provider-Firewall Port 80/443 öffnen |
-| **Uploads** | Volume `paw-data` regelmäßig sichern (enthält SQLite + Bilder) |
-| **Ressourcen** | Tesseract OCR ist CPU-intensiv: min. 1 vCPU + 1 GB RAM empfohlen |
-| **Skalierung** | SQLite ist single-writer → für hohe Last auf PostgreSQL migrieren |
-
-### **DSGVO-Checkliste für Produktion**
-
-- ✅ `DELETE /api/accounts/me` löscht alle Userdaten (Löschrecht Art. 17)
-- ⚠️ Gemini API Key: Dokumente gehen an Google → AVV mit Google Cloud abschließen
-- ⚠️ Audit-Log enthält IP-Adressen → Aufbewahrungsfrist 90 Tage empfohlen
-- ⚠️ SQLite-Volume in Produktion verschlüsseln (LUKS oder Cloud-Volume-Encryption)
-- ⚠️ `JWT_SECRET` niemals in Git committen (`.env` ist in `.gitignore`)
 
 ---
 
 ## 📞 Support
 
-**Fehler im Server?** → `server/.env` prüfen
-**Fehler in PWA?** → Browser-Console öffnen (F12)
-**Fehler in Android?** → Logcat in Android Studio
-**Datenbank Probleme?** → `rm server/paw.db` und neu starten
+- **Fehler im Server?** → `server/.env` prüfen, `server/paw.db` zurücksetzen
+- **Fehler in PWA?** → Browser-Console (F12)
+- **Fehler in Android?** → Logcat in Android Studio
+- **Datenbank korrupt?** → `rm server/paw.db` und neu starten
 
 ---
 

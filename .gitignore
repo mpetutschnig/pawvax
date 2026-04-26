@@ -99,3 +99,9 @@ Thumbs.db
 # 7. Project Specific
 # ==========================================
 server/uploads/
+
+# ==========================================
+# Security Analysis (local only, never push)
+# ==========================================
+SECURITY_ANALYSIS*.md
+offenePunkte
