@@ -21,6 +21,7 @@ export default function DocumentDetailPage() {
   const [newTag, setNewTag] = useState('')
   const [saving, setSaving] = useState(false)
   const [visibility, setVisibility] = useState<string[]>([])
+  const [showJsonDetails, setShowJsonDetails] = useState(false)
 
   const docTypeConfig: Record<string, { label: string; icon: React.ReactNode }> = {
     vaccination: { label: 'Impfung', icon: <Shield size={20} /> },
@@ -50,7 +51,31 @@ export default function DocumentDetailPage() {
   }
 
   const handleCreateReminder = () => {
-    setReminderTitle(docTypeConfig[doc?.doc_type]?.label ?? doc?.doc_type ?? 'Dokument')
+    const json = doc?.extracted_json || {}
+    let title = docTypeConfig[doc?.doc_type]?.label ?? doc?.doc_type ?? 'Dokument'
+    let date = json.document_date || ''
+    
+    if (doc?.doc_type === 'vaccination' && json.vaccinations?.[0]) {
+      title += `: ${json.vaccinations[0].vaccine}`
+      if (json.vaccinations[0].nextDue) date = json.vaccinations[0].nextDue
+    } else if (doc?.doc_type === 'medication' && json.medications?.[0]) {
+      title += `: ${json.medications[0].name}`
+      if (json.medications[0].endDate) date = json.medications[0].endDate
+    }
+
+    if (json.animal?.name) {
+      title = `${json.animal.name} - ${title}`
+    }
+
+    const isoDateRegex = /^\d{4}-\d{2}-\d{2}/
+    if (date && isoDateRegex.test(date)) {
+      date = date.substring(0, 10)
+    } else {
+      date = ''
+    }
+
+    setReminderTitle(title)
+    setReminderDate(date)
     setReminderMode(true)
   }
 
@@ -160,6 +185,13 @@ export default function DocumentDetailPage() {
           </div>
         )}
 
+        {extracted.summary && (
+          <div style={{ background: 'var(--primary-50)', padding: 'var(--space-4)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-6)', borderLeft: '4px solid var(--primary-500)' }}>
+            <h4 style={{ margin: '0 0 var(--space-2) 0', color: 'var(--primary-700)' }}>Zusammenfassung</h4>
+            <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', color: 'var(--primary-900)' }}>{extracted.summary}</p>
+          </div>
+        )}
+
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-3)' }}>
           <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0, display: 'flex', gap: '8px', alignItems: 'center' }}>
             <Tag size={18} /> Tags & Freigabe
@@ -250,6 +282,21 @@ export default function DocumentDetailPage() {
             </pre>
           </>
         )}
+
+        <div style={{ marginTop: 'var(--space-4)' }}>
+          <button className="btn btn-ghost btn-full" onClick={() => setShowJsonDetails(!showJsonDetails)}>
+            {showJsonDetails ? 'JSON-Details ausblenden' : 'JSON-Details anzeigen'}
+          </button>
+          {showJsonDetails && (
+             <pre style={{
+                background: 'var(--surface)', padding: 'var(--space-4)', borderRadius: 'var(--radius-md)',
+                fontSize: 'var(--font-size-xs)', overflow: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                maxHeight: '400px', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)', marginTop: 'var(--space-2)'
+             }}>
+               {JSON.stringify(extracted, null, 2)}
+             </pre>
+          )}
+        </div>
 
         {!rawText && <p className="text-muted" style={{ marginTop: 'var(--space-4)', fontStyle: 'italic' }}>Keine OCR-Daten verfügbar</p>}
 

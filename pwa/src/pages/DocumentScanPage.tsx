@@ -34,50 +34,90 @@ export default function DocumentScanPage() {
     return () => clearInterval(interval)
   }, [phase])
 
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0]
     if (!f) return
     
-    // Vermeide DataURL (führt auf Mobile oft zu Out-Of-Memory Crashs und Reloads!)
-    const objectUrl = URL.createObjectURL(f)
-    const img = new Image()
-    
-    img.onload = () => {
-      const canvas = document.createElement('canvas')
-      const MAX_WIDTH = 1200
-      const MAX_HEIGHT = 1200
-      let width = img.width
-      let height = img.height
+    try {
+      if (window.createImageBitmap) {
+        // Nativer, speicherschonender Weg (verhindert oft den iOS Safari "Camera Crash")
+        const bmp = await createImageBitmap(f)
+        const canvas = document.createElement('canvas')
+        const MAX_WIDTH = 1200
+        const MAX_HEIGHT = 1200
+        let width = bmp.width
+        let height = bmp.height
 
-      if (width > height) {
-        if (width > MAX_WIDTH) {
-          height *= MAX_WIDTH / width
-          width = MAX_WIDTH
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width
+            width = MAX_WIDTH
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height
+            height = MAX_HEIGHT
+          }
         }
+        
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')
+        ctx?.drawImage(bmp, 0, 0, width, height)
+        
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const resizedFile = new File([blob], f.name, { type: 'image/jpeg', lastModified: Date.now() })
+            setFile(resizedFile)
+            setPreview(URL.createObjectURL(resizedFile))
+          }
+          bmp.close() // Speicher hart freigeben
+        }, 'image/jpeg', 0.8)
       } else {
-        if (height > MAX_HEIGHT) {
-          width *= MAX_HEIGHT / height
-          height = MAX_HEIGHT
+        // Fallback für ältere Browser
+        const objectUrl = URL.createObjectURL(f)
+        const img = new Image()
+        
+        img.onload = () => {
+          const canvas = document.createElement('canvas')
+          const MAX_WIDTH = 1200
+          const MAX_HEIGHT = 1200
+          let width = img.width
+          let height = img.height
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width
+              width = MAX_WIDTH
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height
+              height = MAX_HEIGHT
+            }
+          }
+          
+          canvas.width = width
+          canvas.height = height
+          const ctx = canvas.getContext('2d')
+          ctx?.drawImage(img, 0, 0, width, height)
+          
+          canvas.toBlob((blob) => {
+            if (blob) {
+              const resizedFile = new File([blob], f.name, { type: 'image/jpeg', lastModified: Date.now() })
+              setFile(resizedFile)
+              setPreview(URL.createObjectURL(resizedFile))
+            }
+            URL.revokeObjectURL(objectUrl)
+          }, 'image/jpeg', 0.8)
         }
+        
+        img.src = objectUrl
       }
-      
-      canvas.width = width
-      canvas.height = height
-      const ctx = canvas.getContext('2d')
-      ctx?.drawImage(img, 0, 0, width, height)
-      
-      canvas.toBlob((blob) => {
-        if (blob) {
-          const resizedFile = new File([blob], f.name, { type: 'image/jpeg', lastModified: Date.now() })
-          setFile(resizedFile)
-          setPreview(URL.createObjectURL(resizedFile))
-        }
-        // Wichtig: Speicher wieder freigeben!
-        URL.revokeObjectURL(objectUrl)
-      }, 'image/jpeg', 0.8)
+    } catch (err) {
+      console.error(err)
+      setErrorMsg("Bild konnte nicht verarbeitet werden.")
     }
-    
-    img.src = objectUrl
   }
 
   async function handleUpload() {
