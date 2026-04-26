@@ -29,26 +29,32 @@ function BottomNav() {
 
   if (!token || location.pathname === '/login') return null
 
-  const isActive = (path: string) => location.pathname === path ? 'active' : ''
-
   return (
     <nav className="bottom-nav">
-      <Link to="/animals" className={isActive('/animals')}>
-        <PawPrint size={24} />
-        Tiere
+      <Link to="/animals" className={location.pathname.startsWith('/animals') ? 'active' : ''}>
+        <div className="nav-icon-wrap">
+          <PawPrint size={22} strokeWidth={1.8} />
+        </div>
+        <span>Tiere</span>
       </Link>
-      <Link to="/scan" className={isActive('/scan')}>
-        <ScanLine size={24} />
-        Scannen
+      <Link to="/scan" className={location.pathname.startsWith('/scan') ? 'active' : ''}>
+        <div className="nav-icon-wrap">
+          <ScanLine size={22} strokeWidth={1.8} />
+        </div>
+        <span>Scannen</span>
       </Link>
-      <Link to="/profile" className={isActive('/profile')}>
-        <User size={24} />
-        Profil
+      <Link to="/profile" className={location.pathname.startsWith('/profile') ? 'active' : ''}>
+        <div className="nav-icon-wrap">
+          <User size={22} strokeWidth={1.8} />
+        </div>
+        <span>Profil</span>
       </Link>
       {roles.includes('admin') && (
-        <Link to="/admin" className={isActive('/admin')}>
-          <Settings size={24} />
-          Admin
+        <Link to="/admin" className={location.pathname.startsWith('/admin') ? 'active' : ''}>
+          <div className="nav-icon-wrap">
+            <Settings size={22} strokeWidth={1.8} />
+          </div>
+          <span>Admin</span>
         </Link>
       )}
     </nav>

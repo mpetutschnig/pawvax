@@ -1,4 +1,4 @@
-import { createWriteStream, mkdirSync } from 'fs'
+import { createWriteStream, mkdirSync, writeFileSync } from 'fs'
 import { join } from 'path'
 
 const UPLOADS_DIR = process.env.UPLOADS_DIR ?? './uploads'
@@ -16,6 +16,15 @@ export function saveImageChunks(filename) {
       stream.on('error', reject)
     })
   }
+}
+
+export function saveBase64Image(filename, base64Data) {
+  const filepath = join(UPLOADS_DIR, filename)
+  // Entferne evtl. vorhandene Data-URI-Präfixe (z.B. "data:image/jpeg;base64,")
+  const base64 = base64Data.replace(/^data:image\/\w+;base64,/, '')
+  const buffer = Buffer.from(base64, 'base64')
+  writeFileSync(filepath, buffer)
+  return filepath
 }
 
 export function getUploadPath(filename) {

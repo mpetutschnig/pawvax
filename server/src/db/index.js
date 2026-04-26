@@ -28,6 +28,10 @@ export function initDb(dbPath) {
     `ALTER TABLE documents ADD COLUMN added_by_account TEXT REFERENCES accounts(id)`,
     `ALTER TABLE documents ADD COLUMN added_by_role TEXT DEFAULT 'user'`,
     `ALTER TABLE accounts ADD COLUMN gemini_token TEXT`,
+    `ALTER TABLE animals ADD COLUMN avatar_path TEXT`,
+    `ALTER TABLE animals ADD COLUMN dynamic_fields TEXT DEFAULT '{}'`,
+    `ALTER TABLE documents ADD COLUMN allowed_roles TEXT DEFAULT '["vet", "authority", "readonly"]'`,
+    `ALTER TABLE animal_sharing ADD COLUMN share_dynamic_fields INTEGER NOT NULL DEFAULT 0`,
   ]
   for (const sql of migrations) {
     try { db.exec(sql) } catch { /* column already exists */ }

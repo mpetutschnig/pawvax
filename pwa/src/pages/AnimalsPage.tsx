@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
 import * as api from '../api/rest'
+import { PetCard } from '../components/PetCard'
+import { Search, Plus, AlertCircle, PawPrint } from 'lucide-react'
 
 interface Animal {
   id: string
@@ -8,16 +9,17 @@ interface Animal {
   species: string
   breed?: string
   birthdate?: string
+  avatar_path?: string
 }
 
 export default function AnimalsPage() {
-  const navigate = useNavigate()
   const [animals, setAnimals] = useState<Animal[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [formData, setFormData] = useState({ name: '', species: 'dog', breed: '', birthdate: '' })
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
 
   useEffect(() => {
     loadAnimals()
@@ -61,89 +63,107 @@ export default function AnimalsPage() {
     }
   }
 
-  const getEmoji = (species: string) => {
-    switch (species) {
-      case 'dog': return '🐶'
-      case 'cat': return '🐱'
-      default: return '🐾'
-    }
-  }
-
-  const getSpeciesLabel = (species: string) => {
-    switch (species) {
-      case 'dog': return 'Hund'
-      case 'cat': return 'Katze'
-      default: return 'Tier'
-    }
-  }
+  const filteredAnimals = animals.filter(a => a.name.toLowerCase().includes(search.toLowerCase()) || a.breed?.toLowerCase().includes(search.toLowerCase()))
 
   if (loading) {
     return (
-      <div className="container" style={{ textAlign: 'center', paddingTop: '2rem' }}>
-        <p>Laden...</p>
+      <div className="container page" style={{ display: 'flex', justifyContent: 'center', paddingTop: '4rem' }}>
+        <div className="spinner spinner-lg"></div>
       </div>
     )
   }
 
   return (
-    <div className="container" style={{ paddingBottom: '80px' }}>
-      <h1>🐾 Meine Tiere</h1>
+    <div className="container page">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
+        <h1 style={{ margin: 0 }}>My Animals ({animals.length})</h1>
+        {error && <span className="badge badge-danger"><AlertCircle size={12} /> Error</span>}
+      </div>
 
-      {error && <div className="error" style={{ marginBottom: '1rem' }}>{error}</div>}
+      <div style={{ position: 'relative', marginBottom: 'var(--space-4)' }}>
+        <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
+        <input
+          className="form-input"
+          style={{ paddingLeft: 38 }}
+          placeholder="Search animals…"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
+      </div>
 
       {animals.length === 0 && !showForm && (
-        <div className="card" style={{ textAlign: 'center' }}>
-          <p style={{ color: 'var(--muted)', marginBottom: '1rem' }}>
-            Noch keine Tiere. Lege ein neues Tier an oder scanne einen Barcode.
+        <div className="card text-center" style={{ padding: 'var(--space-8) var(--space-4)' }}>
+          <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--primary-50)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto var(--space-4)' }}>
+            <PawPrint size={32} color="var(--primary-500)" />
+          </div>
+          <h3>No animals yet</h3>
+          <p className="text-muted" style={{ marginBottom: 'var(--space-4)' }}>
+            Add your first pet to start managing their health records.
           </p>
+          <button className="btn btn-primary" onClick={() => setShowForm(true)}>
+            <Plus size={18} />
+            Add Pet
+          </button>
         </div>
       )}
 
       {showForm && (
-        <div className="card" style={{ marginBottom: '1rem' }}>
-          <h2>Neues Tier anlegen</h2>
+        <div className="card animate-slide-up" style={{ marginBottom: 'var(--space-4)' }}>
+          <h3 style={{ marginBottom: 'var(--space-4)' }}>Neues Tier anlegen</h3>
           <form onSubmit={handleSubmit}>
-            <label>Name *</label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="z.B. Bella"
-              required
-            />
+            <div className="form-group">
+              <label className="form-label">Name *</label>
+              <input
+                className="form-input"
+                type="text"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="z.B. Bella"
+                required
+              />
+            </div>
 
-            <label>Tierart *</label>
-            <select
-              value={formData.species}
-              onChange={(e) => setFormData({ ...formData, species: e.target.value })}
-            >
-              <option value="dog">🐶 Hund</option>
-              <option value="cat">🐱 Katze</option>
-              <option value="other">🐾 Sonstiges</option>
-            </select>
+            <div className="form-group">
+              <label className="form-label">Tierart *</label>
+              <select
+                className="form-select"
+                value={formData.species}
+                onChange={(e) => setFormData({ ...formData, species: e.target.value })}
+              >
+                <option value="dog">Hund</option>
+                <option value="cat">Katze</option>
+                <option value="other">Sonstiges</option>
+              </select>
+            </div>
 
-            <label>Rasse (optional)</label>
-            <input
-              type="text"
-              value={formData.breed}
-              onChange={(e) => setFormData({ ...formData, breed: e.target.value })}
-              placeholder="z.B. Golden Retriever"
-            />
+            <div className="form-group">
+              <label className="form-label">Rasse (optional)</label>
+              <input
+                className="form-input"
+                type="text"
+                value={formData.breed}
+                onChange={(e) => setFormData({ ...formData, breed: e.target.value })}
+                placeholder="z.B. Golden Retriever"
+              />
+            </div>
 
-            <label>Geburtsdatum (optional)</label>
-            <input
-              type="date"
-              value={formData.birthdate}
-              onChange={(e) => setFormData({ ...formData, birthdate: e.target.value })}
-            />
+            <div className="form-group">
+              <label className="form-label">Geburtsdatum (optional)</label>
+              <input
+                className="form-input"
+                type="date"
+                value={formData.birthdate}
+                onChange={(e) => setFormData({ ...formData, birthdate: e.target.value })}
+              />
+            </div>
 
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button type="submit" className="btn btn-primary" disabled={submitting}>
+            <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+              <button type="submit" className="btn btn-primary flex-1" disabled={submitting}>
                 {submitting ? 'Wird erstellt...' : 'Tier anlegen'}
               </button>
               <button
                 type="button"
-                className="btn btn-outline"
+                className="btn btn-ghost flex-1"
                 onClick={() => setShowForm(false)}
                 disabled={submitting}
               >
@@ -154,36 +174,30 @@ export default function AnimalsPage() {
         </div>
       )}
 
-      {animals.map((animal) => (
-        <div
-          key={animal.id}
-          className="card"
-          onClick={() => navigate(`/animals/${animal.id}`)}
-          style={{ cursor: 'pointer', marginBottom: '1rem' }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <div style={{ fontSize: '2rem' }}>{getEmoji(animal.species)}</div>
-            <div style={{ flex: 1 }}>
-              <h2 style={{ margin: '0 0 0.25rem 0' }}>{animal.name}</h2>
-              <p style={{ margin: 0, color: 'var(--muted)', fontSize: '.9rem' }}>
-                {getSpeciesLabel(animal.species)}
-                {animal.breed && ` · ${animal.breed}`}
-                {animal.birthdate && ` · Geb. ${animal.birthdate}`}
-              </p>
-            </div>
-            <div style={{ fontSize: '1.5rem' }}>›</div>
-          </div>
-        </div>
-      ))}
+      {!showForm && animals.length > 0 && (
+        <>
+          {filteredAnimals.map((animal) => (
+            <PetCard
+              key={animal.id}
+              id={animal.id}
+              name={animal.name}
+              species={animal.species}
+              breed={animal.breed}
+              age={animal.birthdate ? new Date().getFullYear() - new Date(animal.birthdate).getFullYear() + ' Jahre' : undefined}
+              vaccinationStatus="current" // Placeholder, should come from API eventually
+              hasNfcTag={false} // Placeholder
+              isVetVerified={false} // Placeholder
+              avatarPath={animal.avatar_path}
+            />
+          ))}
 
-      {!showForm && (
-        <button
-          className="btn btn-primary"
-          onClick={() => setShowForm(true)}
-          style={{ marginBottom: '1rem' }}
-        >
-          ➕ Neues Tier anlegen
-        </button>
+          <button
+            className="btn btn-primary btn-full mt-4"
+            onClick={() => setShowForm(true)}
+          >
+            <Plus size={18} /> Add Pet
+          </button>
+        </>
       )}
     </div>
   )

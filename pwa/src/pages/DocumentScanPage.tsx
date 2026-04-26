@@ -1,9 +1,16 @@
 import { useRef, useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ChevronLeft, CheckCircle, AlertCircle } from 'lucide-react'
+import { ChevronLeft, CheckCircle, AlertCircle, Syringe, FileText, Cpu, BookOpen, Camera } from 'lucide-react'
 import { uploadDocument } from '../api/ws'
 
 type Phase = 'capture' | 'uploading' | 'analysing' | 'done' | 'error'
+
+const docTypes = [
+  { id: 'vaccination', label: 'Vaccination', icon: <Syringe size={14} /> },
+  { id: 'report',      label: 'Vet Report',  icon: <FileText size={14} /> },
+  { id: 'microchip',   label: 'Microchip',   icon: <Cpu size={14} /> },
+  { id: 'passport',    label: 'Passport',    icon: <BookOpen size={14} /> },
+];
 
 export default function DocumentScanPage() {
   const { id: animalId } = useParams<{ id: string }>()
@@ -11,12 +18,14 @@ export default function DocumentScanPage() {
   const fileRef = useRef<HTMLInputElement>(null)
   const [preview, setPreview] = useState<string | null>(null)
   const [file, setFile] = useState<File | null>(null)
+  const [docType, setDocType] = useState('vaccination')
   const [phase, setPhase] = useState<Phase>('capture')
   const [uploadProgress, setUploadProgress] = useState(0)
   const [elapsedTime, setElapsedTime] = useState(0)
   const [result, setResult] = useState<unknown>(null)
   const [ocrProvider, setOcrProvider] = useState<string | null>(null)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [allowedRoles, setAllowedRoles] = useState<string[]>(['vet', 'authority', 'readonly'])
 
   useEffect(() => {
     if (phase !== 'analysing') return
@@ -27,8 +36,47 @@ export default function DocumentScanPage() {
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0]
     if (!f) return
-    setFile(f)
-    setPreview(URL.createObjectURL(f))
+    
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      const img = new Image()
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        const MAX_WIDTH = 1200
+        const MAX_HEIGHT = 1200
+        let width = img.width
+        let height = img.height
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width
+            width = MAX_WIDTH
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height
+            height = MAX_HEIGHT
+          }
+        }
+        
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')
+        ctx?.drawImage(img, 0, 0, width, height)
+        
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const resizedFile = new File([blob], f.name, { type: 'image/jpeg', lastModified: Date.now() })
+            setFile(resizedFile)
+            setPreview(URL.createObjectURL(resizedFile))
+          }
+        }, 'image/jpeg', 0.8) // 0.8 quality for smaller file size
+      }
+      if (event.target?.result) {
+        img.src = event.target.result as string
+      }
+    }
+    reader.readAsDataURL(f)
   }
 
   async function handleUpload() {
@@ -54,7 +102,8 @@ export default function DocumentScanPage() {
         onError: (msg) => {
           setErrorMsg(msg)
           setPhase('error')
-        }
+        },
+        metadata: { allowedRoles }
       })
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Unbekannter Fehler')
@@ -63,140 +112,184 @@ export default function DocumentScanPage() {
   }
 
   return (
-    <div className="page">
-      <div className="container">
-        <div className="nav-bar">
-          <button
-            onClick={() => navigate(`/animals/${animalId}`)}
-            className="btn btn-ghost btn-icon"
-            type="button"
-          >
-            <ChevronLeft size={20} />
-          </button>
-          <h2 style={{ margin: 0 }}>Dokument scannen</h2>
-          <div style={{ width: 40 }} />
-        </div>
+    <div className="container page">
+      <div className="nav-bar" style={{ margin: 'calc(var(--space-4) * -1) calc(var(--space-4) * -1) var(--space-4) calc(var(--space-4) * -1)' }}>
+        <button
+          onClick={() => navigate(`/animals/${animalId}`)}
+          className="btn-ghost btn-icon"
+          type="button"
+          style={{ border: 'none', cursor: 'pointer' }}
+        >
+          <ChevronLeft size={20} />
+        </button>
+        <h2 style={{ margin: 0, paddingRight: '40px' }}>Dokument scannen</h2>
+      </div>
 
-        {phase === 'capture' && (
-          <div className="card">
-            <p className="muted">Foto eines Impfpasses, Rezepts oder anderen Tierdokuments</p>
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              style={{ display: 'none' }}
-              onChange={handleFileChange}
-            />
-            {!preview ? (
-              <button className="btn btn-primary" onClick={() => fileRef.current?.click()}>
-                Foto aufnehmen / auswählen
+      {phase === 'capture' && (
+        <div className="card animate-slide-up">
+          <h3 style={{ marginBottom: 'var(--space-3)' }}>Document Type</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
+            {docTypes.map(type => (
+              <button
+                key={type.id}
+                onClick={() => setDocType(type.id)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
+                  padding: 'var(--space-3)',
+                  background: docType === type.id ? 'var(--primary-50)' : 'var(--bg-elevated)',
+                  border: `1.5px solid ${docType === type.id ? 'var(--primary-400)' : 'var(--border)'}`,
+                  borderRadius: 'var(--radius-md)',
+                  cursor: 'pointer',
+                  transition: 'all var(--t-fast) var(--ease-out)',
+                  color: docType === type.id ? 'var(--primary-600)' : 'var(--text-secondary)',
+                  fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 'var(--font-size-sm)',
+                }}
+              >
+                {type.icon} {type.label}
               </button>
-            ) : (
-              <>
-                <img src={preview} alt="Vorschau" style={{ width: '100%', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-4)' }} />
-                <button className="btn btn-primary" onClick={handleUpload}>Hochladen & analysieren</button>
-                <button className="btn btn-outline" style={{ marginTop: 'var(--space-2)' }} onClick={() => { setPreview(null); setFile(null) }}>
-                  Anderes Foto wählen
-                </button>
-              </>
-            )}
+            ))}
           </div>
-        )}
 
-        {phase !== 'capture' && (
-          <div className="upload-progress-card">
-            <div className="stepper">
-              <div className={`stepper-step ${phase !== 'capture' ? 'active' : ''}`}>
-                <div className="stepper-number">1</div>
-                <div className="stepper-label">Hochladen</div>
+          <p className="text-muted" style={{ marginBottom: 'var(--space-4)' }}>Foto eines Impfpasses, Rezepts oder anderen Tierdokuments</p>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            style={{ display: 'none' }}
+            onChange={handleFileChange}
+          />
+          {!preview ? (
+            <div 
+              style={{ 
+                border: '2px dashed var(--border)', 
+                borderRadius: 'var(--radius-lg)', 
+                padding: 'var(--space-8) var(--space-4)',
+                textAlign: 'center',
+                cursor: 'pointer',
+                marginBottom: 'var(--space-4)',
+                background: 'var(--surface)'
+              }}
+              onClick={() => fileRef.current?.click()}
+            >
+              <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--primary-50)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto var(--space-3)' }}>
+                <Camera size={24} color="var(--primary-500)" />
               </div>
-              <div className={`stepper-step ${['analysing', 'done'].includes(phase) ? 'active' : ''}`}>
-                <div className="stepper-number">{phase === 'done' ? <CheckCircle size={20} style={{ color: '#ffffff' }} /> : '2'}</div>
-                <div className="stepper-label">Analysieren</div>
+              <p style={{ fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 var(--space-1) 0' }}>Tap to take photo</p>
+              <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', color: 'var(--text-tertiary)' }}>or choose from gallery</p>
+            </div>
+          ) : (
+            <>
+              <img src={preview} alt="Vorschau" style={{ width: '100%', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-4)' }} />
+              
+              <div style={{ marginBottom: 'var(--space-4)', textAlign: 'left' }}>
+                <label className="form-label">Wer darf dieses Dokument sehen?</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                  {[{ id: 'vet', label: 'Tierarzt' }, { id: 'authority', label: 'Behörde' }, { id: 'readonly', label: 'Lesender Zugriff' }].map(r => (
+                    <label key={r.id} style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={allowedRoles.includes(r.id)} 
+                        onChange={(e) => {
+                          if (e.target.checked) setAllowedRoles([...allowedRoles, r.id])
+                          else setAllowedRoles(allowedRoles.filter(role => role !== r.id))
+                        }} 
+                        style={{ width: 16, height: 16, accentColor: 'var(--primary-500)' }}
+                      />
+                      <span style={{ fontSize: 'var(--font-size-sm)' }}>{r.label}</span>
+                    </label>
+                  ))}
+                </div>
               </div>
-              <div className={`stepper-step ${phase === 'done' ? 'active' : ''}`}>
-                <div className="stepper-number">{phase === 'done' ? <CheckCircle size={20} style={{ color: '#ffffff' }} /> : '3'}</div>
-                <div className="stepper-label">Fertig</div>
+
+              <button className="btn btn-primary btn-full" onClick={handleUpload}>Hochladen & analysieren</button>
+              <button className="btn btn-ghost btn-full" style={{ marginTop: 'var(--space-2)' }} onClick={() => { setPreview(null); setFile(null) }}>
+                Anderes Foto wählen
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
+      {phase !== 'capture' && (
+        <div className="card animate-slide-up" style={{ textAlign: 'center', padding: 'var(--space-6) var(--space-4)' }}>
+          <div className="stepper" style={{ marginBottom: 'var(--space-6)' }}>
+            <div className={`stepper-step ${phase === 'uploading' || phase === 'analysing' || phase === 'done' ? 'active' : ''}`}>
+              <div className="stepper-number">1</div>
+              <div className="stepper-label">Upload</div>
+            </div>
+            <div className={`stepper-step ${['analysing', 'done'].includes(phase) ? 'active' : ''}`}>
+              <div className="stepper-number">{phase === 'done' ? <CheckCircle size={16} color="white" /> : '2'}</div>
+              <div className="stepper-label">Analysis</div>
+            </div>
+            <div className={`stepper-step ${phase === 'done' ? 'active' : ''}`}>
+              <div className="stepper-number">{phase === 'done' ? <CheckCircle size={16} color="white" /> : '3'}</div>
+              <div className="stepper-label">Done</div>
+            </div>
+          </div>
+
+          {phase === 'uploading' && (
+            <div>
+              <h3 style={{ marginBottom: 'var(--space-4)' }}>Uploading Document...</h3>
+              <div className="progress-bar" style={{ width: '100%', maxWidth: '240px', margin: '0 auto var(--space-3)' }}>
+                <div className="progress-bar-fill" style={{ width: `${uploadProgress}%` }} />
+              </div>
+              <div className="text-muted" style={{ fontWeight: 600 }}>{uploadProgress}%</div>
+            </div>
+          )}
+
+          {phase === 'analysing' && (
+            <div>
+              <h3 style={{ marginBottom: 'var(--space-4)' }}>Analyzing Document...</h3>
+              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-3)' }}>
+                <div className="spinner"></div>
+                {ocrProvider && <span className="badge badge-info">{ocrProvider}</span>}
+              </div>
+              <div className="text-muted" style={{ fontSize: 'var(--font-size-sm)' }}>Please wait...</div>
+              <div className="text-tertiary" style={{ fontSize: 'var(--font-size-xs)', marginTop: 'var(--space-2)' }}>{elapsedTime} seconds elapsed</div>
+            </div>
+          )}
+
+          {phase === 'error' && (
+            <div>
+              <div style={{ color: 'var(--danger-500)', marginBottom: 'var(--space-3)', display: 'flex', justifyContent: 'center' }}>
+                <AlertCircle size={48} strokeWidth={1.5} />
+              </div>
+              <h3 style={{ marginBottom: 'var(--space-2)' }}>Analysis Failed</h3>
+              <p className="text-muted" style={{ marginBottom: 'var(--space-4)' }}>{errorMsg || 'An unknown error occurred'}</p>
+              <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
+                <button className="btn btn-primary flex-1" onClick={() => { setPhase('capture'); setErrorMsg(null) }} type="button">
+                  Try Again
+                </button>
+                <button className="btn btn-ghost flex-1" onClick={() => navigate(`/animals/${animalId}`)} type="button">
+                  Cancel
+                </button>
               </div>
             </div>
+          )}
 
-            {phase === 'uploading' && (
-              <div className="upload-progress-content">
-                <h3 className="upload-progress-title">Datei wird hochgeladen...</h3>
-                <div className="progress-bar" style={{ width: '100%', maxWidth: '200px' }}>
-                  <div className="progress-bar-fill" style={{ width: `${uploadProgress}%` }} />
-                </div>
-                <div className="upload-progress-text">{uploadProgress}%</div>
+          {phase === 'done' && !!result && (
+            <div>
+              <div style={{ color: 'var(--success-500)', marginBottom: 'var(--space-3)', display: 'flex', justifyContent: 'center' }}>
+                <CheckCircle size={48} strokeWidth={1.5} />
               </div>
-            )}
-
-            {phase === 'analysing' && (
-              <div className="upload-progress-content">
-                <h3 className="upload-progress-title">Dokument wird analysiert...</h3>
-                <div className="upload-progress-visual">
-                  <div className="spinner" />
-                  {ocrProvider && <span className="badge badge-info">{ocrProvider}</span>}
-                </div>
-                <div className="upload-progress-text">Bitte warten...</div>
-                <div className="upload-progress-time">{elapsedTime} Sekunden vergangen</div>
+              <h3 style={{ marginBottom: 'var(--space-2)' }}>Analysis Complete!</h3>
+              {ocrProvider && <span className="badge badge-success" style={{ marginBottom: 'var(--space-6)', display: 'inline-flex' }}>{ocrProvider}</span>}
+              
+              <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-md)', padding: 'var(--space-4)', textAlign: 'left', marginBottom: 'var(--space-6)' }}>
+                <h4 style={{ margin: '0 0 var(--space-2) 0', fontSize: 'var(--font-size-sm)' }}>Extracted Text</h4>
+                <pre style={{ margin: 0, fontSize: 'var(--font-size-xs)', overflowX: 'auto', whiteSpace: 'pre-wrap', wordWrap: 'break-word', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>
+                  {typeof result === 'string' ? result : JSON.stringify(result, null, 2)}
+                </pre>
               </div>
-            )}
-
-            {phase === 'error' && (
-              <div className="upload-progress-content">
-                <div style={{ color: 'var(--color-danger)', marginBottom: 'var(--space-3)' }}>
-                  <AlertCircle size={48} />
-                </div>
-                <h3 className="upload-progress-title">Fehler bei der Analyse</h3>
-                <p className="upload-progress-text">{errorMsg || 'Ein unbekannter Fehler ist aufgetreten'}</p>
-                <div style={{ display: 'flex', gap: 'var(--space-2)', justifyContent: 'center', marginTop: 'var(--space-4)' }}>
-                  <button
-                    className="btn btn-primary"
-                    onClick={() => { setPhase('capture'); setErrorMsg(null) }}
-                    type="button"
-                  >
-                    Erneut versuchen
-                  </button>
-                  <button
-                    className="btn btn-outline"
-                    onClick={() => navigate(`/animals/${animalId}`)}
-                    type="button"
-                  >
-                    Abbrechen
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {phase === 'done' && result && (
-              <div>
-                <div className="upload-progress-content">
-                  <div style={{ color: 'var(--color-success)', marginBottom: 'var(--space-3)' }}>
-                    <CheckCircle size={48} />
-                  </div>
-                  <h3 className="upload-progress-title">Analyse abgeschlossen!</h3>
-                  {ocrProvider && <span className="badge badge-success">{ocrProvider}</span>}
-                </div>
-                <div className="card" style={{ marginTop: 'var(--space-6)' }}>
-                  <h3>Erkannter Text</h3>
-                  <pre style={{ fontSize: 'var(--font-size-sm)', overflowX: 'auto', background: 'var(--color-surface-2)', padding: 'var(--space-4)', borderRadius: 'var(--radius-md)', whiteSpace: 'pre-wrap', wordWrap: 'break-word' }}>
-                    {typeof result === 'string' ? result : JSON.stringify(result, null, 2)}
-                  </pre>
-                </div>
-                <button
-                  className="btn btn-primary"
-                  onClick={() => navigate(`/animals/${animalId}`)}
-                  style={{ width: '100%', marginTop: 'var(--space-4)' }}
-                  type="button"
-                >
-                  Zur Dokumentenübersicht
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+              
+              <button className="btn btn-primary btn-full" onClick={() => navigate(`/animals/${animalId}`)} type="button">
+                Return to Pet Profile
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

@@ -48,6 +48,7 @@ export const activateTag = (tagId: string) =>
 
 // Documents
 export const getDocument = (id: string) => api.get(`/documents/${id}`)
+export const patchDocument = (id: string, data: object) => api.patch(`/documents/${id}`, data)
 
 // Sharing
 export const getSharing = (animalId: string) => api.get(`/animals/${animalId}/sharing`)

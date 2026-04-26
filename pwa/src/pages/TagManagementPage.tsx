@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { getAnimalTags, addTag, deactivateTag, activateTag } from '../api/rest'
 import { useBarcode } from '../hooks/useBarcode'
 import { useNfc } from '../hooks/useNfc'
+import { ChevronLeft, Camera, Radio, Tag as TagIcon, CheckCircle, XCircle } from 'lucide-react'
 
 interface Tag { tag_id: string; tag_type: string; active: number; added_at: string }
 
@@ -46,64 +47,94 @@ export default function TagManagementPage() {
   }
 
   return (
-    <div className="container">
-      <div className="nav-bar">
-        <button onClick={() => navigate(`/animals/${id}`)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.25rem' }}>←</button>
-        <h2>Tags verwalten</h2>
+    <div className="container page">
+      <div className="nav-bar" style={{ margin: 'calc(var(--space-4) * -1) calc(var(--space-4) * -1) var(--space-4) calc(var(--space-4) * -1)' }}>
+        <button
+          onClick={() => navigate(`/animals/${id}`)}
+          className="btn-ghost btn-icon"
+          type="button"
+          style={{ border: 'none', cursor: 'pointer' }}
+        >
+          <ChevronLeft size={20} />
+        </button>
+        <h2 style={{ margin: 0, paddingRight: '40px' }}>Tags verwalten</h2>
       </div>
 
-      {error && <p className="error" style={{ marginBottom: '1rem' }}>{error}</p>}
+      {error && <div className="error-card" style={{ marginBottom: 'var(--space-4)' }}><p>{error}</p></div>}
 
-      <div style={{ display: 'flex', gap: '.5rem', marginBottom: '1rem' }}>
-        <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => { setScanning('barcode'); startBarcode() }}>
-          📷 Barcode hinzufügen
+      <div style={{ display: 'flex', gap: 'var(--space-3)', marginBottom: 'var(--space-6)' }}>
+        <button className="btn btn-primary flex-1" onClick={() => { setScanning('barcode'); startBarcode() }}>
+          <Camera size={18} /> Barcode
         </button>
-        <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => { setScanning('nfc'); startNfc() }}>
-          📡 NFC hinzufügen
+        <button className="btn btn-secondary flex-1" onClick={() => { setScanning('nfc'); startNfc() }}>
+          <Radio size={18} /> NFC
         </button>
       </div>
 
       {scanning === 'barcode' && (
-        <div className="card">
-          <div id="tag-barcode" style={{ width: '100%' }} />
-          <button className="btn btn-outline" style={{ marginTop: '.5rem' }} onClick={() => { stopBarcode(); setScanning('none') }}>Abbrechen</button>
+        <div className="card animate-slide-up" style={{ marginBottom: 'var(--space-6)' }}>
+          <div style={{
+            position: 'relative',
+            background: 'oklch(8% 0.02 250)',
+            borderRadius: 'var(--radius-xl)',
+            overflow: 'hidden',
+            aspectRatio: '4/3',
+            marginBottom: 'var(--space-4)',
+          }}>
+            <div id="tag-barcode" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          </div>
+          <button className="btn btn-outline btn-full" onClick={() => { stopBarcode(); setScanning('none') }}>Abbrechen</button>
         </div>
       )}
       {scanning === 'nfc' && (
-        <div className="card" style={{ textAlign: 'center' }}>
+        <div className="card text-center animate-slide-up" style={{ padding: 'var(--space-8) var(--space-4)', marginBottom: 'var(--space-6)' }}>
+          <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--primary-50)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto var(--space-4)' }}>
+            <Radio size={32} color="var(--primary-500)" />
+          </div>
           {nfcState === 'unsupported'
-            ? <p className="error">NFC nicht unterstützt</p>
-            : <p className="muted">📡 Halte das Gerät an den NFC-Tag...</p>}
-          <button className="btn btn-outline" style={{ marginTop: '.5rem' }} onClick={() => setScanning('none')}>Abbrechen</button>
+            ? <p className="text-danger">NFC wird in diesem Browser nicht unterstützt.</p>
+            : <p className="text-muted">Halte das Gerät an den NFC-Tag...</p>}
+          <button className="btn btn-outline btn-full" style={{ marginTop: 'var(--space-6)' }} onClick={() => setScanning('none')}>Abbrechen</button>
         </div>
       )}
 
-      {loading ? <p className="muted">Lade...</p> : (
-        <>
-          <h2>Registrierte Tags ({tags.length})</h2>
-          {tags.length === 0 && <p className="muted">Noch keine Tags.</p>}
-          {tags.map(tag => (
-            <div key={tag.tag_id} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <p style={{ fontWeight: 500, fontSize: '.9rem', wordBreak: 'break-all' }}>{tag.tag_id}</p>
-                <p className="muted" style={{ fontSize: '.75rem' }}>
-                  {tag.tag_type === 'nfc' ? '📡 NFC' : '📷 Barcode'} · {new Date(tag.added_at).toLocaleDateString('de-AT')}
-                </p>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '.25rem', alignItems: 'flex-end' }}>
-                <span className={`badge ${tag.active ? 'badge-active' : 'badge-inactive'}`}>
-                  {tag.active ? 'Aktiv' : 'Inaktiv'}
-                </span>
-                <button
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '.75rem', color: 'var(--muted)' }}
-                  onClick={() => toggleTag(tag)}
-                >
-                  {tag.active ? 'Deaktivieren' : 'Aktivieren'}
-                </button>
-              </div>
+      {loading ? <div style={{ display: 'flex', justifyContent: 'center', marginTop: 'var(--space-6)' }}><div className="spinner"></div></div> : (
+        <div className="animate-fade-in">
+          <h3 style={{ marginBottom: 'var(--space-3)', fontSize: 'var(--font-size-base)' }}>Registrierte Tags ({tags.length})</h3>
+          {tags.length === 0 && (
+            <div className="card text-center">
+              <TagIcon size={32} color="var(--text-tertiary)" style={{ margin: '0 auto var(--space-3)' }} />
+              <p className="text-muted">Noch keine Tags zugeordnet.</p>
             </div>
-          ))}
-        </>
+          )}
+          <div style={{ display: 'grid', gap: 'var(--space-3)' }}>
+            {tags.map(tag => (
+              <div key={tag.tag_id} className="card card-sm" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: 0 }}>
+                <div>
+                  <p style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', wordBreak: 'break-all', margin: '0 0 2px 0' }}>{tag.tag_id}</p>
+                  <p className="text-tertiary" style={{ fontSize: 'var(--font-size-xs)', margin: 0, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    {tag.tag_type === 'nfc' ? <><Radio size={10} /> NFC</> : <><Camera size={10} /> Barcode</>}
+                    <span style={{ margin: '0 4px' }}>•</span>
+                    {new Date(tag.added_at).toLocaleDateString('de-AT')}
+                  </p>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', alignItems: 'flex-end' }}>
+                  {tag.active ? (
+                    <span className="badge badge-success"><CheckCircle size={10} /> Aktiv</span>
+                  ) : (
+                    <span className="badge badge-warning"><XCircle size={10} /> Inaktiv</span>
+                  )}
+                  <button
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 'var(--font-size-xs)', color: 'var(--primary-600)', fontWeight: 600, padding: 0 }}
+                    onClick={() => toggleTag(tag)}
+                  >
+                    {tag.active ? 'Deaktivieren' : 'Aktivieren'}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   )

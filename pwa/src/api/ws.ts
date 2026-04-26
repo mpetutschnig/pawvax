@@ -9,6 +9,7 @@ export interface UploadCallbacks {
   onProgress?: (percent: number) => void
   onResult: (data: WsMessage & { type: 'result' }) => void
   onError: (msg: string) => void
+  metadata?: { allowedRoles?: string[] }
 }
 
 export function uploadDocument(
@@ -42,7 +43,8 @@ export function uploadDocument(
             type: 'upload_start',
             animalId,
             filename: file.name,
-            mimeType: file.type
+            mimeType: file.type,
+            allowedRoles: callbacks.metadata?.allowedRoles
           }))
         }
       }

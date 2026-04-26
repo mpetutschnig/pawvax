@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { getSharing, updateSharing } from '../api/rest'
+import { ChevronLeft, Eye, Landmark, Stethoscope, Syringe, Pill, FileText, User, PawPrint, Cake } from 'lucide-react'
 
 interface SharingRow {
   id: string
@@ -13,12 +14,6 @@ interface SharingRow {
   share_birthdate: number
 }
 
-const roleLabel: Record<string, string> = {
-  readonly: '👁️ Lesezugriff',
-  authority: '🏛️ Behörde',
-  vet: '🐾 Tierarzt',
-}
-
 export default function SharingSettingsPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -26,6 +21,12 @@ export default function SharingSettingsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+
+  const roleConfig: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
+    readonly: { label: 'Lesezugriff', icon: <Eye size={18} />, color: 'var(--primary-600)' },
+    authority: { label: 'Behörde', icon: <Landmark size={18} />, color: 'var(--info-600)' },
+    vet: { label: 'Tierarzt', icon: <Stethoscope size={18} />, color: 'var(--success-600)' },
+  }
 
   useEffect(() => {
     if (!id) return
@@ -48,93 +49,111 @@ export default function SharingSettingsPage() {
     }
   }
 
-  if (loading) return <div className="container"><p className="muted" style={{ marginTop: '2rem' }}>Lade...</p></div>
-  if (error) return <div className="container"><p className="error" style={{ marginTop: '2rem' }}>{error}</p></div>
+  if (loading) return <div className="container page" style={{ display: 'flex', justifyContent: 'center', paddingTop: '4rem' }}><div className="spinner spinner-lg"></div></div>
+  if (error) return <div className="container page"><div className="error-card"><p>{error}</p></div></div>
 
   return (
-    <div className="container">
-      <div className="nav-bar">
-        <button onClick={() => navigate(`/animals/${id}`)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.25rem' }}>←</button>
-        <h2>Freigaben</h2>
+    <div className="container page">
+      <div className="nav-bar" style={{ margin: 'calc(var(--space-4) * -1) calc(var(--space-4) * -1) var(--space-4) calc(var(--space-4) * -1)' }}>
+        <button
+          onClick={() => navigate(`/animals/${id}`)}
+          className="btn-ghost btn-icon"
+          type="button"
+          style={{ border: 'none', cursor: 'pointer' }}
+        >
+          <ChevronLeft size={20} />
+        </button>
+        <h2 style={{ margin: 0, paddingRight: '40px' }}>Freigaben</h2>
       </div>
 
-      <div className="card">
-        <p className="muted" style={{ marginBottom: '1rem' }}>
+      <div className="card animate-slide-up" style={{ marginBottom: 'var(--space-6)' }}>
+        <p className="text-muted" style={{ margin: 0, fontSize: 'var(--font-size-sm)' }}>
           Wähle, welche Daten jede Rolle sehen darf, wenn sie den QR/NFC-Tag dieses Tieres scannt.
         </p>
       </div>
 
-      {sharing.map(row => (
-        <div key={row.role} className="card">
-          <h3 style={{ marginBottom: '1rem' }}>{roleLabel[row.role]}</h3>
+      <div className="animate-fade-in" style={{ display: 'grid', gap: 'var(--space-4)' }}>
+        {sharing.map(row => {
+          const config = roleConfig[row.role] || { label: row.role, icon: <Eye size={18} />, color: 'var(--text-primary)' }
+          return (
+            <div key={row.role} className="card">
+              <h3 style={{ marginBottom: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', color: config.color }}>
+                {config.icon} {config.label}
+              </h3>
 
-          <label style={{ display: 'flex', gap: '.5rem', alignItems: 'center', cursor: 'pointer', marginBottom: '.75rem' }}>
-            <input
-              type="checkbox"
-              checked={!!row.share_vaccination}
-              onChange={e => handleSave(row.role, { share_vaccination: e.target.checked ? 1 : 0 })}
-              disabled={saving}
-              style={{ width: 'auto' }}
-            />
-            <span>💉 Impfstatus</span>
-          </label>
+              <div style={{ display: 'grid', gap: 'var(--space-3)' }}>
+                <label style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={!!row.share_vaccination}
+                    onChange={e => handleSave(row.role, { share_vaccination: e.target.checked ? 1 : 0 })}
+                    disabled={saving}
+                    style={{ width: 18, height: 18, accentColor: 'var(--primary-500)' }}
+                  />
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}><Syringe size={16} className="text-tertiary" /> Impfstatus</span>
+                </label>
 
-          <label style={{ display: 'flex', gap: '.5rem', alignItems: 'center', cursor: 'pointer', marginBottom: '.75rem' }}>
-            <input
-              type="checkbox"
-              checked={!!row.share_medication}
-              onChange={e => handleSave(row.role, { share_medication: e.target.checked ? 1 : 0 })}
-              disabled={saving}
-              style={{ width: 'auto' }}
-            />
-            <span>💊 Medikamente</span>
-          </label>
+                <label style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={!!row.share_medication}
+                    onChange={e => handleSave(row.role, { share_medication: e.target.checked ? 1 : 0 })}
+                    disabled={saving}
+                    style={{ width: 18, height: 18, accentColor: 'var(--primary-500)' }}
+                  />
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}><Pill size={16} className="text-tertiary" /> Medikamente</span>
+                </label>
 
-          <label style={{ display: 'flex', gap: '.5rem', alignItems: 'center', cursor: 'pointer', marginBottom: '.75rem' }}>
-            <input
-              type="checkbox"
-              checked={!!row.share_other_docs}
-              onChange={e => handleSave(row.role, { share_other_docs: e.target.checked ? 1 : 0 })}
-              disabled={saving}
-              style={{ width: 'auto' }}
-            />
-            <span>📄 Sonstige Dokumente</span>
-          </label>
+                <label style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={!!row.share_other_docs}
+                    onChange={e => handleSave(row.role, { share_other_docs: e.target.checked ? 1 : 0 })}
+                    disabled={saving}
+                    style={{ width: 18, height: 18, accentColor: 'var(--primary-500)' }}
+                  />
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}><FileText size={16} className="text-tertiary" /> Sonstige Dokumente</span>
+                </label>
 
-          <label style={{ display: 'flex', gap: '.5rem', alignItems: 'center', cursor: 'pointer', marginBottom: '.75rem' }}>
-            <input
-              type="checkbox"
-              checked={!!row.share_contact}
-              onChange={e => handleSave(row.role, { share_contact: e.target.checked ? 1 : 0 })}
-              disabled={saving}
-              style={{ width: 'auto' }}
-            />
-            <span>👤 Deine Kontaktdaten</span>
-          </label>
+                <hr className="divider" style={{ margin: 'var(--space-2) 0' }} />
 
-          <label style={{ display: 'flex', gap: '.5rem', alignItems: 'center', cursor: 'pointer', marginBottom: '.75rem' }}>
-            <input
-              type="checkbox"
-              checked={!!row.share_breed}
-              onChange={e => handleSave(row.role, { share_breed: e.target.checked ? 1 : 0 })}
-              disabled={saving}
-              style={{ width: 'auto' }}
-            />
-            <span>🐾 Rasse</span>
-          </label>
+                <label style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={!!row.share_contact}
+                    onChange={e => handleSave(row.role, { share_contact: e.target.checked ? 1 : 0 })}
+                    disabled={saving}
+                    style={{ width: 18, height: 18, accentColor: 'var(--primary-500)' }}
+                  />
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}><User size={16} className="text-tertiary" /> Deine Kontaktdaten</span>
+                </label>
 
-          <label style={{ display: 'flex', gap: '.5rem', alignItems: 'center', cursor: 'pointer' }}>
-            <input
-              type="checkbox"
-              checked={!!row.share_birthdate}
-              onChange={e => handleSave(row.role, { share_birthdate: e.target.checked ? 1 : 0 })}
-              disabled={saving}
-              style={{ width: 'auto' }}
-            />
-            <span>🎂 Geburtsdatum</span>
-          </label>
-        </div>
-      ))}
+                <label style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={!!row.share_breed}
+                    onChange={e => handleSave(row.role, { share_breed: e.target.checked ? 1 : 0 })}
+                    disabled={saving}
+                    style={{ width: 18, height: 18, accentColor: 'var(--primary-500)' }}
+                  />
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}><PawPrint size={16} className="text-tertiary" /> Rasse</span>
+                </label>
+
+                <label style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={!!row.share_birthdate}
+                    onChange={e => handleSave(row.role, { share_birthdate: e.target.checked ? 1 : 0 })}
+                    disabled={saving}
+                    style={{ width: 18, height: 18, accentColor: 'var(--primary-500)' }}
+                  />
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}><Cake size={16} className="text-tertiary" /> Geburtsdatum</span>
+                </label>
+              </div>
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }

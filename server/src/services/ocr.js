@@ -12,39 +12,49 @@ Für Impfdokumente verwende:
 {
   "type": "vaccination",
   "animal": { "name": "...", "species": "...", "breed": "...", "birthdate": "..." },
-  "vaccinations": [{ "vaccine": "...", "date": "...", "nextDue": "...", "vet": "..." }]
+  "vaccinations": [{ "vaccine": "...", "date": "...", "nextDue": "...", "vet": "..." }],
+  "suggested_tags": ["tag1", "tag2"]
 }
 
 Für Medikamentendokumente verwende:
 {
   "type": "medication",
-  "medications": [{ "name": "...", "dosage": "...", "frequency": "...", "startDate": "...", "endDate": "..." }]
+  "medications": [{ "name": "...", "dosage": "...", "frequency": "...", "startDate": "...", "endDate": "..." }],
+  "suggested_tags": ["tag1", "tag2"]
 }
 
 Für unbekannte Dokumente:
 {
   "type": "other",
-  "rawText": "..."
+  "rawText": "...",
+  "suggested_tags": ["tag1", "tag2"]
 }
 
 Antworte NUR mit dem JSON-Objekt, kein erklärender Text.
 `.trim()
 
-export async function analyzeDocument(imagePath, userGeminiKey = null) {
+export async function analyzeDocument(imagePath, userGeminiKey = null, onProgress = null) {
   const geminiKey = userGeminiKey || GEMINI_KEY
   if (geminiKey) {
+    if (onProgress) onProgress('Gemini Vision analysiert...')
     try {
       return await analyzeWithGemini(imagePath, geminiKey)
     } catch (err) {
-      console.warn('Gemini OCR fehlgeschlagen, Fallback auf Tesseract:', err.message)
+      console.warn('Gemini OCR fehlgeschlagen:', err.message)
+      if (userGeminiKey) {
+        throw new Error(`Gemini Analyse fehlgeschlagen. Bitte prüfe deinen API-Schlüssel. (${err.message})`)
+      }
+      if (onProgress) onProgress('Gemini fehlgeschlagen, lade Tesseract (Fallback)...')
     }
+  } else {
+    if (onProgress) onProgress('Starte lokales Tesseract OCR...')
   }
-  return analyzeWithTesseract(imagePath)
+  return analyzeWithTesseract(imagePath, onProgress)
 }
 
 async function analyzeWithGemini(imagePath, geminiKey) {
   const genAI = new GoogleGenerativeAI(geminiKey)
-  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+  const model = genAI.getGenerativeModel({ model: 'gemini-3.1-flash-lite' })
 
   const imageData = readFileSync(imagePath)
   const base64 = imageData.toString('base64')
@@ -62,8 +72,16 @@ async function analyzeWithGemini(imagePath, geminiKey) {
   return { provider: 'gemini', data: JSON.parse(jsonMatch[0]) }
 }
 
-async function analyzeWithTesseract(imagePath) {
-  const worker = await createWorker('deu+eng')
+async function analyzeWithTesseract(imagePath, onProgress) {
+  const worker = await createWorker('deu+eng', 1, {
+    logger: m => {
+      if (onProgress && m.status === 'recognizing text') {
+        onProgress(`Tesseract liest Text... ${Math.round(m.progress * 100)}%`)
+      } else if (onProgress) {
+        onProgress(`Tesseract: ${m.status}`)
+      }
+    }
+  })
   try {
     const { data: { text } } = await worker.recognize(imagePath)
     const parsed = parseTesseractText(text)

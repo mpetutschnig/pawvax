@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { getAnimal, getAnimalDocuments, getAnimalTags, updateAnimal, deleteAnimal } from '../api/rest'
+import { PawPrint, Cat, ArrowLeft, Edit2, Trash2, Tag, Lock, Camera, Search, Syringe, FileText, Radio, CheckCircle, ShieldAlert } from 'lucide-react'
 
 interface Animal {
-  id: string; name: string; species: string; breed?: string; birthdate?: string
+  id: string; name: string; species: string; breed?: string; birthdate?: string;
+  avatar_path?: string; dynamic_fields?: string; avatar_base64?: string;
 }
 interface AnimalTag {
   tag_id: string; tag_type: string; active: number; added_at: string
@@ -12,8 +14,7 @@ interface Document {
   id: string; doc_type: string; created_at: string; ocr_provider: string; added_by_role?: string
 }
 
-const speciesLabel: Record<string, string> = { dog: '🐶 Hund', cat: '🐱 Katze', other: '🐾 Tier' }
-const docTypeLabel: Record<string, string> = { vaccination: '💉 Impfung', medication: '💊 Medikament', other: '📄 Dokument' }
+const docTypeLabel: Record<string, string> = { vaccination: 'Vaccination', medication: 'Medication', other: 'Document' }
 
 export default function AnimalPage() {
   const { id } = useParams<{ id: string }>()
@@ -72,118 +73,200 @@ export default function AnimalPage() {
     }
   }
 
-  if (loading) return <div className="container"><p className="muted" style={{ marginTop: '2rem' }}>Lade...</p></div>
-  if (error || !animal) return <div className="container"><p className="error" style={{ marginTop: '2rem' }}>{error}</p></div>
+  if (loading) return <div className="container page" style={{ display: 'flex', justifyContent: 'center', paddingTop: '4rem' }}><div className="spinner spinner-lg"></div></div>
+  if (error || !animal) return <div className="container page"><div className="error-card"><p>{error}</p></div></div>
+
+  const hasNfcTag = tags.some(t => t.tag_type === 'nfc' && t.active === 1)
+  const isVetVerified = false // Placeholder for future implementation
 
   return (
-    <div className="container" style={{ paddingBottom: '80px' }}>
-      <div className="nav-bar">
-        <button onClick={() => navigate('/animals')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.25rem' }}>←</button>
+    <div className="container page">
+      <div className="nav-bar" style={{ margin: 'calc(var(--space-4) * -1) calc(var(--space-4) * -1) var(--space-4) calc(var(--space-4) * -1)' }}>
+        <button className="btn-ghost btn-icon" onClick={() => navigate('/animals')} style={{ border: 'none', cursor: 'pointer' }}><ArrowLeft size={20} /></button>
         <h2>{animal.name}</h2>
       </div>
 
-      {error && <div className="error" style={{ marginBottom: '1rem' }}>{error}</div>}
+      {error && <div className="error-card"><p>{error}</p></div>}
 
-      <div className="card">
-        {!editing ? (
-          <>
-            <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
-              <div style={{ fontSize: '3rem' }}>{animal.species === 'dog' ? '🐶' : animal.species === 'cat' ? '🐱' : '🐾'}</div>
-              <div style={{ flex: 1 }}>
-                <p style={{ fontWeight: 600, fontSize: '1.1rem' }}>{animal.name}</p>
-                <p className="muted">{speciesLabel[animal.species] ?? animal.species}{animal.breed ? ` · ${animal.breed}` : ''}</p>
-                {animal.birthdate && <p className="muted">Geb.: {animal.birthdate}</p>}
+      {!editing ? (
+        <>
+          <div style={{
+            borderRadius: 'var(--radius-xl)',
+            background: 'linear-gradient(135deg, var(--primary-500), var(--primary-700))',
+            padding: 'var(--space-5)',
+            marginBottom: 'var(--space-4)',
+            boxShadow: 'var(--shadow-lg)',
+          }}>
+            <div style={{ display: 'flex', gap: 'var(--space-4)', alignItems: 'center', marginBottom: 'var(--space-3)' }}>
+              <div style={{
+                width: 56, height: 56, borderRadius: 'var(--radius-lg)',
+                background: 'oklch(100% 0 0 / 0.18)',
+                border: '1.5px solid oklch(100% 0 0 / 0.28)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden'
+              }}>
+                {animal.avatar_path ? (
+                  <img src={`/uploads/${animal.avatar_path.split('/').pop()}`} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  animal.species === 'cat' ? <Cat size={28} color="white" strokeWidth={1.6} /> : <PawPrint size={28} color="white" strokeWidth={1.6} />
+                )}
+              </div>
+              <div>
+                <h2 style={{ color: 'white', margin: 0, fontFamily: 'var(--font-display)' }}>{animal.name}</h2>
+                <p style={{ color: 'oklch(100% 0 0 / 0.70)', margin: 0, fontSize: 'var(--font-size-sm)' }}>
+                  {animal.breed} {animal.birthdate ? `· ${new Date().getFullYear() - new Date(animal.birthdate).getFullYear()} Jahre` : ''}
+                </p>
               </div>
             </div>
-            <div style={{ display: 'flex', gap: '.5rem', marginTop: '1rem', flexDirection: 'column' }}>
-              <div style={{ display: 'flex', gap: '.5rem' }}>
-                <button className="btn btn-outline" onClick={() => setEditing(true)} style={{ flex: 1 }}>✏️ Bearbeiten</button>
-                <button className="btn btn-outline" onClick={handleDelete} disabled={submitting} style={{ flex: 1, background: '#fee2e2', color: '#b91c1c' }}>🗑️ Löschen</button>
-              </div>
-              <div style={{ display: 'flex', gap: '.5rem' }}>
-                <Link to={`/animals/${id}/tags`} style={{ flex: 1, textDecoration: 'none' }}>
-                  <button className="btn btn-outline">🏷 Tags</button>
-                </Link>
-                <Link to={`/animals/${id}/sharing`} style={{ flex: 1, textDecoration: 'none' }}>
-                  <button className="btn btn-outline">🔐 Freigaben</button>
-                </Link>
-              </div>
-              <Link to={`/animals/${id}/scan`} style={{ flex: 1, textDecoration: 'none' }}>
-                <button className="btn btn-primary" style={{ width: '100%' }}>📷 Dokument scannen</button>
-              </Link>
+            <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap', marginBottom: animal.dynamic_fields ? 'var(--space-3)' : 0 }}>
+              {isVetVerified && (
+                <span style={{ background: 'oklch(100% 0 0 / 0.15)', border: '1px solid oklch(100% 0 0 / 0.22)', borderRadius: 'var(--radius-full)', padding: '3px 10px', fontSize: 11, fontWeight: 600, color: 'white' }}>
+                  Vet Verified
+                </span>
+              )}
+              {hasNfcTag && (
+                <span style={{ background: 'oklch(100% 0 0 / 0.15)', border: '1px solid oklch(100% 0 0 / 0.22)', borderRadius: 'var(--radius-full)', padding: '3px 10px', fontSize: 11, fontWeight: 600, color: 'white' }}>
+                  NFC Active
+                </span>
+              )}
             </div>
-          </>
-        ) : (
-          <>
-            <h2>Daten bearbeiten</h2>
-            <label>Name</label>
-            <input
-              type="text"
-              value={editData?.name || ''}
-              onChange={(e) => setEditData({ ...editData!, name: e.target.value })}
-              required
-            />
+            
+            {animal.dynamic_fields && (() => {
+              try {
+                const df = JSON.parse(animal.dynamic_fields);
+                return Object.entries(df).map(([k, v]) => (
+                  <div key={k} style={{ color: 'white', fontSize: 'var(--font-size-sm)', marginTop: 'var(--space-1)' }}>
+                    <strong>{k}:</strong> {String(v)}
+                  </div>
+                ))
+              } catch { return null; }
+            })()}
+          </div>
 
-            <label>Tierart</label>
-            <select
-              value={editData?.species || 'dog'}
-              onChange={(e) => setEditData({ ...editData!, species: e.target.value })}
-            >
-              <option value="dog">🐶 Hund</option>
-              <option value="cat">🐱 Katze</option>
-              <option value="other">🐾 Sonstiges</option>
-            </select>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
+            <button className="btn btn-secondary" onClick={() => setEditing(true)}><Edit2 size={16} /> Bearbeiten</button>
+            <button className="btn btn-outline" onClick={handleDelete} disabled={submitting} style={{ borderColor: 'var(--danger-500)', color: 'var(--danger-500)' }}><Trash2 size={16} /> Löschen</button>
+            <Link to={`/animals/${id}/tags`} className="btn btn-ghost" style={{ textDecoration: 'none' }}>
+              <Tag size={16} /> Tags
+            </Link>
+            <Link to={`/animals/${id}/sharing`} className="btn btn-ghost" style={{ textDecoration: 'none' }}>
+              <Lock size={16} /> Freigaben
+            </Link>
+          </div>
+          <Link to={`/animals/${id}/scan`} className="btn btn-primary btn-full" style={{ marginBottom: 'var(--space-6)' }}>
+            <Camera size={18} /> Dokument scannen
+          </Link>
+        </>
+      ) : (
+        <div className="card animate-slide-up">
+          <h3 style={{ marginBottom: 'var(--space-4)' }}>Daten bearbeiten</h3>
+          <form>
+            <div className="form-group">
+              <label className="form-label">Name</label>
+              <input
+                className="form-input"
+                type="text"
+                value={editData?.name || ''}
+                onChange={(e) => setEditData({ ...editData!, name: e.target.value })}
+                required
+              />
+            </div>
 
-            <label>Rasse (optional)</label>
-            <input
-              type="text"
-              value={editData?.breed || ''}
-              onChange={(e) => setEditData({ ...editData!, breed: e.target.value })}
-              placeholder="z.B. Golden Retriever"
-            />
+            <div className="form-group">
+              <label className="form-label">Tierart</label>
+              <select
+                className="form-select"
+                value={editData?.species || 'dog'}
+                onChange={(e) => setEditData({ ...editData!, species: e.target.value })}
+              >
+                <option value="dog">Hund</option>
+                <option value="cat">Katze</option>
+                <option value="other">Sonstiges</option>
+              </select>
+            </div>
 
-            <label>Geburtsdatum (optional)</label>
-            <input
-              type="date"
-              value={editData?.birthdate || ''}
-              onChange={(e) => setEditData({ ...editData!, birthdate: e.target.value })}
-            />
+            <div className="form-group">
+              <label className="form-label">Rasse (optional)</label>
+              <input
+                className="form-input"
+                type="text"
+                value={editData?.breed || ''}
+                onChange={(e) => setEditData({ ...editData!, breed: e.target.value })}
+                placeholder="z.B. Golden Retriever"
+              />
+            </div>
 
-            <div style={{ display: 'flex', gap: '.5rem' }}>
-              <button className="btn btn-primary" onClick={handleEdit} disabled={submitting} style={{ flex: 1 }}>
-                {submitting ? 'Wird gespeichert...' : '💾 Speichern'}
+            <div className="form-group">
+              <label className="form-label">Geburtsdatum (optional)</label>
+              <input
+                type="date"
+                className="form-input"
+                value={editData?.birthdate || ''}
+                onChange={(e) => setEditData({ ...editData!, birthdate: e.target.value })}
+              />
+            </div>
+            
+            <div className="form-group">
+              <label className="form-label">Profilbild (optional)</label>
+              <input
+                type="file"
+                accept="image/*"
+                className="form-input"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (ev) => setEditData({ ...editData!, avatar_base64: ev.target?.result as string });
+                    reader.readAsDataURL(file);
+                  }
+                }}
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Dynamische Felder (JSON Format)</label>
+              <textarea
+                className="form-input"
+                rows={3}
+                placeholder={'{"Instagram": "@bella", "Chip": "1234"}'}
+                value={editData?.dynamic_fields || ''}
+                onChange={(e) => setEditData({ ...editData!, dynamic_fields: e.target.value })}
+              />
+              <p className="text-muted" style={{ fontSize: '11px', marginTop: 'var(--space-1)' }}>Erlaubt beliebige Key-Value Paare.</p>
+            </div>
+
+            <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-6)' }}>
+              <button type="button" className="btn btn-primary flex-1" onClick={handleEdit} disabled={submitting}>
+                {submitting ? 'Speichert...' : 'Speichern'}
               </button>
-              <button className="btn btn-outline" onClick={() => { setEditing(false); setEditData(animal) }} disabled={submitting} style={{ flex: 1 }}>
+              <button type="button" className="btn btn-ghost flex-1" onClick={() => { setEditing(false); setEditData(animal) }} disabled={submitting}>
                 Abbrechen
               </button>
             </div>
-          </>
-        )}
-      </div>
+          </form>
+        </div>
+      )}
 
       {tags.length > 0 && (
-        <div>
-          <h2>IDs ({tags.length})</h2>
+        <div style={{ marginBottom: 'var(--space-6)' }}>
+          <h3 style={{ marginBottom: 'var(--space-3)' }}>IDs ({tags.length})</h3>
           {tags.map(tag => (
-            <div key={tag.tag_id} className="card" style={{ marginBottom: '0.75rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', justifyContent: 'space-between' }}>
+            <div key={tag.tag_id} className="card card-sm" style={{ marginBottom: 'var(--space-2)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', justifyContent: 'space-between' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-                    <span style={{ fontSize: '1.2rem' }}>
-                      {tag.tag_type === 'barcode' ? '📦' : '📡'}
-                    </span>
-                    <span style={{ fontWeight: 600, fontSize: '0.9rem', wordBreak: 'break-all' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: '4px' }}>
+                    {tag.tag_type === 'barcode' ? <Radio size={16} color="var(--primary-500)" /> : <Tag size={16} color="var(--primary-500)" />}
+                    <span style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', wordBreak: 'break-all' }}>
                       {tag.tag_id}
                     </span>
                   </div>
-                  <p className="muted" style={{ fontSize: '0.8rem', margin: 0 }}>
-                    {tag.tag_type === 'barcode' ? 'Barcode' : 'NFC'} · {tag.active ? 'Aktiv' : 'Inaktiv'}
+                  <p className="text-muted" style={{ margin: 0, fontSize: '12px' }}>
+                    {tag.tag_type === 'barcode' ? 'Barcode' : 'NFC'}
                   </p>
                 </div>
-                {tag.active === 0 && (
-                  <span style={{ padding: '0.25rem 0.5rem', background: '#fee2e2', color: '#b91c1c', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600 }}>
-                    Inaktiv
-                  </span>
+                {tag.active === 1 ? (
+                  <span className="badge badge-success"><span className="badge-dot"></span>Aktiv</span>
+                ) : (
+                  <span className="badge badge-danger">Inaktiv</span>
                 )}
               </div>
             </div>
@@ -191,33 +274,46 @@ export default function AnimalPage() {
         </div>
       )}
 
-      <h2>Dokumente ({documents.length})</h2>
-      {documents.length === 0 && <p className="muted">Noch keine Dokumente. Scanne das erste Dokument!</p>}
+      <h3 style={{ marginBottom: 'var(--space-3)' }}>Dokumente ({documents.length})</h3>
+      {documents.length === 0 && <p className="text-muted text-center" style={{ padding: 'var(--space-4) 0' }}>Noch keine Dokumente. Scanne das erste Dokument!</p>}
+      
       {documents.length > 0 && (
-        <input
-          type="text"
-          placeholder="🔍 Dokumente durchsuchen..."
-          value={documentSearch}
-          onChange={e => setDocumentSearch(e.target.value.toLowerCase())}
-          style={{ width: '100%', marginBottom: '1rem' }}
-        />
+        <div style={{ position: 'relative', marginBottom: 'var(--space-4)' }}>
+          <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
+          <input
+            className="form-input"
+            style={{ paddingLeft: 38 }}
+            type="text"
+            placeholder="Dokumente durchsuchen..."
+            value={documentSearch}
+            onChange={e => setDocumentSearch(e.target.value.toLowerCase())}
+          />
+        </div>
       )}
+      
       {documents
         .filter(doc => !documentSearch || docTypeLabel[doc.doc_type]?.toLowerCase().includes(documentSearch) || new Date(doc.created_at).toLocaleString('de-AT').includes(documentSearch))
         .map(doc => (
         <Link key={doc.id} to={`/animals/${id}/documents/${doc.id}`} style={{ textDecoration: 'none' }}>
-          <div className="card" style={{ cursor: 'pointer' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '.5rem' }}>
-              <span style={{ fontWeight: 500 }}>{docTypeLabel[doc.doc_type] ?? doc.doc_type}</span>
-              <div style={{ display: 'flex', gap: '.5rem', alignItems: 'center' }}>
-                {doc.added_by_role === 'vet' && <span className={`badge badge-vet`}>🐾 Tierarzt</span>}
-                {doc.added_by_role === 'authority' && <span className={`badge badge-authority`}>🐾 Behörde</span>}
-                <span className="muted" style={{ fontSize: '.75rem', minWidth: '60px', textAlign: 'right' }}>{doc.ocr_provider}</span>
+          <div className="card card-sm" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-3)' }}>
+            <div style={{
+              width: 36, height: 36, borderRadius: 'var(--radius-sm)', flexShrink: 0,
+              background: 'var(--primary-50)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              {doc.doc_type === 'vaccination' ? <Syringe size={16} color="var(--primary-600)" strokeWidth={2} /> : <FileText size={16} color="var(--primary-600)" strokeWidth={2} />}
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)' }}>{docTypeLabel[doc.doc_type] ?? doc.doc_type}</div>
+              <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
+                {new Date(doc.created_at).toLocaleString('de-AT')}
               </div>
             </div>
-            <p className="muted" style={{ marginTop: '.25rem', fontSize: '.875rem' }}>
-              {new Date(doc.created_at).toLocaleString('de-AT')}
-            </p>
+            <div style={{ display: 'flex', gap: '4px', flexDirection: 'column', alignItems: 'flex-end' }}>
+              {doc.added_by_role === 'vet' && <span className="badge badge-success"><CheckCircle size={10} /> Tierarzt</span>}
+              {doc.added_by_role === 'authority' && <span className="badge badge-info"><ShieldAlert size={10} /> Behörde</span>}
+              <span className="text-muted" style={{ fontSize: '10px' }}>{doc.ocr_provider}</span>
+            </div>
           </div>
         </Link>
       ))}

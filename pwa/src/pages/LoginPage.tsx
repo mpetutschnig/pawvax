@@ -1,6 +1,7 @@
 import { useState, FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { login, register } from '../api/rest'
+import { PawPrint, LogIn, UserPlus } from 'lucide-react'
 
 export default function LoginPage() {
   const navigate = useNavigate()
@@ -33,34 +34,43 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="container" style={{ paddingTop: '3rem' }}>
-      <div className="card">
-        <h1>🐾 PAW</h1>
-        <p className="muted" style={{ marginBottom: '1.5rem' }}>Digitaler Tierimpfpass</p>
+    <div className="container page" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: '100dvh', padding: 'var(--space-4)' }}>
+      <div className="card animate-slide-up" style={{ padding: 'var(--space-8) var(--space-6)', maxWidth: '400px', margin: '0 auto', width: '100%' }}>
+        <div style={{ textAlign: 'center', marginBottom: 'var(--space-6)' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 64, height: 64, borderRadius: '50%', background: 'var(--primary-50)', marginBottom: 'var(--space-4)' }}>
+            <PawPrint size={32} color="var(--primary-500)" />
+          </div>
+          <h1 style={{ margin: 0, fontSize: 'var(--font-size-xl)' }}>PAW</h1>
+          <p className="text-muted" style={{ margin: '4px 0 0 0' }}>Digitaler Tierimpfpass</p>
+        </div>
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 'var(--space-4)' }}>
           {mode === 'register' && (
-            <>
-              <label>Name</label>
-              <input value={name} onChange={e => setName(e.target.value)} required placeholder="Dein Name" />
-            </>
+            <div className="form-group">
+              <label className="form-label">Name</label>
+              <input className="form-input" value={name} onChange={e => setName(e.target.value)} required placeholder="Dein Name" />
+            </div>
           )}
-          <label>E-Mail</label>
-          <input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="name@example.com" />
-          <label>Passwort</label>
-          <input type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} placeholder="Mindestens 6 Zeichen" />
+          <div className="form-group">
+            <label className="form-label">E-Mail</label>
+            <input className="form-input" type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="name@example.com" />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Passwort</label>
+            <input className="form-input" type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} placeholder="Mindestens 6 Zeichen" />
+          </div>
 
-          {error && <p className="error">{error}</p>}
+          {error && <div className="error-card"><p>{error}</p></div>}
 
-          <button className="btn btn-primary" type="submit" disabled={loading} style={{ marginTop: '.5rem' }}>
-            {loading ? 'Bitte warten...' : mode === 'login' ? 'Einloggen' : 'Registrieren'}
+          <button className="btn btn-primary btn-full" type="submit" disabled={loading} style={{ marginTop: 'var(--space-2)' }}>
+            {loading ? <div className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }} /> : mode === 'login' ? <><LogIn size={18} /> Einloggen</> : <><UserPlus size={18} /> Registrieren</>}
           </button>
         </form>
 
-        <p className="muted" style={{ marginTop: '1rem', textAlign: 'center' }}>
+        <p className="text-muted" style={{ marginTop: 'var(--space-6)', textAlign: 'center', fontSize: 'var(--font-size-sm)' }}>
           {mode === 'login' ? 'Noch kein Konto? ' : 'Bereits registriert? '}
           <button
-            style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontWeight: 600 }}
+            style={{ background: 'none', border: 'none', color: 'var(--primary-600)', cursor: 'pointer', fontWeight: 600, padding: 0 }}
             onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(null) }}
           >
             {mode === 'login' ? 'Registrieren' : 'Einloggen'}

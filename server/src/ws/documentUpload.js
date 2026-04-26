@@ -52,7 +52,7 @@ export default async function wsDocumentUpload(fastify) {
 
       switch (msg.type) {
         case 'upload_start': {
-          const { animalId, filename, mimeType } = msg
+          const { animalId, filename, mimeType, allowedRoles } = msg
           console.log(`[WS] Upload start: ${filename} für Tier ${animalId}`)
 
           // sicherstellen, dass das Tier dem Account gehört
@@ -70,6 +70,7 @@ export default async function wsDocumentUpload(fastify) {
           uploadState = {
             animalId,
             mimeType,
+            allowedRoles: allowedRoles ?? ['vet', 'authority', 'readonly'],
             filename: safeFilename,
             writer: saveImageChunks(safeFilename)
           }
@@ -89,21 +90,13 @@ export default async function wsDocumentUpload(fastify) {
             send(socket, { type: 'status', message: 'Bild empfangen, starte Analyse...' })
             const imagePath = await uploadState.writer.finish()
 
-            const useGemini = userGeminiKey || process.env.GEMINI_API_KEY
-            const ocrProvider = useGemini ? 'Gemini Vision' : 'Tesseract'
-            send(socket, { type: 'status', message: `${ocrProvider} analysiert Dokument...` })
-
-            let elapsed = 0
-            const heartbeat = setInterval(() => {
-              elapsed += 4
-              send(socket, { type: 'status', message: `Analyse läuft... (${elapsed}s)` })
-            }, 4000)
-
             let analyzeResult
             try {
-              analyzeResult = await analyzeDocument(imagePath, userGeminiKey)
-            } finally {
-              clearInterval(heartbeat)
+              analyzeResult = await analyzeDocument(imagePath, userGeminiKey, (progressMsg) => {
+                send(socket, { type: 'status', message: progressMsg })
+              })
+            } catch (err) {
+              throw err // Will be caught by outer catch block
             }
             const { provider, data } = analyzeResult
 
@@ -112,9 +105,9 @@ export default async function wsDocumentUpload(fastify) {
             const db = getDb()
             const docId = uuid()
             db.prepare(`
-              INSERT INTO documents (id, animal_id, doc_type, image_path, extracted_json, ocr_provider, added_by_account, added_by_role)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            `).run(docId, uploadState.animalId, data.type ?? 'other', imagePath, JSON.stringify(data), provider, accountId, userRole)
+              INSERT INTO documents (id, animal_id, doc_type, image_path, extracted_json, ocr_provider, added_by_account, added_by_role, allowed_roles)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `).run(docId, uploadState.animalId, data.type ?? 'other', imagePath, JSON.stringify(data), provider, accountId, userRole, JSON.stringify(uploadState.allowedRoles))
 
             send(socket, {
               type: 'result',
@@ -122,7 +115,7 @@ export default async function wsDocumentUpload(fastify) {
             })
           } catch (err) {
             console.error('OCR/Upload Fehler:', err)
-            send(socket, { type: 'error', message: `Analyse fehlgeschlagen: ${err.message}` })
+            send(socket, { type: 'error', message: err.message })
           } finally {
             uploadState = null
           }

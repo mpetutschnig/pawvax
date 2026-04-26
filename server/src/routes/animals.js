@@ -1,18 +1,19 @@
 import { v4 as uuid } from 'uuid'
 import { getDb } from '../db/index.js'
 import { logAudit } from '../services/audit.js'
+import { saveBase64Image } from '../services/storage.js'
 
 function ensureDefaultSharing(db, animalId) {
   const defaults = [
-    { role: 'readonly',  v: 1, m: 0, o: 0, c: 0, b: 1, d: 1 },
-    { role: 'authority', v: 1, m: 1, o: 0, c: 1, b: 1, d: 1 },
-    { role: 'vet',       v: 1, m: 1, o: 1, c: 1, b: 1, d: 1 },
+    { role: 'readonly',  v: 1, m: 0, o: 0, c: 0, b: 1, d: 1, df: 0 },
+    { role: 'authority', v: 1, m: 1, o: 0, c: 1, b: 1, d: 1, df: 1 },
+    { role: 'vet',       v: 1, m: 1, o: 1, c: 1, b: 1, d: 1, df: 1 },
   ]
   for (const d of defaults) {
     try {
-      db.prepare(`INSERT INTO animal_sharing (id, animal_id, role, share_vaccination, share_medication, share_other_docs, share_contact, share_breed, share_birthdate)
-                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-        .run(uuid(), animalId, d.role, d.v, d.m, d.o, d.c, d.b, d.d)
+      db.prepare(`INSERT INTO animal_sharing (id, animal_id, role, share_vaccination, share_medication, share_other_docs, share_contact, share_breed, share_birthdate, share_dynamic_fields)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+        .run(uuid(), animalId, d.role, d.v, d.m, d.o, d.c, d.b, d.d, d.df)
     } catch { /* already exists */ }
   }
 }
@@ -21,10 +22,11 @@ function applySharing(db, animal, requestRole, ownerName, ownerEmail) {
   const sharing = db.prepare('SELECT * FROM animal_sharing WHERE animal_id = ? AND role = ?').get(animal.id, requestRole)
   if (!sharing) return null
 
-  const result = { id: animal.id, name: animal.name, species: animal.species }
+  const result = { id: animal.id, name: animal.name, species: animal.species, avatar_path: animal.avatar_path }
   if (sharing.share_breed) result.breed = animal.breed
   if (sharing.share_birthdate) result.birthdate = animal.birthdate
   if (sharing.share_contact) result.contact = { name: ownerName, email: ownerEmail }
+  if (sharing.share_dynamic_fields) result.dynamic_fields = animal.dynamic_fields
   return result
 }
 
@@ -125,7 +127,9 @@ export default async function animalRoutes(fastify) {
           name: { type: 'string' },
           species: { type: 'string', enum: ['dog', 'cat', 'other'] },
           breed: { type: 'string' },
-          birthdate: { type: 'string' }
+          birthdate: { type: 'string' },
+          dynamic_fields: { type: 'string' }, // JSON string
+          avatar_base64: { type: 'string' }
         }
       }
     }
@@ -138,8 +142,16 @@ export default async function animalRoutes(fastify) {
     if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden' })
 
     const updated = { ...animal, ...req.body }
-    db.prepare('UPDATE animals SET name=?, species=?, breed=?, birthdate=? WHERE id=?')
-      .run(updated.name, updated.species, updated.breed, updated.birthdate, id)
+    let avatarPath = animal.avatar_path
+
+    if (req.body.avatar_base64) {
+      const ext = req.body.avatar_base64.substring(0, 20).includes('png') ? 'png' : 'jpg'
+      const filename = `${uuid()}_avatar.${ext}`
+      avatarPath = saveBase64Image(filename, req.body.avatar_base64)
+    }
+
+    db.prepare('UPDATE animals SET name=?, species=?, breed=?, birthdate=?, dynamic_fields=?, avatar_path=? WHERE id=?')
+      .run(updated.name, updated.species, updated.breed, updated.birthdate, updated.dynamic_fields ?? animal.dynamic_fields, avatarPath, id)
 
     logAudit(db, { accountId, role, action: 'update_animal', resource: 'animal', resourceId: id,
       details: { before: animal, after: updated }, ip: req.ip })
@@ -200,8 +212,18 @@ export default async function animalRoutes(fastify) {
     if (allowed.length === 0) return []
 
     const ph = allowed.map(() => '?').join(',')
-    return db.prepare(`SELECT * FROM documents WHERE animal_id = ? AND doc_type IN (${ph}) ORDER BY created_at DESC`)
+    const docs = db.prepare(`SELECT * FROM documents WHERE animal_id = ? AND doc_type IN (${ph}) ORDER BY created_at DESC`)
       .all(id, ...allowed)
+
+    return docs.filter(d => {
+      if (!d.allowed_roles) return true
+      try {
+        const roles = JSON.parse(d.allowed_roles)
+        return roles.includes(requestRole)
+      } catch {
+        return true
+      }
+    })
   })
 
   // Tag-Liste eines Tieres
@@ -295,7 +317,8 @@ export default async function animalRoutes(fastify) {
           share_other_docs: { type: 'integer' },
           share_contact: { type: 'integer' },
           share_breed: { type: 'integer' },
-          share_birthdate: { type: 'integer' }
+          share_birthdate: { type: 'integer' },
+          share_dynamic_fields: { type: 'integer' }
         }
       }
     }
@@ -307,7 +330,7 @@ export default async function animalRoutes(fastify) {
     const animal = db.prepare('SELECT id FROM animals WHERE id = ? AND account_id = ?').get(id, accountId)
     if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden' })
 
-    const { role, share_vaccination, share_medication, share_other_docs, share_contact, share_breed, share_birthdate } = req.body
+    const { role, share_vaccination, share_medication, share_other_docs, share_contact, share_breed, share_birthdate, share_dynamic_fields } = req.body
 
     const existing = db.prepare('SELECT * FROM animal_sharing WHERE animal_id = ? AND role = ?').get(id, role)
 
@@ -319,16 +342,17 @@ export default async function animalRoutes(fastify) {
         c: share_contact ?? existing.share_contact,
         b: share_breed ?? existing.share_breed,
         d: share_birthdate ?? existing.share_birthdate,
+        df: share_dynamic_fields ?? existing.share_dynamic_fields,
       }
-      db.prepare(`UPDATE animal_sharing SET share_vaccination=?, share_medication=?, share_other_docs=?, share_contact=?, share_breed=?, share_birthdate=?
+      db.prepare(`UPDATE animal_sharing SET share_vaccination=?, share_medication=?, share_other_docs=?, share_contact=?, share_breed=?, share_birthdate=?, share_dynamic_fields=?
                   WHERE animal_id=? AND role=?`)
-        .run(merged.v, merged.m, merged.o, merged.c, merged.b, merged.d, id, role)
+        .run(merged.v, merged.m, merged.o, merged.c, merged.b, merged.d, merged.df, id, role)
     } else {
-      db.prepare(`INSERT INTO animal_sharing (id, animal_id, role, share_vaccination, share_medication, share_other_docs, share_contact, share_breed, share_birthdate)
-                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      db.prepare(`INSERT INTO animal_sharing (id, animal_id, role, share_vaccination, share_medication, share_other_docs, share_contact, share_breed, share_birthdate, share_dynamic_fields)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
         .run(uuid(), id, role,
           share_vaccination ?? 1, share_medication ?? 0, share_other_docs ?? 0,
-          share_contact ?? 0, share_breed ?? 1, share_birthdate ?? 1)
+          share_contact ?? 0, share_breed ?? 1, share_birthdate ?? 1, share_dynamic_fields ?? 0)
     }
 
     logAudit(db, { accountId, role: userRole, action: 'update_sharing', resource: 'sharing', resourceId: id,
