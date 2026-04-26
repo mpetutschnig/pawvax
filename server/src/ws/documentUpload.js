@@ -32,11 +32,13 @@ export default async function wsDocumentUpload(fastify) {
 
     let uploadState = null
 
-    socket.on('message', async (raw) => {
+    socket.on('message', async (raw, isBinary) => {
       // Binärdaten = Bildchunk
-      if (raw instanceof Buffer && uploadState?.writer) {
-        uploadState.writer.write(raw)
-        console.log(`[WS] Chunk erhalten: ${raw.length} bytes`)
+      if (isBinary) {
+        if (uploadState?.writer) {
+          uploadState.writer.write(raw)
+          console.log(`[WS] Chunk erhalten: ${raw.length} bytes`)
+        }
         return
       }
 

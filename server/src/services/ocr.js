@@ -7,9 +7,19 @@ const GEMINI_PROMPT = `
 Du bist ein Veterinär-Dokumentenanalyst. Analysiere das folgende Tierdokument (Impfpass, Medikament, etc.)
 und gib die Daten strukturiert als JSON zurück.
 
+WICHTIGE REGELN:
+1. Prüfe doppelt, ob der gewählte Dokumenten-Typ ("type") wirklich exakt zum Bild passt (z.B. wirklich eine Impfung/Vaccine und nicht nur eine normale Rechnung).
+2. Lies alle vorhandenen Daten (Datum) extrem sorgfältig heraus (z.B. Ausstellungsdatum, Impfdatum, Ablaufdatum).
+3. Generiere unter "suggested_tags" passende, aussagekräftige Tags zum Dokument (z.B. "Tollwut", "Rezept", "Laborbericht").
+4. Generiere unter "document_date" das erkannte Hauptdatum des Dokuments im Format YYYY-MM-DD, falls eines auffindbar ist.
+5. Generiere unter "summary" eine kurze, gut lesbare Zusammenfassung bzw. Beschreibung des Dokuments.
+6. Bei Medikamenten (medication): Recherchiere und inkludiere zusätzliche Hintergrundinfos (z.B. Wirkstoff, Anwendung) sowie nach Möglichkeit einen Link zum Hersteller.
+
 Für Impfdokumente verwende:
 {
   "type": "vaccination",
+  "document_date": "...",
+  "summary": "...",
   "animal": { "name": "...", "species": "...", "breed": "...", "birthdate": "..." },
   "vaccinations": [{ "vaccine": "...", "date": "...", "nextDue": "...", "vet": "..." }],
   "suggested_tags": ["tag1", "tag2"]
@@ -18,13 +28,17 @@ Für Impfdokumente verwende:
 Für Medikamentendokumente verwende:
 {
   "type": "medication",
-  "medications": [{ "name": "...", "dosage": "...", "frequency": "...", "startDate": "...", "endDate": "..." }],
+  "document_date": "...",
+  "summary": "...",
+  "medications": [{ "name": "...", "dosage": "...", "frequency": "...", "startDate": "...", "endDate": "...", "details": "...", "manufacturer_link": "..." }],
   "suggested_tags": ["tag1", "tag2"]
 }
 
 Für unbekannte Dokumente:
 {
   "type": "other",
+  "document_date": "...",
+  "summary": "...",
   "rawText": "...",
   "suggested_tags": ["tag1", "tag2"]
 }

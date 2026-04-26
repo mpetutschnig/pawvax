@@ -38,46 +38,46 @@ export default function DocumentScanPage() {
     const f = e.target.files?.[0]
     if (!f) return
     
-    const reader = new FileReader()
-    reader.onload = (event) => {
-      const img = new Image()
-      img.onload = () => {
-        const canvas = document.createElement('canvas')
-        const MAX_WIDTH = 1200
-        const MAX_HEIGHT = 1200
-        let width = img.width
-        let height = img.height
+    // Vermeide DataURL (führt auf Mobile oft zu Out-Of-Memory Crashs und Reloads!)
+    const objectUrl = URL.createObjectURL(f)
+    const img = new Image()
+    
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      const MAX_WIDTH = 1200
+      const MAX_HEIGHT = 1200
+      let width = img.width
+      let height = img.height
 
-        if (width > height) {
-          if (width > MAX_WIDTH) {
-            height *= MAX_WIDTH / width
-            width = MAX_WIDTH
-          }
-        } else {
-          if (height > MAX_HEIGHT) {
-            width *= MAX_HEIGHT / height
-            height = MAX_HEIGHT
-          }
+      if (width > height) {
+        if (width > MAX_WIDTH) {
+          height *= MAX_WIDTH / width
+          width = MAX_WIDTH
         }
-        
-        canvas.width = width
-        canvas.height = height
-        const ctx = canvas.getContext('2d')
-        ctx?.drawImage(img, 0, 0, width, height)
-        
-        canvas.toBlob((blob) => {
-          if (blob) {
-            const resizedFile = new File([blob], f.name, { type: 'image/jpeg', lastModified: Date.now() })
-            setFile(resizedFile)
-            setPreview(URL.createObjectURL(resizedFile))
-          }
-        }, 'image/jpeg', 0.8) // 0.8 quality for smaller file size
+      } else {
+        if (height > MAX_HEIGHT) {
+          width *= MAX_HEIGHT / height
+          height = MAX_HEIGHT
+        }
       }
-      if (event.target?.result) {
-        img.src = event.target.result as string
-      }
+      
+      canvas.width = width
+      canvas.height = height
+      const ctx = canvas.getContext('2d')
+      ctx?.drawImage(img, 0, 0, width, height)
+      
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const resizedFile = new File([blob], f.name, { type: 'image/jpeg', lastModified: Date.now() })
+          setFile(resizedFile)
+          setPreview(URL.createObjectURL(resizedFile))
+        }
+        // Wichtig: Speicher wieder freigeben!
+        URL.revokeObjectURL(objectUrl)
+      }, 'image/jpeg', 0.8)
     }
-    reader.readAsDataURL(f)
+    
+    img.src = objectUrl
   }
 
   async function handleUpload() {
