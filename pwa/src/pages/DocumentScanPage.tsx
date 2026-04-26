@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ChevronLeft, CheckCircle, AlertCircle, Syringe, FileText, Cpu, BookOpen, Camera } from 'lucide-react'
+import { ChevronLeft, CheckCircle, AlertCircle, Syringe, FileText, Cpu, BookOpen, Camera, RefreshCw } from 'lucide-react'
 import { uploadDocument } from '../api/ws'
 
 type Phase = 'capture' | 'uploading' | 'analysing' | 'done' | 'error'
@@ -120,6 +120,31 @@ export default function DocumentScanPage() {
     }
   }
 
+  async function handleRotate() {
+    if (!preview || !file) return
+    const img = new Image()
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      // 90 degrees clockwise
+      canvas.width = img.height
+      canvas.height = img.width
+      const ctx = canvas.getContext('2d')
+      if (ctx) {
+        ctx.translate(canvas.width / 2, canvas.height / 2)
+        ctx.rotate((90 * Math.PI) / 180)
+        ctx.drawImage(img, -img.width / 2, -img.height / 2)
+      }
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const rotatedFile = new File([blob], file.name, { type: 'image/jpeg', lastModified: Date.now() })
+          setFile(rotatedFile)
+          setPreview(URL.createObjectURL(rotatedFile))
+        }
+      }, 'image/jpeg', 0.8)
+    }
+    img.src = preview
+  }
+
   async function handleUpload() {
     if (!file || !animalId) return
     setPhase('uploading')
@@ -222,7 +247,21 @@ export default function DocumentScanPage() {
             </div>
           ) : (
             <>
-              <img src={preview} alt="Vorschau" style={{ width: '100%', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-4)' }} />
+              <div style={{ position: 'relative', marginBottom: 'var(--space-4)' }}>
+                <img src={preview} alt="Vorschau" style={{ width: '100%', borderRadius: 'var(--radius-md)', display: 'block' }} />
+                <button 
+                  className="btn-secondary" 
+                  onClick={handleRotate}
+                  style={{ 
+                    position: 'absolute', top: 'var(--space-2)', right: 'var(--space-2)', 
+                    padding: '8px', borderRadius: '50%', background: 'rgba(255,255,255,0.9)', 
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)', border: 'none', cursor: 'pointer' 
+                  }}
+                  title="Bild drehen"
+                >
+                  <RefreshCw size={20} color="var(--primary-600)" />
+                </button>
+              </div>
               
               <div style={{ marginBottom: 'var(--space-4)', textAlign: 'left' }}>
                 <label className="form-label">Wer darf dieses Dokument sehen?</label>
