@@ -1,5 +1,4 @@
 import { createWorker } from 'tesseract.js'
-import { GoogleGenerativeAI } from '@google/generative-ai'
 import { readFileSync } from 'fs'
 
 const GEMINI_KEY = process.env.GEMINI_API_KEY
@@ -53,19 +52,38 @@ export async function analyzeDocument(imagePath, userGeminiKey = null, onProgres
 }
 
 async function analyzeWithGemini(imagePath, geminiKey) {
-  const genAI = new GoogleGenerativeAI(geminiKey)
-  const model = genAI.getGenerativeModel({ model: 'gemini-3.1-flash-lite' })
-
   const imageData = readFileSync(imagePath)
   const base64 = imageData.toString('base64')
   const mimeType = imagePath.endsWith('.png') ? 'image/png' : 'image/jpeg'
 
-  const result = await model.generateContent([
-    GEMINI_PROMPT,
-    { inlineData: { data: base64, mimeType } }
-  ])
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key=${geminiKey}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      contents: [{
+        parts: [
+          { text: GEMINI_PROMPT },
+          {
+            inlineData: {
+              mimeType: mimeType,
+              data: base64
+            }
+          }
+        ]
+      }]
+    })
+  });
 
-  const text = result.response.text().trim()
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Gemini API Error: ${response.status} ${errorText}`);
+  }
+
+  const result = await response.json();
+  const text = result.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  
   const jsonMatch = text.match(/\{[\s\S]*\}/)
   if (!jsonMatch) throw new Error('Kein JSON in Gemini-Antwort')
 

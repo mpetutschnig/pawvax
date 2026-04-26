@@ -440,7 +440,7 @@ label,
   letter-spacing: 0.01em;
 }
 
-input,
+input:not([type="checkbox"]):not([type="radio"]),
 select,
 textarea,
 .form-input,
@@ -464,13 +464,13 @@ textarea,
   -webkit-appearance: none;
 }
 
-input::placeholder,
+input:not([type="checkbox"]):not([type="radio"])::placeholder,
 textarea::placeholder,
 .form-input::placeholder {
   color: var(--text-tertiary);
 }
 
-input:focus,
+input:not([type="checkbox"]):not([type="radio"]):focus,
 select:focus,
 textarea:focus,
 .form-input:focus,
@@ -481,7 +481,7 @@ textarea:focus,
   box-shadow: 0 0 0 3px oklch(from var(--primary-500) l c h / 0.15);
 }
 
-input:disabled,
+input:not([type="checkbox"]):not([type="radio"]):disabled,
 select:disabled,
 textarea:disabled {
   background: var(--surface-alt);
@@ -508,21 +508,21 @@ textarea {
 
 /* ── Input validation states ── */
 .form-input.is-valid,
-input.is-valid {
+input:not([type="checkbox"]):not([type="radio"]).is-valid {
   border-color: var(--success-500);
 }
 .form-input.is-valid:focus,
-input.is-valid:focus {
+input:not([type="checkbox"]):not([type="radio"]).is-valid:focus {
   box-shadow: 0 0 0 3px oklch(from var(--success-500) l c h / 0.15);
 }
 
 .form-input.is-invalid,
-input.is-invalid {
+input:not([type="checkbox"]):not([type="radio"]).is-invalid {
   border-color: var(--danger-500);
   background: var(--danger-50);
 }
 .form-input.is-invalid:focus,
-input.is-invalid:focus {
+input:not([type="checkbox"]):not([type="radio"]).is-invalid:focus {
   box-shadow: 0 0 0 3px oklch(from var(--danger-500) l c h / 0.15);
 }
 
