@@ -9,6 +9,8 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [geminiToken, setGeminiToken] = useState('')
+  const [geminiError, setGeminiError] = useState('')
+  const [geminiSuccess, setGeminiSuccess] = useState('')
   const [showConfirmDelete, setShowConfirmDelete] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -32,18 +34,26 @@ export default function ProfilePage() {
   }
 
   const saveGeminiToken = async () => {
+    if (!geminiToken) return
     setSaving(true)
+    setGeminiError('')
+    setGeminiSuccess('')
     try {
+      // Validate key
+      const validateRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview?key=${geminiToken}`)
+      if (!validateRes.ok) {
+        throw new Error('Ungültiger API-Schlüssel! Authentifizierung fehlgeschlagen.')
+      }
+
       await patchMe({ gemini_token: geminiToken || null })
-      setSuccess('Gemini-Schlüssel gespeichert')
+      setGeminiSuccess('Gemini-Schlüssel erfolgreich authentifiziert und gespeichert!')
       setGeminiToken('')
       setTimeout(() => {
         loadProfile()
-        setSuccess(null)
-      }, 1000)
+        setGeminiSuccess('')
+      }, 3000)
     } catch (err) {
-      setError('Fehler beim Speichern')
-      console.error(err)
+      setGeminiError(err instanceof Error ? err.message : 'Fehler beim Speichern')
     } finally {
       setSaving(false)
     }
@@ -151,7 +161,7 @@ export default function ProfilePage() {
         )}
 
         <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginTop: 'var(--space-6)', marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-          <Key size={18} color="var(--primary-500)" /> Gemini Vision API
+          <Key size={18} color="var(--primary-500)" /> Gemini 3.1 Flash-Lite API
         </h3>
         <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-4)' }}>
           Gib deinen persönlichen Gemini API-Schlüssel ein, um Dokumente mit deinem eigenen Kontingent zu analysieren.
@@ -177,7 +187,7 @@ export default function ProfilePage() {
         <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
           {!profile.has_gemini_token ? (
             <button className="btn btn-primary" onClick={saveGeminiToken} disabled={saving || !geminiToken}>
-              {saving ? 'Speichert...' : 'Speichern'}
+              {saving ? 'Prüft...' : 'Prüfen & Speichern'}
             </button>
           ) : (
             <button className="btn btn-danger" onClick={clearGeminiToken} disabled={saving}>
@@ -185,6 +195,9 @@ export default function ProfilePage() {
             </button>
           )}
         </div>
+        
+        {geminiError && <div className="error-card" style={{ marginTop: 'var(--space-3)', padding: 'var(--space-3)' }}><p style={{ margin: 0 }}>{geminiError}</p></div>}
+        {geminiSuccess && <div className="card" style={{ marginTop: 'var(--space-3)', padding: 'var(--space-3)', background: 'var(--success-50)', borderColor: 'var(--success-500)', display: 'flex', gap: 'var(--space-2)' }}><CheckCircle size={16} color="var(--success-600)" /><p style={{ margin: 0, color: 'var(--success-600)', fontWeight: 500, fontSize: 'var(--font-size-sm)' }}>{geminiSuccess}</p></div>}
         
         <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-4)', padding: 'var(--space-3)', background: 'oklch(96% 0.02 80)', borderRadius: 'var(--radius-md)' }}>
           <AlertTriangle size={16} color="var(--warning-600)" style={{ flexShrink: 0, marginTop: '2px' }} />

@@ -17,9 +17,19 @@ export default function ScanPage() {
   const [newAnimal, setNewAnimal] = useState({ name: '', species: 'dog' as 'dog' | 'cat' | 'other', breed: '' })
   const [cameraError, setCameraError] = useState<string | null>(null)
 
-  const handleTag = useCallback(async (tagId: string, tagType: 'barcode' | 'nfc') => {
+  const handleTag = useCallback(async (rawTagId: string, tagType: 'barcode' | 'nfc') => {
     setError(null)
     setLoading(true)
+    
+    let tagId = rawTagId.trim()
+    try {
+      const url = new URL(tagId)
+      const parts = url.pathname.split('/')
+      tagId = parts[parts.length - 1]
+    } catch {
+      // Ist keine URL, bleibt unverändert
+    }
+
     try {
       const res = await getAnimalByTag(tagId)
       navigate(`/animals/${res.data.id}`)
@@ -126,17 +136,19 @@ export default function ScanPage() {
             <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--primary-50)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto var(--space-4)' }}>
               <Camera size={32} color="var(--primary-500)" />
             </div>
-            <h3 style={{ marginBottom: 'var(--space-2)' }}>Scan ID</h3>
-            <p className="text-muted" style={{ marginBottom: 'var(--space-6)' }}>Choose a method to identify your pet</p>
+            <h3 style={{ marginBottom: 'var(--space-2)' }}>Tier identifizieren / registrieren</h3>
+            <p className="text-muted" style={{ marginBottom: 'var(--space-6)', fontSize: 'var(--font-size-sm)' }}>
+              Scanne den Vax.pet NFC-Tag oder QR-Code, um das Tierprofil zu öffnen. Unbekannte Tags können sofort neu registriert werden.
+            </p>
             
             <button className="btn btn-primary btn-full" style={{ marginBottom: 'var(--space-3)' }} onClick={() => setMode('barcode')}>
-              <Camera size={18} /> Barcode scannen
+              <Camera size={18} /> QR-Code / Barcode scannen
             </button>
             <button className="btn btn-secondary btn-full" style={{ marginBottom: 'var(--space-3)' }} onClick={() => { setMode('nfc'); startNfc() }}>
-              <Radio size={18} /> NFC lesen
+              <Radio size={18} /> NFC-Tag auslesen
             </button>
             <button className="btn btn-outline btn-full" onClick={() => setMode('manual')}>
-              <Keyboard size={18} /> ID manuell eingeben
+              <Keyboard size={18} /> Tag-ID manuell eingeben
             </button>
           </div>
           {error && <div className="error-card"><p>{error}</p></div>}

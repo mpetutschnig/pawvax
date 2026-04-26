@@ -35,27 +35,29 @@ Antworte NUR mit dem JSON-Objekt, kein erklärender Text.
 export async function analyzeDocument(imagePath, userGeminiKey = null, onProgress = null) {
   const geminiKey = userGeminiKey || GEMINI_KEY
   if (geminiKey) {
-    if (onProgress) onProgress('Gemini Vision analysiert...')
+    if (onProgress) onProgress('Technologie: Gemini 3.1 Flash-Lite wird initialisiert...')
     try {
-      return await analyzeWithGemini(imagePath, geminiKey)
+      return await analyzeWithGemini(imagePath, geminiKey, onProgress)
     } catch (err) {
       console.warn('Gemini OCR fehlgeschlagen:', err.message)
       if (userGeminiKey) {
         throw new Error(`Gemini Analyse fehlgeschlagen. Bitte prüfe deinen API-Schlüssel. (${err.message})`)
       }
-      if (onProgress) onProgress('Gemini fehlgeschlagen, lade Tesseract (Fallback)...')
+      if (onProgress) onProgress(`Google API Fehler: ${err.message}. Lade lokales Tesseract OCR (Fallback)...`)
     }
   } else {
-    if (onProgress) onProgress('Starte lokales Tesseract OCR...')
+    if (onProgress) onProgress('Kein Gemini-Key vorhanden. Technologie: Lokales Tesseract OCR wird gestartet...')
   }
   return analyzeWithTesseract(imagePath, onProgress)
 }
 
-async function analyzeWithGemini(imagePath, geminiKey) {
+async function analyzeWithGemini(imagePath, geminiKey, onProgress) {
+  if (onProgress) onProgress('Bild wird für Gemini API verarbeitet...')
   const imageData = readFileSync(imagePath)
   const base64 = imageData.toString('base64')
   const mimeType = imagePath.endsWith('.png') ? 'image/png' : 'image/jpeg'
 
+  if (onProgress) onProgress(`Sende POST Request an Gemini 3.1 Flash-Lite API...`)
   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key=${geminiKey}`, {
     method: 'POST',
     headers: {
@@ -78,9 +80,10 @@ async function analyzeWithGemini(imagePath, geminiKey) {
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Gemini API Error: ${response.status} ${errorText}`);
+    throw new Error(`API Auth/Request fehlgeschlagen (${response.status}): ${errorText}`);
   }
 
+  if (onProgress) onProgress('Anmeldung bei Google API erfolgreich! Verarbeite JSON-Antwort...')
   const result = await response.json();
   const text = result.candidates?.[0]?.content?.parts?.[0]?.text || '';
   

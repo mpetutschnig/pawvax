@@ -24,6 +24,7 @@ export default function DocumentScanPage() {
   const [elapsedTime, setElapsedTime] = useState(0)
   const [result, setResult] = useState<unknown>(null)
   const [ocrProvider, setOcrProvider] = useState<string | null>(null)
+  const [currentStatusMsg, setCurrentStatusMsg] = useState<string | null>(null)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [allowedRoles, setAllowedRoles] = useState<string[]>(['vet', 'authority', 'readonly'])
 
@@ -92,8 +93,9 @@ export default function DocumentScanPage() {
         onProgress: (percent) => setUploadProgress(Math.round(percent)),
         onStatus: (msg) => {
           setPhase('analysing')
-          if (msg.includes('Tesseract') || msg.includes('tesseract')) setOcrProvider('Tesseract.js')
-          if (msg.includes('Gemini') || msg.includes('gemini')) setOcrProvider('Gemini Vision')
+          setCurrentStatusMsg(msg)
+          if (msg.includes('Tesseract') || msg.includes('tesseract')) setOcrProvider('Lokales Tesseract OCR')
+          if (msg.includes('Gemini') || msg.includes('gemini') || msg.includes('Google API')) setOcrProvider('Gemini 3.1 Flash-Lite')
         },
         onResult: (data) => {
           setResult(data.data.content)
@@ -150,7 +152,7 @@ export default function DocumentScanPage() {
             ))}
           </div>
 
-          <p className="text-muted" style={{ marginBottom: 'var(--space-4)' }}>Foto eines Impfpasses, Rezepts oder anderen Tierdokuments</p>
+          <p className="text-muted" style={{ marginBottom: 'var(--space-4)' }}>Fotografiere einen Impfpass, ein Rezept oder ein anderes Tierdokument zur automatischen OCR-Erfassung.</p>
           <input
             ref={fileRef}
             type="file"
@@ -175,8 +177,8 @@ export default function DocumentScanPage() {
               <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--primary-50)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto var(--space-3)' }}>
                 <Camera size={24} color="var(--primary-500)" />
               </div>
-              <p style={{ fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 var(--space-1) 0' }}>Tap to take photo</p>
-              <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', color: 'var(--text-tertiary)' }}>or choose from gallery</p>
+              <p style={{ fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 var(--space-1) 0' }}>Dokument fotografieren</p>
+              <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', color: 'var(--text-tertiary)' }}>oder Datei/Bild auswählen</p>
             </div>
           ) : (
             <>
@@ -220,17 +222,17 @@ export default function DocumentScanPage() {
             </div>
             <div className={`stepper-step ${['analysing', 'done'].includes(phase) ? 'active' : ''}`}>
               <div className="stepper-number">{phase === 'done' ? <CheckCircle size={16} color="white" /> : '2'}</div>
-              <div className="stepper-label">Analysis</div>
+              <div className="stepper-label">Analyse</div>
             </div>
             <div className={`stepper-step ${phase === 'done' ? 'active' : ''}`}>
               <div className="stepper-number">{phase === 'done' ? <CheckCircle size={16} color="white" /> : '3'}</div>
-              <div className="stepper-label">Done</div>
+              <div className="stepper-label">Fertig</div>
             </div>
           </div>
 
           {phase === 'uploading' && (
             <div>
-              <h3 style={{ marginBottom: 'var(--space-4)' }}>Uploading Document...</h3>
+              <h3 style={{ marginBottom: 'var(--space-4)' }}>Dokument wird hochgeladen...</h3>
               <div className="progress-bar" style={{ width: '100%', maxWidth: '240px', margin: '0 auto var(--space-3)' }}>
                 <div className="progress-bar-fill" style={{ width: `${uploadProgress}%` }} />
               </div>
@@ -240,13 +242,15 @@ export default function DocumentScanPage() {
 
           {phase === 'analysing' && (
             <div>
-              <h3 style={{ marginBottom: 'var(--space-4)' }}>Analyzing Document...</h3>
+              <h3 style={{ marginBottom: 'var(--space-4)' }}>Dokument wird analysiert...</h3>
               <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-3)' }}>
                 <div className="spinner"></div>
                 {ocrProvider && <span className="badge badge-info">{ocrProvider}</span>}
               </div>
-              <div className="text-muted" style={{ fontSize: 'var(--font-size-sm)' }}>Please wait...</div>
-              <div className="text-tertiary" style={{ fontSize: 'var(--font-size-xs)', marginTop: 'var(--space-2)' }}>{elapsedTime} seconds elapsed</div>
+              <div className="text-muted" style={{ fontSize: 'var(--font-size-sm)', padding: '0 var(--space-4)', wordBreak: 'break-word', minHeight: '40px' }}>
+                {currentStatusMsg || 'Bitte warten...'}
+              </div>
+              <div className="text-tertiary" style={{ fontSize: 'var(--font-size-xs)', marginTop: 'var(--space-2)' }}>{elapsedTime} Sekunden vergangen</div>
             </div>
           )}
 
