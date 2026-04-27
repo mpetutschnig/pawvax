@@ -83,24 +83,27 @@ export default function AnimalPage() {
     const file = e.target.files?.[0]
     if (!file || !id) return
 
-    try {
-      setUploadingAvatar(true)
-      const reader = new FileReader()
-      reader.onload = async (ev) => {
+    setUploadingAvatar(true)
+    const reader = new FileReader()
+    reader.onload = async (ev) => {
+      try {
         const base64 = ev.target?.result as string
         await uploadAnimalAvatar(id, base64)
-        // Reload animal data to get new avatar
         const res = await getAnimal(id)
         setAnimal(res.data)
         setError(null)
+      } catch (err: any) {
+        setError(err.response?.data?.error || 'Fehler beim Hochladen des Avatars')
+      } finally {
+        setUploadingAvatar(false)
+        if (avatarInputRef.current) avatarInputRef.current.value = ''
       }
-      reader.readAsDataURL(file)
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Fehler beim Hochladen des Avatars')
-    } finally {
-      setUploadingAvatar(false)
-      if (avatarInputRef.current) avatarInputRef.current.value = ''
     }
+    reader.onerror = () => {
+      setError('Fehler beim Lesen der Datei')
+      setUploadingAvatar(false)
+    }
+    reader.readAsDataURL(file)
   }
 
   if (loading) return <div className="container page" style={{ display: 'flex', justifyContent: 'center', paddingTop: '4rem' }}><div className="spinner spinner-lg"></div></div>
