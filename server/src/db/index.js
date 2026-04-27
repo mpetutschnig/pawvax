@@ -37,5 +37,19 @@ export function initDb(dbPath) {
     try { db.exec(sql) } catch { /* column already exists */ }
   }
 
+  // JWT Blacklist table for logout functionality
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS jwt_blacklist (
+        jti TEXT PRIMARY KEY,
+        expires_at INTEGER NOT NULL
+      )
+    `)
+  } catch { /* table already exists */ }
+
+  // Cleanup expired tokens on startup
+  const now = Math.floor(Date.now() / 1000)
+  db.prepare('DELETE FROM jwt_blacklist WHERE expires_at < ?').run(now)
+
   return db
 }

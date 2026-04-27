@@ -1,5 +1,6 @@
 import bcrypt from 'bcrypt'
 import { v4 as uuid } from 'uuid'
+import crypto from 'crypto'
 import { getDb } from '../db/index.js'
 import { logAudit } from '../services/audit.js'
 
@@ -34,7 +35,8 @@ export default async function authRoutes(fastify) {
     logAudit(db, { accountId: id, role: 'user', action: 'register', resource: 'account', resourceId: id, ip: req.ip })
 
     const roles = ['user']
-    const token = fastify.jwt.sign({ accountId: id, name, email, role: 'user', roles, verified: 0 })
+    const jti = crypto.randomUUID()
+    const token = fastify.jwt.sign({ accountId: id, name, email, role: 'user', roles, verified: 0, jti })
     return reply.code(201).send({ token, account: { id, name, email, role: 'user', roles, verified: 0 } })
   })
 
@@ -70,8 +72,23 @@ export default async function authRoutes(fastify) {
 
     logAudit(db, { accountId: account.id, role, action: 'login', resource: 'account', resourceId: account.id, ip: req.ip })
 
-    const token = fastify.jwt.sign({ accountId: account.id, name: account.name, email: account.email, role, roles, verified })
+    const jti = crypto.randomUUID()
+    const expiresIn = 7 * 24 * 60 * 60
+    const token = fastify.jwt.sign({ accountId: account.id, name: account.name, email: account.email, role, roles, verified, jti })
     return { token, account: { id: account.id, name: account.name, email: account.email, role, roles, verified } }
+  })
+
+  // Logout — blacklist the JWT token
+  fastify.post('/api/auth/logout', { onRequest: [fastify.authenticate] }, async (req, reply) => {
+    const db = getDb()
+    const { jti } = req.user
+    if (!jti) return reply.code(400).send({ error: 'Invalid token' })
+
+    const expiresAt = Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60)
+    db.prepare('INSERT OR IGNORE INTO jwt_blacklist (jti, expires_at) VALUES (?, ?)').run(jti, expiresAt)
+
+    logAudit(db, { accountId: req.user.accountId, role: req.user.role, action: 'logout', resource: 'account', resourceId: req.user.accountId, ip: req.ip })
+    return reply.code(204).send()
   })
 
   // Tierarzt beantragt Verifikation
@@ -121,6 +138,15 @@ export default async function authRoutes(fastify) {
   fastify.delete('/api/accounts/me', { onRequest: [fastify.authenticate] }, async (req, reply) => {
     const db = getDb()
     const accountId = req.user.accountId
+    const { role } = req.user
+
+    if (role === 'admin') {
+      const otherAdmins = db.prepare("SELECT COUNT(*) as c FROM accounts WHERE role='admin' AND id != ?").get(accountId).c
+      if (otherAdmins === 0) {
+        return reply.code(403).send({ error: 'Cannot delete the last admin account' })
+      }
+    }
+
     db.prepare('DELETE FROM accounts WHERE id = ?').run(accountId)
     logAudit(db, { accountId, role: 'deleted', action: 'delete_account', resource: 'account', resourceId: accountId, ip: req.ip })
     return reply.code(204).send()
