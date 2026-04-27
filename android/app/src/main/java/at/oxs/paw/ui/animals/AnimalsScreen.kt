@@ -31,6 +31,8 @@ import at.oxs.paw.model.Animal
 import at.oxs.paw.model.CreateAnimalRequest
 import at.oxs.paw.network.RetrofitClient
 import at.oxs.paw.network.TokenStore
+import at.oxs.paw.ui.theme.Spacing
+import at.oxs.paw.ui.theme.Primary500
 import coil3.compose.AsyncImage
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
@@ -129,9 +131,9 @@ fun AnimalsScreen(
         Column(modifier = Modifier
             .fillMaxSize()
             .padding(innerPadding)
-            .padding(16.dp)) {
-            Text("Meine Tiere", style = MaterialTheme.typography.titleLarge)
-            Spacer(Modifier.height(8.dp))
+            .padding(Spacing.screenPadding)) {
+            Text("Meine Tiere", style = MaterialTheme.typography.headlineSmall)
+            Spacer(Modifier.height(Spacing.md))
 
             if (animals.isNotEmpty()) {
                 OutlinedTextField(
@@ -141,7 +143,7 @@ fun AnimalsScreen(
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(Spacing.md))
             }
 
             if (animals.isEmpty()) {
@@ -158,23 +160,23 @@ fun AnimalsScreen(
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 8.dp)
+                                .padding(vertical = Spacing.md)
                                 .clickable { onAnimalFound(animal.id) }
                         ) {
-                            Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Row(modifier = Modifier.padding(Spacing.lg), verticalAlignment = Alignment.CenterVertically) {
                                 if (animal.avatar_path != null && serverUrl.isNotEmpty()) {
                                     val baseUrl = serverUrl.removeSuffix("/api/").removeSuffix("/")
                                     val imageUrl = "$baseUrl/uploads/${animal.avatar_path}"
                                     AsyncImage(
                                         model = imageUrl,
                                         contentDescription = "Avatar von ${animal.name}",
-                                        modifier = Modifier.size(48.dp).clip(CircleShape),
+                                        modifier = Modifier.size(Spacing.avatarMd).clip(CircleShape),
                                         contentScale = ContentScale.Crop
                                     )
                                 } else {
                                     Text(if (animal.species == "dog") "🐶" else if (animal.species == "cat") "🐱" else "🐾", style = MaterialTheme.typography.displaySmall)
                                 }
-                                Spacer(Modifier.width(16.dp))
+                                Spacer(Modifier.width(Spacing.lg))
                                 Column {
                                     Text(animal.name, style = MaterialTheme.typography.titleMedium)
                                     Text(animal.species, style = MaterialTheme.typography.bodySmall)
@@ -186,7 +188,7 @@ fun AnimalsScreen(
             }
 
             error?.let {
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(Spacing.lg))
                 Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
             }
         }
@@ -197,7 +199,7 @@ fun AnimalsScreen(
             onDismissRequest = { showAddDialog = false },
             title = { Text("Neues Tier hinzufügen") },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                     OutlinedTextField(
                         value = newAnimalName,
                         onValueChange = { newAnimalName = it },
@@ -205,7 +207,7 @@ fun AnimalsScreen(
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
                     )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                         listOf("dog" to "🐶 Hund", "cat" to "🐱 Katze", "other" to "Sonstiges").forEach { (val_, label) ->
                             FilterChip(selected = newAnimalSpecies == val_, onClick = { newAnimalSpecies = val_ }, label = { Text(label) })
                         }
