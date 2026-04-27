@@ -40,6 +40,11 @@ export default async function adminRoutes(fastify) {
     const account = db.prepare('SELECT * FROM accounts WHERE id = ?').get(id)
     if (!account) return reply.code(404).send({ error: 'Account nicht gefunden' })
 
+    // Prevent admin from demoting their own admin role
+    if (id === accountId && role && account.role === 'admin' && role !== 'admin') {
+      return reply.code(403).send({ error: 'Cannot demote your own admin role' })
+    }
+
     if (role) {
       db.prepare('UPDATE accounts SET role = ? WHERE id = ?').run(role, id)
     }
