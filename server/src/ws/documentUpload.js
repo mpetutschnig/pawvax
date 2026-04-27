@@ -3,6 +3,7 @@ import { getDb } from '../db/index.js'
 import { analyzeDocument } from '../services/ocr.js'
 import { saveImageChunks } from '../services/storage.js'
 import { decrypt } from '../utils/crypto.js'
+import { logAudit } from '../services/audit.js'
 
 export default async function wsDocumentUpload(fastify) {
   fastify.get('/ws', { websocket: true }, async (socket, req) => {
@@ -192,6 +193,12 @@ export default async function wsDocumentUpload(fastify) {
               userRole,
               JSON.stringify(uploadState.allowedRoles)
             )
+
+            logAudit(db, {
+              accountId, role: userRole, action: 'upload_document', resource: 'document', resourceId: docId,
+              details: { doc_type: suggestedType, pages: pages.length, ocr_provider: lastProvider },
+              ip: req.ip
+            })
 
             send(socket, {
               type: 'result',

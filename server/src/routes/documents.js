@@ -1,4 +1,5 @@
 import { getDb } from '../db/index.js'
+import { logAudit } from '../services/audit.js'
 
 export default async function documentRoutes(fastify) {
   fastify.addHook('onRequest', fastify.authenticate)
@@ -58,8 +59,8 @@ export default async function documentRoutes(fastify) {
   // Dokument aktualisieren
   fastify.patch('/api/documents/:id', async (req, reply) => {
     const db = getDb()
-    const { accountId } = req.user
-    const { allowed_roles, extracted_json } = req.body
+    const { accountId, role } = req.user
+    const { allowed_roles, extracted_json, doc_type } = req.body
 
     const doc = db.prepare(`
       SELECT d.*, a.account_id AS owner_id FROM documents d
@@ -80,6 +81,8 @@ export default async function documentRoutes(fastify) {
       if (!isOwner) return reply.code(403).send({ error: 'Nur der Besitzer kann die Sichtbarkeit ändern' })
       db.prepare('UPDATE documents SET allowed_roles = ? WHERE id = ?')
         .run(JSON.stringify(allowed_roles), doc.id)
+      logAudit(db, { accountId, role, action: 'update_document_sharing', resource: 'document', resourceId: doc.id,
+        details: { allowed_roles }, ip: req.ip })
     }
 
     if (extracted_json !== undefined) {
@@ -88,6 +91,15 @@ export default async function documentRoutes(fastify) {
       }
       db.prepare('UPDATE documents SET extracted_json = ? WHERE id = ?')
         .run(JSON.stringify(extracted_json), doc.id)
+      logAudit(db, { accountId, role, action: 'update_document_text', resource: 'document', resourceId: doc.id,
+        ip: req.ip })
+    }
+
+    if (doc_type !== undefined) {
+      db.prepare('UPDATE documents SET doc_type = ? WHERE id = ?')
+        .run(doc_type, doc.id)
+      logAudit(db, { accountId, role, action: 'update_document_type', resource: 'document', resourceId: doc.id,
+        details: { doc_type }, ip: req.ip })
     }
 
     return { success: true }
@@ -96,7 +108,7 @@ export default async function documentRoutes(fastify) {
   // Dokument löschen
   fastify.delete('/api/documents/:id', async (req, reply) => {
     const db = getDb()
-    const { accountId } = req.user
+    const { accountId, role } = req.user
 
     const doc = db.prepare(`
       SELECT d.*, a.account_id AS owner_id FROM documents d
@@ -118,6 +130,10 @@ export default async function documentRoutes(fastify) {
     }
 
     db.prepare('DELETE FROM documents WHERE id = ?').run(doc.id)
+
+    logAudit(db, { accountId, role, action: 'delete_document', resource: 'document', resourceId: doc.id,
+      details: { doc_type: doc.doc_type, animal_id: doc.animal_id }, ip: req.ip })
+
     return reply.code(204).send()
   })
 }
