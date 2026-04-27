@@ -3,15 +3,8 @@ import { getDb } from '../db/index.js'
 import { logAudit } from '../services/audit.js'
 
 export default async function organizationRoutes(fastify) {
-  // All org routes require JWT
-  fastify.addHook('onRequest', async (req, reply) => {
-    if (req.url.startsWith('/api/organizations')) {
-      try { await req.jwtVerify() } catch { return reply.code(401).send({ error: 'Nicht autorisiert' }) }
-    }
-  })
-
   // Create organization
-  fastify.post('/api/organizations', async (req, reply) => {
+  fastify.post('/api/organizations', { onRequest: [fastify.authenticate] }, async (req, reply) => {
     const db = getDb()
     const { name, type } = req.body
     const { accountId, role } = req.user
@@ -41,7 +34,7 @@ export default async function organizationRoutes(fastify) {
   })
 
   // List user's organizations
-  fastify.get('/api/organizations', async (req) => {
+  fastify.get('/api/organizations', { onRequest: [fastify.authenticate] }, async (req) => {
     const db = getDb()
     const { accountId } = req.user
 
@@ -54,7 +47,7 @@ export default async function organizationRoutes(fastify) {
   })
 
   // Get organization members
-  fastify.get('/api/organizations/:id/members', async (req, reply) => {
+  fastify.get('/api/organizations/:id/members', { onRequest: [fastify.authenticate] }, async (req, reply) => {
     const db = getDb()
     const { id } = req.params
     const { accountId } = req.user
@@ -75,7 +68,7 @@ export default async function organizationRoutes(fastify) {
   })
 
   // Invite user to organization
-  fastify.post('/api/organizations/:id/invite', async (req, reply) => {
+  fastify.post('/api/organizations/:id/invite', { onRequest: [fastify.authenticate] }, async (req, reply) => {
     const db = getDb()
     const { id } = req.params
     const { email } = req.body
@@ -87,11 +80,11 @@ export default async function organizationRoutes(fastify) {
     if (org.owner_id !== accountId) return reply.code(403).send({ error: 'Nur der Owner kann einladen' })
 
     const invitee = db.prepare('SELECT id FROM accounts WHERE email = ?').get(email)
-    if (!invitee) return reply.code(404).send({ error: 'Account nicht gefunden' })
+    if (!invitee) return reply.code(200).send({ message: 'Einladung gesendet (wenn Benutzer existiert)' })
 
     // Check if already a member
     const existing = db.prepare('SELECT * FROM org_memberships WHERE org_id = ? AND account_id = ?').get(id, invitee.id)
-    if (existing) return reply.code(409).send({ error: 'Benutzer ist bereits Mitglied' })
+    if (existing) return reply.code(200).send({ message: 'Einladung gesendet (wenn Benutzer existiert)' })
 
     const now = Math.floor(Date.now() / 1000)
     db.prepare(`
@@ -105,11 +98,11 @@ export default async function organizationRoutes(fastify) {
       ip: req.ip
     })
 
-    return { message: `${email} wurde eingeladen` }
+    return { message: 'Einladung gesendet (wenn Benutzer existiert)' }
   })
 
   // Accept organization invitation
-  fastify.post('/api/organizations/:id/accept', async (req, reply) => {
+  fastify.post('/api/organizations/:id/accept', { onRequest: [fastify.authenticate] }, async (req, reply) => {
     const db = getDb()
     const { id } = req.params
     const { accountId, role } = req.user
@@ -130,7 +123,7 @@ export default async function organizationRoutes(fastify) {
   })
 
   // Remove organization member (owner only)
-  fastify.delete('/api/organizations/:id/members/:memberId', async (req, reply) => {
+  fastify.delete('/api/organizations/:id/members/:memberId', { onRequest: [fastify.authenticate] }, async (req, reply) => {
     const db = getDb()
     const { id, memberId } = req.params
     const { accountId, role } = req.user
