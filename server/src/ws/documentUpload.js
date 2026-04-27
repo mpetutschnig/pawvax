@@ -2,39 +2,21 @@ import { v4 as uuid } from 'uuid'
 import { getDb } from '../db/index.js'
 import { analyzeDocument } from '../services/ocr.js'
 import { saveImageChunks } from '../services/storage.js'
+import { decrypt } from '../utils/crypto.js'
 
 export default async function wsDocumentUpload(fastify) {
   fastify.get('/ws', { websocket: true }, async (socket, req) => {
-    // JWT aus Query-Parameter oder Header validieren
     let accountId, userRole, userGeminiKey = null
-    try {
-      const token = req.query.token ?? req.headers.authorization?.replace('Bearer ', '')
-      if (!token) throw new Error('Kein Token')
-      const payload = fastify.jwt.verify(token)
-      accountId = payload.accountId
-      const userRoles = payload.roles ?? [payload.role ?? 'user']
-      // Stärkste Rolle: vet > authority > admin > user
-      userRole = userRoles.includes('vet') ? 'vet'
-               : userRoles.includes('authority') ? 'authority'
-               : userRoles.includes('admin') ? 'admin'
-               : 'user'
-      // User-Gemini-Token aus DB laden
-      const db = getDb()
-      const acc = db.prepare('SELECT gemini_token FROM accounts WHERE id = ?').get(accountId)
-      userGeminiKey = acc?.gemini_token ?? null
-      console.log(`[WS] Client connected: ${accountId} (${userRole}, roles: ${userRoles.join(',')}, has_gemini_key: ${!!userGeminiKey})`)
-    } catch (err) {
-      console.error('[WS] Auth error:', err.message)
-      send(socket, { type: 'error', message: 'Nicht autorisiert' })
-      socket.close()
-      return
-    }
-
+    let authenticated = false
     let uploadState = null
 
     socket.on('message', async (raw, isBinary) => {
-      // Binärdaten = Bildchunk
+      // Skip binary chunks until authenticated
       if (isBinary) {
+        if (!authenticated) {
+          send(socket, { type: 'error', message: 'Not authenticated' })
+          return
+        }
         if (uploadState?.writer) {
           uploadState.writer.write(raw)
           console.log(`[WS] Chunk erhalten: ${raw.length} bytes`)
@@ -49,6 +31,44 @@ export default async function wsDocumentUpload(fastify) {
       } catch (err) {
         console.error('[WS] Parse error:', err.message)
         send(socket, { type: 'error', message: 'Ungültige Nachricht' })
+        return
+      }
+
+      // Handle auth before anything else
+      if (msg.type === 'auth') {
+        const { token } = msg
+        if (!token) {
+          send(socket, { type: 'error', message: 'Kein Token' })
+          socket.close()
+          return
+        }
+        try {
+          const payload = fastify.jwt.verify(token)
+          accountId = payload.accountId
+          const userRoles = payload.roles ?? [payload.role ?? 'user']
+          userRole = userRoles.includes('vet') ? 'vet'
+                   : userRoles.includes('authority') ? 'authority'
+                   : userRoles.includes('admin') ? 'admin'
+                   : 'user'
+
+          const db = getDb()
+          const acc = db.prepare('SELECT gemini_token FROM accounts WHERE id = ?').get(accountId)
+          userGeminiKey = acc?.gemini_token ? decrypt(acc.gemini_token) : null
+
+          authenticated = true
+          console.log(`[WS] Client authenticated: ${accountId} (${userRole}, has_gemini_key: ${!!userGeminiKey})`)
+          send(socket, { type: 'auth_ok' })
+        } catch (err) {
+          console.error('[WS] Auth error:', err.message)
+          send(socket, { type: 'error', message: 'Authentifizierung fehlgeschlagen' })
+          socket.close()
+        }
+        return
+      }
+
+      // Require authentication for all other messages
+      if (!authenticated) {
+        send(socket, { type: 'error', message: 'Not authenticated' })
         return
       }
 
