@@ -15,6 +15,7 @@ import at.oxs.paw.viewmodel.UiState
 import at.oxs.paw.viewmodel.ViewModelFactory
 import at.oxs.paw.network.TokenStore
 import at.oxs.paw.network.RetrofitClient
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -111,8 +112,9 @@ fun ProfileScreen(
                                     try {
                                         val token = TokenStore.getToken(context)
                                         if (token != null) {
-                                            val api = RetrofitClient.build(TokenStore.getServerUrl(context), token)
-                                            api.logout()
+                                            val serverUrl = TokenStore.getServerUrl(context)
+                                            val api = RetrofitClient.build(serverUrl, token)
+                                            try { api.logout() } catch (_: Exception) {}
                                         }
                                     } catch (_: Exception) {}
                                     TokenStore.clearToken(context)

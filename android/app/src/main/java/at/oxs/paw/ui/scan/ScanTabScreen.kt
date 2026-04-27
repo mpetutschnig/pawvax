@@ -151,7 +151,7 @@ fun ScanTabScreen(
                     try {
                         val token = TokenStore.getToken(context) ?: return@launch
                         val api = RetrofitClient.build(TokenStore.getServerUrl(context), token)
-                        val animal = api.createAnimal(CreateAnimalRequest(name, species, breed.ifBlank { null }, null, unknownTagId, unknownTagType))
+                        val animal = api.createAnimal(CreateAnimalRequest(name, species, if (breed.isBlank()) null else breed, null, unknownTagId, unknownTagType))
                         showNewAnimalDialog = false
                         scanMode = "choose"
                         onAnimalFound(animal.id)

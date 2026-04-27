@@ -1,7 +1,7 @@
 package at.oxs.paw.model
 
 data class AuthResponse(val token: String, val account: Account)
-data class Account(val id: String, val name: String, val email: String)
+data class Account(val id: String, val name: String, val email: String, val role: String = "user")
 
 data class Animal(
     val id: String,
