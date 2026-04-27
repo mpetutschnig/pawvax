@@ -86,7 +86,7 @@ export default async function adminRoutes(fastify) {
     return db.prepare('SELECT id, name, email, role, verified, verification_status FROM accounts WHERE id = ?').get(id)
   })
 
-  // Audit-Log (paginiert)
+  // Audit-Log (paginiert) with account details
   fastify.get('/api/admin/audit', async (req) => {
     const db = getDb()
     const page = parseInt(req.query.page) || 1
@@ -96,19 +96,27 @@ export default async function adminRoutes(fastify) {
     const resource = req.query.resource
     const accountId = req.query.accountId
 
-    let sql = 'SELECT * FROM audit_log WHERE 1=1'
+    let sql = `
+      SELECT
+        al.*,
+        a.email as account_email,
+        a.name as account_name
+      FROM audit_log al
+      LEFT JOIN accounts a ON a.id = al.account_id
+      WHERE 1=1
+    `
     const params = []
 
     if (resource) {
-      sql += ' AND resource = ?'
+      sql += ' AND al.resource = ?'
       params.push(resource)
     }
     if (accountId) {
-      sql += ' AND account_id = ?'
+      sql += ' AND al.account_id = ?'
       params.push(accountId)
     }
 
-    sql += ' ORDER BY created_at DESC LIMIT ? OFFSET ?'
+    sql += ' ORDER BY al.created_at DESC LIMIT ? OFFSET ?'
     params.push(limit, offset)
 
     const rows = db.prepare(sql).all(...params)

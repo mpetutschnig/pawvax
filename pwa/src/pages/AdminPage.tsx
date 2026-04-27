@@ -20,7 +20,7 @@ interface Verification {
 }
 
 interface AuditEntry {
-  id: string; account_id: string | null; account_role: string | null; action: string; resource: string; resource_id: string; created_at: string
+  id: string; account_id: string | null; account_role: string | null; account_email?: string; account_name?: string; action: string; resource: string; resource_id: string; details?: string; ip?: string; created_at: string
 }
 
 interface Stats {
@@ -299,23 +299,33 @@ export default function AdminPage() {
                   <tr>
                     <th>Aktion</th>
                     <th>Resource</th>
-                    <th>Account Role</th>
+                    <th>Benutzer</th>
+                    <th>Role</th>
+                    <th>IP</th>
+                    <th>Details</th>
                     <th>Zeitstempel</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {auditLog.rows.map(entry => (
-                    <tr key={entry.id}>
-                      <td><code style={{ fontSize: '11px', background: 'var(--surface)', padding: '2px 6px', borderRadius: '4px' }}>{entry.action}</code></td>
-                      <td style={{ fontSize: '13px' }}>{entry.resource}</td>
-                      <td>
-                        {entry.account_role ? (
-                          <span className="badge badge-info" style={{ fontSize: '10px' }}>{entry.account_role}</span>
-                        ) : <span className="text-muted">—</span>}
-                      </td>
-                      <td className="text-tertiary" style={{ fontSize: '12px' }}>{new Date(entry.created_at).toLocaleString('de-AT')}</td>
-                    </tr>
-                  ))}
+                  {auditLog.rows.map(entry => {
+                    const details = entry.details ? (typeof entry.details === 'string' ? JSON.parse(entry.details) : entry.details) : null
+                    const detailsText = details ? Object.entries(details).map(([k, v]) => `${k}: ${v}`).join(', ') : '—'
+                    return (
+                      <tr key={entry.id}>
+                        <td><code style={{ fontSize: '11px', background: 'var(--surface)', padding: '2px 6px', borderRadius: '4px' }}>{entry.action}</code></td>
+                        <td style={{ fontSize: '13px' }}>{entry.resource}</td>
+                        <td style={{ fontSize: '12px' }}>{entry.account_email || entry.account_name || (entry.account_id ? entry.account_id.substring(0, 8) : '—')}</td>
+                        <td>
+                          {entry.account_role ? (
+                            <span className="badge badge-info" style={{ fontSize: '10px' }}>{entry.account_role}</span>
+                          ) : <span className="text-muted">—</span>}
+                        </td>
+                        <td style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>{entry.ip || '—'}</td>
+                        <td style={{ fontSize: '11px', color: 'var(--text-tertiary)', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={detailsText}>{detailsText}</td>
+                        <td className="text-tertiary" style={{ fontSize: '12px', whiteSpace: 'nowrap' }}>{new Date(entry.created_at).toLocaleString('de-AT')}</td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
