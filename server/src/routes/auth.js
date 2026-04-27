@@ -51,6 +51,12 @@ export default async function authRoutes(fastify) {
           password: { type: 'string' }
         }
       }
+    },
+    config: {
+      rateLimit: {
+        max: 5,
+        timeWindow: '5 minutes'
+      }
     }
   }, async (req, reply) => {
     const { email, password } = req.body

@@ -3,6 +3,8 @@ import Fastify from 'fastify'
 import fastifyJwt from '@fastify/jwt'
 import fastifyWs from '@fastify/websocket'
 import fastifyCors from '@fastify/cors'
+import fastifyHelmet from '@fastify/helmet'
+import fastifyRateLimit from '@fastify/rate-limit'
 import fastifyStatic from '@fastify/static'
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
@@ -30,7 +32,20 @@ await fastify.register(fastifyCors, {
   origin: ['https://paw.oxs.at', 'http://localhost:5173', 'http://localhost:3000'],
   credentials: true
 })
+await fastify.register(fastifyHelmet, {
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+    }
+  }
+})
 await fastify.register(fastifyJwt, { secret: jwtSecret, sign: { expiresIn: '7d' } })
+await fastify.register(fastifyRateLimit, {
+  max: 100,
+  timeWindow: '15 minutes'
+})
 await fastify.register(fastifyWs)
 await fastify.register(fastifyStatic, {
   root: join(__dir, '..', process.env.UPLOADS_DIR ?? 'uploads'),
