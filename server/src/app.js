@@ -17,9 +17,20 @@ const __dir = dirname(fileURLToPath(import.meta.url))
 
 const fastify = Fastify({ logger: true })
 
+// JWT Secret Guard
+const jwtSecret = process.env.JWT_SECRET
+const INSECURE_DEFAULTS = ['changeme', 'change-this-in-production', '']
+if (!jwtSecret || INSECURE_DEFAULTS.includes(jwtSecret)) {
+  console.error('FATAL: JWT_SECRET env var missing or insecure. Server will not start.')
+  process.exit(1)
+}
+
 // Plugins
-await fastify.register(fastifyCors, { origin: true })
-await fastify.register(fastifyJwt, { secret: process.env.JWT_SECRET ?? 'changeme' })
+await fastify.register(fastifyCors, {
+  origin: ['https://paw.oxs.at', 'http://localhost:5173', 'http://localhost:3000'],
+  credentials: true
+})
+await fastify.register(fastifyJwt, { secret: jwtSecret, sign: { expiresIn: '7d' } })
 await fastify.register(fastifyWs)
 await fastify.register(fastifyStatic, {
   root: join(__dir, '..', process.env.UPLOADS_DIR ?? 'uploads'),
