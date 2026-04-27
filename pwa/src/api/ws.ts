@@ -1,4 +1,5 @@
 export type WsMessage =
+  | { type: 'auth_ok' }
   | { type: 'ready' }
   | { type: 'status'; message: string }
   | { type: 'result'; data: { documentId: string; docType: string; content: unknown } }
@@ -25,33 +26,41 @@ export function uploadDocument(
     }
 
     const protocol = location.protocol === 'https:' ? 'wss' : 'ws'
-    const wsUrl = `${protocol}://${location.host}/ws?token=${token}`
+    const wsUrl = `${protocol}://${location.host}/ws`
     console.debug('[WS] Connecting to:', wsUrl)
 
     let ws: WebSocket | null = null
     let uploadStarted = false
+    let authenticated = false
 
     const connect = () => {
       ws = new WebSocket(wsUrl)
       ws.binaryType = 'arraybuffer'
 
       ws.onopen = () => {
-        if (!uploadStarted) {
-          uploadStarted = true
-          callbacks.onStatus('Verbindung hergestellt, starte Upload...')
-          ws!.send(JSON.stringify({
-            type: 'upload_start',
-            animalId,
-            filename: file.name,
-            mimeType: file.type,
-            allowedRoles: callbacks.metadata?.allowedRoles
-          }))
-        }
+        callbacks.onStatus('Verbindung hergestellt, authentifiziere...')
+        ws!.send(JSON.stringify({ type: 'auth', token }))
       }
 
       ws.onmessage = async (event) => {
         try {
           const msg: WsMessage = JSON.parse(event.data)
+
+          if (msg.type === 'auth_ok') {
+            authenticated = true
+            callbacks.onStatus('Authentifizierung erfolgreich, starte Upload...')
+            if (!uploadStarted) {
+              uploadStarted = true
+              ws!.send(JSON.stringify({
+                type: 'upload_start',
+                animalId,
+                filename: file.name,
+                mimeType: file.type,
+                allowedRoles: callbacks.metadata?.allowedRoles
+              }))
+            }
+            return
+          }
 
           if (msg.type === 'ready') {
             callbacks.onStatus('Server bereit, sende Datei...')
