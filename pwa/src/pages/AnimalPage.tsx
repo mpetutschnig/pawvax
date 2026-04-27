@@ -190,7 +190,7 @@ export default function AnimalPage() {
   }
 
   if (loading) return <div className="container page" style={{ display: 'flex', justifyContent: 'center', paddingTop: '4rem' }}><div className="spinner spinner-lg"></div></div>
-  if (error || !animal) return <div className="container page"><div className="error-card"><p>{error}</p></div></div>
+  if (!animal) return <div className="container page"><div className="error-card"><p>{error || 'Tier nicht gefunden'}</p></div></div>
 
   const hasNfcTag = tags.some(t => t.tag_type === 'nfc' && t.active === 1)
   const isVetVerified = false // Placeholder for future implementation
