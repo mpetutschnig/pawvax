@@ -1,5 +1,7 @@
 import { getDb } from '../db/index.js'
 import { logAudit } from '../services/audit.js'
+import { unlink } from 'fs/promises'
+import { resolve } from 'path'
 
 export default async function documentRoutes(fastify) {
   fastify.addHook('onRequest', fastify.authenticate)
@@ -129,11 +131,82 @@ export default async function documentRoutes(fastify) {
       return reply.code(403).send({ error: 'Keine Berechtigung dieses Dokument zu löschen' })
     }
 
+    // Get all page image paths before deletion
+    const pages = db.prepare('SELECT image_path FROM document_pages WHERE document_id = ?').all(doc.id)
+
+    // Delete document pages first (foreign key constraint)
+    db.prepare('DELETE FROM document_pages WHERE document_id = ?').run(doc.id)
+
+    // Delete document from DB
     db.prepare('DELETE FROM documents WHERE id = ?').run(doc.id)
+
+    // Delete all image files (non-blocking, don't block response on file deletion failure)
+    if (doc.image_path) {
+      unlink(resolve(process.env.UPLOADS_DIR || './uploads', doc.image_path)).catch(err => {
+        console.warn(`[DELETE] Could not delete image file ${doc.image_path}:`, err.message)
+      })
+    }
+
+    // Delete all page images
+    pages.forEach(page => {
+      if (page.image_path) {
+        unlink(resolve(process.env.UPLOADS_DIR || './uploads', page.image_path)).catch(err => {
+          console.warn(`[DELETE] Could not delete page image ${page.image_path}:`, err.message)
+        })
+      }
+    })
 
     logAudit(db, { accountId, role, action: 'delete_document', resource: 'document', resourceId: doc.id,
       details: { doc_type: doc.doc_type, animal_id: doc.animal_id }, ip: req.ip })
 
     return reply.code(204).send()
+  })
+
+  // Nicht analysierte Dokumente abrufen (pending_analysis)
+  fastify.get('/api/animals/:animalId/documents/pending', async (req, reply) => {
+    const db = getDb()
+    const { accountId } = req.user
+    const { animalId } = req.params
+
+    // Verify ownership
+    const animal = db.prepare('SELECT account_id FROM animals WHERE id = ?').get(animalId)
+    if (!animal || animal.account_id !== accountId) {
+      return reply.code(403).send({ error: 'Keine Berechtigung' })
+    }
+
+    const docs = db.prepare(`
+      SELECT * FROM documents
+      WHERE animal_id = ? AND analysis_status = 'pending_analysis'
+      ORDER BY created_at DESC
+    `).all(animalId)
+
+    return reply.send(docs)
+  })
+
+  // Retry-Analyse für pending Dokument
+  fastify.post('/api/documents/:id/retry-analysis', async (req, reply) => {
+    const db = getDb()
+    const { accountId, role } = req.user
+    const docId = req.params.id
+
+    const doc = db.prepare(`
+      SELECT d.*, a.account_id AS owner_id FROM documents d
+      JOIN animals a ON a.id = d.animal_id
+      WHERE d.id = ?
+    `).get(docId)
+
+    if (!doc) return reply.code(404).send({ error: 'Dokument nicht gefunden' })
+    if (doc.owner_id !== accountId && doc.added_by_account !== accountId) {
+      return reply.code(403).send({ error: 'Keine Berechtigung' })
+    }
+
+    if (doc.analysis_status !== 'pending_analysis') {
+      return reply.code(400).send({ error: 'Dieses Dokument ist nicht pending' })
+    }
+
+    // Setze status auf 'analyzing' - wird später durch WebSocket aktualisiert
+    db.prepare('UPDATE documents SET analysis_status = ? WHERE id = ?').run('analyzing', docId)
+
+    return reply.send({ message: 'Analyse-Wiederholung gestartet. Bitte warten...', documentId: docId })
   })
 }
