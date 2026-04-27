@@ -406,6 +406,169 @@ Paginiert, filterbar nach Resource und Account-ID
 
 ---
 
+## ✅ Features Testing & Deployment
+
+### 🧪 Feature-Testing (Development)
+
+#### 1. **Register/Login (JWT 7-Tage Expiry)**
+```bash
+# Registrieren
+→ /login → "Registrieren"
+→ E-Mail, Passwort eintragen
+→ Login & Token in localStorage gespeichert
+→ Token hat 7-Tage Gültigkeitsdauer (JWT expiry)
+→ Logout blacklistet Token sofort (JWT jti blacklist)
+```
+
+#### 2. **Create Animal + Multi-Page Document Upload** ⭐ **NEU**
+```bash
+# Tier anlegen
+→ /animals → "Neues Tier"
+→ Name, Art, Rasse, Geburtsdatum
+
+# Dokument mit mehreren Seiten scannen
+→ Tier-Details → "Dokument scannen"
+→ Erste Seite fotografieren + "Add page" Button
+→ 2-3 weitere Seiten hinzufügen (Thumbnails sichtbar)
+→ Seite entfernen mit X-Button möglich
+→ "Hochladen & analysieren" → alle Seiten kombiniert
+→ OCR-Text kombiniert, AI schlägt document type vor
+→ Ergebnis zeigt Seitenzahl: "Pages: 3"
+```
+
+#### 3. **Dark/Light Mode Toggle** ⭐ **NEU**
+```bash
+# Profil-Seite → Sun/Moon Icon oben rechts
+→ Light (☀️) → Dark (🌙) → System (Voreinstellung)
+→ Einstellung in localStorage persistent
+→ Automatische CSS-Token-Anpassung (oklch Farben)
+```
+
+#### 4. **Admin Panel (Mobile-Responsive)** ⭐ **NEU**
+```bash
+# Desktop: Sidebar immer sichtbar
+# Mobile (<768px): Hamburger Menu ☰
+→ Click ☰ → Drawer slides in
+→ Click Menü-Item → Drawer closes
+→ Alle Tabs (Statistiken, Accounts, Verifikationen, Audit-Log) funktionieren
+```
+
+#### 5. **Create Organization + Invite** ⭐ **NEU**
+```bash
+# Profil → (neue Org-Seite falls Frontend integriert)
+# Oder API-Test:
+POST /api/organizations
+{ "name": "Familie Schmidt", "type": "family" }
+→ Erhalte organizationId
+
+# Andere User einladen:
+POST /api/organizations/:id/invite
+{ "email": "anna@example.com" }
+
+# User akzeptiert Einladung:
+POST /api/organizations/:id/accept
+→ Org-Mitgliedschaft aktiv
+```
+
+### 🚀 Production Deployment
+
+#### **Schritt 1: JWT_SECRET Generieren**
+```bash
+# Sicherer random 64-hex-String (NICHT 'changeme'!)
+openssl rand -hex 32
+# Ausgabe: ab12cd34ef56...
+
+# In server/.env:
+JWT_SECRET=ab12cd34ef56...
+```
+
+#### **Schritt 2: ENCRYPTION_KEY (Auto)**
+```bash
+# Die AES-256 encryption key wird automatisch aus JWT_SECRET abgeleitet
+# via SHA-256(JWT_SECRET) - kein separates Env-Var nötig!
+```
+
+#### **Schritt 3: npm start (kein --watch)**
+```bash
+cd server
+
+# Development (mit auto-reload):
+npm run dev
+
+# Production (WICHTIG: KEIN --watch):
+npm start
+# Falls package.json kein "start" hat → node src/app.js statt npm run dev
+
+# Oder:
+NODE_ENV=production node src/app.js
+```
+
+#### **Schritt 4: CORS Origins für deine Domain**
+```javascript
+// server/src/app.js Zeile 31-33:
+await fastify.register(fastifyCors, {
+  origin: [
+    'https://deine-domain.com',           // ← ANPASSEN!
+    'https://www.deine-domain.com',       // ← ANPASSEN!
+    'http://localhost:5173'               // Dev only
+  ],
+  credentials: true
+})
+```
+
+#### **Schritt 5: PWA Production Build**
+```bash
+cd pwa
+
+# Build optimiert (statt dev):
+npm run build
+# Outputs: dist/
+
+# Serve lokal testen:
+npm run preview
+
+# Oder production serve:
+# (nginx, Apache, Vercel, etc.)
+```
+
+#### **Schritt 6: Umgebungsvariablen sichern**
+```bash
+# server/.env (Secrets, NICHT in Git!)
+PORT=3000
+JWT_SECRET=ab12cd34ef56...    # Aus openssl generiert
+GEMINI_API_KEY=your_key_here  # Optional
+DB_PATH=./paw.db
+UPLOADS_DIR=./uploads
+ADMIN_EMAIL=admin@deine-domain.com
+```
+
+#### **Schritt 7: Datenbank-Backup**
+```bash
+# Vor Deployment: SQLite sichern
+cp server/paw.db server/paw.db.backup
+
+# Uploads-Folder sichern:
+tar -czf uploads.tar.gz server/uploads/
+```
+
+#### **Schritt 8: Test nach Deployment**
+```bash
+# Health-Check:
+curl https://deine-domain.com/health
+# → {"status":"ok"}
+
+# Login testen:
+curl -X POST https://deine-domain.com/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@...","password":"..."}'
+# → JWT Token zurück
+
+# Admin-Panel:
+https://deine-domain.com/#/admin
+```
+
+---
+
 ## 🔧 Konfiguration (.env)
 
 ```bash
