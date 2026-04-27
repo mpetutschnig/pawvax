@@ -28,6 +28,9 @@ export const register = (name: string, email: string, password: string) =>
 export const login = (email: string, password: string) =>
   api.post('/auth/login', { email, password })
 
+export const logout = () =>
+  api.post('/auth/logout', {})
+
 // Animals
 export const getAnimals = () => api.get('/animals')
 export const getAnimal = (id: string) => api.get(`/animals/${id}`)

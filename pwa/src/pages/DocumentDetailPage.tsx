@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { getDocument, deleteDocument, patchDocument } from '../api/rest'
 import { generateICS, downloadBlob } from '../utils/ics'
+import { PageHeader } from '../components/PageHeader'
 import { ChevronLeft, Shield, Pill, FileText, PawPrint, Landmark, Calendar, Download, Mail, Tag, Save, X, Edit2, Trash2, CheckCircle } from 'lucide-react'
 
 export default function DocumentDetailPage() {
@@ -151,19 +152,7 @@ export default function DocumentDetailPage() {
 
   return (
     <div className="container page">
-      <div className="nav-bar" style={{ margin: 'calc(var(--space-4) * -1) calc(var(--space-4) * -1) var(--space-4) calc(var(--space-4) * -1)' }}>
-        <button
-          onClick={() => navigate(`/animals/${animalId}`)}
-          className="btn-ghost btn-icon"
-          type="button"
-          style={{ border: 'none', cursor: 'pointer' }}
-        >
-          <ChevronLeft size={20} />
-        </button>
-        <h2 style={{ margin: 0, paddingRight: '40px', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-          {config.icon} {config.label}
-        </h2>
-      </div>
+      <PageHeader title={config.label} backTo={`/animals/${animalId}`} showThemeToggle />
 
       <div className="card animate-slide-up">
         {doc.added_by_role === 'vet' && (

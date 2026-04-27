@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { getAnimalTags, addTag, deactivateTag, activateTag } from '../api/rest'
 import { useBarcode } from '../hooks/useBarcode'
 import { useNfc } from '../hooks/useNfc'
+import { PageHeader } from '../components/PageHeader'
 import { ChevronLeft, Camera, Radio, Tag as TagIcon, CheckCircle, XCircle } from 'lucide-react'
 
 interface Tag { tag_id: string; tag_type: string; active: number; added_at: string }
@@ -48,17 +49,7 @@ export default function TagManagementPage() {
 
   return (
     <div className="container page">
-      <div className="nav-bar" style={{ margin: 'calc(var(--space-4) * -1) calc(var(--space-4) * -1) var(--space-4) calc(var(--space-4) * -1)' }}>
-        <button
-          onClick={() => navigate(`/animals/${id}`)}
-          className="btn-ghost btn-icon"
-          type="button"
-          style={{ border: 'none', cursor: 'pointer' }}
-        >
-          <ChevronLeft size={20} />
-        </button>
-        <h2 style={{ margin: 0, paddingRight: '40px' }}>Tags verwalten</h2>
-      </div>
+      <PageHeader title="Tags verwalten" backTo={`/animals/${id}`} showThemeToggle />
 
       {error && <div className="error-card" style={{ marginBottom: 'var(--space-4)' }}><p>{error}</p></div>}
 

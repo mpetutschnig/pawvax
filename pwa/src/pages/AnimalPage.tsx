@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { getAnimal, getAnimalDocuments, getAnimalTags, updateAnimal, deleteAnimal } from '../api/rest'
+import { PageHeader } from '../components/PageHeader'
 import { PawPrint, Cat, ArrowLeft, Edit2, Trash2, Tag, Lock, Camera, Search, Syringe, FileText, Radio, CheckCircle, ShieldAlert } from 'lucide-react'
 
 interface Animal {
@@ -84,10 +85,7 @@ export default function AnimalPage() {
 
   return (
     <div className="container page">
-      <div className="nav-bar" style={{ margin: 'calc(var(--space-4) * -1) calc(var(--space-4) * -1) var(--space-4) calc(var(--space-4) * -1)' }}>
-        <button className="btn-ghost btn-icon" onClick={() => navigate('/animals')} style={{ border: 'none', cursor: 'pointer' }}><ArrowLeft size={20} /></button>
-        <h2>{animal.name}</h2>
-      </div>
+      <PageHeader title={animal.name} backTo="/animals" showThemeToggle />
 
       {error && <div className="error-card"><p>{error}</p></div>}
 

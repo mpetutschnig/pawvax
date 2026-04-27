@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { useBarcode } from '../hooks/useBarcode'
 import { useNfc } from '../hooks/useNfc'
 import { getAnimalByTag, createAnimal } from '../api/rest'
-import { Camera, Radio, Keyboard, LogOut, AlertCircle, PawPrint } from 'lucide-react'
+import { PageHeader } from '../components/PageHeader'
+import { Camera, Radio, Keyboard, AlertCircle } from 'lucide-react'
 
 type Mode = 'choose' | 'barcode' | 'nfc' | 'manual' | 'new-animal'
 
@@ -76,17 +77,10 @@ export default function ScanPage() {
     }
   }
 
-  function logout() {
-    localStorage.removeItem('token')
-    navigate('/login')
-  }
-
   if (mode === 'new-animal') {
     return (
       <div className="container page">
-        <div className="nav-bar" style={{ margin: 'calc(var(--space-4) * -1) calc(var(--space-4) * -1) var(--space-4) calc(var(--space-4) * -1)' }}>
-          <h2 style={{ margin: 0, paddingLeft: 'var(--space-4)' }}>Neues Tier</h2>
-        </div>
+        <PageHeader title="Neues Tier" showThemeToggle />
         <div className="card animate-slide-up">
           <p className="text-muted" style={{ marginBottom: 'var(--space-4)' }}>
             Tag <strong style={{ color: 'var(--text-primary)' }}>{unknownTag?.id}</strong> ist noch keinem Tier zugeordnet.
@@ -123,12 +117,7 @@ export default function ScanPage() {
 
   return (
     <div className="container page">
-      <div className="nav-bar" style={{ margin: 'calc(var(--space-4) * -1) calc(var(--space-4) * -1) var(--space-4) calc(var(--space-4) * -1)', padding: 'var(--space-4)' }}>
-        <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-          <PawPrint size={24} color="var(--primary-500)" /> PAW
-        </h2>
-        <button className="btn btn-ghost btn-icon" onClick={logout}><LogOut size={20} /></button>
-      </div>
+      <PageHeader title="PAW" showThemeToggle showLogout />
 
       {mode === 'choose' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>

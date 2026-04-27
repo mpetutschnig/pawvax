@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { getSharing, updateSharing } from '../api/rest'
+import { PageHeader } from '../components/PageHeader'
 import { ChevronLeft, Eye, Landmark, Stethoscope, Syringe, Pill, FileText, User, PawPrint, Cake } from 'lucide-react'
 
 interface SharingRow {
@@ -54,17 +55,7 @@ export default function SharingSettingsPage() {
 
   return (
     <div className="container page">
-      <div className="nav-bar" style={{ margin: 'calc(var(--space-4) * -1) calc(var(--space-4) * -1) var(--space-4) calc(var(--space-4) * -1)' }}>
-        <button
-          onClick={() => navigate(`/animals/${id}`)}
-          className="btn-ghost btn-icon"
-          type="button"
-          style={{ border: 'none', cursor: 'pointer' }}
-        >
-          <ChevronLeft size={20} />
-        </button>
-        <h2 style={{ margin: 0, paddingRight: '40px' }}>Freigaben</h2>
-      </div>
+      <PageHeader title="Freigaben" backTo={`/animals/${id}`} showThemeToggle />
 
       <div className="card animate-slide-up" style={{ marginBottom: 'var(--space-6)' }}>
         <p className="text-muted" style={{ margin: 0, fontSize: 'var(--font-size-sm)' }}>

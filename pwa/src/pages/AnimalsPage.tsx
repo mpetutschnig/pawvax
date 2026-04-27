@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import * as api from '../api/rest'
 import { PetCard } from '../components/PetCard'
+import { PageHeader } from '../components/PageHeader'
 import { Search, Plus, AlertCircle, PawPrint } from 'lucide-react'
 
 interface Animal {
@@ -75,10 +76,7 @@ export default function AnimalsPage() {
 
   return (
     <div className="container page">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
-        <h1 style={{ margin: 0 }}>My Animals ({animals.length})</h1>
-        {error && <span className="badge badge-danger"><AlertCircle size={12} /> Error</span>}
-      </div>
+      <PageHeader title={`My Animals (${animals.length})`} showThemeToggle />
 
       <div style={{ position: 'relative', marginBottom: 'var(--space-4)' }}>
         <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />

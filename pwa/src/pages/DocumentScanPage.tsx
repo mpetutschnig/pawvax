@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ChevronLeft, CheckCircle, AlertCircle, Syringe, FileText, Cpu, BookOpen, Camera, RefreshCw, Plus, X } from 'lucide-react'
+import { PageHeader } from '../components/PageHeader'
 import { uploadMultiPageDocument } from '../api/ws'
 
 type Phase = 'capture' | 'uploading' | 'analysing' | 'done' | 'error'
@@ -236,17 +237,7 @@ export default function DocumentScanPage() {
 
   return (
     <div className="container page">
-      <div className="nav-bar" style={{ margin: 'calc(var(--space-4) * -1) calc(var(--space-4) * -1) var(--space-4) calc(var(--space-4) * -1)' }}>
-        <button
-          onClick={() => navigate(`/animals/${animalId}`)}
-          className="btn-ghost btn-icon"
-          type="button"
-          style={{ border: 'none', cursor: 'pointer' }}
-        >
-          <ChevronLeft size={20} />
-        </button>
-        <h2 style={{ margin: 0, paddingRight: '40px' }}>Dokument scannen</h2>
-      </div>
+      <PageHeader title="Dokument scannen" backTo={`/animals/${animalId}`} showThemeToggle />
 
       {phase === 'capture' && (
         <div className="card animate-slide-up">

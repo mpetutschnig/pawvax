@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getMe, patchMe, deleteMe, requestVerification } from '../api/rest'
+import { PageHeader } from '../components/PageHeader'
 import { User, Shield, Stethoscope, Settings, Trash2, CheckCircle, Clock, AlertTriangle, Key } from 'lucide-react'
 
 export default function ProfilePage() {
@@ -117,10 +118,7 @@ export default function ProfilePage() {
 
   return (
     <div className="container page">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-6)' }}>
-        <User size={24} color="var(--primary-500)" />
-        <h1 style={{ margin: 0 }}>Mein Profil</h1>
-      </div>
+      <PageHeader title="Mein Profil" showThemeToggle showLogout />
 
       {error && <div className="error-card" style={{ marginBottom: 'var(--space-4)' }}><p>{error}</p></div>}
       {success && <div className="card" style={{ background: 'var(--success-50)', borderColor: 'var(--success-500)', marginBottom: 'var(--space-4)', display: 'flex', gap: 'var(--space-2)' }}><CheckCircle size={20} color="var(--success-600)" /><p style={{ margin: 0, color: 'var(--success-600)', fontWeight: 500 }}>{success}</p></div>}
