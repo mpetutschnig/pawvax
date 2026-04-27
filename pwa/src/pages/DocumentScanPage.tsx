@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { ChevronLeft, CheckCircle, AlertCircle, Syringe, FileText, Cpu, BookOpen, Camera, RefreshCw, Plus, X } from 'lucide-react'
 import { PageHeader } from '../components/PageHeader'
 import { uploadMultiPageDocument } from '../api/ws'
+import { patchDocument } from '../api/rest'
 
 type Phase = 'capture' | 'uploading' | 'analysing' | 'done' | 'error'
 
@@ -45,6 +46,9 @@ export default function DocumentScanPage() {
   const [currentStatusMsg, setCurrentStatusMsg] = useState<string | null>(null)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [allowedRoles, setAllowedRoles] = useState<string[]>(['vet', 'authority', 'readonly'])
+  const [suggestedType, setSuggestedType] = useState<string | null>(null)
+  const [documentId, setDocumentId] = useState<string | null>(null)
+  const [savingDocType, setSavingDocType] = useState(false)
 
   useEffect(() => {
     if (phase !== 'analysing') return
@@ -221,6 +225,8 @@ export default function DocumentScanPage() {
         },
         onResult: (data: any) => {
           setResult(data.data)
+          setSuggestedType(data.data.suggestedType || 'other')
+          setDocumentId(data.data.documentId)
           setPhase('done')
         },
         onError: (msg: string) => {
@@ -487,16 +493,68 @@ export default function DocumentScanPage() {
               </div>
               <h3 style={{ marginBottom: 'var(--space-2)' }}>Analysis Complete!</h3>
               {ocrProvider && <span className="badge badge-success" style={{ marginBottom: 'var(--space-6)', display: 'inline-flex' }}>{ocrProvider}</span>}
-              
+
+              {suggestedType && (
+                <div style={{ background: 'var(--primary-50)', borderRadius: 'var(--radius-md)', padding: 'var(--space-4)', marginBottom: 'var(--space-6)', borderLeft: '4px solid var(--primary-500)' }}>
+                  <h4 style={{ margin: '0 0 var(--space-3) 0', fontSize: 'var(--font-size-sm)', fontWeight: 600 }}>Document Type</h4>
+                  <p style={{ margin: '0 0 var(--space-3) 0', fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
+                    Gemini suggests: <strong style={{ color: 'var(--text-primary)' }}>{docTypes.find(t => t.id === suggestedType)?.label || suggestedType}</strong>
+                  </p>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
+                    {docTypes.map(type => (
+                      <button
+                        key={type.id}
+                        onClick={() => setSuggestedType(type.id)}
+                        style={{
+                          padding: 'var(--space-2)',
+                          borderRadius: 'var(--radius-md)',
+                          border: suggestedType === type.id ? '2px solid var(--primary-500)' : '1px solid var(--border)',
+                          background: suggestedType === type.id ? 'var(--primary-50)' : 'var(--surface)',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 'var(--space-2)',
+                          fontSize: 'var(--font-size-sm)',
+                          fontWeight: suggestedType === type.id ? 600 : 400,
+                          transition: 'all 0.2s'
+                        }}
+                      >
+                        {type.icon}
+                        {type.label}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    className="btn btn-primary btn-full"
+                    disabled={savingDocType}
+                    onClick={async () => {
+                      setSavingDocType(true)
+                      try {
+                        if (documentId && suggestedType) {
+                          await patchDocument(documentId, { doc_type: suggestedType })
+                        }
+                        navigate(`/animals/${animalId}`)
+                      } catch (err) {
+                        setErrorMsg(err instanceof Error ? err.message : 'Error saving document type')
+                      } finally {
+                        setSavingDocType(false)
+                      }
+                    }}
+                  >
+                    {savingDocType ? 'Saving...' : 'Confirm & Save'}
+                  </button>
+                </div>
+              )}
+
               <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-md)', padding: 'var(--space-4)', textAlign: 'left', marginBottom: 'var(--space-6)' }}>
                 <h4 style={{ margin: '0 0 var(--space-2) 0', fontSize: 'var(--font-size-sm)' }}>Extracted Text</h4>
                 <pre style={{ margin: 0, fontSize: 'var(--font-size-xs)', overflowX: 'auto', whiteSpace: 'pre-wrap', wordWrap: 'break-word', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>
                   {typeof result === 'string' ? result : JSON.stringify(result, null, 2)}
                 </pre>
               </div>
-              
-              <button className="btn btn-primary btn-full" onClick={() => navigate(`/animals/${animalId}`)} type="button">
-                Return to Pet Profile
+
+              <button className="btn btn-ghost btn-full" onClick={() => navigate(`/animals/${animalId}`)} type="button">
+                Back to Pet Profile
               </button>
             </div>
           )}
