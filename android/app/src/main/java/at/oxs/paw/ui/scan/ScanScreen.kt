@@ -30,6 +30,10 @@ import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
 import kotlinx.coroutines.launch
 import java.util.concurrent.Executors
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import coil3.compose.AsyncImage
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -54,8 +58,10 @@ fun ScanScreen(
     var unknownTagType by remember { mutableStateOf("barcode") }
     var nfcAvailable by remember { mutableStateOf(false) }
     var menuExpanded by remember { mutableStateOf(false) }
+    var serverUrl by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
+        serverUrl = TokenStore.getServerUrl(context)
         nfcAvailable = NfcAdapter.getDefaultAdapter(context) != null
         scope.launch {
             try {
@@ -135,7 +141,17 @@ fun ScanScreen(
                                 .clickable { onAnimalFound(animal.id) }
                         ) {
                             Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Text(if (animal.species == "dog") "🐶" else if (animal.species == "cat") "🐱" else "🐾", style = MaterialTheme.typography.displaySmall)
+                                if (animal.avatar_path != null && serverUrl.isNotEmpty()) {
+                                    val imageUrl = "$serverUrl/uploads/${animal.avatar_path.substringAfterLast('/')}"
+                                    AsyncImage(
+                                        model = imageUrl,
+                                        contentDescription = "Avatar von ${animal.name}",
+                                        modifier = Modifier.size(48.dp).clip(CircleShape),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                } else {
+                                    Text(if (animal.species == "dog") "🐶" else if (animal.species == "cat") "🐱" else "🐾", style = MaterialTheme.typography.displaySmall)
+                                }
                                 Spacer(Modifier.width(16.dp))
                                 Column {
                                     Text(animal.name, style = MaterialTheme.typography.titleMedium)
@@ -162,10 +178,27 @@ fun ScanScreen(
                 when (scanMode) {
                     "choose" -> {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(onClick = { scanMode = "camera" }, modifier = Modifier.fillMaxWidth()) { Text("📷 Barcode/QR Code scannen") }
                             Button(onClick = { scanMode = "manual" }, modifier = Modifier.fillMaxWidth()) { Text("⌨️ ID manuell eingeben") }
                             if (nfcAvailable) {
                                 OutlinedButton(onClick = { scanMode = "nfc" }, modifier = Modifier.fillMaxWidth()) { Text("📡 NFC lesen") }
                             }
+                        }
+                    }
+                    "camera" -> {
+                        Column {
+                            Text("Richte die Kamera auf den Barcode/QR-Code...", style = MaterialTheme.typography.bodyMedium)
+                            Spacer(Modifier.height(8.dp))
+                            BarcodeScannerView(onResult = { code ->
+                                scope.launch {
+                                    handleTagId(code, "barcode")
+                                    if (error == null && unknownTagId == null) showScanDialog = false
+                                }
+                            })
+                            if (loading) {
+                                CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 8.dp))
+                            }
+                            error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp)) }
                         }
                     }
                     "manual" -> {
@@ -186,6 +219,7 @@ fun ScanScreen(
             confirmButton = {
                 when (scanMode) {
                     "choose" -> Button(onClick = { showScanDialog = false }) { Text("Abbrechen") }
+                    "camera" -> Button(onClick = { showScanDialog = false; scanMode = "choose" }) { Text("Abbrechen") }
                     "manual" -> Button(
                         onClick = { scope.launch { handleTagId(manualId, "manual"); if (error == null) showScanDialog = false } },
                         enabled = manualId.isNotBlank() && !loading

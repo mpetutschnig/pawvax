@@ -27,7 +27,7 @@ import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.*
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun DocumentDetailScreen(
     docId: String,
@@ -55,6 +55,7 @@ fun DocumentDetailScreen(
     var isOwner by remember { mutableStateOf(false) }
     var isUploader by remember { mutableStateOf(false) }
     var addedByRole by remember { mutableStateOf<String?>(null) }
+    var selectedDocType by remember { mutableStateOf("other") }
 
     LaunchedEffect(docId) {
         scope.launch {
@@ -65,6 +66,7 @@ fun DocumentDetailScreen(
                 val api = RetrofitClient.build(TokenStore.getServerUrl(context), token)
                 val loadedDoc = api.getDocument(docId)
                 doc = loadedDoc
+                selectedDocType = loadedDoc.doc_type ?: "other"
 
                 val extractedJson = loadedDoc.extracted_json
                 if (extractedJson != null && extractedJson is String) {
@@ -218,6 +220,20 @@ fun DocumentDetailScreen(
                     Card {
                         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             if (canEditTags(addedByRole, isUploader)) {
+                                Text("Dokumenttyp", style = MaterialTheme.typography.labelLarge)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    listOf("vaccination" to "Impfung", "medication" to "Medikament", "other" to "Sonstiges").forEach { (type, label) ->
+                                        FilterChip(
+                                            selected = selectedDocType == type,
+                                            onClick = { selectedDocType = type },
+                                            label = { Text(label) }
+                                        )
+                                    }
+                                }
+                                Spacer(Modifier.height(8.dp))
                                 Text("Tags", style = MaterialTheme.typography.labelLarge)
                                 FlowRow(
                                     modifier = Modifier.fillMaxWidth(),
@@ -282,7 +298,26 @@ fun DocumentDetailScreen(
                                             try {
                                                 val token = TokenStore.getToken(context) ?: return@launch
                                                 val api = RetrofitClient.build(TokenStore.getServerUrl(context), token)
-                                                api.updateDocument(docId, UpdateDocumentRequest())
+                                                
+                                                val newJson = try {
+                                                    val obj = if (doc?.extracted_json is String) JSONObject(doc?.extracted_json as String) else JSONObject()
+                                                    obj.put("suggested_tags", JSONArray(tags))
+                                                    obj.toString()
+                                                } catch(e: Exception) {
+                                                    JSONObject().put("suggested_tags", JSONArray(tags)).toString()
+                                                }
+                                                
+                                                val req = UpdateDocumentRequest(
+                                                    doc_type = selectedDocType,
+                                                    extracted_json = newJson,
+                                                    allowed_roles = if (isOwner) visibility else null
+                                                )
+                                                
+                                                api.updateDocument(docId, req)
+                                                
+                                                val updatedDoc = api.getDocument(docId)
+                                                doc = updatedDoc
+                                                
                                                 editMode = false
                                             } catch (e: Exception) {
                                                 error = "Fehler beim Speichern"

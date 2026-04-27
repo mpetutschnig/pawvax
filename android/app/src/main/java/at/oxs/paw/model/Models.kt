@@ -10,7 +10,8 @@ data class Animal(
     val species: String,
     val breed: String?,
     val birthdate: String?,
-    val created_at: String
+    val created_at: String,
+    val avatar_path: String? = null
 )
 
 data class AnimalTag(
@@ -111,7 +112,8 @@ data class AvatarUploadRequest(val image: String)
 
 data class UpdateDocumentRequest(
     val doc_type: String? = null,
-    val extracted_json: String? = null
+    val extracted_json: Any? = null,
+    val allowed_roles: List<String>? = null
 )
 
 data class UpdateSharingRequest(val roles: Map<String, Map<String, Boolean>>)

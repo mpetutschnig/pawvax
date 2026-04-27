@@ -26,6 +26,10 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import java.io.ByteArrayOutputStream
 import android.util.Base64
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import coil3.compose.AsyncImage
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -45,6 +49,7 @@ fun AnimalScreen(
     var uploadingAvatar by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var showAvatarMenu by remember { mutableStateOf(false) }
+    var serverUrl by remember { mutableStateOf("") }
 
     fun compressImage(bitmap: Bitmap): String {
         val resized = Bitmap.createScaledBitmap(bitmap, 512, 512, true)
@@ -106,8 +111,9 @@ fun AnimalScreen(
 
     LaunchedEffect(animalId) {
         try {
+            serverUrl = TokenStore.getServerUrl(context)
             val token = TokenStore.getToken(context) ?: return@LaunchedEffect
-            val api = RetrofitClient.build(TokenStore.getServerUrl(context), token)
+            val api = RetrofitClient.build(serverUrl, token)
             animal = api.getAnimal(animalId)
             documents = api.getAnimalDocuments(animalId)
         } catch (e: Exception) {
@@ -145,7 +151,17 @@ fun AnimalScreen(
                             .clickable { showAvatarMenu = true },
                             verticalAlignment = Alignment.CenterVertically) {
                             Box(modifier = Modifier.size(64.dp), contentAlignment = Alignment.Center) {
-                                Text(if (a.species == "dog") "🐶" else if (a.species == "cat") "🐱" else "🐾", style = MaterialTheme.typography.displaySmall)
+                                if (a.avatar_path != null && serverUrl.isNotEmpty()) {
+                                    val imageUrl = "$serverUrl/uploads/${a.avatar_path.substringAfterLast('/')}"
+                                    AsyncImage(
+                                        model = imageUrl,
+                                        contentDescription = "Avatar von ${a.name}",
+                                        modifier = Modifier.size(64.dp).clip(CircleShape),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                } else {
+                                    Text(if (a.species == "dog") "🐶" else if (a.species == "cat") "🐱" else "🐾", style = MaterialTheme.typography.displaySmall)
+                                }
                                 if (uploadingAvatar) {
                                     CircularProgressIndicator(modifier = Modifier.size(64.dp), strokeWidth = 2.dp)
                                 }

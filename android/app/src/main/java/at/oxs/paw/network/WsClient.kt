@@ -25,7 +25,9 @@ class WsClient(private val context: Context) {
         token: String,
         animalId: String,
         uri: Uri,
-        filename: String
+        filename: String,
+        pageNumber: Int = 1,
+        isLast: Boolean = true
     ): Flow<WsEvent> {
         val channel = Channel<WsEvent>(Channel.UNLIMITED)
 
@@ -39,7 +41,14 @@ class WsClient(private val context: Context) {
 
         client.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(ws: WebSocket, response: Response) {
-                val msg = gson.toJson(mapOf("type" to "upload_start", "animalId" to animalId, "filename" to filename, "mimeType" to "image/jpeg"))
+                val msg = gson.toJson(mapOf(
+                    "type" to "upload_start",
+                    "animalId" to animalId,
+                    "filename" to filename,
+                    "mimeType" to "image/jpeg",
+                    "page_number" to pageNumber,
+                    "is_last" to isLast
+                ))
                 ws.send(msg)
             }
 
@@ -54,9 +63,10 @@ class WsClient(private val context: Context) {
                             ws.send(okio.ByteString.of(*buffer.copyOf(n)))
                         }
                         stream.close()
-                        ws.send(gson.toJson(mapOf("type" to "upload_end")))
+                        ws.send(gson.toJson(mapOf("type" to "upload_end", "is_last" to isLast)))
                     }
                     "status" -> channel.trySend(WsEvent.Status(json.get("message").asString))
+                    "page_saved" -> channel.trySend(WsEvent.Status(json.get("message").asString))
                     "result" -> {
                         val data = json.getAsJsonObject("data")
                         channel.trySend(WsEvent.Result(
