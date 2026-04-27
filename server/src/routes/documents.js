@@ -1,5 +1,7 @@
 import { getDb } from '../db/index.js'
 import { logAudit } from '../services/audit.js'
+import { analyzeDocument } from '../services/ocr.js'
+import { decrypt } from '../utils/crypto.js'
 import { unlink } from 'fs/promises'
 import { resolve } from 'path'
 
@@ -204,9 +206,51 @@ export default async function documentRoutes(fastify) {
       return reply.code(400).send({ error: 'Dieses Dokument ist nicht pending' })
     }
 
-    // Setze status auf 'analyzing' - wird später durch WebSocket aktualisiert
-    db.prepare('UPDATE documents SET analysis_status = ? WHERE id = ?').run('analyzing', docId)
+    try {
+      // Get user's Gemini key
+      const acc = db.prepare('SELECT gemini_token FROM accounts WHERE id = ?').get(accountId)
+      let userGeminiKey = null
+      try {
+        userGeminiKey = acc?.gemini_token ? decrypt(acc.gemini_token) : null
+      } catch (err) {
+        console.warn(`Could not decrypt user gemini_token: ${err.message}`)
+      }
 
-    return reply.send({ message: 'Analyse-Wiederholung gestartet. Bitte warten...', documentId: docId })
+      // Setze status auf 'analyzing'
+      db.prepare('UPDATE documents SET analysis_status = ? WHERE id = ?').run('analyzing', docId)
+
+      // Analyze the document image
+      const result = await analyzeDocument(doc.image_path, userGeminiKey)
+      const extractedData = result.data
+      const provider = result.provider
+
+      // Update document with analysis results
+      db.prepare(`
+        UPDATE documents
+        SET extracted_json = ?, ocr_provider = ?, analysis_status = ?
+        WHERE id = ?
+      `).run(JSON.stringify(extractedData), provider, 'completed', docId)
+
+      logAudit(db, {
+        accountId, role, action: 'retry_analysis', resource: 'document', resourceId: docId,
+        details: { ocr_provider: provider },
+        ip: req.ip
+      })
+
+      return reply.send({
+        success: true,
+        message: 'Analyse erfolgreich abgeschlossen',
+        documentId: docId,
+        extractedData,
+        provider
+      })
+    } catch (err) {
+      console.error('Retry analysis error:', err)
+      // Mark as failed, but save for later retry
+      if (err.message?.includes('429') || err.message?.includes('Quota')) {
+        return reply.code(503).send({ error: 'Gemini API Quota überschritten. Bitte später versuchen.' })
+      }
+      return reply.code(500).send({ error: err.message || 'Analyse fehlgeschlagen' })
+    }
   })
 }

@@ -44,13 +44,29 @@ export default function AnimalPage() {
       const token = localStorage.getItem('token')
       const headers = token ? { 'Authorization': `Bearer ${token}` } : {}
 
-      // Just mark as archived/acknowledged, don't actually retry
-      // await fetch(`/api/documents/${docId}/retry-analysis`, { method: 'POST', headers })
+      const res = await fetch(`/api/documents/${docId}/retry-analysis`, { method: 'POST', headers })
 
-      // For now, just remove from pending list UI
+      if (!res.ok) {
+        const errData = await res.json()
+        setError(errData.error || 'Analyse fehlgeschlagen')
+        return
+      }
+
+      const data = await res.json()
+      console.log('Retry analysis successful:', data)
+
+      // Remove from pending list and add to documents list
       setPendingDocuments(prev => prev.filter(d => d.id !== docId))
+
+      // Reload documents
+      const docsRes = await fetch(`/api/animals/${id}/documents`)
+      const newDocs = await docsRes.json()
+      setDocuments(newDocs)
+
+      setError(null)
     } catch (err) {
-      console.error('Fehler beim Speichern:', err)
+      console.error('Fehler beim Analysieren:', err)
+      setError('Fehler beim Analysieren. Bitte versuchen Sie es später erneut.')
     } finally {
       setRetrying(null)
     }
