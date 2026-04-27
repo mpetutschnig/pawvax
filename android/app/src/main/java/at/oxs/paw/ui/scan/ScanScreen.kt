@@ -48,6 +48,7 @@ fun ScanScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var animals by remember { mutableStateOf(emptyList<at.oxs.paw.model.Animal>()) }
+    var searchQuery by remember { mutableStateOf("") }
     var showScanDialog by remember { mutableStateOf(false) }
     var scanMode by remember { mutableStateOf("choose") }
     var manualId by remember { mutableStateOf("") }
@@ -59,6 +60,12 @@ fun ScanScreen(
     var nfcAvailable by remember { mutableStateOf(false) }
     var menuExpanded by remember { mutableStateOf(false) }
     var serverUrl by remember { mutableStateOf("") }
+
+    val filteredAnimals = animals.filter { animal ->
+        searchQuery.isBlank() ||
+        animal.name.contains(searchQuery, ignoreCase = true) ||
+        animal.species.contains(searchQuery, ignoreCase = true)
+    }
 
     LaunchedEffect(Unit) {
         serverUrl = TokenStore.getServerUrl(context)
@@ -127,13 +134,28 @@ fun ScanScreen(
             Text("Meine Tiere", style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(8.dp))
 
+            if (animals.isNotEmpty()) {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    label = { Text("🔎 Tier suchen...") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+                Spacer(Modifier.height(8.dp))
+            }
+
             if (animals.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text("Keine Tiere. Tippe auf 🔍 zum Scannen.", style = MaterialTheme.typography.bodyMedium)
                 }
+            } else if (filteredAnimals.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("Keine Tiere gefunden für \"$searchQuery\"", style = MaterialTheme.typography.bodyMedium)
+                }
             } else {
                 LazyColumn {
-                    items(animals) { animal ->
+                    items(filteredAnimals) { animal ->
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
