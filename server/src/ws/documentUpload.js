@@ -74,8 +74,9 @@ export default async function wsDocumentUpload(fastify) {
 
       switch (msg.type) {
         case 'upload_start': {
-          const { animalId, filename, mimeType, allowedRoles } = msg
-          console.log(`[WS] Upload start: ${filename} für Tier ${animalId}`)
+          const { animalId, filename, mimeType, allowedRoles, pageNumber, documentId } = msg
+          const pageNum = pageNumber ?? 1
+          console.log(`[WS] Upload start: ${filename} für Tier ${animalId} (page ${pageNum})`)
 
           // sicherstellen, dass das Tier dem Account gehört
           const db = getDb()
@@ -94,11 +95,14 @@ export default async function wsDocumentUpload(fastify) {
             mimeType,
             allowedRoles: allowedRoles ?? ['vet', 'authority', 'readonly'],
             filename: safeFilename,
-            writer: saveImageChunks(safeFilename)
+            pageNumber: pageNum,
+            documentId: documentId || uuid(),
+            writer: saveImageChunks(safeFilename),
+            isMultiPage: pageNumber !== undefined && pageNumber > 1
           }
 
-          console.log(`[WS] Ready to receive`)
-          send(socket, { type: 'ready' })
+          console.log(`[WS] Ready to receive (doc: ${uploadState.documentId})`)
+          send(socket, { type: 'ready', documentId: uploadState.documentId })
           break
         }
 
@@ -109,31 +113,89 @@ export default async function wsDocumentUpload(fastify) {
           }
 
           try {
-            send(socket, { type: 'status', message: 'Bild empfangen, starte Analyse...' })
+            send(socket, { type: 'status', message: 'Seite empfangen, speichere...' })
             const imagePath = await uploadState.writer.finish()
+            const db = getDb()
 
-            let analyzeResult
-            try {
-              analyzeResult = await analyzeDocument(imagePath, userGeminiKey, (progressMsg) => {
-                send(socket, { type: 'status', message: progressMsg })
+            // Save page to document_pages table
+            db.prepare(`
+              INSERT INTO document_pages (document_id, page_number, image_path)
+              VALUES (?, ?, ?)
+            `).run(uploadState.documentId, uploadState.pageNumber, imagePath)
+
+            const isLast = msg.is_last === true
+            if (!isLast) {
+              // Multi-page: more pages coming
+              send(socket, {
+                type: 'page_saved',
+                documentId: uploadState.documentId,
+                pageNumber: uploadState.pageNumber,
+                message: `Seite ${uploadState.pageNumber} gespeichert. Nächste Seite uploaden.`
               })
-            } catch (err) {
-              throw err // Will be caught by outer catch block
+              uploadState = null
+              return
             }
-            const { provider, data } = analyzeResult
+
+            // Last page: combine all pages, do OCR, and AI analysis
+            send(socket, { type: 'status', message: 'Analysiere alle Seiten...' })
+
+            // Get all pages for this document
+            const pages = db.prepare(`
+              SELECT page_number, image_path FROM document_pages
+              WHERE document_id = ?
+              ORDER BY page_number ASC
+            `).all(uploadState.documentId)
+
+            // Analyze each page and combine text
+            let combinedText = ''
+            let lastProvider = 'tesseract'
+            for (const page of pages) {
+              try {
+                const result = await analyzeDocument(page.image_path, userGeminiKey, (progressMsg) => {
+                  send(socket, { type: 'status', message: `Seite ${page.page_number}: ${progressMsg}` })
+                })
+                combinedText += (combinedText ? '\n---\n' : '') + (result.data.text || '')
+                lastProvider = result.provider
+              } catch (err) {
+                console.error(`Error analyzing page ${page.page_number}:`, err)
+              }
+            }
+
+            // Use Gemini to suggest type and tags from combined text
+            let suggestedType = 'other'
+            let suggestedTags = []
+            if (combinedText && userGeminiKey) {
+              try {
+                send(socket, { type: 'status', message: 'Erzeuge Vorschläge mit KI...' })
+                const typeGuess = await guessDocumentType(combinedText, userGeminiKey)
+                suggestedType = typeGuess
+              } catch (err) {
+                console.error('Error guessing type:', err)
+              }
+            }
 
             send(socket, { type: 'status', message: 'Speichere Ergebnis...' })
 
-            const db = getDb()
-            const docId = uuid()
+            // Create document with combined pages
+            const docId = uploadState.documentId
             db.prepare(`
-              INSERT INTO documents (id, animal_id, doc_type, image_path, extracted_json, ocr_provider, added_by_account, added_by_role, allowed_roles)
+              INSERT OR REPLACE INTO documents (id, animal_id, doc_type, image_path, extracted_json, ocr_provider, added_by_account, added_by_role, allowed_roles)
               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `).run(docId, uploadState.animalId, data.type ?? 'other', imagePath, JSON.stringify(data), provider, accountId, userRole, JSON.stringify(uploadState.allowedRoles))
+            `).run(
+              docId,
+              uploadState.animalId,
+              suggestedType,
+              pages[0].image_path,
+              JSON.stringify({ text: combinedText, type: suggestedType, pages: pages.length }),
+              lastProvider,
+              accountId,
+              userRole,
+              JSON.stringify(uploadState.allowedRoles)
+            )
 
             send(socket, {
               type: 'result',
-              data: { documentId: docId, docType: data.type, content: data }
+              data: { documentId: docId, docType: suggestedType, pages: pages.length, suggestedType }
             })
           } catch (err) {
             console.error('OCR/Upload Fehler:', err)
@@ -156,5 +218,27 @@ export default async function wsDocumentUpload(fastify) {
 function send(socket, obj) {
   if (socket.readyState === 1) {
     socket.send(JSON.stringify(obj))
+  }
+}
+
+async function guessDocumentType(text, geminiKey) {
+  if (!geminiKey) return 'other'
+  try {
+    const { GoogleGenerativeAI } = await import('@google/generative-ai')
+    const genAI = new GoogleGenerativeAI(geminiKey)
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+
+    const prompt = `Based on the following extracted document text, determine what type of veterinary document this is.
+Return ONLY one word from this list: vaccination, vet_report, microchip, passport, other
+
+Text: ${text.slice(0, 500)}`
+
+    const result = await model.generateContent(prompt)
+    const response = result.response.text().toLowerCase().trim()
+    const types = ['vaccination', 'vet_report', 'microchip', 'passport', 'other']
+    return types.find(t => response.includes(t)) || 'other'
+  } catch (err) {
+    console.error('guessDocumentType error:', err)
+    return 'other'
   }
 }
