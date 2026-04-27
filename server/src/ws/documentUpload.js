@@ -187,20 +187,43 @@ export default async function wsDocumentUpload(fastify) {
 
             // Create document with combined pages
             const docId = uploadState.documentId
-            db.prepare(`
-              INSERT OR REPLACE INTO documents (id, animal_id, doc_type, image_path, extracted_json, ocr_provider, added_by_account, added_by_role, allowed_roles)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `).run(
-              docId,
-              uploadState.animalId,
-              suggestedType,
-              pages[0].image_path,
-              JSON.stringify({ text: combinedText, type: suggestedType, pages: pages.length }),
-              lastProvider,
-              accountId,
-              userRole,
-              JSON.stringify(uploadState.allowedRoles)
-            )
+
+            // Check if document already exists
+            const existingDoc = db.prepare('SELECT id FROM documents WHERE id = ?').get(docId)
+
+            if (existingDoc) {
+              // Update existing document
+              db.prepare(`
+                UPDATE documents
+                SET doc_type = ?, image_path = ?, extracted_json = ?, ocr_provider = ?, added_by_account = ?, added_by_role = ?, allowed_roles = ?
+                WHERE id = ?
+              `).run(
+                suggestedType,
+                pages[0].image_path,
+                JSON.stringify({ text: combinedText, type: suggestedType, pages: pages.length }),
+                lastProvider,
+                accountId,
+                userRole,
+                JSON.stringify(uploadState.allowedRoles),
+                docId
+              )
+            } else {
+              // Insert new document
+              db.prepare(`
+                INSERT INTO documents (id, animal_id, doc_type, image_path, extracted_json, ocr_provider, added_by_account, added_by_role, allowed_roles)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+              `).run(
+                docId,
+                uploadState.animalId,
+                suggestedType,
+                pages[0].image_path,
+                JSON.stringify({ text: combinedText, type: suggestedType, pages: pages.length }),
+                lastProvider,
+                accountId,
+                userRole,
+                JSON.stringify(uploadState.allowedRoles)
+              )
+            }
 
             logAudit(db, {
               accountId, role: userRole, action: 'upload_document', resource: 'document', resourceId: docId,
