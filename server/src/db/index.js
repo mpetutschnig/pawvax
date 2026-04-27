@@ -47,6 +47,35 @@ export function initDb(dbPath) {
     `)
   } catch { /* table already exists */ }
 
+  // Organizations table
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS organizations (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        type TEXT DEFAULT 'family',
+        owner_id TEXT NOT NULL REFERENCES accounts(id),
+        verified INTEGER DEFAULT 0,
+        created_at INTEGER DEFAULT (unixepoch())
+      )
+    `)
+  } catch { /* table already exists */ }
+
+  // Organization memberships
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS org_memberships (
+        org_id TEXT NOT NULL REFERENCES organizations(id),
+        account_id TEXT NOT NULL REFERENCES accounts(id),
+        role TEXT DEFAULT 'member',
+        invited_by TEXT REFERENCES accounts(id),
+        accepted INTEGER DEFAULT 0,
+        created_at INTEGER DEFAULT (unixepoch()),
+        PRIMARY KEY (org_id, account_id)
+      )
+    `)
+  } catch { /* table already exists */ }
+
   // Cleanup expired tokens on startup
   const now = Math.floor(Date.now() / 1000)
   db.prepare('DELETE FROM jwt_blacklist WHERE expires_at < ?').run(now)
