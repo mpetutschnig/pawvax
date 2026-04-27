@@ -3,6 +3,7 @@ import { v4 as uuid } from 'uuid'
 import crypto from 'crypto'
 import { getDb } from '../db/index.js'
 import { logAudit } from '../services/audit.js'
+import { encrypt, decrypt, getEncryptionKey } from '../utils/crypto.js'
 
 export default async function authRoutes(fastify) {
   fastify.post('/api/auth/register', {
@@ -126,7 +127,10 @@ export default async function authRoutes(fastify) {
     const updates = []
     const vals = []
     if (name !== undefined) { updates.push('name = ?'); vals.push(name) }
-    if (gemini_token !== undefined) { updates.push('gemini_token = ?'); vals.push(gemini_token || null) }
+    if (gemini_token !== undefined) {
+      updates.push('gemini_token = ?')
+      vals.push(gemini_token ? encrypt(gemini_token) : null)
+    }
     if (!updates.length) return reply.code(400).send({ error: 'Keine Änderungen' })
     vals.push(accountId)
     db.prepare(`UPDATE accounts SET ${updates.join(', ')} WHERE id = ?`).run(...vals)
