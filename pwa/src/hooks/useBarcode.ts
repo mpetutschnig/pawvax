@@ -9,27 +9,52 @@ export function useBarcode(elementId: string, onResult: (code: string) => void, 
     if (activeRef.current) return
 
     try {
+      // Überprüfe, ob DOM-Element existiert
+      const element = document.getElementById(elementId)
+      if (!element) {
+        onError?.(`DOM-Element mit ID "${elementId}" nicht gefunden`)
+        return
+      }
+
       const scanner = new Html5Qrcode(elementId)
       scannerRef.current = scanner
       activeRef.current = true
 
-      await scanner.start(
-        { facingMode: 'environment' },
-        { fps: 10, qrbox: { width: 250, height: 250 } },
-        (decodedText) => {
-          onResult(decodedText)
-          stop()
-        },
-        undefined
-      )
+      // Versuche Kamera mit Fallback auf Rückkamera
+      try {
+        await scanner.start(
+          { facingMode: 'environment' },
+          { fps: 10, qrbox: { width: 250, height: 250 } },
+          (decodedText) => {
+            onResult(decodedText)
+            scannerRef.current?.stop().catch(() => {})
+          },
+          undefined
+        )
+      } catch (cameraErr) {
+        // Fallback: Versuche ohne facingMode-Spezifikation
+        await scanner.start(
+          undefined,
+          { fps: 10, qrbox: { width: 250, height: 250 } },
+          (decodedText) => {
+            onResult(decodedText)
+            scannerRef.current?.stop().catch(() => {})
+          },
+          undefined
+        )
+      }
     } catch (err) {
       activeRef.current = false
       const msg = err instanceof Error ? err.message : 'Kamera nicht verfügbar'
-      const friendlyMsg = msg.includes('Permission')
-        ? 'Kamerazugriff verweigert. Bitte Berechtigung erteilen.'
-        : msg.includes('NotFoundError')
-          ? 'Kamera nicht gefunden. Verfügbar nur auf HTTPS oder localhost.'
-          : `Kamera-Fehler: ${msg}`
+      console.error('[Barcode] Fehler:', msg, err)
+
+      const friendlyMsg = msg.includes('Permission') || msg.includes('permission')
+        ? 'Kamerazugriff verweigert. Bitte Kamera-Berechtigung in Browser-Einstellungen erteilen.'
+        : msg.includes('NotFoundError') || msg.includes('NotFound') || msg.includes('not found')
+          ? 'Kamera nicht gefunden. Verfügbar nur auf HTTPS oder localhost mit Kamera-Gerät.'
+          : msg.includes('Not found') || msg.includes('no camera')
+            ? 'Keine Kamera verfügbar. Stelle sicher, dass das Gerät eine Kamera hat.'
+            : `Kamera-Fehler: ${msg}`
       onError?.(friendlyMsg)
     }
   }, [elementId, onResult, onError])
