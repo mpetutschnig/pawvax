@@ -70,42 +70,6 @@ export default function TagManagementPage() {
 
       {error && <div className="error-card" style={{ marginBottom: 'var(--space-4)' }}><p>{error}</p></div>}
 
-      <div style={{ display: 'flex', gap: 'var(--space-3)', marginBottom: 'var(--space-6)' }}>
-        <button className="btn btn-primary flex-1" onClick={() => setScanning('barcode')}>
-          <Camera size={18} /> Barcode
-        </button>
-        <button className="btn btn-secondary flex-1" onClick={() => setScanning('nfc')}>
-          <Radio size={18} /> NFC
-        </button>
-      </div>
-
-      {scanning === 'barcode' && (
-        <div className="card animate-slide-up" style={{ marginBottom: 'var(--space-6)' }}>
-          <div style={{
-            position: 'relative',
-            background: 'oklch(8% 0.02 250)',
-            borderRadius: 'var(--radius-xl)',
-            overflow: 'hidden',
-            aspectRatio: '4/3',
-            marginBottom: 'var(--space-4)',
-          }}>
-            <div id="tag-barcode" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          </div>
-          <button className="btn btn-outline btn-full" onClick={() => { stopBarcode(); setScanning('none') }}>Abbrechen</button>
-        </div>
-      )}
-      {scanning === 'nfc' && (
-        <div className="card text-center animate-slide-up" style={{ padding: 'var(--space-8) var(--space-4)', marginBottom: 'var(--space-6)' }}>
-          <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--primary-50)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto var(--space-4)' }}>
-            <Radio size={32} color="var(--primary-500)" />
-          </div>
-          {nfcState === 'unsupported'
-            ? <p className="text-danger">NFC wird in diesem Browser nicht unterstützt.</p>
-            : <p className="text-muted">Halte das Gerät an den NFC-Tag...</p>}
-          <button className="btn btn-outline btn-full" style={{ marginTop: 'var(--space-6)' }} onClick={() => setScanning('none')}>Abbrechen</button>
-        </div>
-      )}
-
       {loading ? <div style={{ display: 'flex', justifyContent: 'center', marginTop: 'var(--space-6)' }}><div className="spinner"></div></div> : (
         <div className="animate-fade-in">
           <h3 style={{ marginBottom: 'var(--space-3)', fontSize: 'var(--font-size-base)' }}>Registrierte Tags ({tags.length})</h3>
@@ -142,6 +106,56 @@ export default function TagManagementPage() {
               </div>
             ))}
           </div>
+
+          <h3 style={{ marginTop: 'var(--space-6)', marginBottom: 'var(--space-3)', fontSize: 'var(--font-size-base)' }}>Neue Tags hinzufügen</h3>
+          <div style={{ display: 'grid', gap: 'var(--space-3)' }}>
+            <button
+              onClick={() => setScanning('barcode')}
+              style={{
+                padding: 'var(--space-4)',
+                background: 'none',
+                border: `1px solid var(--border-color)`,
+                borderRadius: 'var(--radius-md)',
+                cursor: 'pointer',
+                fontSize: 'var(--font-size-base)',
+                fontWeight: 600,
+                color: 'var(--text-primary)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 'var(--space-3)',
+                transition: 'background-color 0.2s'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-hover)'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+            >
+              <Camera size={20} /> Barcode/QR scannen
+            </button>
+            {('NDEFReader' in window) && (
+              <button
+                onClick={() => setScanning('nfc')}
+                style={{
+                  padding: 'var(--space-4)',
+                  background: 'none',
+                  border: `1px solid var(--border-color)`,
+                  borderRadius: 'var(--radius-md)',
+                  cursor: 'pointer',
+                  fontSize: 'var(--font-size-base)',
+                  fontWeight: 600,
+                  color: 'var(--text-primary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 'var(--space-3)',
+                  transition: 'background-color 0.2s'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-hover)'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+              >
+                <Radio size={20} /> NFC lesen
+              </button>
+            )}
+          </div>
+
+          {scanning === 'barcode' && <div id="tag-barcode" style={{ marginTop: 'var(--space-4)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}></div>}
         </div>
       )}
     </div>
