@@ -23,6 +23,26 @@ export default function TagManagementPage() {
 
   useEffect(() => { reload() }, [reload])
 
+  const { start: startBarcode, stop: stopBarcode } = useBarcode('tag-barcode', (code) => handleNewTag(code, 'barcode'), (msg) => setError(msg))
+  const { state: nfcState, start: startNfc } = useNfc((id) => handleNewTag(id, 'nfc'), (msg) => setError(msg))
+
+  // Start barcode scanner AFTER DOM element is rendered
+  useEffect(() => {
+    if (scanning === 'barcode') {
+      // Delay slightly to ensure DOM is rendered
+      const timer = setTimeout(() => startBarcode(), 100)
+      return () => clearTimeout(timer)
+    }
+  }, [scanning, startBarcode])
+
+  // Start NFC AFTER DOM element is rendered
+  useEffect(() => {
+    if (scanning === 'nfc') {
+      const timer = setTimeout(() => startNfc(), 100)
+      return () => clearTimeout(timer)
+    }
+  }, [scanning, startNfc])
+
   const handleNewTag = useCallback(async (tagId: string, tagType: 'barcode' | 'nfc') => {
     if (!id) return
     setScanning('none')
@@ -35,9 +55,6 @@ export default function TagManagementPage() {
       setError(status === 409 ? 'Tag ist bereits einem Tier zugeordnet' : 'Tag konnte nicht hinzugefügt werden')
     }
   }, [id, reload])
-
-  const { start: startBarcode, stop: stopBarcode } = useBarcode('tag-barcode', (code) => handleNewTag(code, 'barcode'), (msg) => setError(msg))
-  const { state: nfcState, start: startNfc } = useNfc((id) => handleNewTag(id, 'nfc'), (msg) => setError(msg))
 
   async function toggleTag(tag: Tag) {
     try {
@@ -54,10 +71,10 @@ export default function TagManagementPage() {
       {error && <div className="error-card" style={{ marginBottom: 'var(--space-4)' }}><p>{error}</p></div>}
 
       <div style={{ display: 'flex', gap: 'var(--space-3)', marginBottom: 'var(--space-6)' }}>
-        <button className="btn btn-primary flex-1" onClick={() => { setScanning('barcode'); startBarcode() }}>
+        <button className="btn btn-primary flex-1" onClick={() => setScanning('barcode')}>
           <Camera size={18} /> Barcode
         </button>
-        <button className="btn btn-secondary flex-1" onClick={() => { setScanning('nfc'); startNfc() }}>
+        <button className="btn btn-secondary flex-1" onClick={() => setScanning('nfc')}>
           <Radio size={18} /> NFC
         </button>
       </div>
