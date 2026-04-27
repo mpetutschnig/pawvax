@@ -625,6 +625,10 @@ html[data-theme="dark"] .badge {
   color: var(--text-primary);
 }
 
+html[data-theme="light"] .badge {
+  color: var(--text-secondary);
+}
+
 .badge svg { width: 11px; height: 11px; }
 
 /* Status dot */
@@ -711,6 +715,16 @@ html[data-theme="dark"] .badge {
   font-family: var(--font-display);
   font-weight: 600;
   letter-spacing: -0.01em;
+  color: var(--text-secondary);
+}
+
+@media (prefers-color-scheme: dark) {
+  .nav-bar h2 {
+    color: var(--text-primary);
+  }
+}
+
+html[data-theme="dark"] .nav-bar h2 {
   color: var(--text-primary);
 }
 
