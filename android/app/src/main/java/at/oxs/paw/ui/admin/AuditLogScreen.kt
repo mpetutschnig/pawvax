@@ -49,7 +49,7 @@ fun AuditLogScreen(
                     Text((uiState as UiState.Error).message, color = MaterialTheme.colorScheme.error)
                 }
             }
-            is UiState.Success, UiState.Idle -> {
+            UiState.Success, UiState.Idle -> {
                 if (auditLog.isEmpty()) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
                         Text("Keine Einträge")

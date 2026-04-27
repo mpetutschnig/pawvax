@@ -55,7 +55,7 @@ fun AdminDashboard(
                     Text((uiState as UiState.Error).message, color = MaterialTheme.colorScheme.error)
                 }
             }
-            is UiState.Success, UiState.Idle -> {
+            UiState.Success, UiState.Idle -> {
                 Column(modifier = Modifier.padding(16.dp).fillMaxSize()) {
                     Button(onClick = onNavigateToAuditLog, modifier = Modifier.fillMaxWidth()) {
                         Text("Audit Log anzeigen")

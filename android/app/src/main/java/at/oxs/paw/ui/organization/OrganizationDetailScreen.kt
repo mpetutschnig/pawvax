@@ -60,7 +60,7 @@ fun OrganizationDetailScreen(
                     Text((uiState as UiState.Error).message, color = MaterialTheme.colorScheme.error)
                 }
             }
-            is UiState.Success, UiState.Idle -> {
+            UiState.Success, UiState.Idle -> {
                 Column(modifier = Modifier.padding(16.dp)) {
                     if (members.isEmpty()) {
                         Text("Keine Mitglieder")

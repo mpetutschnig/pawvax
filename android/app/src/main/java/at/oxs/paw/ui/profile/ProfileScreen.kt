@@ -59,7 +59,7 @@ fun ProfileScreen(
                     Text((uiState as UiState.Error).message, color = MaterialTheme.colorScheme.error)
                 }
             }
-            is UiState.Success, UiState.Idle -> {
+            UiState.Success, UiState.Idle -> {
                 profile?.let { p ->
                     Column(modifier = Modifier.padding(16.dp)) {
                         Card(modifier = Modifier.fillMaxWidth()) {
