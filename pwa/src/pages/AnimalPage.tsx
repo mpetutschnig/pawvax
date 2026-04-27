@@ -79,31 +79,63 @@ export default function AnimalPage() {
     }
   }
 
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.readAsDataURL(file)
+      reader.onload = (event) => {
+        const img = new Image()
+        img.src = event.target?.result as string
+        img.onload = () => {
+          const canvas = document.createElement('canvas')
+          const maxSize = 512
+          let width = img.width
+          let height = img.height
+
+          if (width > height) {
+            if (width > maxSize) {
+              height *= maxSize / width
+              width = maxSize
+            }
+          } else {
+            if (height > maxSize) {
+              width *= maxSize / height
+              height = maxSize
+            }
+          }
+
+          canvas.width = width
+          canvas.height = height
+          const ctx = canvas.getContext('2d')
+          ctx?.drawImage(img, 0, 0, width, height)
+
+          // Compress to JPEG with quality 0.75
+          const compressed = canvas.toDataURL('image/jpeg', 0.75)
+          resolve(compressed)
+        }
+        img.onerror = () => reject(new Error('Fehler beim Laden des Bildes'))
+      }
+      reader.onerror = () => reject(new Error('Fehler beim Lesen der Datei'))
+    })
+  }
+
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file || !id) return
 
     setUploadingAvatar(true)
-    const reader = new FileReader()
-    reader.onload = async (ev) => {
-      try {
-        const base64 = ev.target?.result as string
-        await uploadAnimalAvatar(id, base64)
-        const res = await getAnimal(id)
-        setAnimal(res.data)
-        setError(null)
-      } catch (err: any) {
-        setError(err.response?.data?.error || 'Fehler beim Hochladen des Avatars')
-      } finally {
-        setUploadingAvatar(false)
-        if (avatarInputRef.current) avatarInputRef.current.value = ''
-      }
-    }
-    reader.onerror = () => {
-      setError('Fehler beim Lesen der Datei')
+    try {
+      const compressed = await compressImage(file)
+      await uploadAnimalAvatar(id, compressed)
+      const res = await getAnimal(id)
+      setAnimal(res.data)
+      setError(null)
+    } catch (err: any) {
+      setError(err.response?.data?.error || err.message || 'Fehler beim Hochladen des Avatars')
+    } finally {
       setUploadingAvatar(false)
+      if (avatarInputRef.current) avatarInputRef.current.value = ''
     }
-    reader.readAsDataURL(file)
   }
 
   if (loading) return <div className="container page" style={{ display: 'flex', justifyContent: 'center', paddingTop: '4rem' }}><div className="spinner spinner-lg"></div></div>
