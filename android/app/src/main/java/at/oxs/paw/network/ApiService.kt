@@ -37,4 +37,70 @@ interface ApiService {
 
     @GET("documents/{id}")
     suspend fun getDocument(@Path("id") id: String): Document
+
+    @POST("auth/logout")
+    suspend fun logout(): Response<Unit>
+
+    @GET("accounts/me")
+    suspend fun getProfile(): AccountProfile
+
+    @PATCH("accounts/me")
+    suspend fun updateProfile(@Body body: UpdateProfileRequest): Response<Unit>
+
+    @POST("accounts/request-verification")
+    suspend fun requestVerification(): Response<Unit>
+
+    @DELETE("accounts/me")
+    suspend fun deleteAccount(): Response<Unit>
+
+    @PATCH("animals/{id}")
+    suspend fun updateAnimal(@Path("id") id: String, @Body body: UpdateAnimalRequest): Animal
+
+    @DELETE("animals/{id}")
+    suspend fun deleteAnimal(@Path("id") id: String): Response<Unit>
+
+    @PATCH("animals/{id}/avatar")
+    suspend fun uploadAvatar(@Path("id") id: String, @Body body: AvatarUploadRequest): Response<AvatarResponse>
+
+    @DELETE("documents/{id}")
+    suspend fun deleteDocument(@Path("id") id: String): Response<Unit>
+
+    @PATCH("documents/{id}")
+    suspend fun updateDocument(@Path("id") id: String, @Body body: UpdateDocumentRequest): Response<Unit>
+
+    @GET("animals/{id}/sharing")
+    suspend fun getSharing(@Path("id") id: String): SharingSettings
+
+    @PUT("animals/{id}/sharing")
+    suspend fun updateSharing(@Path("id") id: String, @Body body: UpdateSharingRequest): SharingSettings
+
+    @GET("organizations")
+    suspend fun getOrganizations(): List<Organization>
+
+    @POST("organizations")
+    suspend fun createOrganization(@Body body: CreateOrgRequest): Organization
+
+    @POST("organizations/{id}/invite")
+    suspend fun inviteToOrg(@Path("id") id: String, @Body body: InviteRequest): Response<Unit>
+
+    @POST("organizations/{id}/accept")
+    suspend fun acceptOrgInvite(@Path("id") id: String): Response<Unit>
+
+    @GET("organizations/{id}/members")
+    suspend fun getOrgMembers(@Path("id") id: String): List<OrgMember>
+
+    @DELETE("organizations/{id}/members/{memberId}")
+    suspend fun removeOrgMember(@Path("id") id: String, @Path("memberId") memberId: String): Response<Unit>
+
+    @GET("admin/accounts")
+    suspend fun getAdminAccounts(): List<AdminAccount>
+
+    @GET("admin/audit")
+    suspend fun getAuditLog(): List<AuditLogEntry>
+
+    @PATCH("admin/accounts/{id}")
+    suspend fun updateAccountRole(@Path("id") id: String, @Body body: UpdateRoleRequest): Response<Unit>
+
+    @POST("admin/accounts/{id}/verify")
+    suspend fun verifyAccount(@Path("id") id: String, @Body body: VerifyRequest): Response<Unit>
 }
