@@ -3,7 +3,10 @@ package at.oxs.paw.ui
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Pets
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -68,7 +71,7 @@ fun AppNavHost(
                         }
                     )
                     NavigationBarItem(
-                        icon = { Icon(Icons.Default.QrCode, null) },
+                        icon = { Text("📷") },
                         label = { Text("Scannen") },
                         selected = currentRoute == "scan",
                         onClick = {

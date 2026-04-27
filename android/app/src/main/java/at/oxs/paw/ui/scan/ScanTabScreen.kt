@@ -27,6 +27,9 @@ import com.google.mlkit.vision.common.InputImage
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
 import java.util.concurrent.Executors
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -226,12 +229,12 @@ fun NewAnimalDialog(tagId: String, tagType: String, onConfirm: (String, String, 
         onDismissRequest = onDismiss,
         title = { Text("Neues Tier anlegen") },
         text = {
-            androidx.compose.foundation.layout.Column {
+            Column {
                 Text("Tag $tagId ($tagType) ist noch nicht registriert.", style = MaterialTheme.typography.bodySmall)
                 Spacer(Modifier.height(8.dp))
                 OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                 Spacer(Modifier.height(4.dp))
-                androidx.compose.foundation.layout.Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf("dog" to "🐶 Hund", "cat" to "🐱 Katze", "other" to "Sonstiges").forEach { (val_, label) ->
                         FilterChip(selected = species == val_, onClick = { species = val_ }, label = { Text(label) })
                     }
