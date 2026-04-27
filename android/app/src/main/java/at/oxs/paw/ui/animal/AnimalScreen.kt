@@ -154,7 +154,8 @@ fun AnimalScreen(
                             Box(modifier = Modifier.size(64.dp), contentAlignment = Alignment.Center) {
                                 if (a.avatar_path != null && serverUrl.isNotEmpty()) {
                                     val baseUrl = serverUrl.removeSuffix("/api/").removeSuffix("/")
-                                    val imageUrl = "$baseUrl/uploads/${a.avatar_path}"
+                                    val fileName = a.avatar_path.split("/").last()
+                                    val imageUrl = "$baseUrl/uploads/$fileName"
                                     AsyncImage(
                                         model = imageUrl,
                                         contentDescription = "Avatar von ${a.name}",

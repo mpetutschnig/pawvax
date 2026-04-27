@@ -62,7 +62,12 @@ export default async function wsDocumentUpload(fastify) {
 
           const db = getDb()
           const acc = db.prepare('SELECT gemini_token FROM accounts WHERE id = ?').get(accountId)
-          userGeminiKey = acc?.gemini_token ? decrypt(acc.gemini_token) : null
+          try {
+            userGeminiKey = acc?.gemini_token ? decrypt(acc.gemini_token) : null
+          } catch (decryptErr) {
+            console.warn(`[WS] Could not decrypt user gemini_token: ${decryptErr.message}. Will use server GEMINI_API_KEY if available.`)
+            userGeminiKey = null
+          }
 
           authenticated = true
           console.log(`[WS] Client authenticated: ${accountId} (${userRole}, has_gemini_key: ${!!userGeminiKey})`)
@@ -87,8 +92,18 @@ export default async function wsDocumentUpload(fastify) {
           const pageNum = pageNumber ?? 1
           console.log(`[WS] Upload start: ${filename} für Tier ${animalId} (page ${pageNum})`)
 
-          // sicherstellen, dass das Tier dem Account gehört
+          // Insert stub document so document_pages FK is satisfied
+          const docId = documentId || uuid()
           const db = getDb()
+          const existingCheck = db.prepare('SELECT id FROM documents WHERE id = ?').get(docId)
+          if (!existingCheck) {
+            db.prepare(`
+              INSERT INTO documents (id, animal_id, doc_type, image_path, extracted_json, ocr_provider, added_by_account, added_by_role, allowed_roles)
+              VALUES (?, ?, 'other', '', '{}', 'pending', ?, ?, ?)
+            `).run(docId, animalId, accountId, userRole, JSON.stringify(allowedRoles ?? ['vet', 'authority', 'readonly']))
+          }
+
+          // sicherstellen, dass das Tier dem Account gehört
           const animal = db.prepare('SELECT id FROM animals WHERE id = ? AND account_id = ?')
             .get(animalId, accountId)
 
@@ -105,13 +120,13 @@ export default async function wsDocumentUpload(fastify) {
             allowedRoles: allowedRoles ?? ['vet', 'authority', 'readonly'],
             filename: safeFilename,
             pageNumber: pageNum,
-            documentId: documentId || uuid(),
+            documentId: docId,
             writer: saveImageChunks(safeFilename),
             isMultiPage: pageNumber !== undefined && pageNumber > 1
           }
 
-          console.log(`[WS] Ready to receive (doc: ${uploadState.documentId})`)
-          send(socket, { type: 'ready', documentId: uploadState.documentId })
+          console.log(`[WS] Ready to receive (doc: ${docId})`)
+          send(socket, { type: 'ready', documentId: docId })
           break
         }
 
@@ -157,7 +172,8 @@ export default async function wsDocumentUpload(fastify) {
 
             // Analyze each page and combine text
             let combinedText = ''
-            let lastProvider = 'tesseract'
+            let lastProvider = 'gemini'
+            let analysisError = null
             for (const page of pages) {
               try {
                 const result = await analyzeDocument(page.image_path, userGeminiKey, (progressMsg) => {
@@ -166,7 +182,10 @@ export default async function wsDocumentUpload(fastify) {
                 combinedText += (combinedText ? '\n---\n' : '') + (result.data.text || '')
                 lastProvider = result.provider
               } catch (err) {
-                console.error(`Error analyzing page ${page.page_number}:`, err)
+                console.error(`Error analyzing page ${page.page_number}:`, err.message)
+                analysisError = err
+                // Store error but continue - will save as pending_analysis
+                send(socket, { type: 'status', message: `⚠️ ${err.message}` })
               }
             }
 
@@ -187,6 +206,7 @@ export default async function wsDocumentUpload(fastify) {
 
             // Create document with combined pages
             const docId = uploadState.documentId
+            const analysisStatus = analysisError ? 'pending_analysis' : 'completed'
 
             // Check if document already exists
             const existingDoc = db.prepare('SELECT id FROM documents WHERE id = ?').get(docId)
@@ -195,33 +215,35 @@ export default async function wsDocumentUpload(fastify) {
               // Update existing document
               db.prepare(`
                 UPDATE documents
-                SET doc_type = ?, image_path = ?, extracted_json = ?, ocr_provider = ?, added_by_account = ?, added_by_role = ?, allowed_roles = ?
+                SET doc_type = ?, image_path = ?, extracted_json = ?, ocr_provider = ?, added_by_account = ?, added_by_role = ?, allowed_roles = ?, analysis_status = ?
                 WHERE id = ?
               `).run(
                 suggestedType,
                 pages[0].image_path,
-                JSON.stringify({ text: combinedText, type: suggestedType, pages: pages.length }),
+                analysisError ? JSON.stringify({ pages: pages.length, error: analysisError.message }) : JSON.stringify({ text: combinedText, type: suggestedType, pages: pages.length }),
                 lastProvider,
                 accountId,
                 userRole,
                 JSON.stringify(uploadState.allowedRoles),
+                analysisStatus,
                 docId
               )
             } else {
               // Insert new document
               db.prepare(`
-                INSERT INTO documents (id, animal_id, doc_type, image_path, extracted_json, ocr_provider, added_by_account, added_by_role, allowed_roles)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO documents (id, animal_id, doc_type, image_path, extracted_json, ocr_provider, added_by_account, added_by_role, allowed_roles, analysis_status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
               `).run(
                 docId,
                 uploadState.animalId,
                 suggestedType,
                 pages[0].image_path,
-                JSON.stringify({ text: combinedText, type: suggestedType, pages: pages.length }),
+                analysisError ? JSON.stringify({ pages: pages.length, error: analysisError.message }) : JSON.stringify({ text: combinedText, type: suggestedType, pages: pages.length }),
                 lastProvider,
                 accountId,
                 userRole,
-                JSON.stringify(uploadState.allowedRoles)
+                JSON.stringify(uploadState.allowedRoles),
+                analysisStatus
               )
             }
 
@@ -233,7 +255,7 @@ export default async function wsDocumentUpload(fastify) {
 
             send(socket, {
               type: 'result',
-              data: { documentId: docId, docType: suggestedType, pages: pages.length, suggestedType }
+              data: { documentId: docId, docType: suggestedType, pages: pages.length, suggestedType, ocrProvider: lastProvider, analysisStatus }
             })
           } catch (err) {
             console.error('OCR/Upload Fehler:', err)

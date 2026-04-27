@@ -98,6 +98,15 @@ interface ApiService {
     @GET("admin/audit")
     suspend fun getAuditLog(): List<AuditLogEntry>
 
+    @GET("admin/stats")
+    suspend fun getAdminStats(): AdminStats
+
+    @GET("admin/animals")
+    suspend fun getAdminAnimals(): List<AdminAnimal>
+
+    @GET("admin/accounts/pending-verification")
+    suspend fun getPendingVerifications(): List<PendingVerification>
+
     @PATCH("admin/accounts/{id}")
     suspend fun updateAccountRole(@Path("id") id: String, @Body body: UpdateRoleRequest): Response<Unit>
 

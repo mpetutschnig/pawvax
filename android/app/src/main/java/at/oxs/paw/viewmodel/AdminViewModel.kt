@@ -12,11 +12,32 @@ class AdminViewModel(private val apiService: ApiService) : ViewModel() {
     private val _accounts = MutableStateFlow<List<AdminAccount>>(emptyList())
     val accounts: StateFlow<List<AdminAccount>> = _accounts
 
+    private val _animals = MutableStateFlow<List<AdminAnimal>>(emptyList())
+    val animals: StateFlow<List<AdminAnimal>> = _animals
+
+    private val _verifications = MutableStateFlow<List<PendingVerification>>(emptyList())
+    val verifications: StateFlow<List<PendingVerification>> = _verifications
+
+    private val _stats = MutableStateFlow<AdminStats?>(null)
+    val stats: StateFlow<AdminStats?> = _stats
+
     private val _auditLog = MutableStateFlow<List<AuditLogEntry>>(emptyList())
     val auditLog: StateFlow<List<AuditLogEntry>> = _auditLog
 
     private val _uiState = MutableStateFlow<UiState>(UiState.Idle)
     val uiState: StateFlow<UiState> = _uiState
+
+    fun loadStats() {
+        viewModelScope.launch {
+            _uiState.value = UiState.Loading
+            try {
+                _stats.value = apiService.getAdminStats()
+                _uiState.value = UiState.Success
+            } catch (e: Exception) {
+                _uiState.value = UiState.Error(e.message ?: "Failed to load stats")
+            }
+        }
+    }
 
     fun loadAccounts() {
         viewModelScope.launch {
@@ -27,6 +48,30 @@ class AdminViewModel(private val apiService: ApiService) : ViewModel() {
                 _uiState.value = UiState.Success
             } catch (e: Exception) {
                 _uiState.value = UiState.Error(e.message ?: "Failed to load accounts")
+            }
+        }
+    }
+
+    fun loadAnimals() {
+        viewModelScope.launch {
+            _uiState.value = UiState.Loading
+            try {
+                _animals.value = apiService.getAdminAnimals()
+                _uiState.value = UiState.Success
+            } catch (e: Exception) {
+                _uiState.value = UiState.Error(e.message ?: "Failed to load animals")
+            }
+        }
+    }
+
+    fun loadVerifications() {
+        viewModelScope.launch {
+            _uiState.value = UiState.Loading
+            try {
+                _verifications.value = apiService.getPendingVerifications()
+                _uiState.value = UiState.Success
+            } catch (e: Exception) {
+                _uiState.value = UiState.Error(e.message ?: "Failed to load verifications")
             }
         }
     }
@@ -58,13 +103,13 @@ class AdminViewModel(private val apiService: ApiService) : ViewModel() {
         }
     }
 
-    fun verifyAccount(accountId: String, verified: Int) {
+    fun verifyAccount(accountId: String, approved: Boolean) {
         viewModelScope.launch {
             _uiState.value = UiState.Loading
             try {
-                val request = VerifyRequest(verified)
+                val request = VerifyRequest(if (approved) 1 else 0)
                 apiService.verifyAccount(accountId, request)
-                loadAccounts()
+                loadVerifications()
                 _uiState.value = UiState.Success
             } catch (e: Exception) {
                 _uiState.value = UiState.Error(e.message ?: "Failed to verify account")

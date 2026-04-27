@@ -17,7 +17,7 @@ import at.oxs.paw.ui.theme.Spacing
 import kotlinx.coroutines.launch
 
 @Composable
-fun LoginScreen(onLogin: () -> Unit) {
+fun LoginScreen(onLogin: () -> Unit, onPublicScan: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var mode by remember { mutableStateOf("login") }
@@ -93,5 +93,16 @@ fun LoginScreen(onLogin: () -> Unit) {
             onClick = { mode = if (mode == "login") "register" else "login"; error = null },
             modifier = Modifier.fillMaxWidth()
         ) { Text(if (mode == "login") "Noch kein Konto? Registrieren" else "Bereits registriert? Einloggen") }
+
+        Spacer(Modifier.height(Spacing.lg))
+        HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.md))
+        Spacer(Modifier.height(Spacing.md))
+
+        OutlinedButton(
+            onClick = { onPublicScan() },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("🔍 Scan ohne Login")
+        }
     }
 }

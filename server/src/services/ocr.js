@@ -48,21 +48,20 @@ Antworte NUR mit dem JSON-Objekt, kein erklärender Text.
 
 export async function analyzeDocument(imagePath, userGeminiKey = null, onProgress = null) {
   const geminiKey = userGeminiKey || GEMINI_KEY
-  if (geminiKey) {
-    if (onProgress) onProgress('Technologie: Gemini 3.1 Flash-Lite wird initialisiert...')
-    try {
-      return await analyzeWithGemini(imagePath, geminiKey, onProgress)
-    } catch (err) {
-      console.warn('Gemini OCR fehlgeschlagen:', err.message)
-      if (userGeminiKey) {
-        throw new Error(`Gemini Analyse fehlgeschlagen. Bitte prüfe deinen API-Schlüssel. (${err.message})`)
-      }
-      if (onProgress) onProgress(`Google API Fehler: ${err.message}. Lade lokales Tesseract OCR (Fallback)...`)
-    }
-  } else {
-    if (onProgress) onProgress('Kein Gemini-Key vorhanden. Technologie: Lokales Tesseract OCR wird gestartet...')
+  console.log(`[OCR] analyzeDocument: userGeminiKey=${!!userGeminiKey}, GEMINI_KEY=${!!GEMINI_KEY}, effectiveKey=${!!geminiKey}`)
+
+  if (!geminiKey) {
+    throw new Error('Kein Gemini API Key verfügbar. Bild wird gespeichert für spätere Verarbeitung.')
   }
-  return analyzeWithTesseract(imagePath, onProgress)
+
+  if (onProgress) onProgress('Technologie: Gemini 2.0 Flash wird initialisiert...')
+  try {
+    console.log(`[OCR] Versuche Gemini-Analyse mit Key: ${geminiKey.substring(0, 10)}...`)
+    return await analyzeWithGemini(imagePath, geminiKey, onProgress)
+  } catch (err) {
+    console.error('Gemini OCR fehlgeschlagen:', err.message, err.stack)
+    throw err // Throw error to be handled by caller (will trigger pending_analysis status)
+  }
 }
 
 async function analyzeWithGemini(imagePath, geminiKey, onProgress) {
@@ -71,8 +70,10 @@ async function analyzeWithGemini(imagePath, geminiKey, onProgress) {
   const base64 = imageData.toString('base64')
   const mimeType = imagePath.endsWith('.png') ? 'image/png' : 'image/jpeg'
 
-  if (onProgress) onProgress(`Sende POST Request an Gemini 3.1 Flash-Lite API...`)
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key=${geminiKey}`, {
+  if (onProgress) onProgress(`Sende POST Request an Gemini 2.0 Flash API...`)
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`
+  console.log(`[OCR] Gemini URL: ${url.substring(0, 80)}...`)
+  const response = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
@@ -94,6 +95,12 @@ async function analyzeWithGemini(imagePath, geminiKey, onProgress) {
 
   if (!response.ok) {
     const errorText = await response.text();
+    console.error(`[OCR] Gemini API Error (${response.status}):`, errorText);
+
+    if (response.status === 429) {
+      throw new Error('Gemini API Quota überschritten - bitte später erneut versuchen')
+    }
+
     throw new Error(`API Auth/Request fehlgeschlagen (${response.status}): ${errorText}`);
   }
 

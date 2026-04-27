@@ -418,17 +418,18 @@ export default async function animalRoutes(fastify) {
   fastify.patch('/api/animals/:id/avatar', { onRequest: [fastify.authenticate] }, async (req, reply) => {
     const db = getDb()
     const { id } = req.params
-    const { base64Image } = req.body
+    const { base64Image, image } = req.body
+    const imageData = base64Image || image
     const { accountId, role } = req.user
 
     const animal = db.prepare('SELECT * FROM animals WHERE id = ? AND account_id = ?').get(id, accountId)
     if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden' })
 
-    if (!base64Image) return reply.code(400).send({ error: 'Base64 Image erforderlich' })
+    if (!imageData) return reply.code(400).send({ error: 'Base64 Image erforderlich' })
 
     try {
       const filename = `avatar_${id}_${Date.now()}.webp`
-      const filepath = await saveAvatarImage(filename, base64Image)
+      const filepath = await saveAvatarImage(filename, imageData)
 
       db.prepare('UPDATE animals SET avatar_path = ? WHERE id = ?').run(filepath, id)
 

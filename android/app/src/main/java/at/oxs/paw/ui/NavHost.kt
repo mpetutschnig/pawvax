@@ -28,6 +28,7 @@ import at.oxs.paw.ui.organization.OrganizationScreen
 import at.oxs.paw.ui.organization.OrganizationDetailScreen
 import at.oxs.paw.ui.profile.ProfileScreen
 import at.oxs.paw.ui.scan.ScanTabScreen
+import at.oxs.paw.ui.scan.PublicScanScreen
 import at.oxs.paw.ui.sharing.SharingSettingsScreen
 import at.oxs.paw.ui.tags.TagManagementScreen
 import at.oxs.paw.network.TokenStore
@@ -112,6 +113,14 @@ fun AppNavHost(
                             userRole = TokenStore.getRole(context)
                             navController.navigate("animals") { popUpTo("login") { inclusive = true } }
                         }
+                    }, onPublicScan = {
+                        navController.navigate("publicScan")
+                    })
+                }
+
+                composable("publicScan") {
+                    PublicScanScreen(onLogin = {
+                        navController.popBackStack("login", inclusive = false)
                     })
                 }
 

@@ -221,13 +221,22 @@ export default function DocumentScanPage() {
           setPhase('analysing')
           setCurrentStatusMsg(msg)
           if (msg.includes('Tesseract') || msg.includes('tesseract')) setOcrProvider('Lokales Tesseract OCR')
-          if (msg.includes('Gemini') || msg.includes('gemini') || msg.includes('Google API')) setOcrProvider('Gemini 3.1 Flash-Lite')
+          if (msg.includes('Gemini') || msg.includes('gemini') || msg.includes('Google API')) setOcrProvider('Gemini API')
+          if (msg.includes('Quota') || msg.includes('quota')) setOcrProvider('⚠️ Quota - Tesseract Fallback')
         },
         onResult: (data: any) => {
           setResult(data.data)
           setSuggestedType(data.data.suggestedType || 'other')
           setDocumentId(data.data.documentId)
-          setPhase('done')
+          setOcrProvider(data.data.ocrProvider || 'unknown')
+
+          // If analysis failed (pending_analysis), show error instead of done
+          if (data.data.analysisStatus === 'pending_analysis') {
+            setErrorMsg('⚠️ Gemini API Quota überschritten. Dokument gespeichert. Versuchen Sie später erneut.')
+            setPhase('error')
+          } else {
+            setPhase('done')
+          }
         },
         onError: (msg: string) => {
           setErrorMsg(msg)
@@ -453,11 +462,11 @@ export default function DocumentScanPage() {
               <h3 style={{ marginBottom: 'var(--space-2)' }}>Analysis Failed</h3>
               <p className="text-muted" style={{ marginBottom: 'var(--space-4)' }}>{errorMsg || 'An unknown error occurred'}</p>
               <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
-                <button className="btn btn-primary flex-1" onClick={() => { setPhase('capture'); setErrorMsg(null) }} type="button">
-                  Try Again
+                <button className="btn btn-primary flex-1" onClick={() => navigate(`/animals/${animalId}`)} type="button">
+                  Für später speichern
                 </button>
-                <button className="btn btn-ghost flex-1" onClick={() => navigate(`/animals/${animalId}`)} type="button">
-                  Cancel
+                <button className="btn btn-ghost flex-1" onClick={() => { setPhase('capture'); setErrorMsg(null); setPreviews([]); setPages([]) }} type="button">
+                  Erneut versuchen
                 </button>
               </div>
             </div>
@@ -468,14 +477,20 @@ export default function DocumentScanPage() {
               <div style={{ color: 'var(--success-500)', marginBottom: 'var(--space-3)', display: 'flex', justifyContent: 'center' }}>
                 <CheckCircle size={48} strokeWidth={1.5} />
               </div>
-              <h3 style={{ marginBottom: 'var(--space-2)' }}>Analysis Complete!</h3>
-              {ocrProvider && <span className="badge badge-success" style={{ marginBottom: 'var(--space-6)', display: 'inline-flex' }}>{ocrProvider}</span>}
+              <h3 style={{ marginBottom: 'var(--space-4)' }}>Analysis Complete!</h3>
+
+              {(ocrProvider || currentStatusMsg) && (
+                <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-md)', padding: 'var(--space-4)', marginBottom: 'var(--space-6)', borderLeft: ocrProvider?.includes('Quota') ? '4px solid var(--danger-500)' : '4px solid var(--success-500)' }}>
+                  {ocrProvider && <div style={{ display: 'inline-flex', marginBottom: 'var(--space-2)' }}><span className={`badge ${ocrProvider?.includes('Quota') ? 'badge-danger' : 'badge-success'}`}>{ocrProvider}</span></div>}
+                  {currentStatusMsg && <p style={{ margin: '0', fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>{currentStatusMsg}</p>}
+                </div>
+              )}
 
               {suggestedType && (
                 <div style={{ background: 'var(--primary-50)', borderRadius: 'var(--radius-md)', padding: 'var(--space-4)', marginBottom: 'var(--space-6)', borderLeft: '4px solid var(--primary-500)' }}>
                   <h4 style={{ margin: '0 0 var(--space-3) 0', fontSize: 'var(--font-size-sm)', fontWeight: 600 }}>Document Type</h4>
                   <p style={{ margin: '0 0 var(--space-3) 0', fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
-                    Gemini suggests: <strong style={{ color: 'var(--text-primary)' }}>{docTypes.find(t => t.id === suggestedType)?.label || suggestedType}</strong>
+                    {ocrProvider?.includes('Tesseract') ? 'Tesseract detected' : 'AI analyzed'}: <strong style={{ color: 'var(--text-primary)' }}>{docTypes.find(t => t.id === suggestedType)?.label || suggestedType}</strong>
                   </p>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
                     {docTypes.map(type => (

@@ -166,7 +166,8 @@ fun AnimalsScreen(
                             Row(modifier = Modifier.padding(Spacing.lg), verticalAlignment = Alignment.CenterVertically) {
                                 if (animal.avatar_path != null && serverUrl.isNotEmpty()) {
                                     val baseUrl = serverUrl.removeSuffix("/api/").removeSuffix("/")
-                                    val imageUrl = "$baseUrl/uploads/${animal.avatar_path}"
+                                    val fileName = animal.avatar_path.split("/").last()
+                                    val imageUrl = "$baseUrl/uploads/$fileName"
                                     AsyncImage(
                                         model = imageUrl,
                                         contentDescription = "Avatar von ${animal.name}",

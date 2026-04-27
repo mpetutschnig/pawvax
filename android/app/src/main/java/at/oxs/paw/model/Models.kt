@@ -89,6 +89,33 @@ data class AuditLogEntry(
     val created_at: String
 )
 
+data class AdminStats(
+    val accounts: Int,
+    val animals: Int,
+    val documents: Int,
+    val auditEntries: Int
+)
+
+data class AdminAnimal(
+    val id: String,
+    val name: String,
+    val species: String,
+    val breed: String?,
+    val birthdate: String?,
+    val owner_name: String,
+    val owner_email: String,
+    val created_at: String
+)
+
+data class PendingVerification(
+    val id: String,
+    val name: String,
+    val email: String,
+    val role: String,
+    val verification_status: String,
+    val created_at: String
+)
+
 // Request Bodies
 data class LoginRequest(val email: String, val password: String)
 data class RegisterRequest(val name: String, val email: String, val password: String)

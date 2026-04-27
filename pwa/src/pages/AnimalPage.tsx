@@ -401,7 +401,7 @@ export default function AnimalPage() {
             fontSize: 'var(--font-size-sm)'
           }}
         >
-          Alle Dokumente ({documents.length})
+          Alle Dokumente ({documents.filter(d => d.analysis_status !== 'pending_analysis').length})
         </button>
         <button
           onClick={() => setDocumentTab('pending')}
@@ -427,7 +427,7 @@ export default function AnimalPage() {
       {/* All Documents Tab */}
       {documentTab === 'all' && (
         <>
-          <h3 style={{ marginBottom: 'var(--space-3)', marginTop: 0 }}>Dokumente ({documents.length})</h3>
+          <h3 style={{ marginBottom: 'var(--space-3)', marginTop: 0 }}>Dokumente ({documents.filter(d => d.analysis_status !== 'pending_analysis').length})</h3>
           {documents.length === 0 && <p className="text-muted text-center" style={{ padding: 'var(--space-4) 0' }}>Noch keine Dokumente. Scanne das erste Dokument!</p>}
 
           {documents.length > 0 && (
@@ -445,7 +445,7 @@ export default function AnimalPage() {
       )}
 
       {documents && documents
-        .filter(doc => !documentSearch || docTypeLabel[doc.doc_type]?.toLowerCase().includes(documentSearch) || new Date(doc.created_at).toLocaleString('de-AT').includes(documentSearch))
+        .filter(doc => doc.analysis_status !== 'pending_analysis' && (!documentSearch || docTypeLabel[doc.doc_type]?.toLowerCase().includes(documentSearch) || new Date(doc.created_at).toLocaleString('de-AT').includes(documentSearch)))
         .map(doc => (
         <Link key={doc.id} to={`/animals/${id}/documents/${doc.id}`} style={{ textDecoration: 'none' }}>
           <div className="card card-sm" style={{ 
@@ -525,7 +525,7 @@ export default function AnimalPage() {
                 }}
               >
                 <RefreshCw size={12} />
-                {retrying === doc.id ? 'Speichern...' : 'Für später speichern'}
+                {retrying === doc.id ? 'Analysieren...' : 'Analysieren'}
               </button>
             </div>
           ))}
