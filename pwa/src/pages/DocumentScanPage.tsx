@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ChevronLeft, CheckCircle, AlertCircle, Syringe, FileText, Cpu, BookOpen, Camera, RefreshCw } from 'lucide-react'
-import { uploadDocument } from '../api/ws'
+import { ChevronLeft, CheckCircle, AlertCircle, Syringe, FileText, Cpu, BookOpen, Camera, RefreshCw, Plus, X } from 'lucide-react'
+import { uploadMultiPageDocument } from '../api/ws'
 
 type Phase = 'capture' | 'uploading' | 'analysing' | 'done' | 'error'
 
@@ -32,8 +32,9 @@ export default function DocumentScanPage() {
   }
 
   const fileRef = useRef<HTMLInputElement>(null)
-  const [preview, setPreview] = useState<string | null>(null)
-  const [file, setFile] = useState<File | null>(null)
+  const [previews, setPreviews] = useState<string[]>([])
+  const [pages, setPages] = useState<File[]>([])
+  const [currentPageIndex, setCurrentPageIndex] = useState(0)
   const [docType, setDocType] = useState('vaccination')
   const [phase, setPhase] = useState<Phase>('capture')
   const [uploadProgress, setUploadProgress] = useState(0)
@@ -50,98 +51,133 @@ export default function DocumentScanPage() {
     return () => clearInterval(interval)
   }, [phase])
 
+  async function processImage(f: File): Promise<{ file: File; preview: string }> {
+    return new Promise((resolve, reject) => {
+      try {
+        if (window.createImageBitmap) {
+          createImageBitmap(f).then((bmp) => {
+            const canvas = document.createElement('canvas')
+            const MAX_WIDTH = 1200
+            const MAX_HEIGHT = 1200
+            let width = bmp.width
+            let height = bmp.height
+
+            if (width > height) {
+              if (width > MAX_WIDTH) {
+                height *= MAX_WIDTH / width
+                width = MAX_WIDTH
+              }
+            } else {
+              if (height > MAX_HEIGHT) {
+                width *= MAX_HEIGHT / height
+                height = MAX_HEIGHT
+              }
+            }
+
+            canvas.width = width
+            canvas.height = height
+            const ctx = canvas.getContext('2d')
+            ctx?.drawImage(bmp, 0, 0, width, height)
+
+            canvas.toBlob((blob) => {
+              if (blob) {
+                const resizedFile = new File([blob], f.name, { type: 'image/jpeg', lastModified: Date.now() })
+                resolve({ file: resizedFile, preview: URL.createObjectURL(resizedFile) })
+              }
+              bmp.close()
+            }, 'image/jpeg', 0.8)
+          }).catch(reject)
+        } else {
+          const objectUrl = URL.createObjectURL(f)
+          const img = new Image()
+
+          img.onload = () => {
+            const canvas = document.createElement('canvas')
+            const MAX_WIDTH = 1200
+            const MAX_HEIGHT = 1200
+            let width = img.width
+            let height = img.height
+
+            if (width > height) {
+              if (width > MAX_WIDTH) {
+                height *= MAX_WIDTH / width
+                width = MAX_WIDTH
+              }
+            } else {
+              if (height > MAX_HEIGHT) {
+                width *= MAX_HEIGHT / height
+                height = MAX_HEIGHT
+              }
+            }
+
+            canvas.width = width
+            canvas.height = height
+            const ctx = canvas.getContext('2d')
+            ctx?.drawImage(img, 0, 0, width, height)
+
+            canvas.toBlob((blob) => {
+              if (blob) {
+                const resizedFile = new File([blob], f.name, { type: 'image/jpeg', lastModified: Date.now() })
+                resolve({ file: resizedFile, preview: URL.createObjectURL(resizedFile) })
+              }
+              URL.revokeObjectURL(objectUrl)
+            }, 'image/jpeg', 0.8)
+          }
+
+          img.onerror = reject
+          img.src = objectUrl
+        }
+      } catch (err) {
+        reject(err)
+      }
+    })
+  }
+
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0]
     if (!f) return
-    
+
     try {
-      if (window.createImageBitmap) {
-        // Nativer, speicherschonender Weg (verhindert oft den iOS Safari "Camera Crash")
-        const bmp = await createImageBitmap(f)
-        const canvas = document.createElement('canvas')
-        const MAX_WIDTH = 1200
-        const MAX_HEIGHT = 1200
-        let width = bmp.width
-        let height = bmp.height
-
-        if (width > height) {
-          if (width > MAX_WIDTH) {
-            height *= MAX_WIDTH / width
-            width = MAX_WIDTH
-          }
-        } else {
-          if (height > MAX_HEIGHT) {
-            width *= MAX_HEIGHT / height
-            height = MAX_HEIGHT
-          }
-        }
-        
-        canvas.width = width
-        canvas.height = height
-        const ctx = canvas.getContext('2d')
-        ctx?.drawImage(bmp, 0, 0, width, height)
-        
-        canvas.toBlob((blob) => {
-          if (blob) {
-            const resizedFile = new File([blob], f.name, { type: 'image/jpeg', lastModified: Date.now() })
-            setFile(resizedFile)
-            setPreview(URL.createObjectURL(resizedFile))
-          }
-          bmp.close() // Speicher hart freigeben
-        }, 'image/jpeg', 0.8)
-      } else {
-        // Fallback für ältere Browser
-        const objectUrl = URL.createObjectURL(f)
-        const img = new Image()
-        
-        img.onload = () => {
-          const canvas = document.createElement('canvas')
-          const MAX_WIDTH = 1200
-          const MAX_HEIGHT = 1200
-          let width = img.width
-          let height = img.height
-
-          if (width > height) {
-            if (width > MAX_WIDTH) {
-              height *= MAX_WIDTH / width
-              width = MAX_WIDTH
-            }
-          } else {
-            if (height > MAX_HEIGHT) {
-              width *= MAX_HEIGHT / height
-              height = MAX_HEIGHT
-            }
-          }
-          
-          canvas.width = width
-          canvas.height = height
-          const ctx = canvas.getContext('2d')
-          ctx?.drawImage(img, 0, 0, width, height)
-          
-          canvas.toBlob((blob) => {
-            if (blob) {
-              const resizedFile = new File([blob], f.name, { type: 'image/jpeg', lastModified: Date.now() })
-              setFile(resizedFile)
-              setPreview(URL.createObjectURL(resizedFile))
-            }
-            URL.revokeObjectURL(objectUrl)
-          }, 'image/jpeg', 0.8)
-        }
-        
-        img.src = objectUrl
-      }
+      const { file, preview } = await processImage(f)
+      setPages([file])
+      setPreviews([preview])
+      setCurrentPageIndex(0)
     } catch (err) {
       console.error(err)
       setErrorMsg("Bild konnte nicht verarbeitet werden.")
     }
   }
 
+  async function handleAddPage(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0]
+    if (!f) return
+
+    try {
+      const { file, preview } = await processImage(f)
+      setPages([...pages, file])
+      setPreviews([...previews, preview])
+      setCurrentPageIndex(pages.length)
+    } catch (err) {
+      console.error(err)
+      setErrorMsg("Seite konnte nicht hinzugefügt werden.")
+    }
+  }
+
+  function handleRemovePage(index: number) {
+    const newPages = pages.filter((_, i) => i !== index)
+    const newPreviews = previews.filter((_, i) => i !== index)
+    setPages(newPages)
+    setPreviews(newPreviews)
+    if (currentPageIndex >= newPages.length) {
+      setCurrentPageIndex(Math.max(0, newPages.length - 1))
+    }
+  }
+
   async function handleRotate() {
-    if (!preview || !file) return
+    if (!previews[currentPageIndex] || !pages[currentPageIndex]) return
     const img = new Image()
     img.onload = () => {
       const canvas = document.createElement('canvas')
-      // 90 degrees clockwise
       canvas.width = img.height
       canvas.height = img.width
       const ctx = canvas.getContext('2d')
@@ -152,17 +188,21 @@ export default function DocumentScanPage() {
       }
       canvas.toBlob((blob) => {
         if (blob) {
-          const rotatedFile = new File([blob], file.name, { type: 'image/jpeg', lastModified: Date.now() })
-          setFile(rotatedFile)
-          setPreview(URL.createObjectURL(rotatedFile))
+          const rotatedFile = new File([blob], pages[currentPageIndex].name, { type: 'image/jpeg', lastModified: Date.now() })
+          const newPages = [...pages]
+          newPages[currentPageIndex] = rotatedFile
+          setPages(newPages)
+          const newPreviews = [...previews]
+          newPreviews[currentPageIndex] = URL.createObjectURL(rotatedFile)
+          setPreviews(newPreviews)
         }
       }, 'image/jpeg', 0.8)
     }
-    img.src = preview
+    img.src = previews[currentPageIndex]
   }
 
   async function handleUpload() {
-    if (!file || !animalId) return
+    if (pages.length === 0 || !animalId) return
     setPhase('uploading')
     setUploadProgress(0)
     setElapsedTime(0)
@@ -170,19 +210,19 @@ export default function DocumentScanPage() {
     setErrorMsg(null)
 
     try {
-      await uploadDocument(animalId, file, {
-        onProgress: (percent) => setUploadProgress(Math.round(percent)),
-        onStatus: (msg) => {
+      await uploadMultiPageDocument(animalId, pages, {
+        onProgress: (percent: number) => setUploadProgress(Math.round(percent)),
+        onStatus: (msg: string) => {
           setPhase('analysing')
           setCurrentStatusMsg(msg)
           if (msg.includes('Tesseract') || msg.includes('tesseract')) setOcrProvider('Lokales Tesseract OCR')
           if (msg.includes('Gemini') || msg.includes('gemini') || msg.includes('Google API')) setOcrProvider('Gemini 3.1 Flash-Lite')
         },
-        onResult: (data) => {
-          setResult(data.data.content)
+        onResult: (data: any) => {
+          setResult(data.data)
           setPhase('done')
         },
-        onError: (msg) => {
+        onError: (msg: string) => {
           setErrorMsg(msg)
           setPhase('error')
         },
@@ -242,7 +282,7 @@ export default function DocumentScanPage() {
             style={{ display: 'none' }}
             onChange={handleFileChange}
           />
-          {!preview ? (
+          {previews.length === 0 ? (
             <div 
               style={{ 
                 border: '2px dashed var(--border)', 
@@ -264,7 +304,7 @@ export default function DocumentScanPage() {
           ) : (
             <>
               <div style={{ position: 'relative', marginBottom: 'var(--space-4)' }}>
-                <img src={preview} alt="Vorschau" style={{ width: '100%', borderRadius: 'var(--radius-md)', display: 'block' }} />
+                <img src={previews[currentPageIndex]} alt="Vorschau" style={{ width: '100%', borderRadius: 'var(--radius-md)', display: 'block' }} />
                 <button 
                   className="btn-secondary" 
                   onClick={handleRotate}
@@ -299,8 +339,90 @@ export default function DocumentScanPage() {
                 </div>
               </div>
 
+              {/* Page Thumbnails and Add Page Button */}
+              {previews.length > 0 && (
+                <div style={{ marginBottom: 'var(--space-4)' }}>
+                  <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: 'var(--space-2)', color: 'var(--text-secondary)' }}>
+                    Seiten: {previews.length}
+                  </div>
+                  <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap', marginBottom: 'var(--space-3)' }}>
+                    {previews.map((preview, idx) => (
+                      <div
+                        key={idx}
+                        onClick={() => setCurrentPageIndex(idx)}
+                        style={{
+                          position: 'relative',
+                          width: '60px',
+                          height: '60px',
+                          borderRadius: 'var(--radius-sm)',
+                          overflow: 'hidden',
+                          border: `2px solid ${idx === currentPageIndex ? 'var(--primary-500)' : 'var(--border)'}`,
+                          cursor: 'pointer',
+                          opacity: idx === currentPageIndex ? 1 : 0.6,
+                          transition: 'all var(--t-fast)'
+                        }}
+                      >
+                        <img src={preview} alt={`Seite ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        {previews.length > 1 && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleRemovePage(idx)
+                            }}
+                            style={{
+                              position: 'absolute',
+                              top: '-5px',
+                              right: '-5px',
+                              width: '20px',
+                              height: '20px',
+                              background: 'var(--danger-600)',
+                              border: 'none',
+                              borderRadius: '50%',
+                              color: 'white',
+                              cursor: 'pointer',
+                              padding: 0,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: '12px'
+                            }}
+                          >
+                            <X size={14} />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    <input
+                      type="file"
+                      id="addPageInput"
+                      accept="image/*"
+                      capture="environment"
+                      style={{ display: 'none' }}
+                      onChange={handleAddPage}
+                    />
+                    <label
+                      htmlFor="addPageInput"
+                      style={{
+                        width: '60px',
+                        height: '60px',
+                        border: '2px dashed var(--border)',
+                        borderRadius: 'var(--radius-sm)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                        transition: 'all var(--t-fast)',
+                        background: 'var(--surface)'
+                      }}
+                    >
+                      <Plus size={24} color="var(--text-secondary)" />
+                    </label>
+                  </div>
+                </div>
+              )}
+
               <button className="btn btn-primary btn-full" onClick={handleUpload}>Hochladen & analysieren</button>
-              <button className="btn btn-ghost btn-full" style={{ marginTop: 'var(--space-2)' }} onClick={() => { setPreview(null); setFile(null) }}>
+              <button className="btn btn-ghost btn-full" style={{ marginTop: 'var(--space-2)' }} onClick={() => { setPreviews([]); setPages([]) }}>
                 Anderes Foto wählen
               </button>
             </>
