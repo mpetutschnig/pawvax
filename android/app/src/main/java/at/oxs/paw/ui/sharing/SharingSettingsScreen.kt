@@ -32,6 +32,10 @@ fun SharingSettingsScreen(
     var authorityMedications by remember { mutableStateOf(false) }
     var authorityContact by remember { mutableStateOf(false) }
 
+    LaunchedEffect(animalId) {
+        viewModel.loadAnimal(animalId)
+    }
+
     LaunchedEffect(sharingSettings) {
         sharingSettings?.let { settings ->
             vetVaccination = settings.roles["vet"]?.get("vaccination") ?: true

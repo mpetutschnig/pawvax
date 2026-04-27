@@ -17,6 +17,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat.startActivity
+import androidx.compose.ui.layout.ContentScale
 import at.oxs.paw.model.Document
 import at.oxs.paw.model.UpdateDocumentRequest
 import at.oxs.paw.network.RetrofitClient
@@ -26,6 +27,8 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.*
+import com.google.gson.Gson
+import coil3.compose.AsyncImage
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -56,6 +59,7 @@ fun DocumentDetailScreen(
     var isUploader by remember { mutableStateOf(false) }
     var addedByRole by remember { mutableStateOf<String?>(null) }
     var selectedDocType by remember { mutableStateOf("other") }
+    var serverUrl by remember { mutableStateOf("") }
 
     LaunchedEffect(docId) {
         scope.launch {
@@ -63,18 +67,26 @@ fun DocumentDetailScreen(
             error = null
             try {
                 val token = TokenStore.getToken(context) ?: return@launch
-                val api = RetrofitClient.build(TokenStore.getServerUrl(context), token)
+                serverUrl = TokenStore.getServerUrl(context)
+                val api = RetrofitClient.build(serverUrl, token)
                 val loadedDoc = api.getDocument(docId)
                 doc = loadedDoc
                 selectedDocType = loadedDoc.doc_type ?: "other"
 
                 val extractedJson = loadedDoc.extracted_json
-                if (extractedJson != null && extractedJson is String) {
+                if (extractedJson != null) {
                     try {
-                        val json = JSONObject(extractedJson)
-                        val suggestedTags = json.optJSONArray("suggested_tags")
-                        if (suggestedTags != null) {
-                            tags = (0 until suggestedTags.length()).map { suggestedTags.getString(it) }
+                        val jsonStr = when (extractedJson) {
+                            is String -> extractedJson
+                            is Map<*, *> -> Gson().toJson(extractedJson)
+                            else -> null
+                        }
+                        if (jsonStr != null) {
+                            val json = JSONObject(jsonStr)
+                            val suggestedTags = json.optJSONArray("suggested_tags")
+                            if (suggestedTags != null) {
+                                tags = (0 until suggestedTags.length()).map { suggestedTags.getString(it) }
+                            }
                         }
                     } catch (e: Exception) {
                         tags = emptyList()
@@ -190,10 +202,19 @@ fun DocumentDetailScreen(
                 )
             }
 
-            if (doc?.image_path != null) {
+            if (doc?.image_path != null && serverUrl.isNotEmpty()) {
                 item {
+                    val baseUrl = serverUrl.removeSuffix("/api/").removeSuffix("/")
+                    val imageUrl = "$baseUrl/uploads/${doc!!.image_path}"
                     Card(modifier = Modifier.fillMaxWidth()) {
-                        Text("📷 Dokumentbild", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(12.dp))
+                        AsyncImage(
+                            model = imageUrl,
+                            contentDescription = "Dokumentbild",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 400.dp),
+                            contentScale = ContentScale.Fit
+                        )
                     }
                 }
             }

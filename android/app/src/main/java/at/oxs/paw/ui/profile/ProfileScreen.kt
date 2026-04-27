@@ -13,13 +13,17 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import at.oxs.paw.viewmodel.ProfileViewModel
 import at.oxs.paw.viewmodel.UiState
 import at.oxs.paw.viewmodel.ViewModelFactory
+import at.oxs.paw.network.TokenStore
+import at.oxs.paw.network.RetrofitClient
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
-    onBack: () -> Unit
+    onBack: () -> Unit = {},
+    onLogout: () -> Unit = {}
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val viewModel = viewModel<ProfileViewModel>(factory = ViewModelFactory(context))
     val profile by viewModel.profile.collectAsState()
     val uiState by viewModel.uiState.collectAsState()
@@ -97,6 +101,28 @@ fun ProfileScreen(
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                         ) {
                             Text("Konto löschen")
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        OutlinedButton(
+                            onClick = {
+                                scope.launch {
+                                    try {
+                                        val token = TokenStore.getToken(context)
+                                        if (token != null) {
+                                            val api = RetrofitClient.build(TokenStore.getServerUrl(context), token)
+                                            api.logout()
+                                        }
+                                    } catch (_: Exception) {}
+                                    TokenStore.clearToken(context)
+                                    TokenStore.clearRole(context)
+                                    onLogout()
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Abmelden")
                         }
                     }
                 }

@@ -35,49 +35,79 @@ class WsClient(private val context: Context) {
             .replace("http://", "ws://")
             .replace("https://", "wss://")
             .removeSuffix("/api/")
-            .let { "$it/ws?token=$token" }
+            .let { "$it/ws" }
 
         val request = Request.Builder().url(wsUrl).build()
 
         client.newWebSocket(request, object : WebSocketListener() {
+            private var authenticated = false
+            private var uploadStarted = false
+
             override fun onOpen(ws: WebSocket, response: Response) {
-                val msg = gson.toJson(mapOf(
-                    "type" to "upload_start",
-                    "animalId" to animalId,
-                    "filename" to filename,
-                    "mimeType" to "image/jpeg",
-                    "page_number" to pageNumber,
-                    "is_last" to isLast
-                ))
-                ws.send(msg)
+                val authMsg = gson.toJson(mapOf("type" to "auth", "token" to token))
+                ws.send(authMsg)
             }
 
             override fun onMessage(ws: WebSocket, text: String) {
                 val json = gson.fromJson(text, JsonObject::class.java)
-                when (json.get("type").asString) {
-                    "ready" -> {
-                        val stream: InputStream = context.contentResolver.openInputStream(uri)!!
-                        val buffer = ByteArray(64 * 1024)
-                        var n: Int
-                        while (stream.read(buffer).also { n = it } != -1) {
-                            ws.send(okio.ByteString.of(*buffer.copyOf(n)))
-                        }
-                        stream.close()
-                        ws.send(gson.toJson(mapOf("type" to "upload_end", "is_last" to isLast)))
-                    }
-                    "status" -> channel.trySend(WsEvent.Status(json.get("message").asString))
-                    "page_saved" -> channel.trySend(WsEvent.Status(json.get("message").asString))
-                    "result" -> {
-                        val data = json.getAsJsonObject("data")
-                        channel.trySend(WsEvent.Result(
-                            documentId = data.get("documentId").asString,
-                            docType = data.get("docType").asString,
-                            content = data.get("content")
+                val type = json.get("type")?.asString
+
+                when {
+                    type == "auth_ok" -> {
+                        authenticated = true
+                        val uploadStartMsg = gson.toJson(mapOf(
+                            "type" to "upload_start",
+                            "animalId" to animalId,
+                            "filename" to filename,
+                            "mimeType" to "image/jpeg",
+                            "page_number" to pageNumber,
+                            "is_last" to isLast
                         ))
+                        ws.send(uploadStartMsg)
+                        uploadStarted = true
+                    }
+                    !authenticated -> {
+                        channel.trySend(WsEvent.Error("Authentifizierung erforderlich"))
+                        ws.close(1000, null)
+                    }
+                    type == "ready" -> {
+                        try {
+                            val stream: InputStream = context.contentResolver.openInputStream(uri)!!
+                            val buffer = ByteArray(64 * 1024)
+                            var n: Int
+                            while (stream.read(buffer).also { n = it } != -1) {
+                                ws.send(okio.ByteString.of(*buffer.copyOf(n)))
+                            }
+                            stream.close()
+                            ws.send(gson.toJson(mapOf("type" to "upload_end", "is_last" to isLast)))
+                        } catch (e: Exception) {
+                            channel.trySend(WsEvent.Error("Datei-Fehler: ${e.message}"))
+                        }
+                    }
+                    type == "status" -> {
+                        val message = json.get("message")?.asString ?: "Status update"
+                        channel.trySend(WsEvent.Status(message))
+                    }
+                    type == "page_saved" -> {
+                        val message = json.get("message")?.asString ?: "Seite gespeichert"
+                        channel.trySend(WsEvent.Status(message))
+                    }
+                    type == "result" -> {
+                        try {
+                            val data = json.getAsJsonObject("data")
+                            channel.trySend(WsEvent.Result(
+                                documentId = data.get("documentId")?.asString ?: "",
+                                docType = data.get("docType")?.asString ?: "",
+                                content = data.get("content") ?: ""
+                            ))
+                        } catch (e: Exception) {
+                            channel.trySend(WsEvent.Error("Ergebnis-Parse-Fehler: ${e.message}"))
+                        }
                         channel.close()
                     }
-                    "error" -> {
-                        channel.trySend(WsEvent.Error(json.get("message").asString))
+                    type == "error" -> {
+                        val message = json.get("message")?.asString ?: "Unbekannter Fehler"
+                        channel.trySend(WsEvent.Error(message))
                         channel.close()
                     }
                 }
