@@ -49,13 +49,14 @@ export default function AnimalPage() {
       if (!res.ok) {
         const errData = await res.json()
         setError(errData.error || 'Analyse fehlgeschlagen')
+        // Keep document in pending list, just show error
         return
       }
 
       const data = await res.json()
       console.log('Retry analysis successful:', data)
 
-      // Remove from pending list and add to documents list
+      // Remove from pending list and reload documents
       setPendingDocuments(prev => prev.filter(d => d.id !== docId))
 
       // Reload documents
