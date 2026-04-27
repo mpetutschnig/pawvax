@@ -246,6 +246,9 @@ export default async function documentRoutes(fastify) {
       })
     } catch (err) {
       console.error('Retry analysis error:', err)
+      // Reset status back to pending_analysis on error
+      db.prepare('UPDATE documents SET analysis_status = ? WHERE id = ?').run('pending_analysis', docId)
+
       // Mark as failed, but save for later retry
       if (err.message?.includes('429') || err.message?.includes('Quota')) {
         return reply.code(503).send({ error: 'Gemini API Quota überschritten. Bitte später versuchen.' })
