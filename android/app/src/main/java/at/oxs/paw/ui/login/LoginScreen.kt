@@ -77,6 +77,7 @@ fun LoginScreen(onLogin: () -> Unit) {
                         val res = if (mode == "login") api.login(LoginRequest(email, password))
                         else api.register(RegisterRequest(name, email, password))
                         TokenStore.saveToken(context, res.token)
+                        RetrofitClient.build(serverUrl, res.token)
                         onLogin()
                     } catch (e: Exception) {
                         error = e.message ?: "Anmeldung fehlgeschlagen"
