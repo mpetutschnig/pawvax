@@ -14,6 +14,7 @@ import at.oxs.paw.viewmodel.ProfileViewModel
 import at.oxs.paw.viewmodel.UiState
 import at.oxs.paw.viewmodel.ViewModelFactory
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
     onBack: () -> Unit

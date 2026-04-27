@@ -18,6 +18,7 @@ import at.oxs.paw.viewmodel.OrganizationViewModel
 import at.oxs.paw.viewmodel.UiState
 import at.oxs.paw.viewmodel.ViewModelFactory
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OrganizationScreen(
     onBack: () -> Unit,

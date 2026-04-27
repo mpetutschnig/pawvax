@@ -15,6 +15,7 @@ import at.oxs.paw.viewmodel.AdminViewModel
 import at.oxs.paw.viewmodel.UiState
 import at.oxs.paw.viewmodel.ViewModelFactory
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AuditLogScreen(
     onBack: () -> Unit

@@ -13,6 +13,7 @@ import at.oxs.paw.viewmodel.AnimalViewModel
 import at.oxs.paw.viewmodel.UiState
 import at.oxs.paw.viewmodel.ViewModelFactory
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SharingSettingsScreen(
     animalId: String,
