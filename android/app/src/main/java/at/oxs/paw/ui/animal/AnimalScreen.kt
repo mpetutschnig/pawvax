@@ -34,7 +34,8 @@ fun AnimalScreen(
     onBack: () -> Unit,
     onManageTags: () -> Unit,
     onScanDocument: () -> Unit,
-    onNavigateToSharing: (String) -> Unit = {}
+    onNavigateToSharing: (String) -> Unit = {},
+    onDocumentClicked: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -207,7 +208,10 @@ fun AnimalScreen(
             }
 
             items(documents) { doc ->
-                Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                Card(modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp)
+                    .clickable { onDocumentClicked(doc.id) }) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                             Text(when (doc.doc_type) { "vaccination" -> "💉 Impfung"; "medication" -> "💊 Medikament"; else -> "📄 Dokument" }, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))

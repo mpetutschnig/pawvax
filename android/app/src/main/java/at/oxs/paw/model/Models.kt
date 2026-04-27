@@ -29,7 +29,10 @@ data class Document(
     val extracted_json: Any?,
     val ocr_provider: String?,
     val created_at: String,
-    val added_by_role: String? = null
+    val added_by_role: String? = null,
+    val is_owner: Boolean? = false,
+    val is_uploader: Boolean? = false,
+    val allowed_roles: String? = null
 )
 
 data class AccountProfile(

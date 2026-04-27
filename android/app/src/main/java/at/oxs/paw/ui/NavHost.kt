@@ -8,6 +8,7 @@ import androidx.navigation.compose.composable
 import at.oxs.paw.ui.admin.AdminDashboard
 import at.oxs.paw.ui.admin.AuditLogScreen
 import at.oxs.paw.ui.animal.AnimalScreen
+import at.oxs.paw.ui.document.DocumentDetailScreen
 import at.oxs.paw.ui.document.DocumentScanScreen
 import at.oxs.paw.ui.login.LoginScreen
 import at.oxs.paw.ui.organization.OrganizationScreen
@@ -45,7 +46,8 @@ fun AppNavHost(
                 onBack = { navController.popBackStack() },
                 onManageTags = { navController.navigate("tags/$id") },
                 onScanDocument = { navController.navigate("docScan/$id") },
-                onNavigateToSharing = { animalId -> navController.navigate("sharing/$animalId") }
+                onNavigateToSharing = { animalId -> navController.navigate("sharing/$animalId") },
+                onDocumentClicked = { docId -> navController.navigate("document/$id/$docId") }
             )
         }
         composable("tags/{id}") { back ->
@@ -63,6 +65,15 @@ fun AppNavHost(
                 animalId = id,
                 onBack = { navController.popBackStack() },
                 onDone = { navController.navigate("animal/$id") { popUpTo("animal/$id") { inclusive = true } } }
+            )
+        }
+        composable("document/{animalId}/{docId}") { back ->
+            val animalId = back.arguments?.getString("animalId") ?: return@composable
+            val docId = back.arguments?.getString("docId") ?: return@composable
+            DocumentDetailScreen(
+                docId = docId,
+                animalId = animalId,
+                onBack = { navController.popBackStack() }
             )
         }
         composable("profile") {
