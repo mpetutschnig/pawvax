@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { getAnimal, getAnimalDocuments, getAnimalTags, updateAnimal, deleteAnimal, uploadAnimalAvatar } from '../api/rest'
 import { PageHeader } from '../components/PageHeader'
-import { PawPrint, Cat, ArrowLeft, Edit2, Trash2, Tag, Lock, Camera, Search, Syringe, FileText, Radio, CheckCircle, ShieldAlert } from 'lucide-react'
+import { PawPrint, Cat, ArrowLeft, Edit2, Trash2, Tag, Lock, Camera, Search, Syringe, FileText, Radio, CheckCircle, ShieldAlert, AlertTriangle, RefreshCw } from 'lucide-react'
 
 interface Animal {
   id: string; name: string; species: string; breed?: string; birthdate?: string;
@@ -12,7 +12,7 @@ interface AnimalTag {
   tag_id: string; tag_type: string; active: number; added_at: string
 }
 interface Document {
-  id: string; doc_type: string; created_at: string; ocr_provider: string; added_by_role?: string
+  id: string; doc_type: string; created_at: string; ocr_provider: string; added_by_role?: string; analysis_status?: string
 }
 
 const docTypeLabel: Record<string, string> = { vaccination: 'Vaccination', medication: 'Medication', other: 'Document' }
@@ -23,6 +23,7 @@ export default function AnimalPage() {
   const [animal, setAnimal] = useState<Animal | null>(null)
   const [tags, setTags] = useState<AnimalTag[]>([])
   const [documents, setDocuments] = useState<Document[]>([])
+  const [pendingDocuments, setPendingDocuments] = useState<Document[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
@@ -30,10 +31,30 @@ export default function AnimalPage() {
   const [submitting, setSubmitting] = useState(false)
   const [documentSearch, setDocumentSearch] = useState('')
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [documentTab, setDocumentTab] = useState<'all' | 'pending'>('all')
+  const [retrying, setRetrying] = useState<string | null>(null)
   const avatarInputRef = useRef<HTMLInputElement>(null)
 
   const myRoles: string[] = JSON.parse(localStorage.getItem('roles') || '[]')
   const isReadOnly = myRoles.length === 1 && myRoles[0] === 'readonly'
+
+  const handleRetryAnalysis = async (docId: string) => {
+    setRetrying(docId)
+    try {
+      const token = localStorage.getItem('token')
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {}
+
+      // Just mark as archived/acknowledged, don't actually retry
+      // await fetch(`/api/documents/${docId}/retry-analysis`, { method: 'POST', headers })
+
+      // For now, just remove from pending list UI
+      setPendingDocuments(prev => prev.filter(d => d.id !== docId))
+    } catch (err) {
+      console.error('Fehler beim Speichern:', err)
+    } finally {
+      setRetrying(null)
+    }
+  }
 
   useEffect(() => {
     if (!id) return
@@ -43,6 +64,19 @@ export default function AnimalPage() {
         setEditData(a.data)
         setDocuments(d.data)
         setTags(t.data)
+        // Load pending documents with JWT token
+        const token = localStorage.getItem('token')
+        const headers = token ? { 'Authorization': `Bearer ${token}` } : {}
+        fetch(`/api/animals/${id}/documents/pending`, { headers })
+          .then(r => r.json())
+          .then(pendingDocs => {
+            console.log('Pending documents loaded:', pendingDocs)
+            setPendingDocuments(pendingDocs)
+          })
+          .catch(err => {
+            console.error('Fehler beim Laden von pending Dokumenten:', err)
+            setPendingDocuments([])
+          })
       })
       .catch(() => setError('Tier nicht gefunden'))
       .finally(() => setLoading(false))
@@ -352,10 +386,51 @@ export default function AnimalPage() {
         </div>
       )}
 
-      <h3 style={{ marginBottom: 'var(--space-3)' }}>Dokumente ({documents.length})</h3>
-      {documents.length === 0 && <p className="text-muted text-center" style={{ padding: 'var(--space-4) 0' }}>Noch keine Dokumente. Scanne das erste Dokument!</p>}
-      
-      {documents.length > 0 && (
+      {/* Document Tabs */}
+      <div style={{ display: 'flex', gap: 'var(--space-3)', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border)' }}>
+        <button
+          onClick={() => setDocumentTab('all')}
+          style={{
+            padding: '12px 16px',
+            background: 'none',
+            border: 'none',
+            borderBottom: documentTab === 'all' ? '2px solid var(--primary-500)' : 'none',
+            cursor: 'pointer',
+            color: documentTab === 'all' ? 'var(--primary-500)' : 'var(--text-tertiary)',
+            fontWeight: documentTab === 'all' ? 600 : 400,
+            fontSize: 'var(--font-size-sm)'
+          }}
+        >
+          Alle Dokumente ({documents.length})
+        </button>
+        <button
+          onClick={() => setDocumentTab('pending')}
+          style={{
+            padding: '12px 16px',
+            background: 'none',
+            border: 'none',
+            borderBottom: documentTab === 'pending' ? '2px solid var(--danger-500)' : 'none',
+            cursor: 'pointer',
+            color: documentTab === 'pending' ? 'var(--danger-500)' : (pendingDocuments.length > 0 ? 'var(--danger-500)' : 'var(--text-tertiary)'),
+            fontWeight: documentTab === 'pending' ? 600 : (pendingDocuments.length > 0 ? 600 : 400),
+            fontSize: 'var(--font-size-sm)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px'
+          }}
+        >
+          <AlertTriangle size={16} />
+          Nicht analysiert ({pendingDocuments.length})
+        </button>
+      </div>
+
+      {/* All Documents Tab */}
+      {documentTab === 'all' && (
+        <>
+          <h3 style={{ marginBottom: 'var(--space-3)', marginTop: 0 }}>Dokumente ({documents.length})</h3>
+          {documents.length === 0 && <p className="text-muted text-center" style={{ padding: 'var(--space-4) 0' }}>Noch keine Dokumente. Scanne das erste Dokument!</p>}
+
+          {documents.length > 0 && (
         <div style={{ position: 'relative', marginBottom: 'var(--space-4)' }}>
           <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
           <input
@@ -368,8 +443,8 @@ export default function AnimalPage() {
           />
         </div>
       )}
-      
-      {documents
+
+      {documents && documents
         .filter(doc => !documentSearch || docTypeLabel[doc.doc_type]?.toLowerCase().includes(documentSearch) || new Date(doc.created_at).toLocaleString('de-AT').includes(documentSearch))
         .map(doc => (
         <Link key={doc.id} to={`/animals/${id}/documents/${doc.id}`} style={{ textDecoration: 'none' }}>
@@ -401,6 +476,61 @@ export default function AnimalPage() {
           </div>
         </Link>
       ))}
+        </>
+      )}
+
+      {/* Pending Documents Tab */}
+      {documentTab === 'pending' && (
+        <>
+          <h3 style={{ marginBottom: 'var(--space-3)', marginTop: 0 }}>Nicht analysierte Dokumente ({pendingDocuments.length})</h3>
+          {pendingDocuments.length === 0 && <p className="text-muted text-center" style={{ padding: 'var(--space-4) 0' }}>Keine ausstehenden Analysen.</p>}
+
+          {pendingDocuments.map(doc => (
+            <div key={doc.id} className="card card-sm" style={{
+              display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-3)',
+              border: '1.5px solid var(--danger-500)',
+              background: 'var(--danger-50)',
+            }}>
+              <div style={{
+                width: 36, height: 36, borderRadius: 'var(--radius-sm)', flexShrink: 0,
+                background: 'var(--danger-100)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <AlertTriangle size={16} color="var(--danger-600)" strokeWidth={2} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)' }}>
+                  ⏳ Warte auf Gemini API
+                </div>
+                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
+                  {new Date(doc.created_at).toLocaleString('de-AT')}
+                </div>
+              </div>
+              <button
+                onClick={() => handleRetryAnalysis(doc.id)}
+                disabled={retrying === doc.id}
+                style={{
+                  padding: '8px 12px',
+                  background: 'var(--primary-500)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: 'var(--radius-sm)',
+                  cursor: retrying === doc.id ? 'not-allowed' : 'pointer',
+                  fontSize: 'var(--font-size-xs)',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  opacity: retrying === doc.id ? 0.6 : 1
+                }}
+              >
+                <RefreshCw size={12} />
+                {retrying === doc.id ? 'Speichern...' : 'Für später speichern'}
+              </button>
+            </div>
+          ))}
+        </>
+      )}
     </div>
   )
 }
