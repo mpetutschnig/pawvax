@@ -36,8 +36,8 @@ export default function TagManagementPage() {
     }
   }, [id, reload])
 
-  const { start: startBarcode, stop: stopBarcode } = useBarcode('tag-barcode', (code) => handleNewTag(code, 'barcode'))
-  const { state: nfcState, start: startNfc } = useNfc((id) => handleNewTag(id, 'nfc'))
+  const { start: startBarcode, stop: stopBarcode } = useBarcode('tag-barcode', (code) => handleNewTag(code, 'barcode'), (msg) => setError(msg))
+  const { state: nfcState, start: startNfc } = useNfc((id) => handleNewTag(id, 'nfc'), (msg) => setError(msg))
 
   async function toggleTag(tag: Tag) {
     try {

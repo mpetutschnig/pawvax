@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react'
 
 export type NfcState = 'idle' | 'scanning' | 'done' | 'unsupported' | 'error'
 
-export function useNfc(onTag: (id: string) => void) {
+export function useNfc(onTag: (id: string) => void, onError?: (msg: string) => void) {
   const [state, setState] = useState<NfcState>(
     'NDEFReader' in window ? 'idle' : 'unsupported'
   )
@@ -11,6 +11,9 @@ export function useNfc(onTag: (id: string) => void) {
   const start = useCallback(async () => {
     if (!('NDEFReader' in window)) {
       setState('unsupported')
+      const msg = 'NFC wird in diesem Browser nicht unterstützt'
+      setError(msg)
+      onError?.(msg)
       return
     }
 
@@ -23,8 +26,10 @@ export function useNfc(onTag: (id: string) => void) {
       await reader.scan()
 
       reader.onreadingerror = () => {
-        setError('NFC-Tag konnte nicht gelesen werden')
+        const msg = 'NFC-Tag konnte nicht gelesen werden'
+        setError(msg)
         setState('error')
+        onError?.(msg)
       }
 
       reader.onreading = (event: { serialNumber: string }) => {
@@ -33,10 +38,12 @@ export function useNfc(onTag: (id: string) => void) {
         onTag(tagId)
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'NFC Fehler')
+      const msg = err instanceof Error ? err.message : 'NFC Fehler'
+      setError(msg)
       setState('error')
+      onError?.(msg)
     }
-  }, [onTag])
+  }, [onTag, onError])
 
   return { state, error, start }
 }
