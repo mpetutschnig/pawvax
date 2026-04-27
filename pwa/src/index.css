@@ -806,7 +806,30 @@ input:not([type="checkbox"]):not([type="radio"]).is-invalid:focus {
 
 @media (max-width: 768px) {
   .admin-layout {
-    grid-template-columns: var(--sidebar-collapsed) 1fr;
+    grid-template-columns: 1fr;
+  }
+
+  .admin-hamburger {
+    display: flex !important;
+  }
+
+  .admin-sidebar {
+    position: fixed;
+    left: 0;
+    top: 60px;
+    width: 220px;
+    height: calc(100vh - 60px);
+    z-index: 100;
+    transform: translateX(-100%);
+    transition: transform var(--t-base) var(--ease-out);
+  }
+
+  .admin-layout.sidebar-open .admin-sidebar {
+    transform: translateX(0);
+  }
+
+  .admin-main {
+    grid-column: 1 !important;
   }
 }
 

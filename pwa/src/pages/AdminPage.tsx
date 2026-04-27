@@ -3,7 +3,7 @@ import {
   adminGetStats, adminGetAccounts, adminGetAnimals, adminGetPendingVerifications,
   adminVerifyAccount, adminPatchAccount, adminGetAuditLog
 } from '../api/rest'
-import { PawPrint, LogOut, LayoutDashboard, Users, Cat, ShieldCheck, FileClock, CheckCircle, XCircle } from 'lucide-react'
+import { PawPrint, LogOut, LayoutDashboard, Users, Cat, ShieldCheck, FileClock, CheckCircle, XCircle, Menu, X } from 'lucide-react'
 
 type Section = 'overview' | 'accounts' | 'animals' | 'verifications' | 'audit'
 
@@ -35,6 +35,7 @@ export default function AdminPage() {
   const [section, setSection] = useState<Section>('overview')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   // Data
   const [stats, setStats] = useState<Stats | null>(null)
@@ -80,12 +81,22 @@ export default function AdminPage() {
   const adminName = 'Admin User' // Ideally from Auth context
 
   return (
-    <div className="admin-layout">
+    <div className={`admin-layout ${sidebarOpen ? 'sidebar-open' : ''}`}>
       {/* Header */}
       <header className="admin-header">
-        <div className="admin-header-brand">
-          <PawPrint size={20} strokeWidth={1.8} style={{ verticalAlign: 'middle', marginRight: 8 }} />
-          Vax.pet Admin
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="btn btn-ghost btn-icon admin-hamburger"
+            title="Toggle menu"
+            style={{ display: 'none' }}
+          >
+            {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
+          <div className="admin-header-brand">
+            <PawPrint size={20} strokeWidth={1.8} style={{ verticalAlign: 'middle', marginRight: 8 }} />
+            Vax.pet Admin
+          </div>
         </div>
         <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
           <span style={{ fontSize: 'var(--font-size-sm)', color: 'oklch(80% 0.04 240)' }}>
@@ -121,6 +132,7 @@ export default function AdminPage() {
               setSection(item.id as Section)
               setSelectedId(null)
               setAuditPage(1)
+              setSidebarOpen(false)
             }}
             className="admin-sidebar-item"
             aria-current={section === item.id ? 'page' : undefined}
