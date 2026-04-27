@@ -10,17 +10,21 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import at.oxs.paw.model.Organization
 import at.oxs.paw.viewmodel.OrganizationViewModel
 import at.oxs.paw.viewmodel.UiState
+import at.oxs.paw.viewmodel.ViewModelFactory
 
 @Composable
 fun OrganizationScreen(
-    viewModel: OrganizationViewModel,
     onBack: () -> Unit,
     onOrgSelected: (String) -> Unit
 ) {
+    val context = LocalContext.current
+    val viewModel = viewModel<OrganizationViewModel>(factory = ViewModelFactory(context))
     val organizations by viewModel.organizations.collectAsState()
     val uiState by viewModel.uiState.collectAsState()
 

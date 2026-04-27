@@ -9,16 +9,20 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import at.oxs.paw.viewmodel.AdminViewModel
 import at.oxs.paw.viewmodel.UiState
+import at.oxs.paw.viewmodel.ViewModelFactory
 
 @Composable
 fun AdminDashboard(
-    viewModel: AdminViewModel,
     onBack: () -> Unit,
     onNavigateToAuditLog: () -> Unit
 ) {
+    val context = LocalContext.current
+    val viewModel = viewModel<AdminViewModel>(factory = ViewModelFactory(context))
     val accounts by viewModel.accounts.collectAsState()
     val uiState by viewModel.uiState.collectAsState()
 

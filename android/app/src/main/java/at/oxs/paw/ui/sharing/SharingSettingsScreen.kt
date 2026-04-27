@@ -6,16 +6,20 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import at.oxs.paw.viewmodel.AnimalViewModel
 import at.oxs.paw.viewmodel.UiState
+import at.oxs.paw.viewmodel.ViewModelFactory
 
 @Composable
 fun SharingSettingsScreen(
-    viewModel: AnimalViewModel,
     animalId: String,
     onBack: () -> Unit
 ) {
+    val context = LocalContext.current
+    val viewModel = viewModel<AnimalViewModel>(factory = ViewModelFactory(context))
     val sharingSettings by viewModel.sharingSettings.collectAsState()
     val uiState by viewModel.uiState.collectAsState()
 

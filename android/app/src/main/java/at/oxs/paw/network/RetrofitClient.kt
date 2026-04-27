@@ -8,6 +8,7 @@ import retrofit2.converter.gson.GsonConverterFactory
 object RetrofitClient {
     private var baseUrl: String = "http://10.0.2.2:3000/api/"  // Android Emulator → localhost
     private var token: String? = null
+    private var apiService: ApiService? = null
 
     private fun buildClient() = OkHttpClient.Builder()
         .addInterceptor(HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BODY })
@@ -22,11 +23,14 @@ object RetrofitClient {
     fun build(url: String = baseUrl, jwt: String? = null): ApiService {
         baseUrl = url
         token = jwt
-        return Retrofit.Builder()
+        apiService = Retrofit.Builder()
             .baseUrl(baseUrl)
             .client(buildClient())
             .addConverterFactory(GsonConverterFactory.create())
             .build()
             .create(ApiService::class.java)
+        return apiService!!
     }
+
+    fun getApiService(): ApiService? = apiService
 }
