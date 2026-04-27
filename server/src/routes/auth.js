@@ -80,7 +80,6 @@ export default async function authRoutes(fastify) {
     logAudit(db, { accountId: account.id, role, action: 'login', resource: 'account', resourceId: account.id, ip: req.ip })
 
     const jti = crypto.randomUUID()
-    const expiresIn = 7 * 24 * 60 * 60
     const token = fastify.jwt.sign({ accountId: account.id, name: account.name, email: account.email, role, roles, verified, jti })
     return { token, account: { id: account.id, name: account.name, email: account.email, role, roles, verified } }
   })

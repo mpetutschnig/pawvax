@@ -18,7 +18,7 @@ import wsDocumentUpload from './ws/documentUpload.js'
 
 const __dir = dirname(fileURLToPath(import.meta.url))
 
-const fastify = Fastify({ logger: true })
+const fastify = Fastify({ logger: true, trustProxy: true })
 
 // JWT Secret Guard
 const jwtSecret = process.env.JWT_SECRET
