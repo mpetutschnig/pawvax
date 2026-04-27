@@ -247,29 +247,6 @@ export default function DocumentScanPage() {
 
       {phase === 'capture' && (
         <div className="card animate-slide-up">
-          <h3 style={{ marginBottom: 'var(--space-3)' }}>Document Type</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
-            {docTypes.map(type => (
-              <button
-                key={type.id}
-                onClick={() => setDocType(type.id)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-                  padding: 'var(--space-3)',
-                  background: docType === type.id ? 'var(--primary-50)' : 'var(--bg-elevated)',
-                  border: `1.5px solid ${docType === type.id ? 'var(--primary-400)' : 'var(--border)'}`,
-                  borderRadius: 'var(--radius-md)',
-                  cursor: 'pointer',
-                  transition: 'all var(--t-fast) var(--ease-out)',
-                  color: docType === type.id ? 'var(--primary-600)' : 'var(--text-secondary)',
-                  fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 'var(--font-size-sm)',
-                }}
-              >
-                {type.icon} {type.label}
-              </button>
-            ))}
-          </div>
-
           <p className="text-muted" style={{ marginBottom: 'var(--space-4)' }}>Fotografiere einen Impfpass, ein Rezept oder ein anderes Tierdokument zur automatischen OCR-Erfassung.</p>
           <input
             ref={fileRef}
