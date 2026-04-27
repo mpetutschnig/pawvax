@@ -10,6 +10,7 @@ export default async function wsDocumentUpload(fastify) {
     let accountId, userRole, userGeminiKey = null
     let authenticated = false
     let uploadState = null
+    const MAX_UPLOAD_SIZE = 15 * 1024 * 1024 // 15MB per document
 
     socket.on('message', async (raw, isBinary) => {
       // Skip binary chunks until authenticated
@@ -19,8 +20,15 @@ export default async function wsDocumentUpload(fastify) {
           return
         }
         if (uploadState?.writer) {
+          // Check size limit
+          uploadState.bytesReceived = (uploadState.bytesReceived || 0) + raw.length
+          if (uploadState.bytesReceived > MAX_UPLOAD_SIZE) {
+            send(socket, { type: 'error', message: `Datei zu groß (max 15MB)` })
+            return
+          }
+
           uploadState.writer.write(raw)
-          console.log(`[WS] Chunk erhalten: ${raw.length} bytes`)
+          console.log(`[WS] Chunk: ${raw.length} bytes (total: ${uploadState.bytesReceived})`)
         }
         return
       }
