@@ -42,7 +42,10 @@ fun AppNavHost(
             ScanScreen(
                 onAnimalFound = { id -> navController.navigate("animal/$id") },
                 registerNfcCallback = registerNfcCallback,
-                unregisterNfcCallback = unregisterNfcCallback
+                unregisterNfcCallback = unregisterNfcCallback,
+                onNavigateToProfile = { navController.navigate("profile") },
+                onNavigateToOrganizations = { navController.navigate("organizations") },
+                onNavigateToAdmin = { navController.navigate("admin") }
             )
         }
         composable("animal/{id}") { back ->
@@ -51,7 +54,8 @@ fun AppNavHost(
                 animalId = id,
                 onBack = { navController.popBackStack() },
                 onManageTags = { navController.navigate("tags/$id") },
-                onScanDocument = { navController.navigate("docScan/$id") }
+                onScanDocument = { navController.navigate("docScan/$id") },
+                onNavigateToSharing = { animalId -> navController.navigate("sharing/$animalId") }
             )
         }
         composable("tags/{id}") { back ->

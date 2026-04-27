@@ -24,7 +24,8 @@ fun AnimalScreen(
     animalId: String,
     onBack: () -> Unit,
     onManageTags: () -> Unit,
-    onScanDocument: () -> Unit
+    onScanDocument: () -> Unit,
+    onNavigateToSharing: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -83,7 +84,11 @@ fun AnimalScreen(
                     }
                 }
                 item {
-                    OutlinedButton(onClick = onManageTags, modifier = Modifier.fillMaxWidth()) { Text("🏷 Tags verwalten") }
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        OutlinedButton(onClick = onManageTags, modifier = Modifier.fillMaxWidth()) { Text("🏷 Tags verwalten") }
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedButton(onClick = { onNavigateToSharing(animalId) }, modifier = Modifier.fillMaxWidth()) { Text("🔒 Freigabe-Einstellungen") }
+                    }
                     Spacer(Modifier.height(16.dp))
                     Text("Dokumente (${documents.size})", style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.height(8.dp))

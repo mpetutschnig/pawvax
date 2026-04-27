@@ -10,6 +10,8 @@ import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -31,7 +33,10 @@ import java.util.concurrent.Executors
 fun ScanScreen(
     onAnimalFound: (String) -> Unit,
     registerNfcCallback: ((String) -> Unit) -> Unit,
-    unregisterNfcCallback: () -> Unit
+    unregisterNfcCallback: () -> Unit,
+    onNavigateToProfile: () -> Unit = {},
+    onNavigateToOrganizations: () -> Unit = {},
+    onNavigateToAdmin: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -72,10 +77,26 @@ fun ScanScreen(
         onDispose { if (mode == "nfc") unregisterNfcCallback() }
     }
 
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        Text("🐾 PAW", style = MaterialTheme.typography.headlineMedium)
-        Text("Tier scannen", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface.copy(.6f))
-        Spacer(Modifier.height(24.dp))
+    var menuExpanded by remember { mutableStateOf(false) }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        TopAppBar(
+            title = { Text("🐾 PAW") },
+            actions = {
+                IconButton(onClick = { menuExpanded = true }) {
+                    Icon(Icons.Default.MoreVert, "Menu")
+                }
+                DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+                    DropdownMenuItem(text = { Text("Profil") }, onClick = { onNavigateToProfile(); menuExpanded = false })
+                    DropdownMenuItem(text = { Text("Organisationen") }, onClick = { onNavigateToOrganizations(); menuExpanded = false })
+                    DropdownMenuItem(text = { Text("Admin") }, onClick = { onNavigateToAdmin(); menuExpanded = false })
+                }
+            }
+        )
+
+        Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+            Text("Tier scannen", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface.copy(.6f))
+            Spacer(Modifier.height(24.dp))
 
         when (mode) {
             "choose" -> {
@@ -114,8 +135,9 @@ fun ScanScreen(
             }
         }
 
-        error?.let { Spacer(Modifier.height(8.dp)); Text(it, color = MaterialTheme.colorScheme.error) }
-        if (loading) { Spacer(Modifier.height(8.dp)); LinearProgressIndicator(modifier = Modifier.fillMaxWidth()) }
+            error?.let { Spacer(Modifier.height(8.dp)); Text(it, color = MaterialTheme.colorScheme.error) }
+            if (loading) { Spacer(Modifier.height(8.dp)); LinearProgressIndicator(modifier = Modifier.fillMaxWidth()) }
+        }
     }
 
     if (showNewAnimalDialog && unknownTagId != null) {
