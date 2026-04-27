@@ -146,6 +146,7 @@
 /* ════════════════════════════════════════════════════════════════
    DARK MODE
    ════════════════════════════════════════════════════════════════ */
+/* Dark mode via prefers-color-scheme OR explicit data-theme attribute */
 @media (prefers-color-scheme: dark) {
   :root {
     --bg:              oklch(11%   0.020 250);
@@ -175,6 +176,55 @@
     --admin-sidebar-bg:     oklch(9% 0.018 250);
     --admin-sidebar-fg:     oklch(70% 0.016 240);
   }
+}
+
+/* Explicit dark theme via data-theme attribute (overrides prefers-color-scheme) */
+html[data-theme="dark"] {
+  --bg:              oklch(11%   0.020 250);
+  --bg-elevated:     oklch(16%   0.022 250);
+  --surface:         oklch(20%   0.024 250);
+  --surface-alt:     oklch(24%   0.026 250);
+  --border:          oklch(30%   0.024 250);
+  --border-subtle:   oklch(25%   0.020 250);
+  --text-primary:    oklch(95%   0.008 240);
+  --text-secondary:  oklch(68%   0.016 240);
+  --text-tertiary:   oklch(48%   0.018 240);
+  --text-inverse:    oklch(16%   0.025 240);
+
+  --shadow-sm:   0 1px 3px   oklch(0% 0 0 / 0.30), 0 1px 2px   oklch(0% 0 0 / 0.20);
+  --shadow-md:   0 4px 12px  oklch(0% 0 0 / 0.40), 0 2px 4px   oklch(0% 0 0 / 0.25);
+  --shadow-lg:   0 8px 24px  oklch(0% 0 0 / 0.50), 0 4px 8px   oklch(0% 0 0 / 0.30);
+  --shadow-xl:   0 16px 48px oklch(0% 0 0 / 0.60), 0 8px 16px  oklch(0% 0 0 / 0.35);
+  --glass-bg:    oklch(16% 0.022 250 / 0.85);
+
+  --card:                 var(--bg-elevated);
+  --color-surface:        var(--bg-elevated);
+  --color-surface-2:      var(--surface);
+  --color-border:         var(--border);
+  --color-text:           var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted:     var(--text-tertiary);
+  --admin-sidebar-bg:     oklch(9% 0.018 250);
+  --admin-sidebar-fg:     oklch(70% 0.016 240);
+}
+
+/* Explicit light theme via data-theme attribute */
+html[data-theme="light"] {
+  --bg:                oklch(97.5% 0.007 240);
+  --bg-elevated:       oklch(100%  0     0);
+  --surface:           oklch(95%   0.010 240);
+  --surface-alt:       oklch(93%   0.012 240);
+  --border:            oklch(87%   0.014 240);
+  --border-subtle:     oklch(92%   0.010 240);
+  --text-primary:      oklch(16%   0.025 240);
+  --text-secondary:    oklch(46%   0.025 240);
+  --text-tertiary:     oklch(66%   0.018 240);
+  --text-inverse:      oklch(99%   0     0);
+
+  --shadow-sm:   0 1px 3px   oklch(0% 0 0 / 0.07), 0 1px 2px   oklch(0% 0 0 / 0.05);
+  --shadow-md:   0 4px 12px  oklch(0% 0 0 / 0.09), 0 2px 4px   oklch(0% 0 0 / 0.05);
+  --shadow-lg:   0 8px 24px  oklch(0% 0 0 / 0.11), 0 4px 8px   oklch(0% 0 0 / 0.06);
+  --shadow-xl:   0 16px 48px oklch(0% 0 0 / 0.13), 0 8px 16px  oklch(0% 0 0 / 0.08);
 }
 
 /* ════════════════════════════════════════════════════════════════
