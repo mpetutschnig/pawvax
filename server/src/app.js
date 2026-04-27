@@ -46,6 +46,17 @@ fastify.decorate('authenticate', async function (req, reply) {
   }
 })
 
+// JWT Blacklist Check — prevent use of logged-out tokens
+fastify.addHook('preHandler', async (req, reply) => {
+  if (req.user?.jti) {
+    const db = getDb()
+    const blacklisted = db.prepare('SELECT jti FROM jwt_blacklist WHERE jti = ?').get(req.user.jti)
+    if (blacklisted) {
+      return reply.code(401).send({ error: 'Token has been revoked' })
+    }
+  }
+})
+
 // Routen
 await fastify.register(authRoutes)
 await fastify.register(animalRoutes)
