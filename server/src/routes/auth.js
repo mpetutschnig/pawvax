@@ -3,7 +3,7 @@ import { v4 as uuid } from 'uuid'
 import crypto from 'crypto'
 import { getDb } from '../db/index.js'
 import { logAudit } from '../services/audit.js'
-import { encrypt, decrypt, getEncryptionKey } from '../utils/crypto.js'
+import { encrypt, decrypt } from '../utils/crypto.js'
 
 export default async function authRoutes(fastify) {
   fastify.post('/api/auth/register', {
