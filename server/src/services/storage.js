@@ -1,5 +1,6 @@
 import { createWriteStream, mkdirSync, writeFileSync } from 'fs'
 import { join, resolve, sep } from 'path'
+import sharp from 'sharp'
 
 const UPLOADS_DIR = process.env.UPLOADS_DIR ?? './uploads'
 const UPLOADS_DIR_RESOLVED = resolve(UPLOADS_DIR)
@@ -39,4 +40,17 @@ export function saveBase64Image(filename, base64Data) {
 
 export function getUploadPath(filename) {
   return safePath(filename)
+}
+
+export async function saveAvatarImage(filename, base64Data) {
+  const filepath = safePath(filename)
+  const base64 = base64Data.replace(/^data:image\/\w+;base64,/, '')
+  const buffer = Buffer.from(base64, 'base64')
+
+  await sharp(buffer)
+    .resize(128, 128, { fit: 'cover', position: 'center' })
+    .webp({ quality: 80 })
+    .toFile(filepath)
+
+  return filepath
 }

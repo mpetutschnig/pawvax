@@ -1,7 +1,7 @@
 import { v4 as uuid } from 'uuid'
 import { getDb } from '../db/index.js'
 import { logAudit } from '../services/audit.js'
-import { saveBase64Image } from '../services/storage.js'
+import { saveBase64Image, saveAvatarImage } from '../services/storage.js'
 
 function ensureDefaultSharing(db, animalId) {
   const defaults = [
@@ -412,5 +412,35 @@ export default async function animalRoutes(fastify) {
       details: req.body, ip: req.ip })
 
     return db.prepare('SELECT * FROM animal_sharing WHERE animal_id = ? AND role = ?').get(id, role)
+  })
+
+  // Upload animal avatar
+  fastify.patch('/api/animals/:id/avatar', { onRequest: [fastify.authenticate] }, async (req, reply) => {
+    const db = getDb()
+    const { id } = req.params
+    const { base64Image } = req.body
+    const { accountId, role } = req.user
+
+    const animal = db.prepare('SELECT * FROM animals WHERE id = ? AND account_id = ?').get(id, accountId)
+    if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden' })
+
+    if (!base64Image) return reply.code(400).send({ error: 'Base64 Image erforderlich' })
+
+    try {
+      const filename = `avatar_${id}_${Date.now()}.webp`
+      const filepath = await saveAvatarImage(filename, base64Image)
+
+      db.prepare('UPDATE animals SET avatar_path = ? WHERE id = ?').run(filepath, id)
+
+      logAudit(db, {
+        accountId, role, action: 'upload_avatar', resource: 'animal', resourceId: id,
+        ip: req.ip
+      })
+
+      return { avatar_path: filepath }
+    } catch (err) {
+      console.error('Avatar upload error:', err)
+      return reply.code(500).send({ error: 'Fehler beim Speichern des Avatars' })
+    }
   })
 }
