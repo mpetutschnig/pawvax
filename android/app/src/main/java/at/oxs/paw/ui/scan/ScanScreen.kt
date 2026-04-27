@@ -8,7 +8,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
@@ -40,7 +43,9 @@ fun ScanScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var mode by remember { mutableStateOf("choose") }
+    var animals by remember { mutableStateOf(emptyList<at.oxs.paw.model.Animal>()) }
+    var showScanDialog by remember { mutableStateOf(false) }
+    var scanMode by remember { mutableStateOf("choose") }
     var manualId by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
     var loading by remember { mutableStateOf(false) }
@@ -48,13 +53,24 @@ fun ScanScreen(
     var unknownTagId by remember { mutableStateOf<String?>(null) }
     var unknownTagType by remember { mutableStateOf("barcode") }
     var nfcAvailable by remember { mutableStateOf(false) }
+    var menuExpanded by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         nfcAvailable = NfcAdapter.getDefaultAdapter(context) != null
+        scope.launch {
+            try {
+                val token = TokenStore.getToken(context) ?: return@launch
+                val api = RetrofitClient.build(TokenStore.getServerUrl(context), token)
+                animals = api.getAnimals()
+            } catch (e: Exception) {
+                error = e.message
+            }
+        }
     }
 
     suspend fun handleTagId(tagId: String, tagType: String) {
-        loading = true; error = null
+        loading = true
+        error = null
         try {
             val token = TokenStore.getToken(context) ?: return
             val serverUrl = TokenStore.getServerUrl(context)
@@ -63,81 +79,121 @@ fun ScanScreen(
             onAnimalFound(animal.id)
         } catch (e: retrofit2.HttpException) {
             if (e.code() == 404) {
-                unknownTagId = tagId; unknownTagType = tagType; showNewAnimalDialog = true
-            } else error = "Fehler: ${e.message()}"
+                unknownTagId = tagId
+                unknownTagType = tagType
+                showNewAnimalDialog = true
+            } else {
+                error = "Fehler: ${e.message()}"
+            }
         } catch (e: Exception) {
             error = e.message ?: "Verbindungsfehler"
-        } finally { loading = false }
-    }
-
-    DisposableEffect(mode) {
-        if (mode == "nfc") {
-            registerNfcCallback { uid -> scope.launch { handleTagId(uid, "nfc") } }
+        } finally {
+            loading = false
         }
-        onDispose { if (mode == "nfc") unregisterNfcCallback() }
     }
 
-    var menuExpanded by remember { mutableStateOf(false) }
-
-    Column(modifier = Modifier.fillMaxSize()) {
-        TopAppBar(
-            title = { Text("🐾 PAW") },
-            actions = {
-                IconButton(onClick = { menuExpanded = true }) {
-                    Icon(Icons.Default.MoreVert, "Menu")
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("🐾 PAW") },
+                actions = {
+                    IconButton(onClick = { menuExpanded = true }) {
+                        Icon(Icons.Default.MoreVert, "Menu")
+                    }
+                    DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+                        DropdownMenuItem(text = { Text("Profil") }, onClick = { onNavigateToProfile(); menuExpanded = false })
+                        DropdownMenuItem(text = { Text("Organisationen") }, onClick = { onNavigateToOrganizations(); menuExpanded = false })
+                        DropdownMenuItem(text = { Text("Admin") }, onClick = { onNavigateToAdmin(); menuExpanded = false })
+                    }
                 }
-                DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
-                    DropdownMenuItem(text = { Text("Profil") }, onClick = { onNavigateToProfile(); menuExpanded = false })
-                    DropdownMenuItem(text = { Text("Organisationen") }, onClick = { onNavigateToOrganizations(); menuExpanded = false })
-                    DropdownMenuItem(text = { Text("Admin") }, onClick = { onNavigateToAdmin(); menuExpanded = false })
+            )
+        },
+        floatingActionButton = {
+            FloatingActionButton(onClick = { showScanDialog = true; scanMode = "choose" }) {
+                Text("🔍")
+            }
+        }
+    ) { innerPadding ->
+        Column(modifier = Modifier
+            .fillMaxSize()
+            .padding(innerPadding)
+            .padding(16.dp)) {
+            Text("Meine Tiere", style = MaterialTheme.typography.titleLarge)
+            Spacer(Modifier.height(8.dp))
+
+            if (animals.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("Keine Tiere. Tippe auf 🔍 zum Scannen.", style = MaterialTheme.typography.bodyMedium)
+                }
+            } else {
+                LazyColumn {
+                    items(animals) { animal ->
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp)
+                                .clickable { onAnimalFound(animal.id) }
+                        ) {
+                            Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(if (animal.species == "dog") "🐶" else if (animal.species == "cat") "🐱" else "🐾", style = MaterialTheme.typography.displaySmall)
+                                Spacer(Modifier.width(16.dp))
+                                Column {
+                                    Text(animal.name, style = MaterialTheme.typography.titleMedium)
+                                    Text(animal.species, style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            error?.let {
+                Spacer(Modifier.height(16.dp))
+                Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            }
+        }
+    }
+
+    if (showScanDialog) {
+        AlertDialog(
+            onDismissRequest = { showScanDialog = false; scanMode = "choose" },
+            title = { Text("Tier scannen") },
+            text = {
+                when (scanMode) {
+                    "choose" -> {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(onClick = { scanMode = "manual" }, modifier = Modifier.fillMaxWidth()) { Text("⌨️ ID manuell eingeben") }
+                            if (nfcAvailable) {
+                                OutlinedButton(onClick = { scanMode = "nfc" }, modifier = Modifier.fillMaxWidth()) { Text("📡 NFC lesen") }
+                            }
+                        }
+                    }
+                    "manual" -> {
+                        Column {
+                            OutlinedTextField(value = manualId, onValueChange = { manualId = it }, label = { Text("Tag-ID") }, modifier = Modifier.fillMaxWidth())
+                            Spacer(Modifier.height(8.dp))
+                            if (loading) {
+                                CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
+                            }
+                            error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+                        }
+                    }
+                    "nfc" -> {
+                        Text("📡 Halte das Gerät an den NFC-Tag...")
+                    }
+                }
+            },
+            confirmButton = {
+                when (scanMode) {
+                    "choose" -> Button(onClick = { showScanDialog = false }) { Text("Abbrechen") }
+                    "manual" -> Button(
+                        onClick = { scope.launch { handleTagId(manualId, "manual"); if (error == null) showScanDialog = false } },
+                        enabled = manualId.isNotBlank() && !loading
+                    ) { Text("Suchen") }
+                    "nfc" -> Button(onClick = { showScanDialog = false; scanMode = "choose"; unregisterNfcCallback() }) { Text("Abbrechen") }
                 }
             }
         )
-
-        Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-            Text("Tier scannen", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface.copy(.6f))
-            Spacer(Modifier.height(24.dp))
-
-        when (mode) {
-            "choose" -> {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = { mode = "barcode" }, modifier = Modifier.fillMaxWidth()) { Text("📷 Barcode scannen") }
-                    if (nfcAvailable) {
-                        OutlinedButton(onClick = { mode = "nfc" }, modifier = Modifier.fillMaxWidth()) { Text("📡 NFC lesen") }
-                    }
-                    OutlinedButton(onClick = { mode = "manual" }, modifier = Modifier.fillMaxWidth()) { Text("⌨️ ID manuell eingeben") }
-                }
-            }
-            "barcode" -> {
-                BarcodeScannerView(onResult = { code -> scope.launch { handleTagId(code, "barcode"); mode = "choose" } })
-                Spacer(Modifier.height(8.dp))
-                OutlinedButton(onClick = { mode = "choose" }, modifier = Modifier.fillMaxWidth()) { Text("Abbrechen") }
-            }
-            "nfc" -> {
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("📡", style = MaterialTheme.typography.displayMedium)
-                        Spacer(Modifier.height(16.dp))
-                        Text("Halte das Gerät an den NFC-Tag...", style = MaterialTheme.typography.bodyLarge)
-                    }
-                }
-                Spacer(Modifier.height(8.dp))
-                OutlinedButton(onClick = { mode = "choose"; unregisterNfcCallback() }, modifier = Modifier.fillMaxWidth()) { Text("Abbrechen") }
-            }
-            "manual" -> {
-                OutlinedTextField(value = manualId, onValueChange = { manualId = it }, label = { Text("Tag-ID") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                Spacer(Modifier.height(8.dp))
-                Button(onClick = { scope.launch { handleTagId(manualId, "barcode"); mode = "choose" } }, modifier = Modifier.fillMaxWidth(), enabled = manualId.isNotBlank() && !loading) {
-                    Text(if (loading) "Suche..." else "Suchen")
-                }
-                Spacer(Modifier.height(4.dp))
-                OutlinedButton(onClick = { mode = "choose" }, modifier = Modifier.fillMaxWidth()) { Text("Abbrechen") }
-            }
-        }
-
-            error?.let { Spacer(Modifier.height(8.dp)); Text(it, color = MaterialTheme.colorScheme.error) }
-            if (loading) { Spacer(Modifier.height(8.dp)); LinearProgressIndicator(modifier = Modifier.fillMaxWidth()) }
-        }
     }
 
     if (showNewAnimalDialog && unknownTagId != null) {
@@ -150,46 +206,21 @@ fun ScanScreen(
                         val token = TokenStore.getToken(context) ?: return@launch
                         val api = RetrofitClient.build(TokenStore.getServerUrl(context), token)
                         val animal = api.createAnimal(at.oxs.paw.model.CreateAnimalRequest(name, species, breed.ifBlank { null }, null, unknownTagId, unknownTagType))
+                        animals = animals + animal
                         showNewAnimalDialog = false
+                        showScanDialog = false
                         onAnimalFound(animal.id)
-                    } catch (e: Exception) { error = e.message }
+                    } catch (e: Exception) {
+                        error = e.message
+                    }
                 }
             },
-            onDismiss = { showNewAnimalDialog = false; mode = "choose" }
+            onDismiss = { showNewAnimalDialog = false }
         )
     }
 }
 
-@Composable
-fun NewAnimalDialog(tagId: String, tagType: String, onConfirm: (String, String, String) -> Unit, onDismiss: () -> Unit) {
-    var name by remember { mutableStateOf("") }
-    var species by remember { mutableStateOf("dog") }
-    var breed by remember { mutableStateOf("") }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Neues Tier anlegen") },
-        text = {
-            Column {
-                Text("Tag $tagId ($tagType) ist noch nicht registriert.", style = MaterialTheme.typography.bodySmall)
-                Spacer(Modifier.height(8.dp))
-                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                Spacer(Modifier.height(4.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("dog" to "🐶 Hund", "cat" to "🐱 Katze", "other" to "Sonstiges").forEach { (val_, label) ->
-                        FilterChip(selected = species == val_, onClick = { species = val_ }, label = { Text(label) })
-                    }
-                }
-                Spacer(Modifier.height(4.dp))
-                OutlinedTextField(value = breed, onValueChange = { breed = it }, label = { Text("Rasse (optional)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-            }
-        },
-        confirmButton = { TextButton(onClick = { if (name.isNotBlank()) onConfirm(name, species, breed) }, enabled = name.isNotBlank()) { Text("Anlegen") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Abbrechen") } }
-    )
-}
-
-@OptIn(ExperimentalGetImage::class)
+@androidx.annotation.OptIn(androidx.camera.core.ExperimentalGetImage::class)
 @Composable
 fun BarcodeScannerView(onResult: (String) -> Unit) {
     val context = LocalContext.current
@@ -240,5 +271,34 @@ fun BarcodeScannerView(onResult: (String) -> Unit) {
             }, ContextCompat.getMainExecutor(ctx))
             previewView
         }
+    )
+}
+
+@Composable
+fun NewAnimalDialog(tagId: String, tagType: String, onConfirm: (String, String, String) -> Unit, onDismiss: () -> Unit) {
+    var name by remember { mutableStateOf("") }
+    var species by remember { mutableStateOf("dog") }
+    var breed by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Neues Tier anlegen") },
+        text = {
+            Column {
+                Text("Tag $tagId ($tagType) ist noch nicht registriert.", style = MaterialTheme.typography.bodySmall)
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                Spacer(Modifier.height(4.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("dog" to "🐶 Hund", "cat" to "🐱 Katze", "other" to "Sonstiges").forEach { (val_, label) ->
+                        FilterChip(selected = species == val_, onClick = { species = val_ }, label = { Text(label) })
+                    }
+                }
+                Spacer(Modifier.height(4.dp))
+                OutlinedTextField(value = breed, onValueChange = { breed = it }, label = { Text("Rasse (optional)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+            }
+        },
+        confirmButton = { TextButton(onClick = { if (name.isNotBlank()) onConfirm(name, species, breed) }, enabled = name.isNotBlank()) { Text("Anlegen") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Abbrechen") } }
     )
 }
