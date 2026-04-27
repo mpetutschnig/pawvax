@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { getAnimal, getAnimalDocuments, getAnimalTags, updateAnimal, deleteAnimal } from '../api/rest'
+import { getAnimal, getAnimalDocuments, getAnimalTags, updateAnimal, deleteAnimal, uploadAnimalAvatar } from '../api/rest'
 import { PageHeader } from '../components/PageHeader'
 import { PawPrint, Cat, ArrowLeft, Edit2, Trash2, Tag, Lock, Camera, Search, Syringe, FileText, Radio, CheckCircle, ShieldAlert } from 'lucide-react'
 
@@ -29,6 +29,8 @@ export default function AnimalPage() {
   const [editData, setEditData] = useState<Animal | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [documentSearch, setDocumentSearch] = useState('')
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const avatarInputRef = useRef<HTMLInputElement>(null)
 
   const myRoles: string[] = JSON.parse(localStorage.getItem('roles') || '[]')
   const isReadOnly = myRoles.length === 1 && myRoles[0] === 'readonly'
@@ -77,6 +79,30 @@ export default function AnimalPage() {
     }
   }
 
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !id) return
+
+    try {
+      setUploadingAvatar(true)
+      const reader = new FileReader()
+      reader.onload = async (ev) => {
+        const base64 = ev.target?.result as string
+        await uploadAnimalAvatar(id, base64)
+        // Reload animal data to get new avatar
+        const res = await getAnimal(id)
+        setAnimal(res.data)
+        setError(null)
+      }
+      reader.readAsDataURL(file)
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Fehler beim Hochladen des Avatars')
+    } finally {
+      setUploadingAvatar(false)
+      if (avatarInputRef.current) avatarInputRef.current.value = ''
+    }
+  }
+
   if (loading) return <div className="container page" style={{ display: 'flex', justifyContent: 'center', paddingTop: '4rem' }}><div className="spinner spinner-lg"></div></div>
   if (error || !animal) return <div className="container page"><div className="error-card"><p>{error}</p></div></div>
 
@@ -99,16 +125,32 @@ export default function AnimalPage() {
             boxShadow: 'var(--shadow-lg)',
           }}>
             <div style={{ display: 'flex', gap: 'var(--space-4)', alignItems: 'center', marginBottom: 'var(--space-3)' }}>
-              <div style={{
-                width: 56, height: 56, borderRadius: 'var(--radius-lg)',
-                background: 'oklch(100% 0 0 / 0.18)',
-                border: '1.5px solid oklch(100% 0 0 / 0.28)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden'
-              }}>
-                {animal.avatar_path ? (
-                  <img src={`/uploads/${animal.avatar_path.split('/').pop()}`} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                ) : (
-                  animal.species === 'cat' ? <Cat size={28} color="white" strokeWidth={1.6} /> : <PawPrint size={28} color="white" strokeWidth={1.6} />
+              <div style={{ position: 'relative' }}>
+                <div style={{
+                  width: 56, height: 56, borderRadius: 'var(--radius-lg)',
+                  background: 'oklch(100% 0 0 / 0.18)',
+                  border: '1.5px solid oklch(100% 0 0 / 0.28)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+                  cursor: 'pointer', transition: 'opacity 0.2s'
+                }} onClick={() => avatarInputRef.current?.click()}>
+                  {animal.avatar_path ? (
+                    <img src={`/uploads/${animal.avatar_path.split('/').pop()}`} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    animal.species === 'cat' ? <Cat size={28} color="white" strokeWidth={1.6} /> : <PawPrint size={28} color="white" strokeWidth={1.6} />
+                  )}
+                </div>
+                <input
+                  ref={avatarInputRef}
+                  type="file"
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                  onChange={handleAvatarUpload}
+                  disabled={uploadingAvatar}
+                />
+                {uploadingAvatar && (
+                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', borderRadius: 'var(--radius-lg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div className="spinner spinner-sm" style={{ width: 20, height: 20 }}></div>
+                  </div>
                 )}
               </div>
               <div>
