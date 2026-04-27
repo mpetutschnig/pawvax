@@ -13,6 +13,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import at.oxs.paw.viewmodel.OrganizationViewModel
+import at.oxs.paw.ui.theme.Spacing
 import at.oxs.paw.viewmodel.UiState
 import at.oxs.paw.viewmodel.ViewModelFactory
 
@@ -62,7 +63,7 @@ fun OrganizationDetailScreen(
                 }
             }
             UiState.Success, UiState.Idle -> {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(modifier = Modifier.padding(Spacing.lg)) {
                     if (members.isEmpty()) {
                         Text("Keine Mitglieder")
                     } else {
@@ -73,7 +74,7 @@ fun OrganizationDetailScreen(
                                     .fillMaxWidth()
                                     .padding(vertical = 8.dp)) {
                                     Row(modifier = Modifier
-                                        .padding(16.dp)
+                                        .padding(Spacing.lg)
                                         .fillMaxWidth(),
                                         horizontalArrangement = Arrangement.SpaceBetween) {
                                         Column(modifier = Modifier.weight(1f)) {

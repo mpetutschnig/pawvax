@@ -14,6 +14,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import at.oxs.paw.model.Organization
+import at.oxs.paw.ui.theme.Spacing
 import at.oxs.paw.viewmodel.OrganizationViewModel
 import at.oxs.paw.viewmodel.UiState
 import at.oxs.paw.viewmodel.ViewModelFactory
@@ -69,7 +70,7 @@ fun OrganizationScreen(
                         Text("Keine Organisationen")
                     }
                 } else {
-                    LazyColumn(modifier = Modifier.padding(16.dp)) {
+                    LazyColumn(modifier = Modifier.padding(Spacing.lg)) {
                         items(organizations) { org ->
                             Card(
                                 modifier = Modifier
@@ -77,7 +78,7 @@ fun OrganizationScreen(
                                     .padding(vertical = 8.dp)
                                     .clickable { onOrgSelected(org.id) }
                             ) {
-                                Column(modifier = Modifier.padding(16.dp)) {
+                                Column(modifier = Modifier.padding(Spacing.lg)) {
                                     Text(org.name, style = MaterialTheme.typography.titleMedium)
                                     Text(org.type, style = MaterialTheme.typography.bodySmall)
                                 }
@@ -101,7 +102,7 @@ fun OrganizationScreen(
                         label = { Text("Name") },
                         modifier = Modifier.fillMaxWidth()
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(Spacing.sm))
                     var expandedType by remember { mutableStateOf(false) }
                     Box {
                         OutlinedTextField(

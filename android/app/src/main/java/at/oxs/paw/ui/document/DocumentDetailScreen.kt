@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat.startActivity
 import androidx.compose.ui.layout.ContentScale
 import at.oxs.paw.model.Document
+import at.oxs.paw.ui.theme.Spacing
 import at.oxs.paw.model.UpdateDocumentRequest
 import at.oxs.paw.network.RetrofitClient
 import at.oxs.paw.network.TokenStore
@@ -148,7 +149,7 @@ fun DocumentDetailScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(16.dp),
+                .padding(Spacing.lg),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
@@ -160,7 +161,7 @@ fun DocumentDetailScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(12.dp),
+                                .padding(Spacing.md),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
@@ -239,7 +240,7 @@ fun DocumentDetailScreen(
             if (editMode) {
                 item {
                     Card {
-                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Column(modifier = Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             if (canEditTags(addedByRole, isUploader)) {
                                 Text("Dokumenttyp", style = MaterialTheme.typography.labelLarge)
                                 Row(
@@ -254,7 +255,7 @@ fun DocumentDetailScreen(
                                         )
                                     }
                                 }
-                                Spacer(Modifier.height(8.dp))
+                                Spacer(Modifier.height(Spacing.sm))
                                 Text("Tags", style = MaterialTheme.typography.labelLarge)
                                 FlowRow(
                                     modifier = Modifier.fillMaxWidth(),
@@ -289,7 +290,7 @@ fun DocumentDetailScreen(
                             }
 
                             if (isOwner) {
-                                Spacer(Modifier.height(8.dp))
+                                Spacer(Modifier.height(Spacing.sm))
                                 Text("Wer darf dieses Dokument sehen?", style = MaterialTheme.typography.labelLarge)
                                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                     listOf("vet" to "Tierarzt", "authority" to "Behörde", "readonly" to "Lesender Zugriff").forEach { (id, label) ->
@@ -405,7 +406,7 @@ fun DocumentDetailScreen(
                             extractedText,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(12.dp)
+                                .padding(Spacing.md)
                                 .heightIn(max = 300.dp),
                             style = MaterialTheme.typography.bodySmall,
                             fontFamily = FontFamily.Monospace,
@@ -431,7 +432,7 @@ fun DocumentDetailScreen(
                             doc?.extracted_json?.toString() ?: "{}",
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(12.dp)
+                                .padding(Spacing.md)
                                 .heightIn(max = 400.dp),
                             style = MaterialTheme.typography.bodySmall,
                             fontFamily = FontFamily.Monospace,
@@ -526,7 +527,7 @@ fun DocumentDetailScreen(
                         Text(
                             "Verifiziertes Tierarzt-Dokument: Dieses Dokument wurde durch einen Tierarzt hochgeladen und kann daher nicht gelöscht werden. Du kannst nur die Sichtbarkeit bearbeiten.",
                             style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.padding(12.dp)
+                            modifier = Modifier.padding(Spacing.md)
                         )
                     }
                 }
@@ -537,7 +538,7 @@ fun DocumentDetailScreen(
                     Card(
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
                     ) {
-                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Column(modifier = Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             Text("📅 Reminder für Kalender", style = MaterialTheme.typography.titleMedium)
 
                             OutlinedTextField(

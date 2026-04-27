@@ -12,6 +12,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import at.oxs.paw.viewmodel.AdminViewModel
+import at.oxs.paw.ui.theme.Spacing
 import at.oxs.paw.viewmodel.UiState
 import at.oxs.paw.viewmodel.ViewModelFactory
 
@@ -56,12 +57,12 @@ fun AuditLogScreen(
                         Text("Keine Einträge")
                     }
                 } else {
-                    LazyColumn(modifier = Modifier.padding(16.dp)) {
+                    LazyColumn(modifier = Modifier.padding(Spacing.lg)) {
                         items(auditLog) { entry ->
                             Card(modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(vertical = 8.dp)) {
-                                Column(modifier = Modifier.padding(16.dp)) {
+                                Column(modifier = Modifier.padding(Spacing.lg)) {
                                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                         Text(entry.action, style = MaterialTheme.typography.titleSmall)
                                         Text(entry.created_at.take(10), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)

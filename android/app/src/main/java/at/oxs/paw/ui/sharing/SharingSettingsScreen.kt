@@ -10,6 +10,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import at.oxs.paw.viewmodel.AnimalViewModel
+import at.oxs.paw.ui.theme.Spacing
 import at.oxs.paw.viewmodel.UiState
 import at.oxs.paw.viewmodel.ViewModelFactory
 
@@ -71,14 +72,14 @@ fun SharingSettingsScreen(
             }
             UiState.Success, UiState.Idle -> {
                 Column(modifier = Modifier
-                    .padding(16.dp)
+                    .padding(Spacing.lg)
                     .fillMaxSize()) {
                     Text("Tierärzte", style = MaterialTheme.typography.titleMedium)
                     CheckboxWithLabel("Impfungen", vetVaccination) { vetVaccination = it }
                     CheckboxWithLabel("Medikamente", vetMedications) { vetMedications = it }
                     CheckboxWithLabel("Kontaktdaten", vetContact) { vetContact = it }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(Spacing.lg))
 
                     Text("Behörden", style = MaterialTheme.typography.titleMedium)
                     CheckboxWithLabel("Impfungen", authorityVaccination) { authorityVaccination = it }

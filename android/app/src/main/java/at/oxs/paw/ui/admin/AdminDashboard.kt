@@ -13,6 +13,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import at.oxs.paw.viewmodel.AdminViewModel
+import at.oxs.paw.ui.theme.Spacing
 import at.oxs.paw.viewmodel.UiState
 import at.oxs.paw.viewmodel.ViewModelFactory
 
@@ -57,12 +58,12 @@ fun AdminDashboard(
                 }
             }
             UiState.Success, UiState.Idle -> {
-                Column(modifier = Modifier.padding(16.dp).fillMaxSize()) {
+                Column(modifier = Modifier.padding(Spacing.lg).fillMaxSize()) {
                     Button(onClick = onNavigateToAuditLog, modifier = Modifier.fillMaxWidth()) {
                         Text("Audit Log anzeigen")
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(Spacing.lg))
 
                     Text("Accounts (${accounts.size})", style = MaterialTheme.typography.titleMedium)
 
@@ -78,7 +79,7 @@ fun AdminDashboard(
                                         showRoleDialog = true
                                     }
                             ) {
-                                Column(modifier = Modifier.padding(16.dp)) {
+                                Column(modifier = Modifier.padding(Spacing.lg)) {
                                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                         Column(modifier = Modifier.weight(1f)) {
                                             Text(account.email, style = MaterialTheme.typography.bodyLarge)

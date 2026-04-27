@@ -13,6 +13,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import at.oxs.paw.model.AnimalTag
+import at.oxs.paw.ui.theme.Spacing
 import at.oxs.paw.model.AddTagRequest
 import at.oxs.paw.model.UpdateTagRequest
 import at.oxs.paw.network.RetrofitClient
@@ -100,7 +101,7 @@ fun TagManagementScreen(
 
             items(tags) { tag ->
                 Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                    Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Row(modifier = Modifier.padding(Spacing.lg), verticalAlignment = Alignment.CenterVertically) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(tag.tag_id, style = MaterialTheme.typography.bodyMedium)
                             Text(

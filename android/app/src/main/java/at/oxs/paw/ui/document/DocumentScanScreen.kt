@@ -23,6 +23,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import at.oxs.paw.network.TokenStore
+import at.oxs.paw.ui.theme.Spacing
 import at.oxs.paw.network.WsClient
 import at.oxs.paw.network.WsEvent
 import coil3.compose.rememberAsyncImagePainter
@@ -111,7 +112,7 @@ fun DocumentScanScreen(animalId: String, onBack: () -> Unit, onDone: () -> Unit)
         }
     ) { inner ->
         Column(
-            modifier = Modifier.fillMaxSize().padding(inner).padding(16.dp),
+            modifier = Modifier.fillMaxSize().padding(inner).padding(Spacing.lg),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             when (phase) {
@@ -123,7 +124,7 @@ fun DocumentScanScreen(animalId: String, onBack: () -> Unit, onDone: () -> Unit)
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurface.copy(.6f)
                             )
-                            Spacer(Modifier.height(8.dp))
+                            Spacer(Modifier.height(Spacing.sm))
                         }
 
                         if (pages.isEmpty()) {
@@ -136,7 +137,7 @@ fun DocumentScanScreen(animalId: String, onBack: () -> Unit, onDone: () -> Unit)
                         } else {
                             item {
                                 Text("${pages.size} Seite(n) erfasst", style = MaterialTheme.typography.titleMedium)
-                                Spacer(Modifier.height(8.dp))
+                                Spacer(Modifier.height(Spacing.sm))
                             }
 
                             items(pages) { page ->
@@ -148,7 +149,7 @@ fun DocumentScanScreen(animalId: String, onBack: () -> Unit, onDone: () -> Unit)
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .padding(12.dp),
+                                            .padding(Spacing.md),
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                                     ) {
@@ -199,7 +200,7 @@ fun DocumentScanScreen(animalId: String, onBack: () -> Unit, onDone: () -> Unit)
                             .fillMaxWidth()
                             .weight(1f)
                     ) {
-                        LazyColumn(modifier = Modifier.padding(12.dp)) {
+                        LazyColumn(modifier = Modifier.padding(Spacing.md)) {
                             items(statusLog) { (msg, kind) ->
                                 Text(
                                     "> $msg",
@@ -239,7 +240,7 @@ fun DocumentScanScreen(animalId: String, onBack: () -> Unit, onDone: () -> Unit)
                     Text(
                         json,
                         modifier = Modifier
-                            .padding(12.dp)
+                            .padding(Spacing.md)
                             .verticalScroll(rememberScrollState()),
                         fontSize = 12.sp,
                         fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace

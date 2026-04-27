@@ -18,6 +18,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import at.oxs.paw.model.Animal
+import at.oxs.paw.ui.theme.Spacing
 import at.oxs.paw.model.Document
 import at.oxs.paw.network.RetrofitClient
 import at.oxs.paw.network.TokenStore
@@ -146,7 +147,7 @@ fun AnimalScreen(
                 item {
                     Card(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                         Row(modifier = Modifier
-                            .padding(16.dp)
+                            .padding(Spacing.lg)
                             .fillMaxWidth()
                             .clickable { showAvatarMenu = true },
                             verticalAlignment = Alignment.CenterVertically) {
@@ -167,7 +168,7 @@ fun AnimalScreen(
                                     CircularProgressIndicator(modifier = Modifier.size(64.dp), strokeWidth = 2.dp)
                                 }
                             }
-                            Spacer(Modifier.width(16.dp))
+                            Spacer(Modifier.width(Spacing.lg))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(a.name, style = MaterialTheme.typography.titleLarge)
                                 Text(buildString {
@@ -211,12 +212,12 @@ fun AnimalScreen(
                 item {
                     Column(modifier = Modifier.fillMaxWidth()) {
                         OutlinedButton(onClick = onManageTags, modifier = Modifier.fillMaxWidth()) { Text("🏷 Tags verwalten") }
-                        Spacer(Modifier.height(8.dp))
+                        Spacer(Modifier.height(Spacing.sm))
                         OutlinedButton(onClick = { onNavigateToSharing(animalId) }, modifier = Modifier.fillMaxWidth()) { Text("🔒 Freigabe-Einstellungen") }
                     }
-                    Spacer(Modifier.height(16.dp))
+                    Spacer(Modifier.height(Spacing.lg))
                     Text("Dokumente (${documents.size})", style = MaterialTheme.typography.titleMedium)
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(Spacing.sm))
                 }
             }
 
@@ -229,7 +230,7 @@ fun AnimalScreen(
                     .fillMaxWidth()
                     .padding(vertical = 4.dp)
                     .clickable { onDocumentClicked(doc.id) }) {
-                    Column(modifier = Modifier.padding(16.dp)) {
+                    Column(modifier = Modifier.padding(Spacing.lg)) {
                         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                             Text(when (doc.doc_type) { "vaccination" -> "💉 Impfung"; "medication" -> "💊 Medikament"; else -> "📄 Dokument" }, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
                             when (doc.added_by_role) {

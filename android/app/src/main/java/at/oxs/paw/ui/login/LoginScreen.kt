@@ -13,6 +13,7 @@ import at.oxs.paw.network.RetrofitClient
 import at.oxs.paw.network.TokenStore
 import at.oxs.paw.model.LoginRequest
 import at.oxs.paw.model.RegisterRequest
+import at.oxs.paw.ui.theme.Spacing
 import kotlinx.coroutines.launch
 
 @Composable
@@ -32,40 +33,40 @@ fun LoginScreen(onLogin: () -> Unit) {
     }
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
+        modifier = Modifier.fillMaxSize().padding(Spacing.screenPadding),
         verticalArrangement = Arrangement.Center
     ) {
-        Text("🐾 PAW", style = MaterialTheme.typography.headlineLarge)
+        Text("🐾 PAW", style = MaterialTheme.typography.displaySmall)
         Text("Digitaler Tierimpfpass", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface.copy(alpha = .6f))
-        Spacer(Modifier.height(32.dp))
+        Spacer(Modifier.height(Spacing.s3xl))
 
         OutlinedTextField(
             value = serverUrl, onValueChange = { serverUrl = it },
             label = { Text("Server URL") }, modifier = Modifier.fillMaxWidth(),
             singleLine = true
         )
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(Spacing.sm))
 
         if (mode == "register") {
             OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(Spacing.sm))
         }
         OutlinedTextField(
             value = email, onValueChange = { email = it }, label = { Text("E-Mail") },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
             modifier = Modifier.fillMaxWidth(), singleLine = true
         )
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(Spacing.sm))
         OutlinedTextField(
             value = password, onValueChange = { password = it }, label = { Text("Passwort") },
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             modifier = Modifier.fillMaxWidth(), singleLine = true
         )
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(Spacing.sm))
 
         error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(Spacing.lg))
 
         Button(
             onClick = {

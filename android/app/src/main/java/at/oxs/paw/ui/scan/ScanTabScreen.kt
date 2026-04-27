@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import at.oxs.paw.network.RetrofitClient
+import at.oxs.paw.ui.theme.Spacing
 import at.oxs.paw.network.TokenStore
 import at.oxs.paw.model.CreateAnimalRequest
 import com.google.mlkit.vision.barcode.BarcodeScanning
@@ -77,9 +78,9 @@ fun ScanTabScreen(
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    Column(modifier = Modifier.fillMaxSize().padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text("Tier scannen", style = MaterialTheme.typography.headlineSmall)
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(Spacing.sm))
 
         when (scanMode) {
             "choose" -> {
@@ -99,7 +100,7 @@ fun ScanTabScreen(
             }
             "camera" -> {
                 Text("Richte die Kamera auf den Barcode/QR-Code...", style = MaterialTheme.typography.bodyMedium)
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(Spacing.sm))
                 BarcodeScannerView(onResult = { code ->
                     scope.launch {
                         handleTagId(code, "barcode")
@@ -113,7 +114,7 @@ fun ScanTabScreen(
             }
             "manual" -> {
                 OutlinedTextField(value = manualId, onValueChange = { manualId = it }, label = { Text("Tag-ID") }, modifier = Modifier.fillMaxWidth())
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(Spacing.sm))
                 if (loading) {
                     CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
                 }
@@ -128,7 +129,7 @@ fun ScanTabScreen(
             }
             "nfc" -> {
                 Text("📡 Halte das Gerät an den NFC-Tag...", style = MaterialTheme.typography.bodyMedium)
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(Spacing.sm))
                 Button(onClick = { scanMode = "choose"; unregisterNfcCallback() }, modifier = Modifier.fillMaxWidth()) {
                     Text("Abbrechen")
                 }
@@ -176,7 +177,7 @@ fun BarcodeScannerView(onResult: (String) -> Unit) {
     LaunchedEffect(Unit) { if (!permissionGranted) launcher.launch(Manifest.permission.CAMERA) }
 
     if (!permissionGranted) {
-        Text("Kamera-Berechtigung wird benötigt", modifier = Modifier.padding(16.dp))
+        Text("Kamera-Berechtigung wird benötigt", modifier = Modifier.padding(Spacing.lg))
         return
     }
 
@@ -231,7 +232,7 @@ fun NewAnimalDialog(tagId: String, tagType: String, onConfirm: (String, String, 
         text = {
             Column {
                 Text("Tag $tagId ($tagType) ist noch nicht registriert.", style = MaterialTheme.typography.bodySmall)
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(Spacing.sm))
                 OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                 Spacer(Modifier.height(4.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

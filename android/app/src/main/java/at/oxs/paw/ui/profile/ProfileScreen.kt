@@ -15,6 +15,7 @@ import at.oxs.paw.viewmodel.UiState
 import at.oxs.paw.viewmodel.ViewModelFactory
 import at.oxs.paw.network.TokenStore
 import at.oxs.paw.network.RetrofitClient
+import at.oxs.paw.ui.theme.Spacing
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -67,9 +68,9 @@ fun ProfileScreen(
             }
             UiState.Success, UiState.Idle -> {
                 profile?.let { p ->
-                    Column(modifier = Modifier.padding(16.dp)) {
+                    Column(modifier = Modifier.padding(Spacing.lg)) {
                         Card(modifier = Modifier.fillMaxWidth()) {
-                            Column(modifier = Modifier.padding(16.dp)) {
+                            Column(modifier = Modifier.padding(Spacing.lg)) {
                                 Text("Name: ${p.name}", style = MaterialTheme.typography.bodyLarge)
                                 Text("Email: ${p.email}", style = MaterialTheme.typography.bodyMedium)
                                 Text("Rolle: ${p.role}", style = MaterialTheme.typography.bodyMedium)
