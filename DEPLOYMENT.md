@@ -70,13 +70,13 @@ cat /etc/subgid
 
 ```bash
 # API User
-useradd -m -s /bin/bash -d /pawvax/api paw_api
+useradd -m -s /bin/bash -d /git/pawvax/api paw_api
 
 # PWA User  
-useradd -m -s /bin/bash -d /pawvax/pwa paw_pwa
+useradd -m -s /bin/bash -d /git/pawvax/pwa paw_pwa
 
 # Caddy/Proxy User
-useradd -m -s /bin/bash -d /pawvax/proxy paw_proxy
+useradd -m -s /bin/bash -d /git/pawvax/proxy paw_proxy
 ```
 
 ### 2.3 Podman-Socket für jeden Benutzer aktivieren
@@ -93,38 +93,63 @@ loginctl list-users
 
 ---
 
-## 3. Verzeichnisstruktur
+## 3. Repository klonen
+
+### 3.1 Repository von GitHub klonen
 
 ```bash
-# Hauptverzeichnis erstellen
-mkdir -p /pawvax
-cd /pawvax
+# Wechsel in den Zielordner
+cd /git/pawvax
 
-# Struktur:
-# /pawvax/
-# ├── api/
-# │   ├── src/
-# │   ├── package*.json
-# │   ├── Dockerfile
-# │   ├── .env
-# │   ├── data/          (Datenbank, Uploads - Volume)
-# │   └── logs/
-# ├── pwa/
-# │   ├── src/
-# │   ├── package*.json
-# │   ├── Dockerfile
-# │   ├── vite.config.ts
-# │   ├── nginx.conf
-# │   └── logs/
-# ├── proxy/
-# │   ├── Caddyfile
-# │   ├── data/         (Caddy Zertifikate)
-# │   └── logs/
-# └── docker-compose.yml
+# Klone das Repository
+git clone git@github.com:mpetutschnig/git/pawvax.git .
 
-# Kopiere Quellcode vom lokalen repo nach /pawvax
-# (Annahme: Code ist bereits auf dem Server oder wird hochgeladen)
-mkdir -p /pawvax/api /pawvax/pwa /pawvax/proxy
+# Falls SSH-Keys noch nicht eingerichtet, mit HTTPS:
+# git clone https://github.com/mpetutschnig/git/pawvax.git .
+
+# Überprüfe die Struktur
+ls -la
+# Sollte zeigen: server/, pwa/, .git/, etc.
+```
+
+### 3.2 Verzeichnisstruktur nach Clone
+
+Nach `git clone` sollte die Struktur so aussehen:
+
+```
+/git/pawvax/
+├── server/              # ← API (Fastify)
+│   ├── src/
+│   ├── package*.json
+│   ├── Dockerfile
+│   ├── .env.example
+│   └── ...
+├── pwa/                 # ← PWA (React + Vite)
+│   ├── src/
+│   ├── package*.json
+│   ├── Dockerfile
+│   ├── vite.config.ts
+│   ├── nginx.conf
+│   └── ...
+├── android/             # ← Android App (optional)
+├── proxy/               # ← Caddy Config (manuell erstellen)
+│   ├── Caddyfile
+│   └── ...
+└── .git/
+```
+
+### 3.3 Neue Verzeichnisse erstellen
+
+```bash
+cd /git/pawvax
+
+# Datenverzeichnisse für Volumes
+mkdir -p proxy
+mkdir -p server/data
+mkdir -p server/uploads
+
+# Logs-Verzeichnisse (optional)
+mkdir -p logs/{api,pwa,caddy}
 ```
 
 ---
@@ -149,10 +174,10 @@ podman network create pawvax-net || true
 
 ### 4.3 Caddyfile für Reverse Proxy
 
-Erstelle `/pawvax/proxy/Caddyfile`:
+Erstelle `/git/pawvax/proxy/Caddyfile`:
 
 ```bash
-cat > /pawvax/proxy/Caddyfile << 'EOF'
+cat > /git/pawvax/proxy/Caddyfile << 'EOF'
 # Caddy Configuration for PAW
 
 # API Backend
@@ -183,7 +208,7 @@ EOF
 
 ```bash
 # Verifiziere Caddyfile
-caddy validate --config /pawvax/proxy/Caddyfile
+caddy validate --config /git/pawvax/proxy/Caddyfile
 
 # Starte Caddy
 systemctl restart caddy
@@ -205,7 +230,7 @@ Die Dockerfiles sind bereits vorhanden. Baue die Images:
 ### 5.1 API Container bauen
 
 ```bash
-cd /pawvax/api
+cd /git/pawvax/api
 
 # Als root (oder mit sudo):
 podman build -t paw-api:latest .
@@ -214,7 +239,7 @@ podman build -t paw-api:latest .
 ### 5.2 PWA Container bauen
 
 ```bash
-cd /pawvax/pwa
+cd /git/pawvax/pwa
 
 podman build -t paw-pwa:latest .
 ```
@@ -230,10 +255,10 @@ podman images | grep paw
 
 ### 6.1 API .env Datei
 
-Erstelle `/pawvax/api/.env`:
+Erstelle `/git/pawvax/api/.env`:
 
 ```bash
-cat > /pawvax/api/.env << 'EOF'
+cat > /git/pawvax/api/.env << 'EOF'
 # Server
 PORT=3000
 NODE_ENV=production
@@ -253,7 +278,7 @@ ADMIN_EMAIL=admin@example.com
 EOF
 
 # Permissions
-chmod 600 /pawvax/api/.env
+chmod 600 /git/pawvax/api/.env
 ```
 
 **Wichtige Secrets generieren:**
@@ -263,19 +288,19 @@ chmod 600 /pawvax/api/.env
 openssl rand -base64 32
 
 # In .env ersetzen
-nano /pawvax/api/.env
+nano /git/pawvax/api/.env
 ```
 
 ### 6.2 Verzeichnisse für Daten vorbereiten
 
 ```bash
 # Für API
-mkdir -p /pawvax/api/data
-mkdir -p /pawvax/api/uploads
+mkdir -p /git/pawvax/api/data
+mkdir -p /git/pawvax/api/uploads
 
 # Permissions setzen (für paw_api user)
-chown -R 100000:100000 /pawvax/api/data /pawvax/api/uploads
-chmod 755 /pawvax/api/data /pawvax/api/uploads
+chown -R 100000:100000 /git/pawvax/api/data /git/pawvax/api/uploads
+chmod 755 /git/pawvax/api/data /git/pawvax/api/uploads
 ```
 
 ---
@@ -304,10 +329,10 @@ podman run -d \
   --name paw-api \
   --network host \
   -p 3000:3000 \
-  -v /pawvax/api/data:/app/data \
-  -v /pawvax/api/uploads:/app/uploads \
+  -v /git/pawvax/api/data:/app/data \
+  -v /git/pawvax/api/uploads:/app/uploads \
   -e PORT=3000 \
-  -e JWT_SECRET="$(cat /pawvax/api/.env | grep JWT_SECRET | cut -d= -f2)" \
+  -e JWT_SECRET="$(cat /git/pawvax/api/.env | grep JWT_SECRET | cut -d= -f2)" \
   -e DB_PATH=/app/data/paw.db \
   -e UPLOADS_DIR=/app/uploads \
   paw-api:latest
@@ -339,7 +364,7 @@ podman ps | grep paw-pwa
 
 ### 9.1 docker-compose.yml erstellen
 
-Erstelle `/pawvax/docker-compose.yml`:
+Erstelle `/git/pawvax/docker-compose.yml`:
 
 ```yaml
 version: '3.8'
@@ -353,8 +378,8 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - /pawvax/api/data:/app/data
-      - /pawvax/api/uploads:/app/uploads
+      - /git/pawvax/api/data:/app/data
+      - /git/pawvax/api/uploads:/app/uploads
     environment:
       PORT: 3000
       NODE_ENV: production
@@ -390,7 +415,7 @@ networks:
 
 ### 9.2 .env für docker-compose
 
-Erstelle `/pawvax/.env`:
+Erstelle `/git/pawvax/.env`:
 
 ```bash
 JWT_SECRET=your-secret-from-api-env
@@ -401,7 +426,7 @@ ADMIN_EMAIL=admin@example.com
 ### 9.3 Container mit docker-compose starten
 
 ```bash
-cd /pawvax
+cd /git/pawvax
 
 # Netzwerk erstellen (falls noch nicht vorhanden)
 podman network create pawvax-net || true
@@ -437,10 +462,10 @@ ExecStart=/usr/bin/podman run --rm \
   --name paw-api \
   --network host \
   -p 3000:3000 \
-  -v /pawvax/api/data:/app/data \
-  -v /pawvax/api/uploads:/app/uploads \
+  -v /git/pawvax/api/data:/app/data \
+  -v /git/pawvax/api/uploads:/app/uploads \
   -e PORT=3000 \
-  -e JWT_SECRET="$(cat /pawvax/api/.env | grep JWT_SECRET | cut -d= -f2)" \
+  -e JWT_SECRET="$(cat /git/pawvax/api/.env | grep JWT_SECRET | cut -d= -f2)" \
   -e DB_PATH=/app/data/paw.db \
   -e UPLOADS_DIR=/app/uploads \
   paw-api:latest
@@ -510,7 +535,7 @@ certbot certificates
 
 ```bash
 # Wenn du Caddyfile änderst:
-caddy reload --config /pawvax/proxy/Caddyfile
+caddy reload --config /git/pawvax/proxy/Caddyfile
 ```
 
 ### 11.3 Zertifikate Speichert unter
@@ -592,7 +617,7 @@ netstat -tulpn | grep 8080
 journalctl -u caddy -n 200 -f | grep -i acme
 
 # Caddyfile Syntax überprüfen
-caddy validate --config /pawvax/proxy/Caddyfile
+caddy validate --config /git/pawvax/proxy/Caddyfile
 
 # Firewall Port 80, 443 freigeben (falls nötig)
 ufw allow 80/tcp
@@ -612,7 +637,7 @@ podman exec -it paw-api sh
 podman restart paw-api
 
 # Datenbank-Datei prüfen
-ls -la /pawvax/api/data/
+ls -la /git/pawvax/api/data/
 ```
 
 ### 13.5 Firewall Check
@@ -657,8 +682,8 @@ journalctl -u paw-pwa --since="1 hour ago" | grep -i "restart"
 
 ```bash
 # Datenbank-Größe prüfen
-du -sh /pawvax/api/data/
-du -sh /pawvax/api/uploads/
+du -sh /git/pawvax/api/data/
+du -sh /git/pawvax/api/uploads/
 
 # Caddy Zertifikate
 du -sh ~/.cache/caddy/
@@ -767,8 +792,8 @@ systemctl stop paw-api paw-pwa
 ### Neu bauen
 
 ```bash
-podman build --no-cache -t paw-api:latest /pawvax/api
-podman build --no-cache -t paw-pwa:latest /pawvax/pwa
+podman build --no-cache -t paw-api:latest /git/pawvax/api
+podman build --no-cache -t paw-pwa:latest /git/pawvax/pwa
 podman-compose restart
 ```
 
