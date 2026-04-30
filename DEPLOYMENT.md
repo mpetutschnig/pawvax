@@ -19,12 +19,24 @@ ssh root@your-hetzner-ip
 
 ### 1.2 Systemupdate
 
+**Fedora:**
+```bash
+dnf upgrade -y
+```
+
+**Debian/Ubuntu:**
 ```bash
 apt update && apt upgrade -y
 ```
 
 ### 1.3 Podman installieren (nicht Docker!)
 
+**Fedora:**
+```bash
+dnf install -y podman podman-compose curl wget
+```
+
+**Debian/Ubuntu:**
 ```bash
 apt install -y podman podman-compose curl wget
 ```
@@ -44,10 +56,9 @@ Rootless Podman ermöglicht es unprivilegierten Benutzern, Container zu verwalte
 
 Systemweit aktivieren (einmalig):
 
+**Fedora:**
 ```bash
-# Install shadow-utils (für newuidmap/newgidmap)
-apt install -y shadow-utils
-
+# shadow-utils sollte bereits installiert sein
 # Prüfe ob /etc/subuid existiert, falls nicht:
 touch /etc/subuid /etc/subgid
 
@@ -64,6 +75,17 @@ echo "paw_proxy:231072:65536" >> /etc/subgid
 # Verifizieren
 cat /etc/subuid
 cat /etc/subgid
+```
+
+**Debian/Ubuntu:**
+```bash
+# Install shadow-utils (für newuidmap/newgidmap)
+apt install -y shadow-utils
+
+# Dann wie oben...
+echo "paw_api:100000:65536" >> /etc/subuid
+echo "paw_api:100000:65536" >> /etc/subgid
+# etc.
 ```
 
 ### 2.2 Benutzer erstellen
@@ -158,6 +180,13 @@ mkdir -p logs/{api,pwa,caddy}
 
 ### 4.1 Caddy installieren
 
+**Fedora:**
+```bash
+# Als root installieren (braucht Port 80, 443)
+dnf install -y caddy
+```
+
+**Debian/Ubuntu:**
 ```bash
 # Als root installieren (braucht Port 80, 443)
 apt install -y caddy
@@ -225,28 +254,42 @@ Caddy lädt automatisch Let's Encrypt Zertifikate herunter! 🎉
 
 ## 5. Container bauen
 
-Die Dockerfiles sind bereits vorhanden. Baue die Images:
+Die Dockerfiles sind im Repository. Stelle sicher, dass du zuerst das Repository geklont hast!
 
-### 5.1 API Container bauen
+### 5.1 Repository überprüfen
 
 ```bash
-cd /git/pawvax/api
+# Prüfe ob Code vorhanden ist
+ls -la /git/pawvax/
 
-# Als root (oder mit sudo):
-podman build -t paw-api:latest .
+# Falls leer oder nicht vorhanden:
+cd /git/pawvax
+git clone git@github.com:mpetutschnig/pawvax.git .
+
+# oder mit HTTPS (falls SSH nicht eingerichtet):
+git clone https://github.com/mpetutschnig/pawvax.git .
+
+# Überprüfe die Struktur
+ls -la
+# Sollte zeigen: server/, pwa/, android/, ...
 ```
 
-### 5.2 PWA Container bauen
+### 5.2 API Container bauen
 
 ```bash
-cd /git/pawvax/pwa
+podman build -t paw-api:latest /git/pawvax/server
+```
 
-podman build -t paw-pwa:latest .
+### 5.3 PWA Container bauen
+
+```bash
+podman build -t paw-pwa:latest /git/pawvax/pwa
 ```
 
 **Verifizieren:**
 ```bash
 podman images | grep paw
+# Sollte zeigen: paw-api:latest und paw-pwa:latest
 ```
 
 ---
@@ -360,82 +403,173 @@ podman ps | grep paw-pwa
 
 ---
 
-## 9. Docker Compose (Alternative zu podman run)
+## 9. Systemd Services für Container (Fedora 40+)
 
-### 9.1 docker-compose.yml erstellen
+Quadlets sind systemd-Unit-Dateien für Podman-Container. Viel eleganter als docker-compose!
 
-Erstelle `/git/pawvax/docker-compose.yml`:
-
-```yaml
-version: '3.8'
-
-services:
-  paw-api:
-    image: paw-api:latest
-    container_name: paw-api
-    restart: always
-    network_mode: host
-    ports:
-      - "3000:3000"
-    volumes:
-      - /git/pawvax/api/data:/app/data
-      - /git/pawvax/api/uploads:/app/uploads
-    environment:
-      PORT: 3000
-      NODE_ENV: production
-      JWT_SECRET: ${JWT_SECRET}
-      DB_PATH: /app/data/paw.db
-      UPLOADS_DIR: /app/uploads
-      GEMINI_API_KEY: ${GEMINI_API_KEY}
-      ADMIN_EMAIL: ${ADMIN_EMAIL}
-    healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-
-  paw-pwa:
-    image: paw-pwa:latest
-    container_name: paw-pwa
-    restart: always
-    network_mode: host
-    ports:
-      - "8080:80"
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/index.html"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-
-networks:
-  default:
-    name: pawvax-net
-    external: true
-```
-
-### 9.2 .env für docker-compose
-
-Erstelle `/git/pawvax/.env`:
+### 9.1 Quadlet-Verzeichnisse erstellen
 
 ```bash
-JWT_SECRET=your-secret-from-api-env
-GEMINI_API_KEY=
-ADMIN_EMAIL=admin@example.com
+# Für rootless Podman (als paw_api, paw_pwa, paw_proxy Benutzer)
+mkdir -p ~/.config/containers/systemd
+
+# ODER für system-wide (als root)
+mkdir -p /etc/containers/systemd
 ```
 
-### 9.3 Container mit docker-compose starten
+Da wir **rootless Podman** verwenden, arbeiten wir im User-Verzeichnis:
 
 ```bash
-cd /git/pawvax
+# Als root
+mkdir -p /etc/containers/systemd
+```
 
-# Netzwerk erstellen (falls noch nicht vorhanden)
-podman network create pawvax-net || true
+### 9.2 Network Quadlet
 
-# Container starten
-podman-compose up -d
+Erstelle `/etc/containers/systemd/pawvax.network`:
 
-# Logs prüfen
-podman-compose logs -f
+```ini
+[Network]
+NetworkName=pawvax-net
+```
+
+Starte das Netzwerk:
+```bash
+systemctl enable --now podman-pawvax.network
+```
+
+### 9.3 API Container Quadlet
+
+Erstelle `/etc/containers/systemd/paw-api.container`:
+
+```ini
+[Unit]
+Description=PAW API Container
+After=podman-pawvax.network.service
+
+[Container]
+Image=paw-api:latest
+ContainerName=paw-api
+Restart=always
+PublishPort=3000:3000
+Volume=/git/pawvax/api/data:/app/data:Z
+Volume=/git/pawvax/api/uploads:/app/uploads:Z
+Network=pawvax-net
+
+Environment=PORT=3000
+Environment=NODE_ENV=production
+Environment=JWT_SECRET=your-super-secret-jwt-key-change-this
+Environment=DB_PATH=/app/data/paw.db
+Environment=UPLOADS_DIR=/app/uploads
+Environment=GEMINI_API_KEY=
+Environment=ADMIN_EMAIL=admin@example.com
+
+HealthCmd=node -e "require('http').get('http://localhost:3000/health', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"
+HealthInterval=10s
+HealthTimeout=5s
+HealthRetries=3
+
+[Service]
+Restart=always
+RestartSec=10
+```
+
+**Wichtig:** JWT_SECRET anpassen!
+
+### 9.4 PWA Container Quadlet
+
+Erstelle `/etc/containers/systemd/paw-pwa.container`:
+
+```ini
+[Unit]
+Description=PAW PWA Container
+After=podman-pawvax.network.service
+
+[Container]
+Image=paw-pwa:latest
+ContainerName=paw-pwa
+Restart=always
+PublishPort=8080:80
+Network=pawvax-net
+
+HealthCmd=wget --quiet --tries=1 --spider http://localhost/index.html
+HealthInterval=10s
+HealthTimeout=5s
+HealthRetries=3
+
+[Service]
+Restart=always
+RestartSec=10
+```
+
+### 9.5 Quadlets aktivieren und starten
+
+**WICHTIG:** Stelle sicher dass die Quadlet-Dateien in `/etc/containers/systemd/` existieren!
+
+```bash
+# Prüfe Quadlet-Dateien
+ls -la /etc/containers/systemd/
+# Sollte zeigen: pawvax.network, paw-api.container, paw-pwa.container
+```
+
+Falls Dateien fehlen, erstelle sie (siehe 9.2-9.4):
+
+```bash
+# Systemd Konfiguration neu laden (WICHTIG!)
+systemctl daemon-reload
+
+# Überprüfe ob Quadlets erkannt wurden
+systemctl list-units --type=service | grep paw
+
+# Services starten
+systemctl start podman-pawvax.network
+systemctl start paw-api.service paw-pwa.service
+
+# Automatisch beim Boot starten
+systemctl enable podman-pawvax.network
+systemctl enable paw-api.service paw-pwa.service
+
+# Status prüfen
+systemctl status paw-api.service
+systemctl status paw-pwa.service
+
+# Logs
+journalctl -u paw-api -f
+journalctl -u paw-pwa -f
+```
+
+**Falls Fehler "Unit does not exist":**
+```bash
+# 1. Überprüfe Dateinamen (keine Typos!)
+ls -la /etc/containers/systemd/
+
+# 2. Systemd neu laden
+systemctl daemon-reload
+
+# 3. Erneut prüfen
+systemctl list-units --type=service | grep paw
+```
+
+### 9.6 Container prüfen
+
+```bash
+podman ps
+podman network ls
+podman logs paw-api
+podman logs paw-pwa
+```
+
+### 9.7 Quadlets bearbeiten
+
+Falls du eine Quadlet änderst:
+
+```bash
+# Z.B. paw-api.container ändern
+nano /etc/containers/systemd/paw-api.container
+
+# Neuladen und neu starten
+systemctl daemon-reload
+systemctl restart paw-api.service
 ```
 
 ---
@@ -656,6 +790,59 @@ curl -v https://pawapi.oxs.at 2>&1 | head -20
 
 Die Hetzner Cloud Firewall ist eine **Cloud-Firewall auf Server-Ebene**, nicht lokal auf dem Server selbst!
 
+### 13.6 Port 80/443 bereits belegt
+
+**Fehler:** `address already in use: listen tcp :80: bind`
+
+Das bedeutet, dass etwas anderes bereits Port 80 oder 443 nutzt:
+
+```bash
+# Finde was Port 80 belegt
+lsof -i :80
+netstat -tulpn | grep :80
+
+# Oder Port 443
+lsof -i :443
+netstat -tulpn | grep :443
+
+# Falls alte Caddy-Instance läuft
+pkill -9 caddy
+
+# Überprüfe ob Port frei ist
+netstat -tulpn | grep -E ':80|:443'
+
+# Starte Caddy neu
+systemctl restart caddy
+systemctl status caddy
+```
+
+### 13.7 Quadlet-Services nicht erkannt
+
+**Fehler:** `Failed to enable unit: Unit paw-api.service does not exist`
+
+Das passiert, wenn `systemctl daemon-reload` vergessen wurde:
+
+```bash
+# Überprüfe ob Quadlet-Dateien existieren
+ls -la /etc/containers/systemd/
+# Muss zeigen: pawvax.network, paw-api.container, paw-pwa.container
+
+# Systemd MUSS neu geladen werden!
+systemctl daemon-reload
+
+# Überprüfe ob Quadlets erkannt wurden
+systemctl list-units --type=service | grep paw
+
+# Jetzt sollte enable funktionieren
+systemctl enable paw-api.service paw-pwa.service
+systemctl start paw-api.service paw-pwa.service
+
+# Status
+systemctl status paw-api.service
+```
+
+**Wichtig:** Nach jeder Änderung an Quadlet-Dateien → `systemctl daemon-reload`!
+
 ---
 
 ## 14. Wartung und Monitoring
@@ -733,53 +920,406 @@ systemctl restart systemd-journald
 
 ---
 
-## 16. Hetzner Cloud Firewall Setup
+## 16. Hetzner Cloud Firewall + Caddy Reverse Proxy
 
-Da du die **Hetzner Cloud Firewall** nutzt, sind keine lokalen `ufw`/`iptables` Befehle nötig.
+**Hetzner Cloud Firewall** sperrt externe Verbindungen - keine lokalen `ufw`/`iptables` Befehle nötig.
 
-### 16.1 Firewall im Cloud Console konfigurieren
+### 16.1 Hetzner Cloud Firewall konfigurieren
 
 1. **Melde dich an:** https://console.hetzner.cloud
 2. **Gehe zu:** Dein Projekt → Firewalls
-3. **Erstelle eine neue Firewall** oder nutze eine existierende
-4. **Konfiguriere Inbound-Regeln:**
+3. **Erstelle eine neue Firewall**
+4. **Inbound-Regeln:**
 
 | Protokoll | Port | Quelle | Zweck |
 |-----------|------|--------|-------|
-| TCP | 22 | Überall (0.0.0.0/0, ::/0) | SSH |
-| TCP | 80 | Überall (0.0.0.0/0, ::/0) | HTTP → Caddy |
-| TCP | 443 | Überall (0.0.0.0/0, ::/0) | HTTPS → Caddy |
-| TCP | 3000 | Überall ODER spezifisches Netzwerk | API (optional) |
-| TCP | 8080 | Überall ODER spezifisches Netzwerk | PWA (optional) |
+| TCP | 22 | Überall | SSH |
+| TCP | 80 | Überall | HTTP (Caddy) |
+| TCP | 443 | Überall | HTTPS (Caddy + Let's Encrypt) |
 
-5. **Outbound-Regeln:** Erlaube alles (default)
-   ```
-   Protokoll: TCP/UDP
-   Port: Alle (0-65535)
-   Ziel: Überall
-   ```
+5. **Outbound:** Erlaube alles (default)
+6. **Firewall zum Server zuweisen**
 
-6. **Firewall zum Server zuweisen:**
-   - Wähle die Firewall aus
-   - Klicke "Server hinzufügen"
-   - Wähle deinen Server
+### 16.2 Caddy Reverse Proxy Konfiguration
 
-### 16.2 Prüfung
+Caddy läuft auf dem **Host** (nicht im Container) und proxied zu den Containern.
+
+**Wichtig:** `/etc/caddy/Caddyfile` muss auf korrektem Ort sein:
 
 ```bash
-# Teste von extern ob Ports offen sind
-curl -I https://pawapi.oxs.at
-curl -I https://paw.oxs.at
+cat > /etc/caddy/Caddyfile << 'EOF'
+# API Backend (nur API-Requests)
+pawapi.oxs.at {
+	reverse_proxy localhost:3000
+}
 
-# oder mit nc/nmap
-nmap -p 22,80,443 pawapi.oxs.at
+# PWA Frontend + API Proxy
+paw.oxs.at {
+	# Statische PWA Dateien
+	reverse_proxy localhost:8080
+	
+	# API Requests auch hier zulassen
+	handle /api* {
+		reverse_proxy localhost:3000
+	}
+	
+	# WebSocket für Live-Updates
+	handle /ws {
+		reverse_proxy localhost:3000
+	}
+}
+EOF
+
+# Validiere
+caddy validate --config /etc/caddy/Caddyfile
+
+# Restart
+systemctl restart caddy
 ```
 
-**Wichtig:** Die Firewall arbeitet auf Server-Ebene bei Hetzner, nicht auf dem Server selbst. Du brauchst keine lokalen Firewall-Commands!
+**Warum zwei Domains?**
+- `pawapi.oxs.at` → nur API, ohne PWA UI
+- `paw.oxs.at` → PWA + API-Proxy, für Frontend-Requests
+
+**Caddy Zertifikate:**
+- Automatisch von Let's Encrypt
+- Gespeichert in: `/var/lib/caddy/.local/share/caddy/`
+- Automatische Erneuerung ✅
+
+### 16.3 Prüfung
+
+```bash
+# Teste HTTP/HTTPS
+curl -I https://pawapi.oxs.at/health
+curl -I https://paw.oxs.at
+
+# API Test
+curl -X POST https://paw.oxs.at/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@example.com","password":"test123","name":"Test"}'
+
+# Caddy Status
+systemctl status caddy
+journalctl -u caddy -n 10
+```
 
 ---
 
-## 17. Weitere Befehle
+## 17. Häufige Probleme & Lösungen
+
+### 17.1 "Connection refused" auf Port 443
+
+**Problem:** `curl https://pawapi.oxs.at` → Connection refused
+
+**Ursachen:**
+1. Caddy läuft nicht
+2. Caddyfile verwendet falsche Pfade
+3. Container nicht erreichbar
+
+**Lösung:**
+```bash
+# Prüfe Caddy
+systemctl status caddy
+journalctl -u caddy -n 50
+
+# Prüfe Caddyfile
+cat /etc/caddy/Caddyfile
+caddy validate --config /etc/caddy/Caddyfile
+
+# Prüfe Ports
+ss -tulpn | grep -E ':(80|443|3000|8080)'
+
+# Restart
+systemctl restart caddy
+sleep 2
+curl -vI https://pawapi.oxs.at/health
+```
+
+### 17.2 "404 Not Found" beim API-Request
+
+**Problem:** `curl https://paw.oxs.at/api/auth/register` → 404
+
+**Ursache:** Caddy proxied nicht zu API für `/api` Requests
+
+**Lösung:** Überprüfe Caddyfile auf `paw.oxs.at` Block:
+
+```bash
+grep -A 10 "paw.oxs.at" /etc/caddy/Caddyfile
+# Sollte zeigen:
+# handle /api* {
+#   reverse_proxy localhost:3000
+# }
+```
+
+Falls fehlend, aktualisiere Caddyfile und restart.
+
+### 17.3 Container starten nicht
+
+**Problem:** `systemctl status paw-api` → Failed to start
+
+**Lösung:**
+```bash
+# Logs prüfen
+journalctl -u paw-api -n 20
+
+# Manuell starten um Fehler zu sehen
+/usr/bin/podman run --name paw-api --network pawvax-net -p 3000:3000 \
+  -v /git/pawvax/api/data:/app/data:Z \
+  -v /git/pawvax/api/uploads:/app/uploads:Z \
+  -e PORT=3000 \
+  -e NODE_ENV=production \
+  -e JWT_SECRET=$(cat /git/pawvax/.jwt_secret) \
+  -e DB_PATH=/app/data/paw.db \
+  -e UPLOADS_DIR=/app/uploads \
+  paw-api:latest
+
+# Container aufräumen
+podman rm -f paw-api paw-pwa 2>/dev/null || true
+```
+
+### 17.4 PWA lädt, aber API-Requests schlagen fehl
+
+**Problem:** PWA öffnet sich, aber Login/Register fehlgeschlagen
+
+**Ursachen:**
+1. Caddyfile proxied nicht `/api` Requests
+2. CORS-Fehler (falche Header)
+3. Network-Fehler
+
+**Lösung:**
+```bash
+# Browser DevTools → Network Tab
+# Sieh dir fehlgeschlagene API-Requests an
+
+# Test lokal
+curl -X POST http://localhost:3000/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@example.com","password":"test123","name":"Test"}'
+# Sollte 201 zurückgeben
+
+# Test über Caddy
+curl -X POST https://paw.oxs.at/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@example.com","password":"test123","name":"Test"}'
+# Sollte auch 201 zurückgeben
+```
+
+### 17.5 JWT_SECRET fehlerhaft
+
+**Problem:** API startet nicht wegen JWT_SECRET
+
+**Lösung:**
+```bash
+# Generiere neu
+JWT=$(openssl rand -base64 32)
+echo "$JWT" > /git/pawvax/.jwt_secret
+
+# Update systemd unit
+nano /etc/systemd/system/paw-api.service
+# Ersetze JWT_SECRET=$JWT oder hart-kodiert
+
+systemctl daemon-reload
+systemctl restart paw-api.service
+```
+
+## 18. Code Updates auf dem Server
+
+Wie du neue Versionen / Bugfixes auf den Live-Server deployst.
+
+### 18.1 Update-Prozess (Schritt für Schritt)
+
+```bash
+# 1. SSH zum Server
+ssh root@your-hetzner-ip
+cd /git/pawvax
+
+# 2. Git Pull (neuesten Code laden)
+git pull origin main
+
+# 3. API Container neu bauen
+podman build -t paw-api:latest /git/pawvax/server
+
+# 4. PWA Container neu bauen
+podman build -t paw-pwa:latest /git/pawvax/pwa
+
+# 5. Container neu starten
+systemctl restart paw-api.service paw-pwa.service
+
+# 6. Warten und prüfen
+sleep 3
+podman ps
+systemctl status paw-api.service paw-pwa.service
+
+# 7. Tests durchführen
+curl https://pawapi.oxs.at/health
+curl https://paw.oxs.at
+
+# 8. Logs überprüfen
+journalctl -u paw-api -n 20
+journalctl -u paw-pwa -n 20
+```
+
+### 18.2 Zero-Downtime Update (mit Service-Swap)
+
+Falls du Downtime vermeiden möchtest:
+
+```bash
+cd /git/pawvax
+
+# 1. Code Update
+git pull origin main
+
+# 2. Neue Images bauen (mit neuem Tag)
+podman build -t paw-api:v2 /git/pawvax/server
+podman build -t paw-pwa:v2 /git/pawvax/pwa
+
+# 3. Neue Unit-Dateien mit neuem Image-Tag erstellen
+# (Optional: wenn du v1 und v2 parallel laufen lassen möchtest)
+
+# 4. Alte Container stoppen und neue starten
+podman stop paw-api paw-pwa
+podman rm paw-api paw-pwa
+
+# 5. Alte Images als Backup behalten
+podman tag paw-api:latest paw-api:old
+podman tag paw-pwa:latest paw-pwa:old
+
+# 6. Neue Images als latest markieren
+podman tag paw-api:v2 paw-api:latest
+podman tag paw-pwa:v2 paw-pwa:latest
+
+# 7. Services neu starten (mit neuen Images)
+systemctl restart paw-api.service paw-pwa.service
+
+# 8. Testen
+sleep 3
+curl https://pawapi.oxs.at/health
+```
+
+### 18.3 Quick Update Script
+
+Erstelle ein Update-Script für schnelle Deploys:
+
+```bash
+cat > /usr/local/bin/paw-update.sh << 'SCRIPT'
+#!/bin/bash
+set -e
+
+echo "🔄 PAW Update Starting..."
+cd /git/pawvax
+
+echo "📥 Git Pull..."
+git pull origin main
+
+echo "🔨 Building API Container..."
+podman build -t paw-api:latest /git/pawvax/server
+
+echo "🔨 Building PWA Container..."
+podman build -t paw-pwa:latest /git/pawvax/pwa
+
+echo "🔄 Restarting Services..."
+systemctl restart paw-api.service paw-pwa.service
+
+echo "⏳ Waiting for services..."
+sleep 3
+
+echo "✅ Health Checks:"
+curl -s https://pawapi.oxs.at/health | head -20 && echo "✓ API OK" || echo "✗ API Failed"
+curl -s https://paw.oxs.at/ | head -5 && echo "✓ PWA OK" || echo "✗ PWA Failed"
+
+echo "📝 Recent Logs:"
+echo "=== API ==="
+journalctl -u paw-api -n 5 --no-pager
+echo "=== PWA ==="
+journalctl -u paw-pwa -n 5 --no-pager
+
+echo "✨ Update Complete!"
+SCRIPT
+
+chmod +x /usr/local/bin/paw-update.sh
+
+# Dann jederzeit aufrufen:
+paw-update.sh
+```
+
+### 18.4 Rollback bei Fehlern
+
+Falls nach Update Fehler auftreten:
+
+```bash
+# 1. Alte Container-Images wiederherstellen
+podman tag paw-api:old paw-api:latest || podman tag paw-api:$(podman images --format '{{.Tag}}' paw-api | grep -v latest | head -1) paw-api:latest
+podman tag paw-pwa:old paw-pwa:latest || podman tag paw-pwa:$(podman images --format '{{.Tag}}' paw-pwa | grep -v latest | head -1) paw-pwa:latest
+
+# 2. Services neu starten mit altem Image
+systemctl restart paw-api.service paw-pwa.service
+
+# 3. Prüfen
+sleep 2
+curl https://pawapi.oxs.at/health
+
+# 4. Git zu vorherigem Commit zurückrollen (optional)
+git log --oneline -n 5
+git revert HEAD  # oder git reset --hard <commit-hash>
+```
+
+### 18.5 Datenbank-Updates
+
+Falls Migrations nötig sind:
+
+```bash
+# 1. Backup vor Update
+cp /git/pawvax/api/data/paw.db /git/pawvax/api/data/paw.db.backup.$(date +%Y%m%d_%H%M%S)
+
+# 2. Update durchführen
+paw-update.sh
+
+# 3. Falls Schema-Änderungen (z.B. neue Tabellen):
+# - API sollte Migrations automatisch handlen
+# - Falls nicht: manuell in Container:
+podman exec paw-api sqlite3 /app/data/paw.db < migrations.sql
+
+# 4. Datenbank-Status prüfen
+podman exec paw-api sqlite3 /app/data/paw.db ".tables"
+podman exec paw-api sqlite3 /app/data/paw.db ".schema accounts" # Beispiel
+```
+
+### 18.6 Monitoring während Update
+
+```bash
+# In separatem Terminal: Live-Logs während Update
+watch -n 1 "podman ps && echo && systemctl status paw-api paw-pwa --no-pager"
+
+# Oder detaillierte Logs
+journalctl -u paw-api -f &
+journalctl -u paw-pwa -f &
+journalctl -u caddy -f &
+
+# Dann paw-update.sh in anderem Terminal starten
+```
+
+### 18.7 Sicherheits-Best-Practices
+
+```bash
+# 1. Immer Backup vor Update
+cp -r /git/pawvax/api/data /git/pawvax/api/data.backup.$(date +%Y%m%d)
+
+# 2. Nur von trusted Branches deployen
+git branch -a
+git pull origin main  # nicht andere Branches!
+
+# 3. Commits vor Deployment überprüfen
+git log --oneline -n 5
+git diff HEAD~1..HEAD
+
+# 4. In Dev/Staging testen vor Production
+# (Falls vorhanden)
+
+# 5. Nach Deployment: Health-Checks + Monitoring
+watch -n 5 "curl -s https://pawapi.oxs.at/health | jq ."
+```
+
+## 19. Weitere Befehle
 
 ### Stoppen
 
