@@ -647,6 +647,20 @@ html[data-theme="light"] .badge {
 }
 .badge-success .badge-dot { background: var(--success-500); animation: badge-pulse 2s infinite; }
 
+@media (prefers-color-scheme: dark) {
+  .badge-success {
+    background: oklch(from var(--success-500) l c h / 0.15);
+    color: var(--success-400);
+    border-color: oklch(from var(--success-500) l c h / 0.35);
+  }
+}
+
+html[data-theme="dark"] .badge-success {
+  background: oklch(from var(--success-500) l c h / 0.15);
+  color: var(--success-400);
+  border-color: oklch(from var(--success-500) l c h / 0.35);
+}
+
 .badge-warning {
   background: var(--warning-50);
   color: var(--warning-600);
@@ -654,12 +668,40 @@ html[data-theme="light"] .badge {
 }
 .badge-warning .badge-dot { background: var(--warning-500); }
 
+@media (prefers-color-scheme: dark) {
+  .badge-warning {
+    background: oklch(from var(--warning-500) l c h / 0.15);
+    color: var(--warning-400);
+    border-color: oklch(from var(--warning-500) l c h / 0.35);
+  }
+}
+
+html[data-theme="dark"] .badge-warning {
+  background: oklch(from var(--warning-500) l c h / 0.15);
+  color: var(--warning-400);
+  border-color: oklch(from var(--warning-500) l c h / 0.35);
+}
+
 .badge-danger {
   background: var(--danger-50);
   color: var(--danger-600);
   border-color: oklch(from var(--danger-500) l c h / 0.25);
 }
 .badge-danger .badge-dot { background: var(--danger-500); }
+
+@media (prefers-color-scheme: dark) {
+  .badge-danger {
+    background: oklch(from var(--danger-500) l c h / 0.15);
+    color: var(--danger-400);
+    border-color: oklch(from var(--danger-500) l c h / 0.35);
+  }
+}
+
+html[data-theme="dark"] .badge-danger {
+  background: oklch(from var(--danger-500) l c h / 0.15);
+  color: var(--danger-400);
+  border-color: oklch(from var(--danger-500) l c h / 0.35);
+}
 
 .badge-primary {
   background: var(--primary-50);
