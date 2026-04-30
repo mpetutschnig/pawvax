@@ -19,7 +19,7 @@ export default function AnimalsPage() {
   const [showForm, setShowForm] = useState(false)
   const [formData, setFormData] = useState({ name: '', species: 'dog', breed: '', birthdate: '' })
   const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
 
   useEffect(() => {

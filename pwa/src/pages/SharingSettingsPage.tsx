@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { getSharing, updateSharing } from '../api/rest'
 import { PageHeader } from '../components/PageHeader'
 import { Eye, Landmark, Stethoscope, Syringe, Pill, FileText, User, PawPrint, Cake } from 'lucide-react'
