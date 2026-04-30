@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { getAnimal, getAnimalDocuments, getAnimalTags, updateAnimal, deleteAnimal, uploadAnimalAvatar } from '../api/rest'
 import { PageHeader } from '../components/PageHeader'
-import { PawPrint, Cat, ArrowLeft, Edit2, Trash2, Tag, Lock, Camera, Search, Syringe, FileText, Radio, CheckCircle, ShieldAlert, AlertTriangle, RefreshCw } from 'lucide-react'
+import { PawPrint, Cat, Edit2, Trash2, Tag, Lock, Camera, Search, Syringe, FileText, Radio, CheckCircle, ShieldAlert, AlertTriangle, RefreshCw } from 'lucide-react'
 
 interface Animal {
   id: string; name: string; species: string; breed?: string; birthdate?: string;
@@ -35,14 +35,12 @@ export default function AnimalPage() {
   const [retrying, setRetrying] = useState<string | null>(null)
   const avatarInputRef = useRef<HTMLInputElement>(null)
 
-  const myRoles: string[] = JSON.parse(localStorage.getItem('roles') || '[]')
-  const isReadOnly = myRoles.length === 1 && myRoles[0] === 'readonly'
-
   const handleRetryAnalysis = async (docId: string) => {
     setRetrying(docId)
     try {
       const token = localStorage.getItem('token')
-      const headers = token ? { 'Authorization': `Bearer ${token}` } : {}
+      const headers: Record<string, string> = {}
+      if (token) headers['Authorization'] = `Bearer ${token}`
 
       const res = await fetch(`/api/documents/${docId}/retry-analysis`, { method: 'POST', headers })
 
@@ -83,7 +81,8 @@ export default function AnimalPage() {
         setTags(t.data)
         // Load pending documents with JWT token
         const token = localStorage.getItem('token')
-        const headers = token ? { 'Authorization': `Bearer ${token}` } : {}
+        const headers: Record<string, string> = {}
+        if (token) headers['Authorization'] = `Bearer ${token}`
         fetch(`/api/animals/${id}/documents/pending`, { headers })
           .then(r => r.json())
           .then(pendingDocs => {

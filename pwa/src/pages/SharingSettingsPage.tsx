@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { getSharing, updateSharing } from '../api/rest'
 import { PageHeader } from '../components/PageHeader'
-import { ChevronLeft, Eye, Landmark, Stethoscope, Syringe, Pill, FileText, User, PawPrint, Cake } from 'lucide-react'
+import { Eye, Landmark, Stethoscope, Syringe, Pill, FileText, User, PawPrint, Cake } from 'lucide-react'
 
 interface SharingRow {
   id: string
@@ -17,7 +17,6 @@ interface SharingRow {
 
 export default function SharingSettingsPage() {
   const { id } = useParams<{ id: string }>()
-  const navigate = useNavigate()
   const [sharing, setSharing] = useState<SharingRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)

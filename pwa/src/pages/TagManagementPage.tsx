@@ -4,13 +4,12 @@ import { getAnimalTags, addTag, deactivateTag, activateTag } from '../api/rest'
 import { useBarcode } from '../hooks/useBarcode'
 import { useNfc } from '../hooks/useNfc'
 import { PageHeader } from '../components/PageHeader'
-import { ChevronLeft, Camera, Radio, Tag as TagIcon, CheckCircle, XCircle } from 'lucide-react'
+import { Camera, Radio, Tag as TagIcon, CheckCircle, XCircle } from 'lucide-react'
 
 interface Tag { tag_id: string; tag_type: string; active: number; added_at: string }
 
 export default function TagManagementPage() {
   const { id } = useParams<{ id: string }>()
-  const navigate = useNavigate()
   const [tags, setTags] = useState<Tag[]>([])
   const [loading, setLoading] = useState(true)
   const [scanning, setScanning] = useState<'none' | 'barcode' | 'nfc'>('none')
@@ -23,8 +22,8 @@ export default function TagManagementPage() {
 
   useEffect(() => { reload() }, [reload])
 
-  const { start: startBarcode, stop: stopBarcode } = useBarcode('tag-barcode', (code) => handleNewTag(code, 'barcode'), (msg) => setError(msg))
-  const { state: nfcState, start: startNfc } = useNfc((id) => handleNewTag(id, 'nfc'), (msg) => setError(msg))
+  const { start: startBarcode } = useBarcode('tag-barcode', (code) => handleNewTag(code, 'barcode'), (msg) => setError(msg))
+  const { start: startNfc } = useNfc((id) => handleNewTag(id, 'nfc'), (msg) => setError(msg))
 
   // Start barcode scanner AFTER DOM element is rendered
   useEffect(() => {

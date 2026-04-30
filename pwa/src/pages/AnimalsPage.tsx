@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import * as api from '../api/rest'
 import { PetCard } from '../components/PetCard'
 import { PageHeader } from '../components/PageHeader'
-import { Search, Plus, AlertCircle, PawPrint } from 'lucide-react'
+import { Search, Plus, PawPrint } from 'lucide-react'
 
 interface Animal {
   id: string

@@ -32,9 +32,9 @@ export function useBarcode(elementId: string, onResult: (code: string) => void, 
           undefined
         )
       } catch (cameraErr) {
-        // Fallback: Versuche ohne facingMode-Spezifikation
+        // Fallback: Versuche mit leerer Config
         await scanner.start(
-          undefined,
+          {},
           { fps: 10, qrbox: { width: 250, height: 250 } },
           (decodedText) => {
             onResult(decodedText)

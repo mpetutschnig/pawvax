@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ChevronLeft, CheckCircle, AlertCircle, Syringe, FileText, Cpu, BookOpen, Camera, RefreshCw, Plus, X } from 'lucide-react'
+import { CheckCircle, AlertCircle, Syringe, FileText, Cpu, BookOpen, Camera, RefreshCw, Plus, X } from 'lucide-react'
 import { PageHeader } from '../components/PageHeader'
 import { uploadMultiPageDocument } from '../api/ws'
 import { patchDocument } from '../api/rest'
@@ -37,7 +37,6 @@ export default function DocumentScanPage() {
   const [previews, setPreviews] = useState<string[]>([])
   const [pages, setPages] = useState<File[]>([])
   const [currentPageIndex, setCurrentPageIndex] = useState(0)
-  const [docType, setDocType] = useState('vaccination')
   const [phase, setPhase] = useState<Phase>('capture')
   const [uploadProgress, setUploadProgress] = useState(0)
   const [elapsedTime, setElapsedTime] = useState(0)
@@ -59,8 +58,7 @@ export default function DocumentScanPage() {
   async function processImage(f: File): Promise<{ file: File; preview: string }> {
     return new Promise((resolve, reject) => {
       try {
-        if (window.createImageBitmap) {
-          createImageBitmap(f).then((bmp) => {
+        createImageBitmap(f).then((bmp) => {
             const canvas = document.createElement('canvas')
             const MAX_WIDTH = 1200
             const MAX_HEIGHT = 1200
