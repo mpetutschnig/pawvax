@@ -1,0 +1,53 @@
+version: '3.9'
+
+services:
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: paw-server
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+      JWT_SECRET: ${JWT_SECRET:-change-this-in-production}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      NODE_ENV: ${NODE_ENV:-production}
+    volumes:
+      - db_data:/app/data
+      - uploads_data:/app/uploads
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - paw_network
+
+  pwa:
+    build:
+      context: ./pwa
+      dockerfile: Dockerfile
+    container_name: paw-pwa
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - server
+    volumes:
+      - ./pwa/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./pwa/ssl:/etc/nginx/ssl:ro
+    networks:
+      - paw_network
+
+volumes:
+  db_data:
+    driver: local
+  uploads_data:
+    driver: local
+
+networks:
+  paw_network:
+    driver: bridge
