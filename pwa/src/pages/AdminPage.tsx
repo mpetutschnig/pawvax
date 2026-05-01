@@ -2,10 +2,8 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   adminGetStats, adminGetAccounts, adminGetAnimals, adminGetPendingVerifications,
-  adminVerifyAccount, adminPatchAccount, adminGetAuditLog, adminDeleteAnimal
+  adminVerifyAccount, adminPatchAccount, adminGetAuditLog, adminDeleteAnimal, adminDeleteAccount
 } from '../api/rest'
-
-//  adminDeleteAccount
 import { PawPrint, LogOut, LayoutDashboard, Users, Cat, ShieldCheck, FileClock, CheckCircle, XCircle, Menu, X } from 'lucide-react'
 
 type Section = 'overview' | 'accounts' | 'animals' | 'verifications' | 'audit'
@@ -92,7 +90,7 @@ export default function AdminPage() {
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
             className="btn btn-ghost btn-icon admin-hamburger"
-            title={t('common.loading')}
+            title="Menu"
             style={{ display: 'none' }}
           >
             {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
@@ -190,7 +188,7 @@ export default function AdminPage() {
                     <th>{t('admin.name')}</th>
                     <th>{t('admin.email')}</th>
                     <th>{t('profile.roles')}</th>
-                    <th>{t('common.loading')}</th>
+                    <th>{t('admin.verified')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -206,7 +204,7 @@ export default function AdminPage() {
                         </div>
                       </td>
                       <td>
-                        {acc.verified ? <span className="badge badge-success">{t('admin.verified')}</span> : <span className="badge badge-warning">Pending</span>}
+                        {acc.verified ? <span className="badge badge-success">{t('admin.verified')}</span> : <span className="badge badge-warning">{t('admin.pending')}</span>}
                       </td>
                     </tr>
                   ))}
@@ -226,7 +224,7 @@ export default function AdminPage() {
                   <tr>
                     <th>{t('admin.name')}</th>
                     <th>{t('animals.species')}</th>
-                    <th>Owner</th>
+                    <th>{t('admin.owner')}</th>
                     <th>{t('admin.email')}</th>
                   </tr>
                 </thead>
@@ -349,7 +347,7 @@ export default function AdminPage() {
                 onClick={() => setAuditPage(p => p + 1)}
                 disabled={auditPage === auditLog.pages}
               >
-                Next
+                {t('admin.next')}
               </button>
             </div>
           </div>
@@ -393,13 +391,27 @@ export default function AdminPage() {
               checked={!!selectedAccount.verified}
               onChange={e => adminPatchAccount(selectedAccount.id, { verified: e.target.checked }).then(() => loadData())}
             />
-            <span style={{ fontSize: 'var(--font-size-sm)' }}>Account {t('admin.verified')}</span>
+            <span style={{ fontSize: 'var(--font-size-sm)' }}>{t('profile.verified')}</span>
           </label>
+
+          <button
+            className="btn btn-danger btn-full"
+            onClick={() => {
+              if (confirm(`${t('admin.deleteAccount')} "${selectedAccount.name}"?`)) {
+                adminDeleteAccount(selectedAccount.id).then(() => {
+                  setSelectedId(null)
+                  loadData()
+                })
+              }
+            }}
+            style={{ marginTop: 'var(--space-6)', marginBottom: 'var(--space-3)' }}
+          >
+            {t('admin.deleteAccount')}
+          </button>
 
           <button
             className="btn btn-outline btn-full"
             onClick={() => setSelectedId(null)}
-            style={{ marginTop: 'var(--space-6)' }}
           >
             {t('common.cancel')}
           </button>
@@ -427,7 +439,7 @@ export default function AdminPage() {
 
           <hr className="divider" style={{ margin: 'var(--space-6) 0' }} />
 
-          <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--space-3)' }}>Owner Information</h3>
+          <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--space-3)' }}>{t('admin.ownerInfo')}</h3>
           <div className="card card-sm" style={{ background: 'var(--surface)', border: 'none' }}>
             <p style={{ margin: '0 0 4px 0', fontWeight: 600 }}>{selectedAnimal.owner_name}</p>
             <p className="text-muted" style={{ margin: 0, fontSize: 'var(--font-size-sm)' }}>{selectedAnimal.owner_email}</p>
@@ -436,7 +448,7 @@ export default function AdminPage() {
           <button
             className="btn btn-danger btn-full"
             onClick={() => {
-              if (confirm(`${t('common.delete')} "${selectedAnimal.name}"?`)) {
+              if (confirm(`${t('admin.deleteAnimal')} "${selectedAnimal.name}"?`)) {
                 adminDeleteAnimal(selectedAnimal.id).then(() => {
                   setSelectedId(null)
                   loadData()
@@ -445,7 +457,7 @@ export default function AdminPage() {
             }}
             style={{ marginTop: 'var(--space-6)', marginBottom: 'var(--space-3)' }}
           >
-            {t('common.delete')} Animal
+            {t('admin.deleteAnimal')}
           </button>
           <button
             className="btn btn-outline btn-full"
