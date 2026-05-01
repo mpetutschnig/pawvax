@@ -11,22 +11,22 @@
    DESIGN TOKENS — LIGHT MODE (default)
    ════════════════════════════════════════════════════════════════ */
 :root {
-  /* ── Primary Scale (Trust Blue) ──────────────────────────────── */
-  --primary-50:   oklch(96%   0.04  240);
-  --primary-100:  oklch(91%   0.08  240);
-  --primary-200:  oklch(82%   0.12  240);
-  --primary-300:  oklch(68%   0.16  240);
-  --primary-400:  oklch(55%   0.20  240);
-  --primary-500:  oklch(44%   0.22  240);
-  --primary-600:  oklch(38%   0.20  240);
-  --primary-700:  oklch(32%   0.18  240);
-  --primary-800:  oklch(24%   0.14  240);
-  --primary-900:  oklch(16%   0.10  240);
+  /* ── Primary Scale (Indigo Blue) ────────────────────────────── */
+  --primary-50:   oklch(97%   0.03  250);
+  --primary-100:  oklch(92%   0.06  250);
+  --primary-200:  oklch(84%   0.10  250);
+  --primary-300:  oklch(72%   0.14  250);
+  --primary-400:  oklch(60%   0.18  250);
+  --primary-500:  oklch(50%   0.20  250);
+  --primary-600:  oklch(42%   0.18  250);
+  --primary-700:  oklch(35%   0.16  250);
+  --primary-800:  oklch(26%   0.12  250);
+  --primary-900:  oklch(18%   0.08  250);
 
-  /* ── Accent Scale (Teal) ─────────────────────────────────────── */
-  --accent-400:   oklch(68%   0.15  195);
-  --accent-500:   oklch(56%   0.17  195);
-  --accent-600:   oklch(46%   0.15  195);
+  /* ── Accent Scale (Warm Orange - Complementary) ────────────── */
+  --accent-400:   oklch(72%   0.18   35);
+  --accent-500:   oklch(62%   0.20   35);
+  --accent-600:   oklch(52%   0.18   35);
 
   /* ── Semantic Colors ─────────────────────────────────────────── */
   --success-50:   oklch(95%   0.06  145);
@@ -137,9 +137,9 @@
   --color-info-light:     var(--info-50);
 
   /* ── Admin sidebar ───────────────────────────────────────────── */
-  --admin-sidebar-bg:        var(--primary-900);
-  --admin-sidebar-fg:        oklch(80% 0.04 240);
-  --admin-sidebar-active-bg: oklch(from var(--primary-500) l c h / 0.20);
+  --admin-sidebar-bg:        var(--primary-800);
+  --admin-sidebar-fg:        oklch(92% 0.05 250);
+  --admin-sidebar-active-bg: oklch(from var(--primary-500) l c h / 0.25);
   --admin-sidebar-active-fg: #ffffff;
 }
 
@@ -149,16 +149,16 @@
 /* Dark mode via prefers-color-scheme OR explicit data-theme attribute */
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg:              oklch(11%   0.020 250);
-    --bg-elevated:     oklch(16%   0.022 250);
-    --surface:         oklch(20%   0.024 250);
-    --surface-alt:     oklch(24%   0.026 250);
-    --border:          oklch(30%   0.024 250);
-    --border-subtle:   oklch(25%   0.020 250);
-    --text-primary:    oklch(95%   0.008 240);
-    --text-secondary:  oklch(68%   0.016 240);
-    --text-tertiary:   oklch(48%   0.018 240);
-    --text-inverse:    oklch(16%   0.025 240);
+    --bg:              oklch(10%   0.018 250);
+    --bg-elevated:     oklch(15%   0.020 250);
+    --surface:         oklch(19%   0.022 250);
+    --surface-alt:     oklch(23%   0.024 250);
+    --border:          oklch(32%   0.022 250);
+    --border-subtle:   oklch(27%   0.018 250);
+    --text-primary:    oklch(97%   0.010 250);
+    --text-secondary:  oklch(78%   0.020 250);
+    --text-tertiary:   oklch(60%   0.018 250);
+    --text-inverse:    oklch(18%   0.025 240);
 
     --shadow-sm:   0 1px 3px   oklch(0% 0 0 / 0.30), 0 1px 2px   oklch(0% 0 0 / 0.20);
     --shadow-md:   0 4px 12px  oklch(0% 0 0 / 0.40), 0 2px 4px   oklch(0% 0 0 / 0.25);
@@ -173,23 +173,23 @@
     --color-text:           var(--text-primary);
     --color-text-secondary: var(--text-secondary);
     --color-text-muted:     var(--text-tertiary);
-    --admin-sidebar-bg:     oklch(9% 0.018 250);
-    --admin-sidebar-fg:     oklch(70% 0.016 240);
+    --admin-sidebar-bg:     oklch(12% 0.016 250);
+    --admin-sidebar-fg:     oklch(90% 0.022 250);
   }
 }
 
 /* Explicit dark theme via data-theme attribute (overrides prefers-color-scheme) */
 html[data-theme="dark"] {
-  --bg:              oklch(11%   0.020 250);
-  --bg-elevated:     oklch(16%   0.022 250);
-  --surface:         oklch(20%   0.024 250);
-  --surface-alt:     oklch(24%   0.026 250);
-  --border:          oklch(30%   0.024 250);
-  --border-subtle:   oklch(25%   0.020 250);
-  --text-primary:    oklch(95%   0.008 240);
-  --text-secondary:  oklch(68%   0.016 240);
-  --text-tertiary:   oklch(48%   0.018 240);
-  --text-inverse:    oklch(16%   0.025 240);
+  --bg:              oklch(10%   0.018 250);
+  --bg-elevated:     oklch(15%   0.020 250);
+  --surface:         oklch(19%   0.022 250);
+  --surface-alt:     oklch(23%   0.024 250);
+  --border:          oklch(32%   0.022 250);
+  --border-subtle:   oklch(27%   0.018 250);
+  --text-primary:    oklch(97%   0.010 250);
+  --text-secondary:  oklch(78%   0.020 250);
+  --text-tertiary:   oklch(60%   0.018 250);
+  --text-inverse:    oklch(18%   0.025 240);
 
   --shadow-sm:   0 1px 3px   oklch(0% 0 0 / 0.30), 0 1px 2px   oklch(0% 0 0 / 0.20);
   --shadow-md:   0 4px 12px  oklch(0% 0 0 / 0.40), 0 2px 4px   oklch(0% 0 0 / 0.25);
@@ -204,8 +204,8 @@ html[data-theme="dark"] {
   --color-text:           var(--text-primary);
   --color-text-secondary: var(--text-secondary);
   --color-text-muted:     var(--text-tertiary);
-  --admin-sidebar-bg:     oklch(9% 0.018 250);
-  --admin-sidebar-fg:     oklch(70% 0.016 240);
+  --admin-sidebar-bg:     oklch(12% 0.016 250);
+  --admin-sidebar-fg:     oklch(90% 0.022 250);
 }
 
 /* Explicit light theme via data-theme attribute */
