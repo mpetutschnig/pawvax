@@ -54,9 +54,23 @@ export default async function animalRoutes(fastify) {
 
     if (!row) return reply.code(404).send({ error: 'Tag nicht gefunden' })
 
+    // Stelle sicher, dass default sharing existiert (für alte Tiere ohne Sharing-Zeile)
+    ensureDefaultSharing(db, row.id)
+
     // Nur readonly-freigegebene Felder zurückgeben
-    const sharing = db.prepare('SELECT * FROM animal_sharing WHERE animal_id = ? AND role = ?')
+    let sharing = db.prepare('SELECT * FROM animal_sharing WHERE animal_id = ? AND role = ?')
       .get(row.id, 'readonly')
+
+    // Wenn immer noch kein sharing existiert, create es jetzt
+    if (!sharing) {
+      try {
+        db.prepare(`INSERT INTO animal_sharing (id, animal_id, role, share_vaccination, share_medication, share_other_docs, share_contact, share_breed, share_birthdate, share_dynamic_fields)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+          .run(uuid(), row.id, 'readonly', 1, 0, 0, 0, 1, 1, 0)
+        sharing = db.prepare('SELECT * FROM animal_sharing WHERE animal_id = ? AND role = ?')
+          .get(row.id, 'readonly')
+      } catch { /* already exists */ }
+    }
 
     const result = {
       id: row.id,

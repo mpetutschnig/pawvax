@@ -33,6 +33,7 @@ export function initDb(dbPath) {
     `ALTER TABLE documents ADD COLUMN allowed_roles TEXT DEFAULT '["vet", "authority", "readonly"]'`,
     `ALTER TABLE documents ADD COLUMN analysis_status TEXT DEFAULT 'pending_analysis'`,
     `ALTER TABLE animal_sharing ADD COLUMN share_dynamic_fields INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE accounts ADD COLUMN gemini_model TEXT DEFAULT 'gemini-3.1-flash-lite-preview'`,
   ]
   for (const sql of migrations) {
     try { db.exec(sql) } catch { /* column already exists */ }

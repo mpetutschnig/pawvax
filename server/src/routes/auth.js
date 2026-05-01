@@ -118,7 +118,7 @@ export default async function authRoutes(fastify) {
   // Eigenes Profil lesen
   fastify.get('/api/accounts/me', { onRequest: [fastify.authenticate] }, async (req) => {
     const db = getDb()
-    const account = db.prepare('SELECT id, name, email, role, verified, verification_status, created_at FROM accounts WHERE id = ?').get(req.user.accountId)
+    const account = db.prepare('SELECT id, name, email, role, verified, verification_status, gemini_model, created_at FROM accounts WHERE id = ?').get(req.user.accountId)
     if (!account) return { error: 'Account nicht gefunden' }
     const roles = (account.role ?? 'user').split(',').map(r => r.trim())
     return { ...account, roles, has_gemini_token: !!db.prepare('SELECT gemini_token FROM accounts WHERE id = ?').get(account.id)?.gemini_token }
@@ -127,14 +127,22 @@ export default async function authRoutes(fastify) {
   // Eigenes Profil ändern
   fastify.patch('/api/accounts/me', { onRequest: [fastify.authenticate] }, async (req, reply) => {
     const db = getDb()
-    const { name, gemini_token } = req.body
+    const { name, gemini_token, gemini_model } = req.body
     const accountId = req.user.accountId
+    const ALLOWED_MODELS = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-3.1-flash-lite-preview', 'gemini-1.5-pro']
     const updates = []
     const vals = []
     if (name !== undefined) { updates.push('name = ?'); vals.push(name) }
     if (gemini_token !== undefined) {
       updates.push('gemini_token = ?')
       vals.push(gemini_token ? encrypt(gemini_token) : null)
+    }
+    if (gemini_model !== undefined) {
+      if (!ALLOWED_MODELS.includes(gemini_model)) {
+        return reply.code(400).send({ error: 'Ungültiges Gemini-Modell' })
+      }
+      updates.push('gemini_model = ?')
+      vals.push(gemini_model)
     }
     if (!updates.length) return reply.code(400).send({ error: 'Keine Änderungen' })
     vals.push(accountId)

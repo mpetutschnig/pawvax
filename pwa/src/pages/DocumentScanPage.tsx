@@ -1,22 +1,17 @@
 import { useRef, useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { CheckCircle, AlertCircle, Syringe, FileText, Cpu, BookOpen, Camera, RefreshCw, Plus, X } from 'lucide-react'
 import { PageHeader } from '../components/PageHeader'
 import { uploadMultiPageDocument } from '../api/ws'
-import { patchDocument } from '../api/rest'
+import { patchDocument, patchMe } from '../api/rest'
 
 type Phase = 'capture' | 'uploading' | 'analysing' | 'done' | 'error'
-
-const docTypes = [
-  { id: 'vaccination', label: 'Vaccination', icon: <Syringe size={14} /> },
-  { id: 'report',      label: 'Vet Report',  icon: <FileText size={14} /> },
-  { id: 'microchip',   label: 'Microchip',   icon: <Cpu size={14} /> },
-  { id: 'passport',    label: 'Passport',    icon: <BookOpen size={14} /> },
-];
 
 export default function DocumentScanPage() {
   const { id: animalId } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { t } = useTranslation()
 
   // Readonly-User dürfen keine Dokumente hochladen
   const myRoles: string[] = JSON.parse(localStorage.getItem('roles') || '[]')
@@ -25,9 +20,9 @@ export default function DocumentScanPage() {
     return (
       <div className="container page">
         <div className="error-card" style={{ textAlign: 'center', padding: 'var(--space-8)' }}>
-          <p style={{ fontWeight: 600 }}>Kein Zugriff</p>
-          <p className="text-muted">Lesende Benutzer dürfen keine Dokumente hochladen.</p>
-          <button className="btn btn-ghost" onClick={() => navigate(-1)}>Zurück</button>
+          <p style={{ fontWeight: 600 }}>{t('common.noAccess')}</p>
+          <p className="text-muted">{t('docScan.noAccessDesc')}</p>
+          <button className="btn btn-ghost" onClick={() => navigate(-1)}>{t('common.back')}</button>
         </div>
       </div>
     )
@@ -49,6 +44,16 @@ export default function DocumentScanPage() {
   const [suggestedType, setSuggestedType] = useState<string | null>(null)
   const [documentId, setDocumentId] = useState<string | null>(null)
   const [savingDocType, setSavingDocType] = useState(false)
+  const [showModelSelection, setShowModelSelection] = useState(false)
+  const [selectedModel, setSelectedModel] = useState<string>('gemini-3.1-flash-lite-preview')
+  const [savingModel, setSavingModel] = useState(false)
+
+  const docTypes = [
+    { id: 'vaccination', label: t('animal.docTypeVaccination'), icon: <Syringe size={14} /> },
+    { id: 'report', label: t('docDetail.type'), icon: <FileText size={14} /> },
+    { id: 'microchip', label: 'Microchip', icon: <Cpu size={14} /> },
+    { id: 'passport', label: 'Passport', icon: <BookOpen size={14} /> },
+  ]
 
   useEffect(() => {
     if (phase !== 'analysing') return
@@ -165,6 +170,26 @@ export default function DocumentScanPage() {
     img.src = previews[currentPageIndex]
   }
 
+  const handleSwitchModel = async (model: string) => {
+    setSavingModel(true)
+    try {
+      await patchMe({ gemini_model: model })
+      setSuccess(t('docScan.modelSaved'))
+      setShowModelSelection(false)
+      // Retry the upload
+      handleUpload()
+    } catch (err) {
+      setErrorMsg(t('profile.saveError'))
+    } finally {
+      setSavingModel(false)
+    }
+  }
+
+  const setSuccess = (msg: string) => {
+    // This is a temporary success message - could be stored in state if needed
+    console.log('Success:', msg)
+  }
+
   async function handleUpload() {
     if (pages.length === 0 || !animalId) return
     setPhase('uploading')
@@ -172,6 +197,7 @@ export default function DocumentScanPage() {
     setElapsedTime(0)
     setOcrProvider(null)
     setErrorMsg(null)
+    setShowModelSelection(false)
 
     try {
       await uploadMultiPageDocument(animalId, pages, {
@@ -211,11 +237,11 @@ export default function DocumentScanPage() {
 
   return (
     <div className="container page">
-      <PageHeader title="Dokument scannen" backTo={`/animals/${animalId}`} showThemeToggle />
+      <PageHeader title={t('docScan.title')} backTo={`/animals/${animalId}`} showThemeToggle />
 
       {phase === 'capture' && (
         <div className="card animate-slide-up">
-          <p className="text-muted" style={{ marginBottom: 'var(--space-6)' }}>Fotografiere einen Impfpass, ein Rezept oder ein anderes Tierdokument zur automatischen OCR-Erfassung.</p>
+          <p className="text-muted" style={{ marginBottom: 'var(--space-6)' }}>{t('docScan.uploadMethod')}</p>
           <input
             ref={cameraRef}
             type="file"
@@ -240,14 +266,14 @@ export default function DocumentScanPage() {
                 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)' }}
               >
                 <Camera size={20} />
-                Mit Kamera scannen
+                {t('docScan.camera')}
               </button>
               <button
                 type="button"
                 className="btn btn-secondary btn-full"
                 onClick={() => fileRef.current?.click()}
               >
-                Datei hochladen
+                {t('docScan.file')}
               </button>
             </div>
           ) : (
@@ -262,16 +288,16 @@ export default function DocumentScanPage() {
                     padding: '8px', borderRadius: '50%', background: 'rgba(255,255,255,0.9)', 
                     boxShadow: '0 2px 8px rgba(0,0,0,0.1)', border: 'none', cursor: 'pointer' 
                   }}
-                  title="Bild drehen"
+                  title={t('docScan.rotateImage')}
                 >
                   <RefreshCw size={20} color="var(--primary-600)" />
                 </button>
               </div>
-              
+
               <div style={{ marginBottom: 'var(--space-4)', textAlign: 'left' }}>
-                <label className="form-label">Wer darf dieses Dokument sehen?</label>
+                <label className="form-label">{t('docScan.whoCanSee')}</label>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-                  {[{ id: 'vet', label: 'Tierarzt' }, { id: 'authority', label: 'Behörde' }, { id: 'readonly', label: 'Lesender Zugriff' }].map(r => (
+                  {[{ id: 'vet', label: t('docScan.vet') }, { id: 'authority', label: t('docScan.authority') }, { id: 'readonly', label: t('docScan.readonlyAccess') }].map(r => (
                     <label key={r.id} style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
                       <input 
                         type="checkbox" 
@@ -292,7 +318,7 @@ export default function DocumentScanPage() {
               {previews.length > 0 && (
                 <div style={{ marginBottom: 'var(--space-4)' }}>
                   <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: 'var(--space-2)', color: 'var(--text-secondary)' }}>
-                    Seiten: {previews.length}
+                    {t('docScan.pages')}: {previews.length}
                   </div>
                   <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap', marginBottom: 'var(--space-3)' }}>
                     {previews.map((preview, idx) => (
@@ -370,9 +396,9 @@ export default function DocumentScanPage() {
                 </div>
               )}
 
-              <button className="btn btn-primary btn-full" onClick={handleUpload}>Hochladen & analysieren</button>
+              <button className="btn btn-primary btn-full" onClick={handleUpload}>{t('docScan.uploadAndAnalyze')}</button>
               <button className="btn btn-ghost btn-full" style={{ marginTop: 'var(--space-2)' }} onClick={() => { setPreviews([]); setPages([]) }}>
-                Anderes Foto wählen
+                {t('docScan.chooseAnother')}
               </button>
             </>
           )}
@@ -384,21 +410,21 @@ export default function DocumentScanPage() {
           <div className="stepper" style={{ marginBottom: 'var(--space-6)' }}>
             <div className={`stepper-step ${phase === 'uploading' || phase === 'analysing' || phase === 'done' ? 'active' : ''}`}>
               <div className="stepper-number">1</div>
-              <div className="stepper-label">Upload</div>
+              <div className="stepper-label">{t('docScan.camera')}</div>
             </div>
             <div className={`stepper-step ${['analysing', 'done'].includes(phase) ? 'active' : ''}`}>
               <div className="stepper-number">{phase === 'done' ? <CheckCircle size={16} color="white" /> : '2'}</div>
-              <div className="stepper-label">Analyse</div>
+              <div className="stepper-label">{t('docScan.analyzing')}</div>
             </div>
             <div className={`stepper-step ${phase === 'done' ? 'active' : ''}`}>
               <div className="stepper-number">{phase === 'done' ? <CheckCircle size={16} color="white" /> : '3'}</div>
-              <div className="stepper-label">Fertig</div>
+              <div className="stepper-label">{t('docScan.analyzeComplete')}</div>
             </div>
           </div>
 
           {phase === 'uploading' && (
             <div>
-              <h3 style={{ marginBottom: 'var(--space-4)' }}>Dokument wird hochgeladen...</h3>
+              <h3 style={{ marginBottom: 'var(--space-4)' }}>{t('docScan.uploading')}...</h3>
               <div className="progress-bar" style={{ width: '100%', maxWidth: '240px', margin: '0 auto var(--space-3)' }}>
                 <div className="progress-bar-fill" style={{ width: `${uploadProgress}%` }} />
               </div>
@@ -408,33 +434,82 @@ export default function DocumentScanPage() {
 
           {phase === 'analysing' && (
             <div>
-              <h3 style={{ marginBottom: 'var(--space-4)' }}>Dokument wird analysiert...</h3>
+              <h3 style={{ marginBottom: 'var(--space-4)' }}>{t('docScan.analyzing')}...</h3>
               <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-3)' }}>
                 <div className="spinner"></div>
                 {ocrProvider && <span className="badge badge-info">{ocrProvider}</span>}
               </div>
               <div className="text-muted" style={{ fontSize: 'var(--font-size-sm)', padding: '0 var(--space-4)', wordBreak: 'break-word', minHeight: '40px' }}>
-                {currentStatusMsg || 'Bitte warten...'}
+                {currentStatusMsg || t('common.loading')}
               </div>
-              <div className="text-tertiary" style={{ fontSize: 'var(--font-size-xs)', marginTop: 'var(--space-2)' }}>{elapsedTime} Sekunden vergangen</div>
+              <div className="text-tertiary" style={{ fontSize: 'var(--font-size-xs)', marginTop: 'var(--space-2)' }}>{elapsedTime}s</div>
             </div>
           )}
 
           {phase === 'error' && (
             <div>
-              <div style={{ color: 'var(--danger-500)', marginBottom: 'var(--space-3)', display: 'flex', justifyContent: 'center' }}>
-                <AlertCircle size={48} strokeWidth={1.5} />
-              </div>
-              <h3 style={{ marginBottom: 'var(--space-2)' }}>Analysis Failed</h3>
-              <p className="text-muted" style={{ marginBottom: 'var(--space-4)' }}>{errorMsg || 'An unknown error occurred'}</p>
-              <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
-                <button className="btn btn-primary flex-1" onClick={() => navigate(`/animals/${animalId}`)} type="button">
-                  Für später speichern
-                </button>
-                <button className="btn btn-ghost flex-1" onClick={() => { setPhase('capture'); setErrorMsg(null); setPreviews([]); setPages([]) }} type="button">
-                  Erneut versuchen
-                </button>
-              </div>
+              {errorMsg?.includes('Quota') && !showModelSelection ? (
+                <>
+                  <div style={{ color: 'var(--warning-500)', marginBottom: 'var(--space-3)', display: 'flex', justifyContent: 'center' }}>
+                    <AlertCircle size={48} strokeWidth={1.5} />
+                  </div>
+                  <h3 style={{ marginBottom: 'var(--space-2)' }}>{t('docScan.quotaExceeded')}</h3>
+                  <p className="text-muted" style={{ marginBottom: 'var(--space-4)' }}>{errorMsg || t('common.error')}</p>
+                  <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
+                    <button className="btn btn-primary flex-1" onClick={() => setShowModelSelection(true)} type="button">
+                      {t('docScan.switchModel')}
+                    </button>
+                    <button className="btn btn-ghost flex-1" onClick={() => navigate(`/animals/${animalId}`)} type="button">
+                      {t('docScan.saveForLater')}
+                    </button>
+                  </div>
+                </>
+              ) : showModelSelection ? (
+                <>
+                  <div style={{ color: 'var(--primary-500)', marginBottom: 'var(--space-3)', display: 'flex', justifyContent: 'center' }}>
+                    <AlertCircle size={48} strokeWidth={1.5} />
+                  </div>
+                  <h3 style={{ marginBottom: 'var(--space-2)' }}>{t('profile.model')}</h3>
+                  <p className="text-muted" style={{ marginBottom: 'var(--space-4)' }}>{t('profile.modelDesc')}</p>
+                  <div className="form-group" style={{ marginBottom: 'var(--space-4)' }}>
+                    <select
+                      className="form-select"
+                      value={selectedModel}
+                      onChange={(e) => setSelectedModel(e.target.value)}
+                      disabled={savingModel}
+                    >
+                      <option value="gemini-3.1-flash-lite-preview">Gemini 3.1 Flash-Lite (Standard)</option>
+                      <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+                      <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+                      <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+                    </select>
+                  </div>
+                  <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
+                    <button className="btn btn-primary flex-1" onClick={() => handleSwitchModel(selectedModel)} disabled={savingModel} type="button">
+                      {savingModel ? t('animal.retrying') : t('animal.analyzeBtn')}
+                    </button>
+                    <button className="btn btn-ghost flex-1" onClick={() => { setPhase('capture'); setErrorMsg(null); setPreviews([]); setPages([]); setShowModelSelection(false) }} type="button">
+                      {t('common.cancel')}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div style={{ color: 'var(--danger-500)', marginBottom: 'var(--space-3)', display: 'flex', justifyContent: 'center' }}>
+                    <AlertCircle size={48} strokeWidth={1.5} />
+                  </div>
+                  <h3 style={{ marginBottom: 'var(--space-2)' }}>{t('docScan.analyzeFailed')}</h3>
+                  <p className="text-muted" style={{ marginBottom: 'var(--space-4)' }}>{errorMsg || t('common.error')}</p>
+                  <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
+                    <button className="btn btn-primary flex-1" onClick={() => navigate(`/animals/${animalId}`)} type="button">
+                      {t('docScan.saveForLater')}
+                    </button>
+                    <button className="btn btn-ghost flex-1" onClick={() => { setPhase('capture'); setErrorMsg(null); setPreviews([]); setPages([]) }} type="button">
+                      {t('docScan.retry')}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           )}
 

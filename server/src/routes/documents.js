@@ -207,9 +207,10 @@ export default async function documentRoutes(fastify) {
     }
 
     try {
-      // Get user's Gemini key
-      const acc = db.prepare('SELECT gemini_token FROM accounts WHERE id = ?').get(accountId)
+      // Get user's Gemini key and model
+      const acc = db.prepare('SELECT gemini_token, gemini_model FROM accounts WHERE id = ?').get(accountId)
       let userGeminiKey = null
+      const userGeminiModel = acc?.gemini_model || 'gemini-3.1-flash-lite-preview'
       try {
         userGeminiKey = acc?.gemini_token ? decrypt(acc.gemini_token) : null
       } catch (err) {
@@ -220,7 +221,7 @@ export default async function documentRoutes(fastify) {
       db.prepare('UPDATE documents SET analysis_status = ? WHERE id = ?').run('analyzing', docId)
 
       // Analyze the document image
-      const result = await analyzeDocument(doc.image_path, userGeminiKey)
+      const result = await analyzeDocument(doc.image_path, userGeminiKey, userGeminiModel)
       const extractedData = result.data
       const provider = result.provider
 

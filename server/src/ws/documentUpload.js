@@ -7,7 +7,7 @@ import { logAudit } from '../services/audit.js'
 
 export default async function wsDocumentUpload(fastify) {
   fastify.get('/ws', { websocket: true }, async (socket, req) => {
-    let accountId, userRole, userGeminiKey = null
+    let accountId, userRole, userGeminiKey = null, userGeminiModel = null
     let authenticated = false
     let uploadState = null
     const MAX_UPLOAD_SIZE = 15 * 1024 * 1024 // 15MB per document
@@ -61,16 +61,17 @@ export default async function wsDocumentUpload(fastify) {
                    : 'user'
 
           const db = getDb()
-          const acc = db.prepare('SELECT gemini_token FROM accounts WHERE id = ?').get(accountId)
+          const acc = db.prepare('SELECT gemini_token, gemini_model FROM accounts WHERE id = ?').get(accountId)
           try {
             userGeminiKey = acc?.gemini_token ? decrypt(acc.gemini_token) : null
           } catch (decryptErr) {
             console.warn(`[WS] Could not decrypt user gemini_token: ${decryptErr.message}. Will use server GEMINI_API_KEY if available.`)
             userGeminiKey = null
           }
+          userGeminiModel = acc?.gemini_model || 'gemini-3.1-flash-lite-preview'
 
           authenticated = true
-          console.log(`[WS] Client authenticated: ${accountId} (${userRole}, has_gemini_key: ${!!userGeminiKey})`)
+          console.log(`[WS] Client authenticated: ${accountId} (${userRole}, has_gemini_key: ${!!userGeminiKey}, model: ${userGeminiModel})`)
           send(socket, { type: 'auth_ok' })
         } catch (err) {
           console.error('[WS] Auth error:', err.message)
@@ -176,7 +177,7 @@ export default async function wsDocumentUpload(fastify) {
             let analysisError = null
             for (const page of pages) {
               try {
-                const result = await analyzeDocument(page.image_path, userGeminiKey, (progressMsg) => {
+                const result = await analyzeDocument(page.image_path, userGeminiKey, userGeminiModel, (progressMsg) => {
                   send(socket, { type: 'status', message: `Seite ${page.page_number}: ${progressMsg}` })
                 })
                 combinedText += (combinedText ? '\n---\n' : '') + (result.data.text || '')
@@ -195,7 +196,7 @@ export default async function wsDocumentUpload(fastify) {
             if (combinedText && userGeminiKey) {
               try {
                 send(socket, { type: 'status', message: 'Erzeuge Vorschläge mit KI...' })
-                const typeGuess = await guessDocumentType(combinedText, userGeminiKey)
+                const typeGuess = await guessDocumentType(combinedText, userGeminiKey, userGeminiModel)
                 suggestedType = typeGuess
               } catch (err) {
                 console.error('Error guessing type:', err)
@@ -281,12 +282,12 @@ function send(socket, obj) {
   }
 }
 
-async function guessDocumentType(text, geminiKey) {
+async function guessDocumentType(text, geminiKey, modelId = 'gemini-1.5-flash') {
   if (!geminiKey) return 'other'
   try {
     const { GoogleGenerativeAI } = await import('@google/generative-ai')
     const genAI = new GoogleGenerativeAI(geminiKey)
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+    const model = genAI.getGenerativeModel({ model: modelId })
 
     const prompt = `Based on the following extracted document text, determine what type of veterinary document this is.
 Return ONLY one word from this list: vaccination, vet_report, microchip, passport, other

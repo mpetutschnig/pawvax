@@ -46,33 +46,33 @@ Für unbekannte Dokumente:
 Antworte NUR mit dem JSON-Objekt, kein erklärender Text.
 `.trim()
 
-export async function analyzeDocument(imagePath, userGeminiKey = null, onProgress = null) {
+export async function analyzeDocument(imagePath, userGeminiKey = null, model = null, onProgress = null) {
   const geminiKey = userGeminiKey || GEMINI_KEY
-  console.log(`[OCR] analyzeDocument: userGeminiKey=${!!userGeminiKey}, GEMINI_KEY=${!!GEMINI_KEY}, effectiveKey=${!!geminiKey}`)
+  const effectiveModel = model || 'gemini-3.1-flash-lite-preview'
+  console.log(`[OCR] analyzeDocument: userGeminiKey=${!!userGeminiKey}, GEMINI_KEY=${!!GEMINI_KEY}, effectiveKey=${!!geminiKey}, model=${effectiveModel}`)
 
   if (!geminiKey) {
     throw new Error('Kein Gemini API Key verfügbar. Bild wird gespeichert für spätere Verarbeitung.')
   }
 
-  if (onProgress) onProgress('Technologie: Gemini 2.0 Flash wird initialisiert...')
+  if (onProgress) onProgress(`Technologie: ${effectiveModel} wird initialisiert...`)
   try {
-    console.log(`[OCR] Versuche Gemini-Analyse mit Key: ${geminiKey.substring(0, 10)}...`)
-    return await analyzeWithGemini(imagePath, geminiKey, onProgress)
+    console.log(`[OCR] Versuche Gemini-Analyse mit Key: ${geminiKey.substring(0, 10)}... (model: ${effectiveModel})`)
+    return await analyzeWithGemini(imagePath, geminiKey, effectiveModel, onProgress)
   } catch (err) {
     console.error('Gemini OCR fehlgeschlagen:', err.message, err.stack)
     throw err // Throw error to be handled by caller (will trigger pending_analysis status)
   }
 }
 
-async function analyzeWithGemini(imagePath, geminiKey, onProgress) {
+async function analyzeWithGemini(imagePath, geminiKey, model, onProgress) {
   if (onProgress) onProgress('Bild wird für Gemini API verarbeitet...')
   const imageData = readFileSync(imagePath)
   const base64 = imageData.toString('base64')
   const mimeType = imagePath.endsWith('.png') ? 'image/png' : 'image/jpeg'
 
-  if (onProgress) onProgress(`Sende POST Request an Gemini 2.0 Flash API...`)
-  // const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key=${geminiKey}`
+  if (onProgress) onProgress(`Sende POST Request an ${model} API...`)
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`
   console.log(`[OCR] Gemini URL: ${url.substring(0, 80)}...`)
   const response = await fetch(url, {
     method: 'POST',

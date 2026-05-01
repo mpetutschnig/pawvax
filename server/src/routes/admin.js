@@ -152,4 +152,81 @@ export default async function adminRoutes(fastify) {
 
     return { accounts, animals, documents, auditEntries }
   })
+
+  // DELETE account
+  fastify.delete('/api/admin/accounts/:id', async (req, reply) => {
+    const db = getDb()
+    const targetId = req.params.id
+    const { accountId, role } = req.user
+
+    const target = db.prepare('SELECT role FROM accounts WHERE id = ?').get(targetId)
+    if (!target) return reply.code(404).send({ error: 'Account nicht gefunden' })
+
+    if (target.role === 'admin') {
+      const otherAdmins = db.prepare("SELECT COUNT(*) as c FROM accounts WHERE role='admin' AND id != ?").get(targetId).c
+      if (otherAdmins === 0) {
+        return reply.code(403).send({ error: 'Kann letzten Admin nicht löschen' })
+      }
+    }
+
+    db.prepare('DELETE FROM org_memberships WHERE account_id = ? OR invited_by = ?').run(targetId, targetId)
+    db.prepare('DELETE FROM organizations WHERE owner_id = ?').run(targetId)
+    db.prepare('DELETE FROM animals WHERE account_id = ?').run(targetId)
+    db.prepare('DELETE FROM animal_tags WHERE animal_id NOT IN (SELECT id FROM animals)').run()
+    db.prepare('DELETE FROM documents WHERE animal_id NOT IN (SELECT id FROM animals)').run()
+    db.prepare('UPDATE documents SET added_by_account = NULL WHERE added_by_account = ?').run(targetId)
+    db.prepare('DELETE FROM audit_log WHERE account_id = ?').run(targetId)
+    db.prepare('DELETE FROM accounts WHERE id = ?').run(targetId)
+
+    logAudit(db, { accountId, role, action: 'delete_account', resource: 'account', resourceId: targetId, ip: req.ip })
+    return reply.code(204).send()
+  })
+
+  // DELETE animal
+  fastify.delete('/api/admin/animals/:id', async (req, reply) => {
+    const db = getDb()
+    const animalId = req.params.id
+    const { accountId, role } = req.user
+
+    const animal = db.prepare('SELECT id FROM animals WHERE id = ?').get(animalId)
+    if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden' })
+
+    db.prepare('DELETE FROM animal_tags WHERE animal_id = ?').run(animalId)
+    db.prepare('DELETE FROM documents WHERE animal_id = ?').run(animalId)
+    db.prepare('DELETE FROM animals WHERE id = ?').run(animalId)
+
+    logAudit(db, { accountId, role, action: 'delete_animal', resource: 'animal', resourceId: animalId, ip: req.ip })
+    return reply.code(204).send()
+  })
+
+  // DELETE document
+  fastify.delete('/api/admin/documents/:id', async (req, reply) => {
+    const db = getDb()
+    const docId = req.params.id
+    const { accountId, role } = req.user
+
+    const doc = db.prepare('SELECT id FROM documents WHERE id = ?').get(docId)
+    if (!doc) return reply.code(404).send({ error: 'Dokument nicht gefunden' })
+
+    db.prepare('DELETE FROM document_pages WHERE document_id = ?').run(docId)
+    db.prepare('DELETE FROM documents WHERE id = ?').run(docId)
+
+    logAudit(db, { accountId, role, action: 'delete_document', resource: 'document', resourceId: docId, ip: req.ip })
+    return reply.code(204).send()
+  })
+
+  // DELETE tag (animal_tags)
+  fastify.delete('/api/admin/tags/:tagId', async (req, reply) => {
+    const db = getDb()
+    const tagId = req.params.tagId
+    const { accountId, role } = req.user
+
+    const tag = db.prepare('SELECT tag_id FROM animal_tags WHERE tag_id = ?').get(tagId)
+    if (!tag) return reply.code(404).send({ error: 'Tag nicht gefunden' })
+
+    db.prepare('DELETE FROM animal_tags WHERE tag_id = ?').run(tagId)
+
+    logAudit(db, { accountId, role, action: 'delete_tag', resource: 'tag', resourceId: tagId, ip: req.ip })
+    return reply.code(204).send()
+  })
 }
