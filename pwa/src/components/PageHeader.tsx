@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { ChevronLeft, Sun, Moon, LogOut, User } from 'lucide-react'
 import { useTheme } from '../hooks/useTheme'
 import { logout } from '../api/rest'
@@ -20,6 +21,7 @@ export function PageHeader({
   actions
 }: PageHeaderProps) {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const { theme, toggleTheme } = useTheme()
   const [loggingOut, setLoggingOut] = useState(false)
 
@@ -53,7 +55,7 @@ export function PageHeader({
               display: 'flex',
               alignItems: 'center'
             }}
-            aria-label="Back"
+            aria-label={t('common.back')}
           >
             <ChevronLeft size={24} />
           </button>
@@ -77,8 +79,8 @@ export function PageHeader({
               opacity: 0.7,
               transition: 'opacity 0.2s'
             }}
-            aria-label="Toggle theme"
-            title={`Theme: ${theme}`}
+            aria-label={t('theme.light')}
+            title={`${t('theme.light')}/${t('theme.dark')}`}
           >
             {theme === 'light' || (theme === 'system' && !window.matchMedia('(prefers-color-scheme: dark)').matches) ? (
               <Moon size={20} />
@@ -101,8 +103,8 @@ export function PageHeader({
               opacity: 0.7,
               transition: 'opacity 0.2s'
             }}
-            aria-label="Profile"
-            title="Profil"
+            aria-label={t('nav.profile')}
+            title={t('nav.profile')}
           >
             <User size={20} />
           </button>
@@ -122,8 +124,8 @@ export function PageHeader({
               opacity: loggingOut ? 0.5 : 0.7,
               transition: 'opacity 0.2s'
             }}
-            aria-label="Logout"
-            title="Abmelden"
+            aria-label={t('logout')}
+            title={t('logout')}
           >
             <LogOut size={20} />
           </button>

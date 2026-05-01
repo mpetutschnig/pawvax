@@ -1,8 +1,10 @@
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { PawPrint, Radio, Edit3, CheckCircle, AlertCircle } from 'lucide-react'
 
 export default function WelcomePage() {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const token = localStorage.getItem('token')
 
   // Redirect to login if no token
@@ -23,15 +25,15 @@ export default function WelcomePage() {
           <PawPrint size={32} color="white" strokeWidth={1.5} />
         </div>
         <h1 style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 700, margin: '0 0 var(--space-2) 0' }}>
-          Willkommen bei PAW!
+          {t('welcome.title')}
         </h1>
         <p className="text-muted" style={{ fontSize: 'var(--font-size-base)', margin: '0 0 var(--space-6) 0' }}>
-          Verwalte die Impfdaten und Dokumente deiner Haustiere an einem sicheren Ort.
+          {t('welcome.subtitle')}
         </p>
       </div>
 
       <h2 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, margin: '0 0 var(--space-4) 0' }}>
-        Wie möchtest du dein erstes Tier hinzufügen?
+        {t('welcome.howToAdd')}
       </h2>
 
       {/* Option A: Chip/Barcode */}
@@ -46,22 +48,22 @@ export default function WelcomePage() {
           </div>
           <div style={{ flex: 1 }}>
             <h3 style={{ margin: '0 0 var(--space-1) 0', fontSize: 'var(--font-size-base)', fontWeight: 600 }}>
-              Chip oder Barcode scannen
+              {t('welcome.scanChip')}
             </h3>
             <p className="text-muted" style={{ margin: '0 0 var(--space-3) 0', fontSize: 'var(--font-size-sm)' }}>
-              Scanne den NFC-Chip oder QR-Code am Tag deines Tieres. PAW erstellt automatisch ein Profil.
+              {t('welcome.scanChipDesc')}
             </p>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
               <CheckCircle size={16} color="var(--success-500)" style={{ marginTop: '2px', flexShrink: 0 }} />
               <span className="text-muted" style={{ fontSize: 'var(--font-size-sm)' }}>
-                <strong>Vorteil:</strong> Andere können dein Tier mit dem Chip finden, auch ohne Konto
+                <strong>{t('welcome.advantage')}:</strong> {t('welcome.chipAdvantage')}
               </span>
             </div>
             <button
               className="btn btn-primary btn-full"
               onClick={() => navigate('/scan')}
             >
-              Chip oder Barcode scannen →
+              {t('welcome.scanChip')} →
             </button>
           </div>
         </div>
@@ -79,22 +81,22 @@ export default function WelcomePage() {
           </div>
           <div style={{ flex: 1 }}>
             <h3 style={{ margin: '0 0 var(--space-1) 0', fontSize: 'var(--font-size-base)', fontWeight: 600 }}>
-              Tier manuell anlegen
+              {t('welcome.manualCreate')}
             </h3>
             <p className="text-muted" style={{ margin: '0 0 var(--space-3) 0', fontSize: 'var(--font-size-sm)' }}>
-              Erstelle ein Tierprofil manuell mit Namen, Art und Rasse — ohne Chip oder Barcode.
+              {t('welcome.manualCreateDesc')}
             </p>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
               <AlertCircle size={16} color="var(--warning-500)" style={{ marginTop: '2px', flexShrink: 0 }} />
               <span className="text-muted" style={{ fontSize: 'var(--font-size-sm)' }}>
-                <strong>Wichtig:</strong> Das Tier ist dann nur für dich sichtbar. Ohne Chip können andere es nicht scannen.
+                <strong>{t('welcome.important')}:</strong> {t('welcome.manualImportant')}
               </span>
             </div>
             <button
               className="btn btn-outline btn-full"
               onClick={() => navigate('/animals')}
             >
-              Zur Tierliste →
+              {t('animals.myAnimals')} →
             </button>
           </div>
         </div>
@@ -106,7 +108,7 @@ export default function WelcomePage() {
           className="btn btn-ghost"
           onClick={() => navigate('/animals')}
         >
-          Überspringe diesen Schritt
+          {t('welcome.skip')}
         </button>
       </div>
     </div>

@@ -1,4 +1,5 @@
 import { Routes, Route, Navigate, useLocation, Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { PawPrint, ScanLine, User, Settings } from 'lucide-react'
 import LoginPage from './pages/LoginPage'
 import AnimalsPage from './pages/AnimalsPage'
@@ -25,6 +26,7 @@ function RequireAuth({ children, adminOnly }: { children: React.ReactNode; admin
 
 function BottomNav() {
   const location = useLocation()
+  const { t } = useTranslation()
   const token = localStorage.getItem('token')
   const rolesStr = localStorage.getItem('roles')
   const roles = rolesStr ? JSON.parse(rolesStr) : []
@@ -38,27 +40,27 @@ function BottomNav() {
           <div className="nav-icon-wrap">
             <ScanLine size={22} strokeWidth={1.8} />
           </div>
-          <span>Finden</span>
+          <span>{t('nav.find')}</span>
         </Link>
       )}
       <Link to="/animals" className={location.pathname.startsWith('/animals') ? 'active' : ''}>
         <div className="nav-icon-wrap">
           <PawPrint size={22} strokeWidth={1.8} />
         </div>
-        <span>Tiere</span>
+        <span>{t('nav.animals')}</span>
       </Link>
       <Link to="/profile" className={location.pathname.startsWith('/profile') ? 'active' : ''}>
         <div className="nav-icon-wrap">
           <User size={22} strokeWidth={1.8} />
         </div>
-        <span>Profil</span>
+        <span>{t('nav.profile')}</span>
       </Link>
       {roles.includes('admin') && (
         <Link to="/admin" className={location.pathname.startsWith('/admin') ? 'active' : ''}>
           <div className="nav-icon-wrap">
             <Settings size={22} strokeWidth={1.8} />
           </div>
-          <span>Admin</span>
+          <span>{t('nav.admin')}</span>
         </Link>
       )}
     </nav>

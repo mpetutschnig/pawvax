@@ -1,10 +1,12 @@
 import { useState, FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { login, register } from '../api/rest'
 import { PawPrint, LogIn, UserPlus, ScanLine } from 'lucide-react'
 
 export default function LoginPage() {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const [mode, setMode] = useState<'login' | 'register'>('login')
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -27,7 +29,7 @@ export default function LoginPage() {
       navigate(mode === 'register' ? '/welcome' : '/')
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
-      setError(msg ?? 'Fehler beim Anmelden')
+      setError(msg ?? t('auth.loginError'))
     } finally {
       setLoading(false)
     }
@@ -40,46 +42,46 @@ export default function LoginPage() {
           <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 64, height: 64, borderRadius: '50%', background: 'var(--primary-50)', marginBottom: 'var(--space-4)' }}>
             <PawPrint size={32} color="var(--primary-500)" />
           </div>
-          <h1 style={{ margin: 0, fontSize: 'var(--font-size-xl)' }}>PAW</h1>
-          <p className="text-muted" style={{ margin: '4px 0 0 0' }}>Digitaler Tierimpfpass</p>
+          <h1 style={{ margin: 0, fontSize: 'var(--font-size-xl)' }}>{t('app.title')}</h1>
+          <p className="text-muted" style={{ margin: '4px 0 0 0' }}>{t('app.subtitle')}</p>
         </div>
 
         <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 'var(--space-4)' }}>
           {mode === 'register' && (
             <div className="form-group">
-              <label className="form-label">Name</label>
-              <input className="form-input" value={name} onChange={e => setName(e.target.value)} required placeholder="Dein Name" />
+              <label className="form-label">{t('auth.name')}</label>
+              <input className="form-input" value={name} onChange={e => setName(e.target.value)} required placeholder={t('auth.name')} />
             </div>
           )}
           <div className="form-group">
-            <label className="form-label">E-Mail</label>
+            <label className="form-label">{t('auth.email')}</label>
             <input className="form-input" type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="name@example.com" />
           </div>
           <div className="form-group">
-            <label className="form-label">Passwort</label>
-            <input className="form-input" type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} placeholder="Mindestens 6 Zeichen" />
+            <label className="form-label">{t('auth.password')}</label>
+            <input className="form-input" type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} placeholder={t('auth.passwordMin')} />
           </div>
 
           {error && <div className="error-card"><p>{error}</p></div>}
 
           <button className="btn btn-primary btn-full" type="submit" disabled={loading} style={{ marginTop: 'var(--space-2)' }}>
-            {loading ? <div className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }} /> : mode === 'login' ? <><LogIn size={18} /> Einloggen</> : <><UserPlus size={18} /> Registrieren</>}
+            {loading ? <div className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }} /> : mode === 'login' ? <><LogIn size={18} /> {t('auth.login')}</> : <><UserPlus size={18} /> {t('auth.register')}</>}
           </button>
         </form>
 
         <p className="text-muted" style={{ marginTop: 'var(--space-6)', textAlign: 'center', fontSize: 'var(--font-size-sm)' }}>
-          {mode === 'login' ? 'Noch kein Konto? ' : 'Bereits registriert? '}
+          {mode === 'login' ? t('auth.noAccount') : t('auth.hasAccount')}
           <button
             style={{ background: 'none', border: 'none', color: 'var(--primary-600)', cursor: 'pointer', fontWeight: 600, padding: 0 }}
             onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(null) }}
           >
-            {mode === 'login' ? 'Registrieren' : 'Einloggen'}
+            {mode === 'login' ? t('auth.register') : t('auth.login')}
           </button>
         </p>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', margin: 'var(--space-4) 0' }}>
           <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-          <span className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>oder</span>
+          <span className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>{t('common.or')}</span>
           <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
         </div>
 
@@ -88,7 +90,7 @@ export default function LoginPage() {
           onClick={() => navigate('/public-scan')}
           style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)' }}
         >
-          <ScanLine size={18} /> Tier scannen ohne Anmeldung
+          <ScanLine size={18} /> {t('auth.scanWithoutLogin')}
         </button>
       </div>
     </div>

@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useBarcode } from '../hooks/useBarcode'
 import { useNfc } from '../hooks/useNfc'
 import { PawPrint, Camera, LogIn, ShieldCheck, Syringe, Radio } from 'lucide-react'
@@ -9,6 +10,7 @@ type Phase = 'scan' | 'result' | 'notfound'
 
 export default function PublicScanPage() {
   const navigate = useNavigate()
+  const { t, i18n } = useTranslation()
   const [phase, setPhase] = useState<Phase>('scan')
   const [animal, setAnimal] = useState<any>(null)
   const [cameraError, setCameraError] = useState<string | null>(null)
@@ -66,13 +68,13 @@ export default function PublicScanPage() {
             <div style={{ fontSize: '2rem', marginBottom: 'var(--space-4)' }}>🔒</div>
             <h2 style={{ marginBottom: 'var(--space-2)' }}>{animal.name}</h2>
             <p className="text-muted" style={{ marginBottom: 'var(--space-4)' }}>
-              Dieses Tier hat keine freigegebenen Daten. Melden dich an, um mehr zu erfahren.
+              {t('publicScan.noPublic')}
             </p>
             <button className="btn btn-primary btn-full" onClick={() => navigate('/login')}>
-              <LogIn size={16} /> Anmelden
+              <LogIn size={16} /> {t('auth.login')}
             </button>
             <button className="btn btn-ghost btn-full" style={{ marginTop: 'var(--space-2)' }} onClick={() => { setPhase('scan'); setAnimal(null) }}>
-              Zurück zum Scanner
+              {t('scan.backToSelection')}
             </button>
           </div>
         </div>
@@ -107,14 +109,14 @@ export default function PublicScanPage() {
           }}>
             <ShieldCheck size={18} color="var(--success-600)" />
             <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--success-800)' }}>
-              Öffentliches Profil – nur freigegebene Daten
+              {t('publicScan.publicProfile')}
             </span>
           </div>
 
           {/* Kontakt */}
           {animal.contact && (
             <div style={{ marginBottom: 'var(--space-4)', padding: 'var(--space-3)', background: 'var(--surface)', borderRadius: 'var(--radius-md)' }}>
-              <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)', marginBottom: 4 }}>Kontakt</div>
+              <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)', marginBottom: 4 }}>{t('publicScan.contact')}</div>
               <div style={{ fontWeight: 600 }}>{animal.contact.name}</div>
             </div>
           )}
@@ -123,13 +125,13 @@ export default function PublicScanPage() {
           {animal.vaccinations && animal.vaccinations.length > 0 && (
             <div style={{ marginBottom: 'var(--space-4)' }}>
               <h3 style={{ fontSize: 'var(--font-size-base)', marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                <Syringe size={18} /> Impfungen ({animal.vaccinations.length})
+                <Syringe size={18} /> {t('publicScan.vaccinations')} ({animal.vaccinations.length})
               </h3>
               {animal.vaccinations.map((doc: any) => (
                 <div key={doc.id} className="card card-sm" style={{ marginBottom: 'var(--space-2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>Impfung</span>
+                  <span style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>{t('animal.docTypeVaccination')}</span>
                   <span className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>
-                    {new Date(doc.created_at).toLocaleDateString('de-AT')}
+                    {new Date(doc.created_at).toLocaleDateString(i18n.language === 'de' ? 'de-AT' : 'en-GB')}
                   </span>
                 </div>
               ))}
@@ -144,7 +146,7 @@ export default function PublicScanPage() {
               textAlign: 'center'
             }}>
               <p className="text-muted" style={{ margin: 0, fontSize: 'var(--font-size-sm)' }}>
-                Keine freigegebenen Impfdaten vorhanden.
+                {t('publicScan.noVaccinations')}
               </p>
             </div>
           )}
@@ -152,10 +154,10 @@ export default function PublicScanPage() {
           {/* Actions */}
           <div style={{ display: 'grid', gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
             <button className="btn btn-primary" onClick={() => navigate('/login')}>
-              <LogIn size={18} /> Anmelden für mehr Details
+              <LogIn size={18} /> {t('publicScan.loginMore')}
             </button>
             <button className="btn btn-ghost" onClick={() => { setPhase('scan'); setAnimal(null) }}>
-              Erneut scannen
+              {t('publicScan.rescan')}
             </button>
           </div>
         </div>
@@ -168,13 +170,13 @@ export default function PublicScanPage() {
       <div className="container page" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100dvh' }}>
         <div className="card animate-slide-up" style={{ textAlign: 'center', padding: 'var(--space-8)' }}>
           <div style={{ fontSize: '3rem', marginBottom: 'var(--space-4)' }}>❓</div>
-          <h2 style={{ marginBottom: 'var(--space-2)' }}>Tier nicht gefunden</h2>
+          <h2 style={{ marginBottom: 'var(--space-2)' }}>{t('publicScan.notFound')}</h2>
           <p className="text-muted" style={{ marginBottom: 'var(--space-4)' }}>
-            Dieser Tag ist noch keinem Tier zugeordnet oder hat kein öffentliches Profil.
+            {t('publicScan.notFoundDesc')}
           </p>
-          <button className="btn btn-ghost" onClick={() => setPhase('scan')}>Zurück zum Scanner</button>
+          <button className="btn btn-ghost" onClick={() => setPhase('scan')}>{t('scan.backToSelection')}</button>
           <button className="btn btn-primary" style={{ marginTop: 'var(--space-2)' }} onClick={() => navigate('/login')}>
-            <LogIn size={16} /> Anmelden & Tier registrieren
+            <LogIn size={16} /> {t('publicScan.loginRegister')}
           </button>
         </div>
       </div>
@@ -191,9 +193,9 @@ export default function PublicScanPage() {
             <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 64, height: 64, borderRadius: '50%', background: 'var(--primary-50)', marginBottom: 'var(--space-4)' }}>
               <PawPrint size={32} color="var(--primary-500)" />
             </div>
-            <h1 style={{ margin: '0 0 4px 0', fontSize: 'var(--font-size-xl)' }}>Tier scannen</h1>
+            <h1 style={{ margin: '0 0 4px 0', fontSize: 'var(--font-size-xl)' }}>{t('publicScan.title')}</h1>
             <p className="text-muted" style={{ margin: 0, fontSize: 'var(--font-size-sm)' }}>
-              Wähle deine Scan-Methode
+              {t('publicScan.chooseMethod')}
             </p>
           </div>
 
@@ -203,7 +205,7 @@ export default function PublicScanPage() {
               onClick={() => setScanMode('barcode')}
               style={{ padding: 'var(--space-4)', fontSize: 'var(--font-size-base)', fontWeight: 600 }}
             >
-              <Camera size={20} /> QR-Code / Barcode scannen
+              <Camera size={20} /> {t('scan.barcode')}
             </button>
             {('NDEFReader' in window) && (
               <button
@@ -211,11 +213,11 @@ export default function PublicScanPage() {
                 onClick={() => setScanMode('nfc')}
                 style={{ padding: 'var(--space-4)', fontSize: 'var(--font-size-base)', fontWeight: 600 }}
               >
-                <Radio size={20} /> NFC-Tag auslesen
+                <Radio size={20} /> {t('scan.nfc')}
               </button>
             )}
             <button className="btn btn-ghost btn-full" onClick={() => navigate('/login')} style={{ marginTop: 'var(--space-2)' }}>
-              <LogIn size={18} /> Anmelden
+              <LogIn size={18} /> {t('auth.login')}
             </button>
           </div>
         </>
@@ -224,7 +226,7 @@ export default function PublicScanPage() {
         <>
           <div style={{ textAlign: 'center', marginBottom: 'var(--space-4)', paddingTop: 'var(--space-4)' }}>
             <h1 style={{ margin: 0, fontSize: 'var(--font-size-lg)' }}>
-              {scanMode === 'barcode' ? '📱 QR-Code / Barcode' : '📡 NFC-Tag'}
+              {scanMode === 'barcode' ? t('scan.barcodeActive') : t('scan.nfcActive')}
             </h1>
           </div>
 
@@ -260,10 +262,10 @@ export default function PublicScanPage() {
                     setNfcError(null)
                   }}
                 >
-                  ← Zurück zur Auswahl
+                  {t('scan.backToSelection')}
                 </button>
                 <button className="btn btn-ghost btn-full" onClick={() => navigate('/login')}>
-                  <LogIn size={18} /> Anmelden
+                  <LogIn size={18} /> {t('auth.login')}
                 </button>
               </>
             )}

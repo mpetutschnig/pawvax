@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import * as api from '../api/rest'
 import { PetCard } from '../components/PetCard'
 import { PageHeader } from '../components/PageHeader'
@@ -14,6 +15,7 @@ interface Animal {
 }
 
 export default function AnimalsPage() {
+  const { t } = useTranslation()
   const [animals, setAnimals] = useState<Animal[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -32,7 +34,7 @@ export default function AnimalsPage() {
       const { data } = await api.getAnimals()
       setAnimals(data)
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Fehler beim Laden der Tiere')
+      setError(err.response?.data?.error || t('animals.loadError'))
     } finally {
       setLoading(false)
     }
@@ -41,7 +43,7 @@ export default function AnimalsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!formData.name) {
-      setError('Name ist erforderlich')
+      setError(t('animals.nameRequired'))
       return
     }
 
@@ -58,7 +60,7 @@ export default function AnimalsPage() {
       setFormData({ name: '', species: 'dog', breed: '', birthdate: '' })
       setShowForm(false)
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Fehler beim Anlegen des Tieres')
+      setError(err.response?.data?.error || t('animals.createError'))
     } finally {
       setSubmitting(false)
     }
@@ -76,14 +78,14 @@ export default function AnimalsPage() {
 
   return (
     <div className="container page">
-      <PageHeader title={`My Animals (${animals.length})`} showThemeToggle />
+      <PageHeader title={`${t('animals.myAnimals')} (${animals.length})`} showThemeToggle />
 
       <div style={{ position: 'relative', marginBottom: 'var(--space-4)' }}>
         <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
         <input
           className="form-input"
           style={{ paddingLeft: 38 }}
-          placeholder="Search animals…"
+          placeholder={t('animals.search')}
           value={search}
           onChange={e => setSearch(e.target.value)}
         />
@@ -94,59 +96,59 @@ export default function AnimalsPage() {
           <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--primary-50)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto var(--space-4)' }}>
             <PawPrint size={32} color="var(--primary-500)" />
           </div>
-          <h3>No animals yet</h3>
+          <h3>{t('animals.noAnimals')}</h3>
           <p className="text-muted" style={{ marginBottom: 'var(--space-4)' }}>
-            Add your first pet to start managing their health records.
+            {t('animals.addFirst')}
           </p>
           <button className="btn btn-primary" onClick={() => setShowForm(true)}>
             <Plus size={18} />
-            Add Pet
+            {t('animals.add')}
           </button>
         </div>
       )}
 
       {showForm && (
         <div className="card animate-slide-up" style={{ marginBottom: 'var(--space-4)' }}>
-          <h3 style={{ marginBottom: 'var(--space-4)' }}>Neues Tier anlegen</h3>
+          <h3 style={{ marginBottom: 'var(--space-4)' }}>{t('animals.createNew')}</h3>
           <form onSubmit={handleSubmit}>
             <div className="form-group">
-              <label className="form-label">Name *</label>
+              <label className="form-label">{t('animals.name')} *</label>
               <input
                 className="form-input"
                 type="text"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="z.B. Bella"
+                placeholder={t('animals.namePlaceholder')}
                 required
               />
             </div>
 
             <div className="form-group">
-              <label className="form-label">Tierart *</label>
+              <label className="form-label">{t('animals.species')} *</label>
               <select
                 className="form-select"
                 value={formData.species}
                 onChange={(e) => setFormData({ ...formData, species: e.target.value })}
               >
-                <option value="dog">Hund</option>
-                <option value="cat">Katze</option>
-                <option value="other">Sonstiges</option>
+                <option value="dog">{t('animals.dog')}</option>
+                <option value="cat">{t('animals.cat')}</option>
+                <option value="other">{t('animals.other')}</option>
               </select>
             </div>
 
             <div className="form-group">
-              <label className="form-label">Rasse (optional)</label>
+              <label className="form-label">{t('animals.breed')} ({t('animals.optional')})</label>
               <input
                 className="form-input"
                 type="text"
                 value={formData.breed}
                 onChange={(e) => setFormData({ ...formData, breed: e.target.value })}
-                placeholder="z.B. Golden Retriever"
+                placeholder={t('animals.breedPlaceholder')}
               />
             </div>
 
             <div className="form-group">
-              <label className="form-label">Geburtsdatum (optional)</label>
+              <label className="form-label">{t('animals.birthdate')} ({t('animals.optional')})</label>
               <input
                 className="form-input"
                 type="date"
@@ -157,7 +159,7 @@ export default function AnimalsPage() {
 
             <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
               <button type="submit" className="btn btn-primary flex-1" disabled={submitting}>
-                {submitting ? 'Wird erstellt...' : 'Tier anlegen'}
+                {submitting ? t('animals.creating') : t('animals.add')}
               </button>
               <button
                 type="button"
@@ -165,7 +167,7 @@ export default function AnimalsPage() {
                 onClick={() => setShowForm(false)}
                 disabled={submitting}
               >
-                Abbrechen
+                {t('common.cancel')}
               </button>
             </div>
           </form>
@@ -193,7 +195,7 @@ export default function AnimalsPage() {
             className="btn btn-primary btn-full mt-4"
             onClick={() => setShowForm(true)}
           >
-            <Plus size={18} /> Add Pet
+            <Plus size={18} /> {t('animals.add')}
           </button>
         </>
       )}

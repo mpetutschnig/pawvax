@@ -1,5 +1,6 @@
 import { ChevronRight, Radio, CheckCircle2, PawPrint, Cat } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 interface PetCardProps {
   id: string;
@@ -14,11 +15,12 @@ interface PetCardProps {
 }
 
 export function PetCard({ id, name, species, breed, age, vaccinationStatus, hasNfcTag, isVetVerified, avatarPath }: PetCardProps) {
+  const { t } = useTranslation();
   const statusBadge = {
-    current:   { className: 'badge badge-success', label: 'Up to Date' },
-    due_soon:  { className: 'badge badge-warning', label: 'Due Soon' },
-    overdue:   { className: 'badge badge-danger',  label: 'Overdue' },
-  }[vaccinationStatus] || { className: 'badge badge-info', label: 'Unknown' };
+    current:   { className: 'badge badge-success', label: t('petCard.upToDate') },
+    due_soon:  { className: 'badge badge-warning', label: t('petCard.dueSoon') },
+    overdue:   { className: 'badge badge-danger',  label: t('petCard.overdue') },
+  }[vaccinationStatus] || { className: 'badge badge-info', label: t('common.loading') };
 
   return (
     <Link to={`/animals/${id}`} className="card card-sm" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)', textDecoration: 'none', marginBottom: 'var(--space-3)', cursor: 'pointer' }}>
@@ -47,13 +49,13 @@ export function PetCard({ id, name, species, breed, age, vaccinationStatus, hasN
           {hasNfcTag && (
             <span className="badge badge-primary">
               <Radio size={10} strokeWidth={2.5} />
-              NFC
+              {t('animal.nfcActive')}
             </span>
           )}
           {isVetVerified && (
             <span className="badge badge-info">
               <CheckCircle2 size={10} strokeWidth={2.5} />
-              Verified
+              {t('animal.vetVerified')}
             </span>
           )}
         </div>
