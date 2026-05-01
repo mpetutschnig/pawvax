@@ -518,7 +518,7 @@ export default function DocumentScanPage() {
               <div style={{ color: 'var(--success-500)', marginBottom: 'var(--space-3)', display: 'flex', justifyContent: 'center' }}>
                 <CheckCircle size={48} strokeWidth={1.5} />
               </div>
-              <h3 style={{ marginBottom: 'var(--space-4)' }}>Analysis Complete!</h3>
+              <h3 style={{ marginBottom: 'var(--space-4)' }}>{t('docScan.analyzeComplete')}</h3>
 
               {(ocrProvider || currentStatusMsg) && (
                 <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-md)', padding: 'var(--space-4)', marginBottom: 'var(--space-6)', borderLeft: ocrProvider?.includes('Quota') ? '4px solid var(--danger-500)' : '4px solid var(--success-500)' }}>
@@ -529,9 +529,9 @@ export default function DocumentScanPage() {
 
               {suggestedType && (
                 <div style={{ background: 'var(--primary-50)', borderRadius: 'var(--radius-md)', padding: 'var(--space-4)', marginBottom: 'var(--space-6)', borderLeft: '4px solid var(--primary-500)' }}>
-                  <h4 style={{ margin: '0 0 var(--space-3) 0', fontSize: 'var(--font-size-sm)', fontWeight: 600 }}>Document Type</h4>
+                  <h4 style={{ margin: '0 0 var(--space-3) 0', fontSize: 'var(--font-size-sm)', fontWeight: 600 }}>{t('docScan.docType')}</h4>
                   <p style={{ margin: '0 0 var(--space-3) 0', fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
-                    {ocrProvider?.includes('Tesseract') ? 'Tesseract detected' : 'AI analyzed'}: <strong style={{ color: 'var(--text-primary)' }}>{docTypes.find(t => t.id === suggestedType)?.label || suggestedType}</strong>
+                    {ocrProvider?.includes('Tesseract') ? 'Tesseract' : 'AI'}: <strong style={{ color: 'var(--text-primary)' }}>{docTypes.find(t => t.id === suggestedType)?.label || suggestedType}</strong>
                   </p>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
                     {docTypes.map(type => (
@@ -568,26 +568,26 @@ export default function DocumentScanPage() {
                         }
                         navigate(`/animals/${animalId}`)
                       } catch (err) {
-                        setErrorMsg(err instanceof Error ? err.message : 'Error saving document type')
+                        setErrorMsg(err instanceof Error ? err.message : t('common.error'))
                       } finally {
                         setSavingDocType(false)
                       }
                     }}
                   >
-                    {savingDocType ? 'Saving...' : 'Confirm & Save'}
+                    {savingDocType ? `${t('docScan.confirmSave')}...` : t('docScan.confirmSave')}
                   </button>
                 </div>
               )}
 
               <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-md)', padding: 'var(--space-4)', textAlign: 'left', marginBottom: 'var(--space-6)' }}>
-                <h4 style={{ margin: '0 0 var(--space-2) 0', fontSize: 'var(--font-size-sm)' }}>Extracted Text</h4>
+                <h4 style={{ margin: '0 0 var(--space-2) 0', fontSize: 'var(--font-size-sm)' }}>{t('docDetail.ocrText')}</h4>
                 <pre style={{ margin: 0, fontSize: 'var(--font-size-xs)', overflowX: 'auto', whiteSpace: 'pre-wrap', wordWrap: 'break-word', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>
                   {typeof result === 'string' ? result : JSON.stringify(result, null, 2)}
                 </pre>
               </div>
 
               <button className="btn btn-ghost btn-full" onClick={() => navigate(`/animals/${animalId}`)} type="button">
-                Back to Pet Profile
+                {t('docScan.backToProfile')}
               </button>
             </div>
           )}
