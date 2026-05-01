@@ -165,7 +165,12 @@ export default function ProfilePage() {
           Gib deinen persönlichen Gemini API-Schlüssel ein, um Dokumente mit deinem eigenen Kontingent zu analysieren.
           Ohne Schlüssel nutzen wir Tesseract (kostenloses OCR auf unserem Server).
         </p>
-        
+        <p style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-4)' }}>
+          <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary-500)', textDecoration: 'underline' }}>
+            API-Schlüssel in Google AI Studio erstellen →
+          </a>
+        </p>
+
         {profile.has_gemini_token && (
           <p style={{ color: 'var(--success-600)', marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontWeight: 500 }}><CheckCircle size={16} /> Gemini-Schlüssel gespeichert</p>
         )}

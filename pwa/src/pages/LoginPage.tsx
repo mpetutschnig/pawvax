@@ -24,7 +24,7 @@ export default function LoginPage() {
       localStorage.setItem('role', res.data.account.role || 'user')
       localStorage.setItem('roles', JSON.stringify(res.data.account.roles ?? [res.data.account.role || 'user']))
       localStorage.setItem('verified', String(res.data.account.verified || 0))
-      navigate('/')
+      navigate(mode === 'register' ? '/welcome' : '/')
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
       setError(msg ?? 'Fehler beim Anmelden')

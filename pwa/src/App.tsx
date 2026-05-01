@@ -11,6 +11,7 @@ import AdminPage from './pages/AdminPage'
 import ProfilePage from './pages/ProfilePage'
 import DocumentDetailPage from './pages/DocumentDetailPage'
 import PublicScanPage from './pages/PublicScanPage'
+import WelcomePage from './pages/WelcomePage'
 
 function RequireAuth({ children, adminOnly }: { children: React.ReactNode; adminOnly?: boolean }) {
   const token = localStorage.getItem('token')
@@ -32,20 +33,20 @@ function BottomNav() {
 
   return (
     <nav className="bottom-nav">
+      {!(roles.length > 0 && roles.every((r: string) => r === 'readonly')) && (
+        <Link to="/scan" className={location.pathname.startsWith('/scan') ? 'active' : ''}>
+          <div className="nav-icon-wrap">
+            <ScanLine size={22} strokeWidth={1.8} />
+          </div>
+          <span>Finden</span>
+        </Link>
+      )}
       <Link to="/animals" className={location.pathname.startsWith('/animals') ? 'active' : ''}>
         <div className="nav-icon-wrap">
           <PawPrint size={22} strokeWidth={1.8} />
         </div>
         <span>Tiere</span>
       </Link>
-      {!(roles.length > 0 && roles.every((r: string) => r === 'readonly')) && (
-        <Link to="/scan" className={location.pathname.startsWith('/scan') ? 'active' : ''}>
-          <div className="nav-icon-wrap">
-            <ScanLine size={22} strokeWidth={1.8} />
-          </div>
-          <span>Scannen</span>
-        </Link>
-      )}
       <Link to="/profile" className={location.pathname.startsWith('/profile') ? 'active' : ''}>
         <div className="nav-icon-wrap">
           <User size={22} strokeWidth={1.8} />
@@ -69,6 +70,7 @@ export default function App() {
     <>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/welcome" element={<WelcomePage />} />
         <Route path="/public-scan" element={<PublicScanPage />} />
         <Route path="/" element={<Navigate to="/animals" replace />} />
         <Route path="/animals" element={<RequireAuth><AnimalsPage /></RequireAuth>} />

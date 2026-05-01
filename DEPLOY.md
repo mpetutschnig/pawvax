@@ -457,6 +457,38 @@ Erwartet: HTTP 200, TLS-Zertifikat von Let's Encrypt, Redirect zur PWA
 
 ---
 
+## 13. Erste Admin-Rolle erstellen
+
+Nach dem Deployment muss mindestens ein Admin-Account eingerichtet werden (ähnlich wie JWT_SECRET — nur einmal).
+
+⚠️ **Nur beim ersten Deployment nötig**:
+
+### 13a. Admin-Email prüfen (ist bereits im System registriert?)
+
+```bash
+sqlite3 /home/paw-api/data/paw.db "SELECT id, email, role FROM accounts WHERE email='mpetutschnig@gmail.com';"
+```
+
+Falls nichts angezeigt → Account existiert noch nicht, zuerst in der App registrieren!
+
+### 13b. Account zur Admin-Rolle hochstufen
+
+```bash
+sqlite3 /home/paw-api/data/paw.db "UPDATE accounts SET role='admin', verified=1 WHERE email='mpetutschnig@gmail.com';"
+```
+
+### 13c. Verifikation
+
+```bash
+sqlite3 /home/paw-api/data/paw.db "SELECT id, email, role, verified FROM accounts WHERE email='mpetutschnig@gmail.com';"
+```
+
+Sollte anzeigen: `role='admin'` und `verified=1`
+
+Jetzt im Admin-Panel einloggen: `https://paw.oxs.at/admin`
+
+---
+
 ## Anhang: Update-Workflow
 
 **Wichtig:** Wenn die Shells auf `/sbin/nologin` gesetzt sind (siehe "Optional" unten), müssen sie erst auf `/bin/bash` gewechselt werden:
@@ -534,6 +566,56 @@ usermod -s /sbin/nologin paw-proxy
 ```
 
 Die Services laufen trotzdem weiter via systemd. Für zukünftige Updates/Wartung braucht man dann wieder die XDG_RUNTIME_DIR Workarounds.
+
+---
+
+## Dienste neustarten (wenn Shells auf /sbin/nologin)
+
+Wenn die Shells bereits auf `/sbin/nologin` gesetzt sind (Security-Hardening), müssen sie für den Neustart temporär auf `/bin/bash` gewechselt werden:
+
+### Schritt 1: Shells zu /bin/bash wechseln
+
+```bash
+usermod -s /bin/bash paw-api
+usermod -s /bin/bash paw-pwa
+usermod -s /bin/bash paw-proxy
+```
+
+### Schritt 2: Services neustarten
+
+```bash
+PAW_API_UID=$(id -u paw-api) && su -s /bin/bash paw-api -c "cd /tmp && XDG_RUNTIME_DIR=/run/user/$PAW_API_UID DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$PAW_API_UID/bus systemctl --user restart paw-api"
+```
+
+```bash
+PAW_PWA_UID=$(id -u paw-pwa) && su -s /bin/bash paw-pwa -c "cd /tmp && XDG_RUNTIME_DIR=/run/user/$PAW_PWA_UID DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$PAW_PWA_UID/bus systemctl --user restart paw-pwa"
+```
+
+```bash
+PAW_PROXY_UID=$(id -u paw-proxy) && su -s /bin/bash paw-proxy -c "cd /tmp && XDG_RUNTIME_DIR=/run/user/$PAW_PROXY_UID DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$PAW_PROXY_UID/bus systemctl --user restart paw-proxy"
+```
+
+### Schritt 3: Status prüfen
+
+```bash
+PAW_API_UID=$(id -u paw-api) && su -s /bin/bash paw-api -c "cd /tmp && XDG_RUNTIME_DIR=/run/user/$PAW_API_UID systemctl --user status paw-api --no-pager"
+```
+
+```bash
+PAW_PWA_UID=$(id -u paw-pwa) && su -s /bin/bash paw-pwa -c "cd /tmp && XDG_RUNTIME_DIR=/run/user/$PAW_PWA_UID systemctl --user status paw-pwa --no-pager"
+```
+
+```bash
+PAW_PROXY_UID=$(id -u paw-proxy) && su -s /bin/bash paw-proxy -c "cd /tmp && XDG_RUNTIME_DIR=/run/user/$PAW_PROXY_UID systemctl --user status paw-proxy --no-pager"
+```
+
+### Schritt 4: Shells zurück zu /sbin/nologin
+
+```bash
+usermod -s /sbin/nologin paw-api
+usermod -s /sbin/nologin paw-pwa
+usermod -s /sbin/nologin paw-proxy
+```
 
 ---
 

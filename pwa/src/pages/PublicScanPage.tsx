@@ -1,7 +1,8 @@
 import { useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useBarcode } from '../hooks/useBarcode'
-import { PawPrint, Camera, LogIn, ShieldCheck, Syringe } from 'lucide-react'
+import { useNfc } from '../hooks/useNfc'
+import { PawPrint, Camera, LogIn, ShieldCheck, Syringe, Radio } from 'lucide-react'
 import axios from 'axios'
 
 type Phase = 'scan' | 'result' | 'notfound'
@@ -11,7 +12,9 @@ export default function PublicScanPage() {
   const [phase, setPhase] = useState<Phase>('scan')
   const [animal, setAnimal] = useState<any>(null)
   const [cameraError, setCameraError] = useState<string | null>(null)
+  const [nfcError, setNfcError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [scanMode, setScanMode] = useState<'barcode' | 'nfc' | null>(null)
 
   const handleTag = useCallback(async (rawTagId: string) => {
     setLoading(true)
@@ -37,6 +40,9 @@ export default function PublicScanPage() {
 
   const handleBarcode = useCallback((code: string) => handleTag(code), [handleTag])
   const { start: startBarcode, stop: stopBarcode } = useBarcode('public-barcode-reader', handleBarcode, setCameraError)
+
+  const handleNfc = useCallback((tagId: string) => handleTag(tagId), [handleTag])
+  const { start: startNfc, stop: stopNfc } = useNfc(handleNfc, setNfcError)
 
   const speciesEmoji: Record<string, string> = { dog: '🐶', cat: '🐱', other: '🐾' }
 
@@ -139,15 +145,22 @@ export default function PublicScanPage() {
         </div>
         <h1 style={{ margin: '0 0 4px 0', fontSize: 'var(--font-size-xl)' }}>Tier scannen</h1>
         <p className="text-muted" style={{ margin: 0, fontSize: 'var(--font-size-sm)' }}>
-          Scanne den QR-Code oder Barcode am Tag des Tieres
+          Scanne den QR-Code, Barcode oder NFC-Chip des Tieres
         </p>
+        {('NDEFReader' in window) && (
+          <p style={{ margin: 'var(--space-2) 0 0 0', fontSize: 'var(--font-size-xs)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', color: 'var(--success-500)' }}>
+            <Radio size={12} /> NFC verfügbar
+          </p>
+        )}
       </div>
 
-      {cameraError ? (
-        <div className="error-card">
-          <p>{cameraError}</p>
+      {(cameraError || nfcError) && (
+        <div className="error-card" style={{ marginBottom: 'var(--space-4)' }}>
+          <p>{cameraError || nfcError}</p>
         </div>
-      ) : (
+      )}
+
+      {scanMode === 'barcode' && (
         <div style={{ marginBottom: 'var(--space-4)' }}>
           <div
             id="public-barcode-reader"
@@ -162,9 +175,30 @@ export default function PublicScanPage() {
             <div className="spinner" />
           </div>
         ) : (
-          <button className="btn btn-primary btn-full" onClick={() => startBarcode()}>
-            <Camera size={18} /> Kamera starten
-          </button>
+          <>
+            <button
+              className="btn btn-primary btn-full"
+              onClick={() => {
+                setScanMode('barcode')
+                startBarcode()
+              }}
+              disabled={scanMode === 'nfc'}
+            >
+              <Camera size={18} /> Barcode/QR scannen
+            </button>
+            {('NDEFReader' in window) && (
+              <button
+                className="btn btn-outline btn-full"
+                onClick={() => {
+                  setScanMode('nfc')
+                  startNfc()
+                }}
+                disabled={scanMode === 'barcode'}
+              >
+                <Radio size={18} /> NFC lesen
+              </button>
+            )}
+          </>
         )}
         <button className="btn btn-ghost btn-full" onClick={() => navigate('/login')}>
           <LogIn size={16} /> Anmelden

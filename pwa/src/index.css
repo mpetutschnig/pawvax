@@ -447,6 +447,18 @@ code, pre {
   border-color: var(--border);
 }
 
+/* Delete button with danger color */
+.btn-delete {
+  background: transparent;
+  color: var(--danger-500);
+  border-color: var(--danger-500);
+}
+.btn-delete:hover:not(:disabled) {
+  background: color-mix(in oklch, var(--danger-500) 10%, var(--surface-1));
+  border-color: var(--danger-600);
+  color: var(--danger-600);
+}
+
 /* Danger */
 .btn-danger {
   background: var(--danger-500);
@@ -709,6 +721,20 @@ html[data-theme="dark"] .badge-danger {
   border-color: var(--primary-200);
 }
 .badge-primary .badge-dot { background: var(--primary-500); }
+
+@media (prefers-color-scheme: dark) {
+  .badge-primary {
+    background: oklch(from var(--primary-500) l c h / 0.15);
+    color: var(--primary-300);
+    border-color: oklch(from var(--primary-500) l c h / 0.35);
+  }
+}
+
+html[data-theme="dark"] .badge-primary {
+  background: oklch(from var(--primary-500) l c h / 0.15);
+  color: var(--primary-300);
+  border-color: oklch(from var(--primary-500) l c h / 0.35);
+}
 
 .badge-info {
   background: var(--info-50);

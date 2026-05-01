@@ -46,14 +46,21 @@ export default function TagManagementPage() {
     if (!id) return
     setScanning('none')
     setError(null)
+
+    // Check if tag is already on this animal
+    if (tags.find(t => t.tag_id === tagId)) {
+      setError('Dieser Tag ist bereits diesem Tier zugeordnet.')
+      return
+    }
+
     try {
       await addTag(id, tagId, tagType)
       reload()
     } catch (err: unknown) {
       const status = (err as { response?: { status?: number } })?.response?.status
-      setError(status === 409 ? 'Tag ist bereits einem Tier zugeordnet' : 'Tag konnte nicht hinzugefügt werden')
+      setError(status === 409 ? 'Dieser Tag gehört bereits einem anderen Tier' : 'Tag konnte nicht hinzugefügt werden')
     }
-  }, [id, reload])
+  }, [id, reload, tags])
 
   async function toggleTag(tag: Tag) {
     try {
@@ -65,17 +72,17 @@ export default function TagManagementPage() {
 
   return (
     <div className="container page">
-      <PageHeader title="Tags verwalten" backTo={`/animals/${id}`} showThemeToggle />
+      <PageHeader title="Chips verwalten" backTo={`/animals/${id}`} showThemeToggle />
 
       {error && <div className="error-card" style={{ marginBottom: 'var(--space-4)' }}><p>{error}</p></div>}
 
       {loading ? <div style={{ display: 'flex', justifyContent: 'center', marginTop: 'var(--space-6)' }}><div className="spinner"></div></div> : (
         <div className="animate-fade-in">
-          <h3 style={{ marginBottom: 'var(--space-3)', fontSize: 'var(--font-size-base)' }}>Registrierte Tags ({tags.length})</h3>
+          <h3 style={{ marginBottom: 'var(--space-3)', fontSize: 'var(--font-size-base)' }}>Registrierte Chips ({tags.length})</h3>
           {tags.length === 0 && (
             <div className="card text-center">
               <TagIcon size={32} color="var(--text-tertiary)" style={{ margin: '0 auto var(--space-3)' }} />
-              <p className="text-muted">Noch keine Tags zugeordnet.</p>
+              <p className="text-muted">Noch keine Chips zugeordnet.</p>
             </div>
           )}
           <div style={{ display: 'grid', gap: 'var(--space-3)' }}>
@@ -106,7 +113,7 @@ export default function TagManagementPage() {
             ))}
           </div>
 
-          <h3 style={{ marginTop: 'var(--space-6)', marginBottom: 'var(--space-3)', fontSize: 'var(--font-size-base)' }}>Neue Tags hinzufügen</h3>
+          <h3 style={{ marginTop: 'var(--space-6)', marginBottom: 'var(--space-3)', fontSize: 'var(--font-size-base)' }}>Neue Chips hinzufügen</h3>
           <div style={{ display: 'grid', gap: 'var(--space-3)' }}>
             <button
               onClick={() => setScanning('barcode')}
@@ -129,29 +136,30 @@ export default function TagManagementPage() {
             >
               <Camera size={20} /> Barcode/QR scannen
             </button>
-            {('NDEFReader' in window) && (
-              <button
-                onClick={() => setScanning('nfc')}
-                style={{
-                  padding: 'var(--space-4)',
-                  background: 'none',
-                  border: `1px solid var(--border-color)`,
-                  borderRadius: 'var(--radius-md)',
-                  cursor: 'pointer',
-                  fontSize: 'var(--font-size-base)',
-                  fontWeight: 600,
-                  color: 'var(--text-primary)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 'var(--space-3)',
-                  transition: 'background-color 0.2s'
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-hover)'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-              >
-                <Radio size={20} /> NFC lesen
-              </button>
-            )}
+            <button
+              onClick={() => setScanning('nfc')}
+              disabled={!('NDEFReader' in window)}
+              style={{
+                padding: 'var(--space-4)',
+                background: 'none',
+                border: `1px solid ${!('NDEFReader' in window) ? 'var(--border)' : 'var(--border-color)'}`,
+                borderRadius: 'var(--radius-md)',
+                cursor: !('NDEFReader' in window) ? 'not-allowed' : 'pointer',
+                fontSize: 'var(--font-size-base)',
+                fontWeight: 600,
+                color: !('NDEFReader' in window) ? 'var(--text-tertiary)' : 'var(--text-primary)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 'var(--space-3)',
+                transition: 'background-color 0.2s',
+                opacity: !('NDEFReader' in window) ? 0.6 : 1
+              }}
+              onMouseEnter={(e) => !('NDEFReader' in window) ? undefined : e.currentTarget.style.backgroundColor = 'var(--bg-hover)'}
+              onMouseLeave={(e) => !('NDEFReader' in window) ? undefined : e.currentTarget.style.backgroundColor = 'transparent'}
+              title={!('NDEFReader' in window) ? 'NFC wird nur auf Android Chrome mit NFC-Hardware unterstützt' : ''}
+            >
+              <Radio size={20} /> NFC lesen {!('NDEFReader' in window) && <span style={{ fontSize: 'var(--font-size-xs)', marginLeft: 'auto', color: 'var(--text-tertiary)' }}>(nicht unterstützt)</span>}
+            </button>
           </div>
 
           {scanning === 'barcode' && <div id="tag-barcode" style={{ marginTop: 'var(--space-4)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}></div>}

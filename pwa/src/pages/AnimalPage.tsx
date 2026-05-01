@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { getAnimal, getAnimalDocuments, getAnimalTags, updateAnimal, deleteAnimal, uploadAnimalAvatar } from '../api/rest'
+import { getAnimal, getAnimalDocuments, getAnimalTags, updateAnimal, deleteAnimal, uploadAnimalAvatar, deleteDocument } from '../api/rest'
 import { PageHeader } from '../components/PageHeader'
 import { PawPrint, Cat, Edit2, Trash2, Tag, Lock, Camera, Search, Syringe, FileText, Radio, CheckCircle, ShieldAlert, AlertTriangle, RefreshCw } from 'lucide-react'
 
@@ -68,6 +68,16 @@ export default function AnimalPage() {
       setError('Fehler beim Analysieren. Bitte versuchen Sie es später erneut.')
     } finally {
       setRetrying(null)
+    }
+  }
+
+  const handleDeletePendingDoc = async (docId: string) => {
+    if (!confirm('Dokument wirklich löschen?')) return
+    try {
+      await deleteDocument(docId)
+      setPendingDocuments(prev => prev.filter(d => d.id !== docId))
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Fehler beim Löschen')
     }
   }
 
@@ -274,7 +284,7 @@ export default function AnimalPage() {
             <button className="btn btn-secondary" onClick={() => setEditing(true)}><Edit2 size={16} /> Bearbeiten</button>
             <button className="btn btn-outline" onClick={handleDelete} disabled={submitting} style={{ borderColor: 'var(--danger-500)', color: 'var(--danger-500)' }}><Trash2 size={16} /> Löschen</button>
             <Link to={`/animals/${id}/tags`} className="btn btn-ghost" style={{ textDecoration: 'none' }}>
-              <Tag size={16} /> Tags
+              <Radio size={16} /> Chips
             </Link>
             <Link to={`/animals/${id}/sharing`} className="btn btn-ghost" style={{ textDecoration: 'none' }}>
               <Lock size={16} /> Freigaben
@@ -505,14 +515,14 @@ export default function AnimalPage() {
             <div key={doc.id} className="card card-sm" style={{
               display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-3)',
               border: '1.5px solid var(--danger-500)',
-              background: 'var(--danger-50)',
+              background: 'color-mix(in oklch, var(--danger-500) 12%, var(--surface-1))',
             }}>
               <div style={{
                 width: 36, height: 36, borderRadius: 'var(--radius-sm)', flexShrink: 0,
-                background: 'var(--danger-100)',
+                background: 'color-mix(in oklch, var(--danger-500) 20%, var(--surface-1))',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}>
-                <AlertTriangle size={16} color="var(--danger-600)" strokeWidth={2} />
+                <AlertTriangle size={16} color="var(--danger-500)" strokeWidth={2} />
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)' }}>
@@ -522,27 +532,48 @@ export default function AnimalPage() {
                   {new Date(doc.created_at).toLocaleString('de-AT')}
                 </div>
               </div>
-              <button
-                onClick={() => handleRetryAnalysis(doc.id)}
-                disabled={retrying === doc.id}
-                style={{
-                  padding: '8px 12px',
-                  background: 'var(--primary-500)',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: 'var(--radius-sm)',
-                  cursor: retrying === doc.id ? 'not-allowed' : 'pointer',
-                  fontSize: 'var(--font-size-xs)',
-                  fontWeight: 600,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  opacity: retrying === doc.id ? 0.6 : 1
-                }}
-              >
-                <RefreshCw size={12} />
-                {retrying === doc.id ? 'Analysieren...' : 'Analysieren'}
-              </button>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  onClick={() => handleRetryAnalysis(doc.id)}
+                  disabled={retrying === doc.id}
+                  style={{
+                    padding: '8px 12px',
+                    background: 'var(--primary-500)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: 'var(--radius-sm)',
+                    cursor: retrying === doc.id ? 'not-allowed' : 'pointer',
+                    fontSize: 'var(--font-size-xs)',
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    opacity: retrying === doc.id ? 0.6 : 1
+                  }}
+                >
+                  <RefreshCw size={12} />
+                  {retrying === doc.id ? 'Analysieren...' : 'Analysieren'}
+                </button>
+                <button
+                  onClick={() => handleDeletePendingDoc(doc.id)}
+                  style={{
+                    padding: '8px 12px',
+                    background: 'transparent',
+                    color: 'var(--danger-500)',
+                    border: '1px solid var(--danger-500)',
+                    borderRadius: 'var(--radius-sm)',
+                    cursor: 'pointer',
+                    fontSize: 'var(--font-size-xs)',
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <Trash2 size={12} />
+                  Löschen
+                </button>
+              </div>
             </div>
           ))}
         </>

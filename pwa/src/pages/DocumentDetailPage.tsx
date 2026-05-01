@@ -345,11 +345,11 @@ export default function DocumentDetailPage() {
         )}
 
         {(doc.isOwner || doc.isUploader) && !(doc.added_by_role === 'vet' && !doc.isUploader) && (
-          <button 
-            className="btn btn-outline btn-full" 
-            onClick={handleDeleteDoc} 
+          <button
+            className="btn btn-delete btn-full"
+            onClick={handleDeleteDoc}
             disabled={saving}
-            style={{ marginTop: 'var(--space-4)', color: 'var(--error-500)', borderColor: 'var(--error-500)' }}
+            style={{ marginTop: 'var(--space-4)' }}
           >
             <Trash2 size={18} /> Dokument löschen
           </button>
