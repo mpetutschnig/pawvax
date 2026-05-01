@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   adminGetStats, adminGetAccounts, adminGetAnimals, adminGetPendingVerifications,
-  adminVerifyAccount, adminPatchAccount, adminGetAuditLog, adminDeleteAccount, adminDeleteAnimal
+  adminVerifyAccount, adminPatchAccount, adminGetAuditLog, adminDeleteAnimal
 } from '../api/rest'
+
+//  adminDeleteAccount
 import { PawPrint, LogOut, LayoutDashboard, Users, Cat, ShieldCheck, FileClock, CheckCircle, XCircle, Menu, X } from 'lucide-react'
 
 type Section = 'overview' | 'accounts' | 'animals' | 'verifications' | 'audit'
