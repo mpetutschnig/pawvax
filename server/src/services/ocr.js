@@ -71,7 +71,8 @@ async function analyzeWithGemini(imagePath, geminiKey, onProgress) {
   const mimeType = imagePath.endsWith('.png') ? 'image/png' : 'image/jpeg'
 
   if (onProgress) onProgress(`Sende POST Request an Gemini 2.0 Flash API...`)
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`
+  // const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key=${geminiKey}`
   console.log(`[OCR] Gemini URL: ${url.substring(0, 80)}...`)
   const response = await fetch(url, {
     method: 'POST',
