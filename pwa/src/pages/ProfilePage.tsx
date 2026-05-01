@@ -17,6 +17,8 @@ export default function ProfilePage() {
   const [showConfirmDelete, setShowConfirmDelete] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [geminiModel, setGeminiModel] = useState('')
+  const [modelSaving, setModelSaving] = useState(false)
 
   useEffect(() => {
     loadProfile()
@@ -26,6 +28,7 @@ export default function ProfilePage() {
     try {
       const res = await getMe()
       setProfile(res.data)
+      setGeminiModel(res.data.gemini_model || 'gemini-3.1-flash-lite-preview')
       setGeminiToken('')
       setError(null)
     } catch (err) {
@@ -77,6 +80,21 @@ export default function ProfilePage() {
       console.error(err)
     } finally {
       setSaving(false)
+    }
+  }
+
+  const saveGeminiModel = async (model: string) => {
+    setModelSaving(true)
+    try {
+      await patchMe({ gemini_model: model })
+      setGeminiModel(model)
+      setSuccess(t('profile.modelSaved'))
+      setTimeout(() => setSuccess(null), 2000)
+    } catch (err) {
+      setError(t('profile.saveError'))
+      console.error(err)
+    } finally {
+      setModelSaving(false)
     }
   }
 
@@ -220,9 +238,29 @@ export default function ProfilePage() {
         {geminiError && <div className="error-card" style={{ marginTop: 'var(--space-3)', padding: 'var(--space-3)' }}><p style={{ margin: 0 }}>{geminiError}</p></div>}
         {geminiSuccess && <div className="card" style={{ marginTop: 'var(--space-3)', padding: 'var(--space-3)', background: 'var(--success-50)', borderColor: 'var(--success-500)', display: 'flex', gap: 'var(--space-2)' }}><CheckCircle size={16} color="var(--success-600)" /><p style={{ margin: 0, color: 'var(--success-600)', fontWeight: 500, fontSize: 'var(--font-size-sm)' }}>{geminiSuccess}</p></div>}
 
-        <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-4)', padding: 'var(--space-3)', background: 'oklch(96% 0.02 80)', borderRadius: 'var(--radius-md)' }}>
+        {profile.has_gemini_token && (
+          <>
+            <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginTop: 'var(--space-6)', marginBottom: 'var(--space-3)' }}>{t('profile.model')}</h3>
+            <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-4)' }}>{t('profile.modelDesc')}</p>
+            <div className="form-group">
+              <select
+                className="form-select"
+                value={geminiModel}
+                onChange={(e) => saveGeminiModel(e.target.value)}
+                disabled={modelSaving}
+              >
+                <option value="gemini-3.1-flash-lite-preview">Gemini 3.1 Flash-Lite (Standard)</option>
+                <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+                <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+                <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+              </select>
+            </div>
+          </>
+        )}
+
+        <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-4)', padding: 'var(--space-3)', background: 'color-mix(in oklch, var(--warning-500) 12%, var(--surface))', borderRadius: 'var(--radius-md)', border: '1px solid color-mix(in oklch, var(--warning-500) 30%, transparent)' }}>
           <AlertTriangle size={16} color="var(--warning-600)" style={{ flexShrink: 0, marginTop: '2px' }} />
-          <p className="text-muted" style={{ fontSize: 'var(--font-size-xs)', margin: 0 }}>
+          <p style={{ fontSize: 'var(--font-size-xs)', margin: 0, color: 'var(--text-primary)' }}>
             {t('profile.geminiWarning')}
           </p>
         </div>
