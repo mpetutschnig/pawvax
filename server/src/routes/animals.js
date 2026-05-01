@@ -58,14 +58,16 @@ export default async function animalRoutes(fastify) {
     const sharing = db.prepare('SELECT * FROM animal_sharing WHERE animal_id = ? AND role = ?')
       .get(row.id, 'readonly')
 
-    if (!sharing) return reply.code(404).send({ error: 'Kein öffentliches Profil verfügbar' })
-
     const result = {
       id: row.id,
       name: row.name,
       species: row.species,
       avatar_path: row.avatar_path,
+      is_public: !!sharing  // Flag ob öffentlich freigegeben
     }
+
+    if (!sharing) return result  // Tier existiert, aber keine öffentlichen Daten
+
     if (sharing.share_breed) result.breed = row.breed
     if (sharing.share_birthdate) result.birthdate = row.birthdate
     if (sharing.share_contact) result.contact = { name: row.owner_name }

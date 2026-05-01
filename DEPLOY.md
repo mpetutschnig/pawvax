@@ -463,6 +463,12 @@ Nach dem Deployment muss mindestens ein Admin-Account eingerichtet werden (ähnl
 
 ⚠️ **Nur beim ersten Deployment nötig**:
 
+### 13.0 sqlite3 installieren (falls noch nicht vorhanden)
+
+```bash
+dnf install -y sqlite
+```
+
 ### 13a. Admin-Email prüfen (ist bereits im System registriert?)
 
 ```bash

@@ -47,6 +47,27 @@ export default function PublicScanPage() {
   const speciesEmoji: Record<string, string> = { dog: '🐶', cat: '🐱', other: '🐾' }
 
   if (phase === 'result' && animal) {
+    // Wenn Tier existiert aber nicht öffentlich freigegeben
+    if (!animal.is_public) {
+      return (
+        <div className="container page" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100dvh' }}>
+          <div className="card animate-slide-up" style={{ textAlign: 'center', padding: 'var(--space-8)', maxWidth: 480 }}>
+            <div style={{ fontSize: '2rem', marginBottom: 'var(--space-4)' }}>🔒</div>
+            <h2 style={{ marginBottom: 'var(--space-2)' }}>{animal.name}</h2>
+            <p className="text-muted" style={{ marginBottom: 'var(--space-4)' }}>
+              Dieses Tier hat keine freigegebenen Daten. Melden dich an, um mehr zu erfahren.
+            </p>
+            <button className="btn btn-primary btn-full" onClick={() => navigate('/login')}>
+              <LogIn size={16} /> Anmelden
+            </button>
+            <button className="btn btn-ghost btn-full" style={{ marginTop: 'var(--space-2)' }} onClick={() => { setPhase('scan'); setAnimal(null) }}>
+              Zurück zum Scanner
+            </button>
+          </div>
+        </div>
+      )
+    }
+
     return (
       <div className="container page" style={{ maxWidth: 480, margin: '0 auto' }}>
         <div className="card animate-slide-up" style={{ padding: 'var(--space-6)' }}>
@@ -101,6 +122,19 @@ export default function PublicScanPage() {
                   </span>
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* No vaccinations message */}
+          {(!animal.vaccinations || animal.vaccinations.length === 0) && (
+            <div style={{
+              padding: 'var(--space-4)', background: 'var(--surface)',
+              borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-4)',
+              textAlign: 'center'
+            }}>
+              <p className="text-muted" style={{ margin: 0, fontSize: 'var(--font-size-sm)' }}>
+                Keine freigegebenen Impfdaten vorhanden.
+              </p>
             </div>
           )}
 
