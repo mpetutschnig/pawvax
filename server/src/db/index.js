@@ -31,6 +31,7 @@ export function initDb(dbPath) {
     `ALTER TABLE animals ADD COLUMN avatar_path TEXT`,
     `ALTER TABLE animals ADD COLUMN dynamic_fields TEXT DEFAULT '{}'`,
     `ALTER TABLE documents ADD COLUMN allowed_roles TEXT DEFAULT '["vet", "authority", "readonly"]'`,
+    `ALTER TABLE documents ADD COLUMN analysis_status TEXT DEFAULT 'pending_analysis'`,
     `ALTER TABLE animal_sharing ADD COLUMN share_dynamic_fields INTEGER NOT NULL DEFAULT 0`,
   ]
   for (const sql of migrations) {
