@@ -33,6 +33,7 @@ export default function DocumentScanPage() {
     )
   }
 
+  const cameraRef = useRef<HTMLInputElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const [previews, setPreviews] = useState<string[]>([])
   const [pages, setPages] = useState<File[]>([])
@@ -214,33 +215,40 @@ export default function DocumentScanPage() {
 
       {phase === 'capture' && (
         <div className="card animate-slide-up">
-          <p className="text-muted" style={{ marginBottom: 'var(--space-4)' }}>Fotografiere einen Impfpass, ein Rezept oder ein anderes Tierdokument zur automatischen OCR-Erfassung.</p>
+          <p className="text-muted" style={{ marginBottom: 'var(--space-6)' }}>Fotografiere einen Impfpass, ein Rezept oder ein anderes Tierdokument zur automatischen OCR-Erfassung.</p>
           <input
-            ref={fileRef}
+            ref={cameraRef}
             type="file"
             accept="image/*"
             capture="environment"
             style={{ display: 'none' }}
             onChange={handleFileChange}
           />
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            style={{ display: 'none' }}
+            onChange={handleFileChange}
+          />
           {previews.length === 0 ? (
-            <div 
-              style={{ 
-                border: '2px dashed var(--border)', 
-                borderRadius: 'var(--radius-lg)', 
-                padding: 'var(--space-8) var(--space-4)',
-                textAlign: 'center',
-                cursor: 'pointer',
-                marginBottom: 'var(--space-4)',
-                background: 'var(--surface)'
-              }}
-              onClick={() => fileRef.current?.click()}
-            >
-              <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--primary-50)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto var(--space-3)' }}>
-                <Camera size={24} color="var(--primary-500)" />
-              </div>
-              <p style={{ fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 var(--space-1) 0' }}>Dokument fotografieren</p>
-              <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', color: 'var(--text-tertiary)' }}>oder Datei/Bild auswählen</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+              <button
+                type="button"
+                className="btn btn-primary btn-full"
+                onClick={() => cameraRef.current?.click()}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)' }}
+              >
+                <Camera size={20} />
+                Mit Kamera scannen
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary btn-full"
+                onClick={() => fileRef.current?.click()}
+              >
+                Datei hochladen
+              </button>
             </div>
           ) : (
             <>
