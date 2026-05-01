@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   adminGetStats, adminGetAccounts, adminGetAnimals, adminGetPendingVerifications,
-  adminVerifyAccount, adminPatchAccount, adminGetAuditLog
+  adminVerifyAccount, adminPatchAccount, adminGetAuditLog, adminDeleteAccount, adminDeleteAnimal
 } from '../api/rest'
 import { PawPrint, LogOut, LayoutDashboard, Users, Cat, ShieldCheck, FileClock, CheckCircle, XCircle, Menu, X } from 'lucide-react'
 
@@ -432,9 +432,22 @@ export default function AdminPage() {
           </div>
 
           <button
+            className="btn btn-danger btn-full"
+            onClick={() => {
+              if (confirm(`${t('common.delete')} "${selectedAnimal.name}"?`)) {
+                adminDeleteAnimal(selectedAnimal.id).then(() => {
+                  setSelectedId(null)
+                  loadData()
+                })
+              }
+            }}
+            style={{ marginTop: 'var(--space-6)', marginBottom: 'var(--space-3)' }}
+          >
+            {t('common.delete')} Animal
+          </button>
+          <button
             className="btn btn-outline btn-full"
             onClick={() => setSelectedId(null)}
-            style={{ marginTop: 'var(--space-6)' }}
           >
             {t('common.cancel')}
           </button>
