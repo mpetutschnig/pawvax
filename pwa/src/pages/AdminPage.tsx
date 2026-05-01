@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   adminGetStats, adminGetAccounts, adminGetAnimals, adminGetPendingVerifications,
   adminVerifyAccount, adminPatchAccount, adminGetAuditLog
@@ -32,6 +33,7 @@ interface AuditLog {
 }
 
 export default function AdminPage() {
+  const { t, i18n } = useTranslation()
   const [section, setSection] = useState<Section>('overview')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -88,14 +90,14 @@ export default function AdminPage() {
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
             className="btn btn-ghost btn-icon admin-hamburger"
-            title="Toggle menu"
+            title={t('common.loading')}
             style={{ display: 'none' }}
           >
             {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
           <div className="admin-header-brand">
             <PawPrint size={20} strokeWidth={1.8} style={{ verticalAlign: 'middle', marginRight: 8 }} />
-            Vax.pet Admin
+            PAW {t('nav.admin')}
           </div>
         </div>
         <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
@@ -110,7 +112,7 @@ export default function AdminPage() {
               window.location.href = '/login'
             }}
             className="btn btn-ghost btn-icon"
-            title="Logout"
+            title={t('logout')}
           >
             <LogOut size={18} />
           </button>
@@ -120,11 +122,11 @@ export default function AdminPage() {
       {/* Sidebar */}
       <nav className="admin-sidebar" role="navigation" aria-label="Admin Navigation">
         {[
-          { id: 'overview', label: 'Übersicht', icon: <LayoutDashboard size={18} /> },
-          { id: 'accounts', label: 'Accounts', icon: <Users size={18} /> },
-          { id: 'animals', label: 'Tiere', icon: <Cat size={18} /> },
-          { id: 'verifications', label: 'Verifikationen', icon: <ShieldCheck size={18} /> },
-          { id: 'audit', label: 'Audit-Log', icon: <FileClock size={18} /> }
+          { id: 'overview', labelKey: 'admin.statistics', icon: <LayoutDashboard size={18} /> },
+          { id: 'accounts', labelKey: 'admin.accounts', icon: <Users size={18} /> },
+          { id: 'animals', labelKey: 'admin.animals', icon: <Cat size={18} /> },
+          { id: 'verifications', labelKey: 'admin.verifications', icon: <ShieldCheck size={18} /> },
+          { id: 'audit', labelKey: 'admin.audit', icon: <FileClock size={18} /> }
         ].map(item => (
           <a
             key={item.id}
@@ -139,7 +141,7 @@ export default function AdminPage() {
             style={{ cursor: 'pointer' }}
           >
             {item.icon}
-            <span>{item.label}</span>
+            <span>{t(item.labelKey as any)}</span>
           </a>
         ))}
       </nav>
@@ -151,13 +153,13 @@ export default function AdminPage() {
         {/* Overview */}
         {section === 'overview' && stats && !loading && (
           <div className="animate-fade-in">
-            <h1 style={{ marginBottom: 'var(--space-6)' }}>Systemübersicht</h1>
+            <h1 style={{ marginBottom: 'var(--space-6)' }}>{t('admin.statistics')}</h1>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--space-4)', marginBottom: 'var(--space-6)' }}>
               {[
-                { label: 'Registered Accounts', value: stats.accounts, trend: '+12%', up: true },
-                { label: 'Registered Animals', value: stats.animals, trend: '+5%', up: true },
-                { label: 'Scanned Documents', value: stats.documents, trend: '+18%', up: true },
-                { label: 'Audit Entries', value: stats.auditEntries, trend: '+2%', up: true },
+                { label: t('admin.registeredAccounts'), value: stats.accounts, trend: '+12%', up: true },
+                { label: t('admin.totalAnimals'), value: stats.animals, trend: '+5%', up: true },
+                { label: t('admin.totalDocuments'), value: stats.documents, trend: '+18%', up: true },
+                { label: t('admin.auditEntries'), value: stats.auditEntries, trend: '+2%', up: true },
               ].map(stat => (
                 <div key={stat.label} className="card card-sm" style={{ marginBottom: 0 }}>
                   <div style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text-primary)', lineHeight: 1 }}>
@@ -178,15 +180,15 @@ export default function AdminPage() {
         {/* Accounts Table */}
         {section === 'accounts' && !loading && (
           <div className="animate-fade-in">
-            <h1 style={{ marginBottom: 'var(--space-6)' }}>Account-Verwaltung</h1>
+            <h1 style={{ marginBottom: 'var(--space-6)' }}>{t('admin.accountManagement')}</h1>
             <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
               <table className="admin-table">
                 <thead>
                   <tr>
-                    <th>Name</th>
-                    <th>E-Mail</th>
-                    <th>Rollen</th>
-                    <th>Status</th>
+                    <th>{t('admin.name')}</th>
+                    <th>{t('admin.email')}</th>
+                    <th>{t('profile.roles')}</th>
+                    <th>{t('common.loading')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -202,7 +204,7 @@ export default function AdminPage() {
                         </div>
                       </td>
                       <td>
-                        {acc.verified ? <span className="badge badge-success">Verifiziert</span> : <span className="badge badge-warning">Unverifiziert</span>}
+                        {acc.verified ? <span className="badge badge-success">{t('admin.verified')}</span> : <span className="badge badge-warning">Pending</span>}
                       </td>
                     </tr>
                   ))}
@@ -215,15 +217,15 @@ export default function AdminPage() {
         {/* Animals Table */}
         {section === 'animals' && !loading && (
           <div className="animate-fade-in">
-            <h1 style={{ marginBottom: 'var(--space-6)' }}>Tiere im System</h1>
+            <h1 style={{ marginBottom: 'var(--space-6)' }}>{t('admin.animals')}</h1>
             <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
               <table className="admin-table">
                 <thead>
                   <tr>
-                    <th>Name</th>
-                    <th>Art</th>
-                    <th>Besitzer</th>
-                    <th>Email</th>
+                    <th>{t('admin.name')}</th>
+                    <th>{t('animals.species')}</th>
+                    <th>Owner</th>
+                    <th>{t('admin.email')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -249,11 +251,11 @@ export default function AdminPage() {
         {/* Verifications */}
         {section === 'verifications' && !loading && (
           <div className="animate-fade-in">
-            <h1 style={{ marginBottom: 'var(--space-6)' }}>Vet-Verifikationen</h1>
+            <h1 style={{ marginBottom: 'var(--space-6)' }}>{t('admin.verifications')}</h1>
             {verifications.length === 0 ? (
               <div className="card text-center" style={{ padding: 'var(--space-8)' }}>
                 <ShieldCheck size={48} color="var(--primary-200)" style={{ margin: '0 auto var(--space-4)' }} />
-                <p className="text-muted">Keine ausstehenden Verifikationen</p>
+                <p className="text-muted">{t('admin.noVerifications')}</p>
               </div>
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 'var(--space-4)' }}>
@@ -264,7 +266,7 @@ export default function AdminPage() {
                         <p style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'var(--font-size-base)', margin: '0 0 2px 0' }}>{v.name}</p>
                         <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', margin: 0 }}>{v.email}</p>
                       </div>
-                      <span className="badge badge-warning">Pending</span>
+                      <span className="badge badge-warning">{t('admin.pending')}</span>
                     </div>
                     <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
                       <button
@@ -272,14 +274,14 @@ export default function AdminPage() {
                         onClick={() => adminVerifyAccount(v.id, true).then(() => loadData())}
                         style={{ padding: '8px 0' }}
                       >
-                        <CheckCircle size={16} /> Genehmigen
+                        <CheckCircle size={16} /> {t('admin.approve')}
                       </button>
                       <button
                         className="btn btn-danger flex-1"
                         onClick={() => adminVerifyAccount(v.id, false).then(() => loadData())}
                         style={{ padding: '8px 0' }}
                       >
-                        <XCircle size={16} /> Ablehnen
+                        <XCircle size={16} /> {t('admin.reject')}
                       </button>
                     </div>
                   </div>
@@ -292,18 +294,18 @@ export default function AdminPage() {
         {/* Audit Log */}
         {section === 'audit' && auditLog && !loading && (
           <div className="animate-fade-in">
-            <h1 style={{ marginBottom: 'var(--space-6)' }}>Audit-Log</h1>
+            <h1 style={{ marginBottom: 'var(--space-6)' }}>{t('admin.auditLog')}</h1>
             <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
               <table className="admin-table">
                 <thead>
                   <tr>
-                    <th>Aktion</th>
+                    <th>{t('admin.action')}</th>
                     <th>Resource</th>
-                    <th>Benutzer</th>
-                    <th>Role</th>
+                    <th>{t('admin.user')}</th>
+                    <th>{t('admin.role')}</th>
                     <th>IP</th>
-                    <th>Details</th>
-                    <th>Zeitstempel</th>
+                    <th>{t('admin.details')}</th>
+                    <th>{t('admin.timestamp')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -322,7 +324,7 @@ export default function AdminPage() {
                         </td>
                         <td style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>{entry.ip || '—'}</td>
                         <td style={{ fontSize: '11px', color: 'var(--text-tertiary)', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={detailsText}>{detailsText}</td>
-                        <td className="text-tertiary" style={{ fontSize: '12px', whiteSpace: 'nowrap' }}>{new Date(entry.created_at).toLocaleString('de-AT')}</td>
+                        <td className="text-tertiary" style={{ fontSize: '12px', whiteSpace: 'nowrap' }}>{new Date(entry.created_at).toLocaleString(i18n.language === 'de' ? 'de-AT' : 'en-GB')}</td>
                       </tr>
                     )
                   })}
@@ -335,7 +337,7 @@ export default function AdminPage() {
                 onClick={() => setAuditPage(p => Math.max(1, p - 1))}
                 disabled={auditPage === 1}
               >
-                Zurück
+                {t('common.back')}
               </button>
               <span className="text-muted" style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600 }}>
                 {auditPage} / {auditLog.pages}
@@ -345,7 +347,7 @@ export default function AdminPage() {
                 onClick={() => setAuditPage(p => p + 1)}
                 disabled={auditPage === auditLog.pages}
               >
-                Weiter
+                Next
               </button>
             </div>
           </div>
@@ -360,7 +362,7 @@ export default function AdminPage() {
 
           <hr className="divider" style={{ margin: 'var(--space-4) 0' }} />
 
-          <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--space-3)' }}>Rollen</h3>
+          <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--space-3)' }}>{t('profile.roles')}</h3>
           <div style={{ display: 'grid', gap: 'var(--space-2)' }}>
             {['user', 'vet', 'authority', 'admin'].map(r => (
               <label key={r} style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center', cursor: 'pointer', padding: 'var(--space-2) 0' }}>
@@ -381,7 +383,7 @@ export default function AdminPage() {
 
           <hr className="divider" style={{ margin: 'var(--space-4) 0' }} />
 
-          <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--space-3)' }}>Verifizierung</h3>
+          <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--space-3)' }}>{t('profile.verification')}</h3>
           <label style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center', cursor: 'pointer', padding: 'var(--space-2) 0' }}>
             <input
               type="checkbox"
@@ -389,7 +391,7 @@ export default function AdminPage() {
               checked={!!selectedAccount.verified}
               onChange={e => adminPatchAccount(selectedAccount.id, { verified: e.target.checked }).then(() => loadData())}
             />
-            <span style={{ fontSize: 'var(--font-size-sm)' }}>Account ist verifiziert</span>
+            <span style={{ fontSize: 'var(--font-size-sm)' }}>Account {t('admin.verified')}</span>
           </label>
 
           <button
@@ -397,7 +399,7 @@ export default function AdminPage() {
             onClick={() => setSelectedId(null)}
             style={{ marginTop: 'var(--space-6)' }}
           >
-            Schließen
+            {t('common.cancel')}
           </button>
         </div>
       )}
@@ -409,21 +411,21 @@ export default function AdminPage() {
             {selectedAnimal.species === 'cat' ? <Cat size={14} color="var(--text-tertiary)" /> : <PawPrint size={14} color="var(--text-tertiary)" />}
             <span className="text-muted" style={{ textTransform: 'capitalize' }}>{selectedAnimal.species}</span>
           </div>
-          
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
             <div>
-              <p className="text-tertiary" style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '0 0 2px 0' }}>Rasse</p>
+              <p className="text-tertiary" style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '0 0 2px 0' }}>{t('animals.breed')}</p>
               <p style={{ margin: 0, fontWeight: 500 }}>{selectedAnimal.breed || '—'}</p>
             </div>
             <div>
-              <p className="text-tertiary" style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '0 0 2px 0' }}>Geburtsdatum</p>
+              <p className="text-tertiary" style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '0 0 2px 0' }}>{t('animal.birthdate')}</p>
               <p style={{ margin: 0, fontWeight: 500 }}>{selectedAnimal.birthdate || '—'}</p>
             </div>
           </div>
 
           <hr className="divider" style={{ margin: 'var(--space-6) 0' }} />
 
-          <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--space-3)' }}>Besitzer Information</h3>
+          <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--space-3)' }}>Owner Information</h3>
           <div className="card card-sm" style={{ background: 'var(--surface)', border: 'none' }}>
             <p style={{ margin: '0 0 4px 0', fontWeight: 600 }}>{selectedAnimal.owner_name}</p>
             <p className="text-muted" style={{ margin: 0, fontSize: 'var(--font-size-sm)' }}>{selectedAnimal.owner_email}</p>
@@ -434,7 +436,7 @@ export default function AdminPage() {
             onClick={() => setSelectedId(null)}
             style={{ marginTop: 'var(--space-6)' }}
           >
-            Schließen
+            {t('common.cancel')}
           </button>
         </div>
       )}
