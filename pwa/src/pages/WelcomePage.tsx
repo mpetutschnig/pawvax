@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { PawPrint, Radio, Edit3, Lock, CheckCircle, AlertCircle } from 'lucide-react'
+import { PawPrint, Radio, Edit3, CheckCircle, AlertCircle } from 'lucide-react'
 
 export default function WelcomePage() {
   const navigate = useNavigate()
