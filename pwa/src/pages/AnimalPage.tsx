@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { getAnimal, getAnimalDocuments, getAnimalTags, updateAnimal, deleteAnimal, uploadAnimalAvatar, deleteDocument } from '../api/rest'
 import { PageHeader } from '../components/PageHeader'
-import { PawPrint, Cat, Edit2, Trash2, Tag, Lock, Camera, Search, Syringe, FileText, Radio, CheckCircle, ShieldAlert, AlertTriangle, RefreshCw } from 'lucide-react'
+import { PawPrint, Cat, Edit2, Trash2, Lock, Camera, Search, Syringe, FileText, Radio, CheckCircle, ShieldAlert, AlertTriangle, RefreshCw } from 'lucide-react'
 
 interface Animal {
   id: string; name: string; species: string; breed?: string; birthdate?: string;
@@ -386,13 +386,13 @@ export default function AnimalPage() {
 
       {tags.length > 0 && (
         <div style={{ marginBottom: 'var(--space-6)' }}>
-          <h3 style={{ marginBottom: 'var(--space-3)' }}>IDs ({tags.length})</h3>
+          <h3 style={{ marginBottom: 'var(--space-3)' }}>ID-Chips ({tags.length})</h3>
           {tags.map(tag => (
             <div key={tag.tag_id} className="card card-sm" style={{ marginBottom: 'var(--space-2)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', justifyContent: 'space-between' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: '4px' }}>
-                    {tag.tag_type === 'barcode' ? <Radio size={16} color="var(--primary-500)" /> : <Tag size={16} color="var(--primary-500)" />}
+                    {tag.tag_type === 'nfc' ? <Radio size={16} color="var(--primary-500)" /> : <Camera size={16} color="var(--primary-500)" />}
                     <span style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', wordBreak: 'break-all' }}>
                       {tag.tag_id}
                     </span>
