@@ -184,78 +184,92 @@ export default function PublicScanPage() {
   // Scan-Phase
   return (
     <div className="container page" style={{ maxWidth: 480, margin: '0 auto' }}>
-      <div style={{ textAlign: 'center', marginBottom: 'var(--space-6)', paddingTop: 'var(--space-4)' }}>
-        <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 56, height: 56, borderRadius: '50%', background: 'var(--primary-50)', marginBottom: 'var(--space-3)' }}>
-          <PawPrint size={28} color="var(--primary-500)" />
-        </div>
-        <h1 style={{ margin: '0 0 4px 0', fontSize: 'var(--font-size-xl)' }}>Tier scannen</h1>
-        <p className="text-muted" style={{ margin: 0, fontSize: 'var(--font-size-sm)' }}>
-          Wähle deine Scannmethode
-        </p>
-      </div>
-
-      {(cameraError || nfcError) && (
-        <div className="error-card" style={{ marginBottom: 'var(--space-4)' }}>
-          <p>{cameraError || nfcError}</p>
-        </div>
-      )}
-
-      {scanMode === 'barcode' && (
-        <div style={{ marginBottom: 'var(--space-4)' }}>
-          <div
-            id="public-barcode-reader"
-            style={{ borderRadius: 'var(--radius-lg)', overflow: 'hidden', minHeight: 240, background: 'var(--surface)' }}
-          />
-        </div>
-      )}
-
-      <div style={{ display: 'grid', gap: 'var(--space-3)' }}>
-        {loading && scanMode ? (
-          <div style={{ textAlign: 'center', padding: 'var(--space-4)' }}>
-            <div className="spinner" />
+      {scanMode === null ? (
+        // Auswahl-Phase
+        <>
+          <div style={{ textAlign: 'center', marginBottom: 'var(--space-6)', paddingTop: 'var(--space-4)' }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 64, height: 64, borderRadius: '50%', background: 'var(--primary-50)', marginBottom: 'var(--space-4)' }}>
+              <PawPrint size={32} color="var(--primary-500)" />
+            </div>
+            <h1 style={{ margin: '0 0 4px 0', fontSize: 'var(--font-size-xl)' }}>Tier scannen</h1>
+            <p className="text-muted" style={{ margin: 0, fontSize: 'var(--font-size-sm)' }}>
+              Wähle deine Scan-Methode
+            </p>
           </div>
-        ) : scanMode === null ? (
-          // Auswahl-Phase: Buttons zum Auswählen
-          <>
+
+          <div style={{ display: 'grid', gap: 'var(--space-3)' }}>
             <button
               className="btn btn-primary btn-full"
               onClick={() => setScanMode('barcode')}
+              style={{ padding: 'var(--space-4)', fontSize: 'var(--font-size-base)', fontWeight: 600 }}
             >
-              <Camera size={18} /> Barcode/QR scannen
+              <Camera size={20} /> QR-Code / Barcode scannen
             </button>
             {('NDEFReader' in window) && (
               <button
                 className="btn btn-outline btn-full"
                 onClick={() => setScanMode('nfc')}
+                style={{ padding: 'var(--space-4)', fontSize: 'var(--font-size-base)', fontWeight: 600 }}
               >
-                <Radio size={18} /> NFC lesen
+                <Radio size={20} /> NFC-Tag auslesen
               </button>
             )}
-            <button className="btn btn-ghost btn-full" onClick={() => navigate('/login')}>
-              <LogIn size={16} /> Anmelden
+            <button className="btn btn-ghost btn-full" onClick={() => navigate('/login')} style={{ marginTop: 'var(--space-2)' }}>
+              <LogIn size={18} /> Anmelden
             </button>
-          </>
-        ) : (
-          // Scanner aktiv: Zurück-Button
-          <>
-            <button
-              className="btn btn-ghost btn-full"
-              onClick={() => {
-                stopBarcode()
-                stopNfc?.()
-                setScanMode(null)
-                setCameraError(null)
-                setNfcError(null)
-              }}
-            >
-              ← Zurück zur Auswahl
-            </button>
-            <button className="btn btn-ghost btn-full" onClick={() => navigate('/login')}>
-              <LogIn size={16} /> Anmelden
-            </button>
-          </>
-        )}
-      </div>
+          </div>
+        </>
+      ) : (
+        // Scanner aktiv
+        <>
+          <div style={{ textAlign: 'center', marginBottom: 'var(--space-4)', paddingTop: 'var(--space-4)' }}>
+            <h1 style={{ margin: 0, fontSize: 'var(--font-size-lg)' }}>
+              {scanMode === 'barcode' ? '📱 QR-Code / Barcode' : '📡 NFC-Tag'}
+            </h1>
+          </div>
+
+          {(cameraError || nfcError) && (
+            <div className="error-card" style={{ marginBottom: 'var(--space-4)' }}>
+              <p>{cameraError || nfcError}</p>
+            </div>
+          )}
+
+          {scanMode === 'barcode' && (
+            <div style={{ marginBottom: 'var(--space-4)' }}>
+              <div
+                id="public-barcode-reader"
+                style={{ borderRadius: 'var(--radius-lg)', overflow: 'hidden', minHeight: 240, background: 'var(--surface)' }}
+              />
+            </div>
+          )}
+
+          <div style={{ display: 'grid', gap: 'var(--space-3)' }}>
+            {loading ? (
+              <div style={{ textAlign: 'center', padding: 'var(--space-4)' }}>
+                <div className="spinner" />
+              </div>
+            ) : (
+              <>
+                <button
+                  className="btn btn-ghost btn-full"
+                  onClick={() => {
+                    stopBarcode()
+                    stopNfc?.()
+                    setScanMode(null)
+                    setCameraError(null)
+                    setNfcError(null)
+                  }}
+                >
+                  ← Zurück zur Auswahl
+                </button>
+                <button className="btn btn-ghost btn-full" onClick={() => navigate('/login')}>
+                  <LogIn size={18} /> Anmelden
+                </button>
+              </>
+            )}
+          </div>
+        </>
+      )}
     </div>
   )
 }
