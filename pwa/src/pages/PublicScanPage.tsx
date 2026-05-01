@@ -14,7 +14,7 @@ export default function PublicScanPage() {
   const [cameraError, setCameraError] = useState<string | null>(null)
   const [nfcError, setNfcError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const [scanMode, setScanMode] = useState<'barcode' | 'nfc' | null>('barcode')
+  const [scanMode, setScanMode] = useState<'barcode' | 'nfc' | null>(null)
 
   const handleTag = useCallback(async (rawTagId: string) => {
     setLoading(true)
@@ -44,12 +44,14 @@ export default function PublicScanPage() {
   const handleNfc = useCallback((tagId: string) => handleTag(tagId), [handleTag])
   const { start: startNfc, stop: stopNfc } = useNfc(handleNfc, setNfcError)
 
-  // Auto-start barcode scanner on mount
+  // Start selected scanner
   useEffect(() => {
     if (phase === 'scan' && scanMode === 'barcode') {
       startBarcode()
+    } else if (phase === 'scan' && scanMode === 'nfc') {
+      startNfc()
     }
-  }, [phase, scanMode, startBarcode])
+  }, [phase, scanMode, startBarcode, startNfc])
 
   const speciesEmoji: Record<string, string> = { dog: '🐶', cat: '🐱', other: '🐾' }
 
@@ -186,13 +188,8 @@ export default function PublicScanPage() {
         </div>
         <h1 style={{ margin: '0 0 4px 0', fontSize: 'var(--font-size-xl)' }}>Tier scannen</h1>
         <p className="text-muted" style={{ margin: 0, fontSize: 'var(--font-size-sm)' }}>
-          Scanne den QR-Code, Barcode oder NFC-Chip des Tieres
+          Wähle deine Scannmethode
         </p>
-        {('NDEFReader' in window) && (
-          <p style={{ margin: 'var(--space-2) 0 0 0', fontSize: 'var(--font-size-xs)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', color: 'var(--success-500)' }}>
-            <Radio size={12} /> NFC verfügbar
-          </p>
-        )}
       </div>
 
       {(cameraError || nfcError) && (
@@ -211,39 +208,49 @@ export default function PublicScanPage() {
       )}
 
       <div style={{ display: 'grid', gap: 'var(--space-3)' }}>
-        {loading ? (
+        {loading && scanMode ? (
           <div style={{ textAlign: 'center', padding: 'var(--space-4)' }}>
             <div className="spinner" />
           </div>
-        ) : (
+        ) : scanMode === null ? (
+          // Auswahl-Phase: Buttons zum Auswählen
           <>
             <button
               className="btn btn-primary btn-full"
-              onClick={() => {
-                setScanMode('barcode')
-                startBarcode()
-              }}
-              disabled={scanMode === 'nfc'}
+              onClick={() => setScanMode('barcode')}
             >
               <Camera size={18} /> Barcode/QR scannen
             </button>
             {('NDEFReader' in window) && (
               <button
                 className="btn btn-outline btn-full"
-                onClick={() => {
-                  setScanMode('nfc')
-                  startNfc()
-                }}
-                disabled={scanMode === 'barcode'}
+                onClick={() => setScanMode('nfc')}
               >
                 <Radio size={18} /> NFC lesen
               </button>
             )}
+            <button className="btn btn-ghost btn-full" onClick={() => navigate('/login')}>
+              <LogIn size={16} /> Anmelden
+            </button>
+          </>
+        ) : (
+          // Scanner aktiv: Zurück-Button
+          <>
+            <button
+              className="btn btn-ghost btn-full"
+              onClick={() => {
+                setScanMode(null)
+                setCameraError(null)
+                setNfcError(null)
+              }}
+            >
+              ← Zurück zur Auswahl
+            </button>
+            <button className="btn btn-ghost btn-full" onClick={() => navigate('/login')}>
+              <LogIn size={16} /> Anmelden
+            </button>
           </>
         )}
-        <button className="btn btn-ghost btn-full" onClick={() => navigate('/login')}>
-          <LogIn size={16} /> Anmelden
-        </button>
       </div>
     </div>
   )
