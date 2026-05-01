@@ -49,7 +49,7 @@ await fastify.register(fastifyHelmet, {
 await fastify.register(fastifyJwt, { secret: jwtSecret, sign: { expiresIn: '7d' } })
 await fastify.register(fastifyRateLimit, {
   max: 100,
-  timeWindow: '15 minutes'
+  timeWindow: '1 minute'
 })
 await fastify.register(fastifyWs)
 await fastify.register(fastifyStatic, {
