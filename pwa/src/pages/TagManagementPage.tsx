@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { getAnimalTags, addTag, deactivateTag, activateTag } from '../api/rest'
 import { useBarcode } from '../hooks/useBarcode'
 import { useNfc } from '../hooks/useNfc'
@@ -10,6 +11,7 @@ interface Tag { tag_id: string; tag_type: string; active: number; added_at: stri
 
 export default function TagManagementPage() {
   const { id } = useParams<{ id: string }>()
+  const { t, i18n } = useTranslation()
   const [tags, setTags] = useState<Tag[]>([])
   const [loading, setLoading] = useState(true)
   const [scanning, setScanning] = useState<'none' | 'barcode' | 'nfc'>('none')
@@ -49,7 +51,7 @@ export default function TagManagementPage() {
 
     // Check if tag is already on this animal
     if (tags.find(t => t.tag_id === tagId)) {
-      setError('Dieser Tag ist bereits diesem Tier zugeordnet.')
+      setError(t('common.error'))
       return
     }
 
@@ -58,31 +60,31 @@ export default function TagManagementPage() {
       reload()
     } catch (err: unknown) {
       const status = (err as { response?: { status?: number } })?.response?.status
-      setError(status === 409 ? 'Dieser Tag gehört bereits einem anderen Tier' : 'Tag konnte nicht hinzugefügt werden')
+      setError(status === 409 ? t('common.error') : t('chip.addError'))
     }
-  }, [id, reload, tags])
+  }, [id, reload, tags, t])
 
   async function toggleTag(tag: Tag) {
     try {
       if (tag.active) await deactivateTag(tag.tag_id)
       else await activateTag(tag.tag_id)
       reload()
-    } catch { setError('Status konnte nicht geändert werden') }
+    } catch { setError(t('common.error')) }
   }
 
   return (
     <div className="container page">
-      <PageHeader title="Chips verwalten" backTo={`/animals/${id}`} showThemeToggle />
+      <PageHeader title={t('chip.manage')} backTo={`/animals/${id}`} showThemeToggle />
 
       {error && <div className="error-card" style={{ marginBottom: 'var(--space-4)' }}><p>{error}</p></div>}
 
       {loading ? <div style={{ display: 'flex', justifyContent: 'center', marginTop: 'var(--space-6)' }}><div className="spinner"></div></div> : (
         <div className="animate-fade-in">
-          <h3 style={{ marginBottom: 'var(--space-3)', fontSize: 'var(--font-size-base)' }}>Registrierte Chips ({tags.length})</h3>
+          <h3 style={{ marginBottom: 'var(--space-3)', fontSize: 'var(--font-size-base)' }}>{t('chip.registered')} ({tags.length})</h3>
           {tags.length === 0 && (
             <div className="card text-center">
               <TagIcon size={32} color="var(--text-tertiary)" style={{ margin: '0 auto var(--space-3)' }} />
-              <p className="text-muted">Noch keine Chips zugeordnet.</p>
+              <p className="text-muted">{t('chip.noTags')}</p>
             </div>
           )}
           <div style={{ display: 'grid', gap: 'var(--space-3)' }}>
@@ -91,29 +93,29 @@ export default function TagManagementPage() {
                 <div>
                   <p style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', wordBreak: 'break-all', margin: '0 0 2px 0' }}>{tag.tag_id}</p>
                   <p className="text-tertiary" style={{ fontSize: 'var(--font-size-xs)', margin: 0, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    {tag.tag_type === 'nfc' ? <><Radio size={10} /> NFC</> : <><Camera size={10} /> Barcode</>}
+                    {tag.tag_type === 'nfc' ? <><Radio size={10} /> {t('chip.nfc')}</> : <><Camera size={10} /> {t('chip.barcode')}</>}
                     <span style={{ margin: '0 4px' }}>•</span>
-                    {new Date(tag.added_at).toLocaleDateString('de-AT')}
+                    {new Date(tag.added_at).toLocaleDateString(i18n.language === 'de' ? 'de-AT' : 'en-GB')}
                   </p>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', alignItems: 'flex-end' }}>
                   {tag.active ? (
-                    <span className="badge badge-success"><CheckCircle size={10} /> Aktiv</span>
+                    <span className="badge badge-success"><CheckCircle size={10} /> {t('chip.active')}</span>
                   ) : (
-                    <span className="badge badge-warning"><XCircle size={10} /> Inaktiv</span>
+                    <span className="badge badge-warning"><XCircle size={10} /> {t('chip.inactive')}</span>
                   )}
                   <button
                     style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 'var(--font-size-xs)', color: 'var(--primary-600)', fontWeight: 600, padding: 0 }}
                     onClick={() => toggleTag(tag)}
                   >
-                    {tag.active ? 'Deaktivieren' : 'Aktivieren'}
+                    {tag.active ? t('chip.delete') : t('chip.active')}
                   </button>
                 </div>
               </div>
             ))}
           </div>
 
-          <h3 style={{ marginTop: 'var(--space-6)', marginBottom: 'var(--space-3)', fontSize: 'var(--font-size-base)' }}>Neue Chips hinzufügen</h3>
+          <h3 style={{ marginTop: 'var(--space-6)', marginBottom: 'var(--space-3)', fontSize: 'var(--font-size-base)' }}>{t('chip.addNew')}</h3>
           <div style={{ display: 'grid', gap: 'var(--space-3)' }}>
             <button
               onClick={() => setScanning('barcode')}
@@ -134,7 +136,7 @@ export default function TagManagementPage() {
               onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-hover)'}
               onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
             >
-              <Camera size={20} /> Barcode/QR scannen
+              <Camera size={20} /> {t('chip.barcodeScanBtn')}
             </button>
             <button
               onClick={() => setScanning('nfc')}
@@ -156,9 +158,9 @@ export default function TagManagementPage() {
               }}
               onMouseEnter={(e) => !('NDEFReader' in window) ? undefined : e.currentTarget.style.backgroundColor = 'var(--bg-hover)'}
               onMouseLeave={(e) => !('NDEFReader' in window) ? undefined : e.currentTarget.style.backgroundColor = 'transparent'}
-              title={!('NDEFReader' in window) ? 'NFC wird nur auf Android Chrome mit NFC-Hardware unterstützt' : ''}
+              title={!('NDEFReader' in window) ? t('chip.nfcNotSupported') : ''}
             >
-              <Radio size={20} /> NFC lesen {!('NDEFReader' in window) && <span style={{ fontSize: 'var(--font-size-xs)', marginLeft: 'auto', color: 'var(--text-tertiary)' }}>(nicht unterstützt)</span>}
+              <Radio size={20} /> {t('chip.nfcScanBtn')} {!('NDEFReader' in window) && <span style={{ fontSize: 'var(--font-size-xs)', marginLeft: 'auto', color: 'var(--text-tertiary)' }}>({t('chip.nfcNotSupported')})</span>}
             </button>
           </div>
 
