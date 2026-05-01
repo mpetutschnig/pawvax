@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 
 export type NfcState = 'idle' | 'scanning' | 'done' | 'unsupported' | 'error'
 
@@ -7,8 +7,7 @@ export function useNfc(onTag: (id: string) => void, onError?: (msg: string) => v
     'NDEFReader' in window ? 'idle' : 'unsupported'
   )
   const [error, setError] = useState<string | null>(null)
-
-  let nfcReader: any = null
+  const nfcReaderRef = useRef<any>(null)
 
   const start = useCallback(async () => {
     if (!('NDEFReader' in window)) {
@@ -24,17 +23,17 @@ export function useNfc(onTag: (id: string) => void, onError?: (msg: string) => v
 
     try {
       // @ts-expect-error — Web NFC API types not in lib
-      nfcReader = new window.NDEFReader()
-      await nfcReader.scan()
+      nfcReaderRef.current = new window.NDEFReader()
+      await nfcReaderRef.current.scan()
 
-      nfcReader.onreadingerror = () => {
+      nfcReaderRef.current.onreadingerror = () => {
         const msg = 'NFC-Tag konnte nicht gelesen werden'
         setError(msg)
         setState('error')
         onError?.(msg)
       }
 
-      nfcReader.onreading = (event: { serialNumber: string }) => {
+      nfcReaderRef.current.onreading = (event: { serialNumber: string }) => {
         const tagId = event.serialNumber.replace(/:/g, '').toUpperCase()
         setState('done')
         onTag(tagId)
@@ -48,8 +47,8 @@ export function useNfc(onTag: (id: string) => void, onError?: (msg: string) => v
   }, [onTag, onError])
 
   const stop = useCallback(() => {
-    if (nfcReader) {
-      nfcReader.abort?.()
+    if (nfcReaderRef.current) {
+      nfcReaderRef.current.abort?.()
     }
     setState('idle')
   }, [])
