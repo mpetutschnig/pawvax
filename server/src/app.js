@@ -6,6 +6,8 @@ import fastifyCors from '@fastify/cors'
 import fastifyHelmet from '@fastify/helmet'
 import fastifyRateLimit from '@fastify/rate-limit'
 import fastifyStatic from '@fastify/static'
+import fastifySwagger from '@fastify/swagger'
+import fastifySwaggerUi from '@fastify/swagger-ui'
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
 import { initDb, getDb } from './db/index.js'
@@ -55,6 +57,22 @@ await fastify.register(fastifyWs)
 await fastify.register(fastifyStatic, {
   root: join(__dir, '..', process.env.UPLOADS_DIR ?? 'uploads'),
   prefix: '/uploads/'
+})
+
+await fastify.register(fastifySwagger, {
+  openapi: {
+    info: { title: 'PAW API', description: 'Digitaler Tierimpfpass REST API', version: '1.0.0' },
+    components: {
+      securitySchemes: {
+        bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' }
+      }
+    },
+    security: [{ bearerAuth: [] }]
+  }
+})
+
+await fastify.register(fastifySwaggerUi, {
+  routePrefix: '/documentation'
 })
 
 // JWT-Authenticate Decorator für geschützte Routen
