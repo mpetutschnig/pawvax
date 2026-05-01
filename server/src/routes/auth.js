@@ -156,6 +156,9 @@ export default async function authRoutes(fastify) {
       }
     }
 
+    db.prepare('DELETE FROM org_memberships WHERE account_id = ? OR invited_by = ?').run(accountId, accountId)
+    db.prepare('DELETE FROM organizations WHERE owner_id = ?').run(accountId)
+    db.prepare('UPDATE documents SET added_by_account = NULL WHERE added_by_account = ?').run(accountId)
     db.prepare('DELETE FROM audit_log WHERE account_id = ?').run(accountId)
     db.prepare('DELETE FROM accounts WHERE id = ?').run(accountId)
     return reply.code(204).send()
