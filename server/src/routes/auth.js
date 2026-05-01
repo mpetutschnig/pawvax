@@ -156,8 +156,8 @@ export default async function authRoutes(fastify) {
       }
     }
 
+    db.prepare('DELETE FROM audit_log WHERE account_id = ?').run(accountId)
     db.prepare('DELETE FROM accounts WHERE id = ?').run(accountId)
-    logAudit(db, { accountId, role: 'deleted', action: 'delete_account', resource: 'account', resourceId: accountId, ip: req.ip })
     return reply.code(204).send()
   })
 }
