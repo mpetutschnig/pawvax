@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { getAnimal, getAnimalDocuments, getAnimalTags, updateAnimal, deleteAnimal, uploadAnimalAvatar, deleteDocument } from '../api/rest'
 import { PageHeader } from '../components/PageHeader'
 import { PawPrint, Cat, Edit2, Trash2, Lock, Camera, Search, Syringe, FileText, Radio, CheckCircle, ShieldAlert, AlertTriangle, RefreshCw } from 'lucide-react'
@@ -15,11 +16,19 @@ interface Document {
   id: string; doc_type: string; created_at: string; ocr_provider: string; added_by_role?: string; analysis_status?: string
 }
 
-const docTypeLabel: Record<string, string> = { vaccination: 'Vaccination', medication: 'Medication', other: 'Document' }
-
 export default function AnimalPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { t, i18n } = useTranslation()
+
+  const docTypeLabel = (type: string) => {
+    const typeMap: Record<string, string> = {
+      vaccination: t('animal.docTypeVaccination'),
+      medication: t('animal.docTypeMedication'),
+      other: t('animal.docTypeOther')
+    }
+    return typeMap[type] || type
+  }
   const [animal, setAnimal] = useState<Animal | null>(null)
   const [tags, setTags] = useState<AnimalTag[]>([])
   const [documents, setDocuments] = useState<Document[]>([])
@@ -57,8 +66,8 @@ export default function AnimalPage() {
       // Remove from pending list and reload documents
       setPendingDocuments(prev => prev.filter(d => d.id !== docId))
 
-      // Reload documents
-      const docsRes = await fetch(`/api/animals/${id}/documents`)
+      // Reload documents with auth header
+      const docsRes = await fetch(`/api/animals/${id}/documents`, { headers })
       const newDocs = await docsRes.json()
       setDocuments(newDocs)
 
@@ -128,7 +137,7 @@ export default function AnimalPage() {
   }
 
   const handleDelete = async () => {
-    if (!id || !window.confirm('Bist du sicher, dass du dieses Tier löschen möchtest?')) return
+    if (!id || !window.confirm(t('animal.deleteConfirm'))) return
     try {
       setSubmitting(true)
       await deleteAnimal(id)
@@ -251,19 +260,19 @@ export default function AnimalPage() {
               <div>
                 <h2 style={{ color: 'white', margin: 0, fontFamily: 'var(--font-display)' }}>{animal.name}</h2>
                 <p style={{ color: 'oklch(100% 0 0 / 0.70)', margin: 0, fontSize: 'var(--font-size-sm)' }}>
-                  {animal.breed} {animal.birthdate ? `· ${new Date().getFullYear() - new Date(animal.birthdate).getFullYear()} Jahre` : ''}
+                  {animal.breed} {animal.birthdate ? `· ${new Date().getFullYear() - new Date(animal.birthdate).getFullYear()} ${t('animal.yearsOld')}` : ''}
                 </p>
               </div>
             </div>
             <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap', marginBottom: animal.dynamic_fields ? 'var(--space-3)' : 0 }}>
               {isVetVerified && (
                 <span style={{ background: 'oklch(100% 0 0 / 0.15)', border: '1px solid oklch(100% 0 0 / 0.22)', borderRadius: 'var(--radius-full)', padding: '3px 10px', fontSize: 11, fontWeight: 600, color: 'white' }}>
-                  Vet Verified
+                  {t('animal.vetVerified')}
                 </span>
               )}
               {hasNfcTag && (
                 <span style={{ background: 'oklch(100% 0 0 / 0.15)', border: '1px solid oklch(100% 0 0 / 0.22)', borderRadius: 'var(--radius-full)', padding: '3px 10px', fontSize: 11, fontWeight: 600, color: 'white' }}>
-                  NFC Active
+                  {t('animal.nfcActive')}
                 </span>
               )}
             </div>
@@ -281,25 +290,25 @@ export default function AnimalPage() {
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
-            <button className="btn btn-secondary" onClick={() => setEditing(true)}><Edit2 size={16} /> Bearbeiten</button>
-            <button className="btn btn-outline" onClick={handleDelete} disabled={submitting} style={{ borderColor: 'var(--danger-500)', color: 'var(--danger-500)' }}><Trash2 size={16} /> Löschen</button>
+            <button className="btn btn-secondary" onClick={() => setEditing(true)}><Edit2 size={16} /> {t('animal.edit')}</button>
+            <button className="btn btn-outline" onClick={handleDelete} disabled={submitting} style={{ borderColor: 'var(--danger-500)', color: 'var(--danger-500)' }}><Trash2 size={16} /> {t('animal.delete')}</button>
             <Link to={`/animals/${id}/tags`} className="btn btn-ghost" style={{ textDecoration: 'none' }}>
-              <Radio size={16} /> Chips
+              <Radio size={16} /> {t('animal.chips')}
             </Link>
             <Link to={`/animals/${id}/sharing`} className="btn btn-ghost" style={{ textDecoration: 'none' }}>
-              <Lock size={16} /> Freigaben
+              <Lock size={16} /> {t('animal.sharing')}
             </Link>
           </div>
           <Link to={`/animals/${id}/scan`} className="btn btn-primary btn-full" style={{ marginBottom: 'var(--space-6)' }}>
-            <Camera size={18} /> Dokument scannen
+            <Camera size={18} /> {t('animal.addDocument')}
           </Link>
         </>
       ) : (
         <div className="card animate-slide-up">
-          <h3 style={{ marginBottom: 'var(--space-4)' }}>Daten bearbeiten</h3>
+          <h3 style={{ marginBottom: 'var(--space-4)' }}>{t('animalEdit.title')}</h3>
           <form>
             <div className="form-group">
-              <label className="form-label">Name</label>
+              <label className="form-label">{t('animalEdit.name')}</label>
               <input
                 className="form-input"
                 type="text"
@@ -310,31 +319,31 @@ export default function AnimalPage() {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Tierart</label>
+              <label className="form-label">{t('animalEdit.species')}</label>
               <select
                 className="form-select"
                 value={editData?.species || 'dog'}
                 onChange={(e) => setEditData({ ...editData!, species: e.target.value })}
               >
-                <option value="dog">Hund</option>
-                <option value="cat">Katze</option>
-                <option value="other">Sonstiges</option>
+                <option value="dog">{t('animals.dog')}</option>
+                <option value="cat">{t('animals.cat')}</option>
+                <option value="other">{t('animals.other')}</option>
               </select>
             </div>
 
             <div className="form-group">
-              <label className="form-label">Rasse (optional)</label>
+              <label className="form-label">{t('animalEdit.breed')}</label>
               <input
                 className="form-input"
                 type="text"
                 value={editData?.breed || ''}
                 onChange={(e) => setEditData({ ...editData!, breed: e.target.value })}
-                placeholder="z.B. Golden Retriever"
+                placeholder={t('animals.breedPlaceholder')}
               />
             </div>
 
             <div className="form-group">
-              <label className="form-label">Geburtsdatum (optional)</label>
+              <label className="form-label">{t('animalEdit.birthdate')}</label>
               <input
                 type="date"
                 className="form-input"
@@ -344,7 +353,7 @@ export default function AnimalPage() {
             </div>
             
             <div className="form-group">
-              <label className="form-label">Profilbild (optional)</label>
+              <label className="form-label">{t('animals.optional')} Avatar</label>
               <input
                 type="file"
                 accept="image/*"
@@ -361,7 +370,7 @@ export default function AnimalPage() {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Dynamische Felder (JSON Format)</label>
+              <label className="form-label">Dynamic Fields (JSON)</label>
               <textarea
                 className="form-input"
                 rows={3}
@@ -369,15 +378,15 @@ export default function AnimalPage() {
                 value={editData?.dynamic_fields || ''}
                 onChange={(e) => setEditData({ ...editData!, dynamic_fields: e.target.value })}
               />
-              <p className="text-muted" style={{ fontSize: '11px', marginTop: 'var(--space-1)' }}>Erlaubt beliebige Key-Value Paare.</p>
+              <p className="text-muted" style={{ fontSize: '11px', marginTop: 'var(--space-1)' }}>Custom key-value pairs</p>
             </div>
 
             <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-6)' }}>
               <button type="button" className="btn btn-primary flex-1" onClick={handleEdit} disabled={submitting}>
-                {submitting ? 'Speichert...' : 'Speichern'}
+                {submitting ? `${t('animalEdit.saving')}...` : t('animalEdit.save')}
               </button>
               <button type="button" className="btn btn-ghost flex-1" onClick={() => { setEditing(false); setEditData(animal) }} disabled={submitting}>
-                Abbrechen
+                {t('animalEdit.cancel')}
               </button>
             </div>
           </form>
@@ -386,7 +395,7 @@ export default function AnimalPage() {
 
       {tags.length > 0 && (
         <div style={{ marginBottom: 'var(--space-6)' }}>
-          <h3 style={{ marginBottom: 'var(--space-3)' }}>ID-Chips ({tags.length})</h3>
+          <h3 style={{ marginBottom: 'var(--space-3)' }}>{t('animal.chips')} ({tags.length})</h3>
           {tags.map(tag => (
             <div key={tag.tag_id} className="card card-sm" style={{ marginBottom: 'var(--space-2)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', justifyContent: 'space-between' }}>
@@ -398,13 +407,13 @@ export default function AnimalPage() {
                     </span>
                   </div>
                   <p className="text-muted" style={{ margin: 0, fontSize: '12px' }}>
-                    {tag.tag_type === 'barcode' ? 'Barcode' : 'NFC'}
+                    {tag.tag_type === 'barcode' ? t('chip.barcode') : t('chip.nfc')}
                   </p>
                 </div>
                 {tag.active === 1 ? (
-                  <span className="badge badge-success"><span className="badge-dot"></span>Aktiv</span>
+                  <span className="badge badge-success"><span className="badge-dot"></span>{t('chip.active')}</span>
                 ) : (
-                  <span className="badge badge-danger">Inaktiv</span>
+                  <span className="badge badge-danger">{t('chip.inactive')}</span>
                 )}
               </div>
             </div>
@@ -427,7 +436,7 @@ export default function AnimalPage() {
             fontSize: 'var(--font-size-sm)'
           }}
         >
-          Alle Dokumente ({documents.filter(d => d.analysis_status !== 'pending_analysis').length})
+          {t('animal.docsTab')} ({documents.filter(d => d.analysis_status !== 'pending_analysis').length})
         </button>
         <button
           onClick={() => setDocumentTab('pending')}
@@ -446,15 +455,15 @@ export default function AnimalPage() {
           }}
         >
           <AlertTriangle size={16} />
-          Nicht analysiert ({pendingDocuments.length})
+          {t('animal.pendingTab')} ({pendingDocuments.length})
         </button>
       </div>
 
       {/* All Documents Tab */}
       {documentTab === 'all' && (
         <>
-          <h3 style={{ marginBottom: 'var(--space-3)', marginTop: 0 }}>Dokumente ({documents.filter(d => d.analysis_status !== 'pending_analysis').length})</h3>
-          {documents.length === 0 && <p className="text-muted text-center" style={{ padding: 'var(--space-4) 0' }}>Noch keine Dokumente. Scanne das erste Dokument!</p>}
+          <h3 style={{ marginBottom: 'var(--space-3)', marginTop: 0 }}>{t('animal.docsTab')} ({documents.filter(d => d.analysis_status !== 'pending_analysis').length})</h3>
+          {documents.length === 0 && <p className="text-muted text-center" style={{ padding: 'var(--space-4) 0' }}>{t('animal.noDocs')}</p>}
 
           {documents.length > 0 && (
         <div style={{ position: 'relative', marginBottom: 'var(--space-4)' }}>
@@ -463,7 +472,7 @@ export default function AnimalPage() {
             className="form-input"
             style={{ paddingLeft: 38 }}
             type="text"
-            placeholder="Dokumente durchsuchen..."
+            placeholder={t('animal.searchDocs')}
             value={documentSearch}
             onChange={e => setDocumentSearch(e.target.value.toLowerCase())}
           />
@@ -471,7 +480,7 @@ export default function AnimalPage() {
       )}
 
       {documents && documents
-        .filter(doc => doc.analysis_status !== 'pending_analysis' && (!documentSearch || docTypeLabel[doc.doc_type]?.toLowerCase().includes(documentSearch) || new Date(doc.created_at).toLocaleString('de-AT').includes(documentSearch)))
+        .filter(doc => doc.analysis_status !== 'pending_analysis' && (!documentSearch || docTypeLabel(doc.doc_type)?.toLowerCase().includes(documentSearch) || new Date(doc.created_at).toLocaleString(i18n.language === 'de' ? 'de-AT' : 'en-GB').includes(documentSearch)))
         .map(doc => (
         <Link key={doc.id} to={`/animals/${id}/documents/${doc.id}`} style={{ textDecoration: 'none' }}>
           <div className="card card-sm" style={{ 
@@ -488,15 +497,15 @@ export default function AnimalPage() {
               {doc.doc_type === 'vaccination' ? <Syringe size={16} color={doc.added_by_role === 'vet' ? "var(--success-600)" : "var(--primary-600)"} strokeWidth={2} /> : <FileText size={16} color={doc.added_by_role === 'vet' ? "var(--success-600)" : "var(--primary-600)"} strokeWidth={2} />}
             </div>
             <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)' }}>{docTypeLabel[doc.doc_type] ?? doc.doc_type}</div>
+              <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)' }}>{docTypeLabel(doc.doc_type) ?? doc.doc_type}</div>
               <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
-                {new Date(doc.created_at).toLocaleString('de-AT')}
+                {new Date(doc.created_at).toLocaleString(i18n.language === 'de' ? 'de-AT' : 'en-GB')}
               </div>
             </div>
             <div style={{ display: 'flex', gap: '4px', flexDirection: 'column', alignItems: 'flex-end' }}>
-              {doc.added_by_role === 'vet' && <span className="badge badge-success" style={{ display: 'flex', alignItems: 'center', gap: '3px' }}><CheckCircle size={10} /> Tierarzt</span>}
-              {doc.added_by_role === 'authority' && <span className="badge badge-info" style={{ display: 'flex', alignItems: 'center', gap: '3px' }}><ShieldAlert size={10} /> Behörde</span>}
-              {!['vet', 'authority'].includes(doc.added_by_role ?? '') && <span className="badge" style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: '3px', fontSize: '10px' }}>Besitzer</span>}
+              {doc.added_by_role === 'vet' && <span className="badge badge-success" style={{ display: 'flex', alignItems: 'center', gap: '3px' }}><CheckCircle size={10} /> {t('animal.vet')}</span>}
+              {doc.added_by_role === 'authority' && <span className="badge badge-info" style={{ display: 'flex', alignItems: 'center', gap: '3px' }}><ShieldAlert size={10} /> {t('animal.authority')}</span>}
+              {!['vet', 'authority'].includes(doc.added_by_role ?? '') && <span className="badge" style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: '3px', fontSize: '10px' }}>{t('animal.owner')}</span>}
               <span className="text-muted" style={{ fontSize: '10px' }}>{doc.ocr_provider}</span>
             </div>
           </div>
@@ -508,8 +517,8 @@ export default function AnimalPage() {
       {/* Pending Documents Tab */}
       {documentTab === 'pending' && (
         <>
-          <h3 style={{ marginBottom: 'var(--space-3)', marginTop: 0 }}>Nicht analysierte Dokumente ({pendingDocuments.length})</h3>
-          {pendingDocuments.length === 0 && <p className="text-muted text-center" style={{ padding: 'var(--space-4) 0' }}>Keine ausstehenden Analysen.</p>}
+          <h3 style={{ marginBottom: 'var(--space-3)', marginTop: 0 }}>{t('animal.pendingTab')} ({pendingDocuments.length})</h3>
+          {pendingDocuments.length === 0 && <p className="text-muted text-center" style={{ padding: 'var(--space-4) 0' }}>{t('animal.pendingNone')}</p>}
 
           {pendingDocuments.map(doc => (
             <div key={doc.id} className="card card-sm" style={{
@@ -526,10 +535,10 @@ export default function AnimalPage() {
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)' }}>
-                  ⏳ Warte auf Gemini API
+                  {t('animal.waitGemini')}
                 </div>
                 <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
-                  {new Date(doc.created_at).toLocaleString('de-AT')}
+                  {new Date(doc.created_at).toLocaleString(i18n.language === 'de' ? 'de-AT' : 'en-GB')}
                 </div>
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
@@ -552,7 +561,7 @@ export default function AnimalPage() {
                   }}
                 >
                   <RefreshCw size={12} />
-                  {retrying === doc.id ? 'Analysieren...' : 'Analysieren'}
+                  {retrying === doc.id ? `${t('animal.retrying')}...` : t('animal.analyzeBtn')}
                 </button>
                 <button
                   onClick={() => handleDeletePendingDoc(doc.id)}
@@ -571,7 +580,7 @@ export default function AnimalPage() {
                   }}
                 >
                   <Trash2 size={12} />
-                  Löschen
+                  {t('common.delete')}
                 </button>
               </div>
             </div>
