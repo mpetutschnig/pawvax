@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useBarcode } from '../hooks/useBarcode'
 import { useNfc } from '../hooks/useNfc'
@@ -14,7 +14,7 @@ export default function PublicScanPage() {
   const [cameraError, setCameraError] = useState<string | null>(null)
   const [nfcError, setNfcError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const [scanMode, setScanMode] = useState<'barcode' | 'nfc' | null>(null)
+  const [scanMode, setScanMode] = useState<'barcode' | 'nfc' | null>('barcode')
 
   const handleTag = useCallback(async (rawTagId: string) => {
     setLoading(true)
@@ -43,6 +43,13 @@ export default function PublicScanPage() {
 
   const handleNfc = useCallback((tagId: string) => handleTag(tagId), [handleTag])
   const { start: startNfc, stop: stopNfc } = useNfc(handleNfc, setNfcError)
+
+  // Auto-start barcode scanner on mount
+  useEffect(() => {
+    if (phase === 'scan' && scanMode === 'barcode') {
+      startBarcode()
+    }
+  }, [phase, scanMode, startBarcode])
 
   const speciesEmoji: Record<string, string> = { dog: '🐶', cat: '🐱', other: '🐾' }
 
