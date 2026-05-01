@@ -551,6 +551,38 @@ usermod -s /sbin/nologin paw-pwa
 
 ---
 
+## Oder: Gesamtes Update in einem Code-Block
+
+Falls ihr alles auf einmal ausführen wollt (Shells müssen `/bin/bash` sein):
+
+```bash
+# 1. Git pull
+su -s /bin/bash paw-git -c "cd /tmp && git -C /git/pawvax pull"
+
+# 2. Permissions
+chmod -R a+rX /git/pawvax
+
+# 3. Build paw-api
+PAW_API_UID=$(id -u paw-api) && XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "cd /tmp && podman --cgroup-manager=cgroupfs build -t paw-api:latest -f /git/pawvax/server/Dockerfile /git/pawvax/server"
+
+# 4. Build paw-pwa
+PAW_PWA_UID=$(id -u paw-pwa) && XDG_RUNTIME_DIR=/run/user/$PAW_PWA_UID su -s /bin/bash paw-pwa -c "cd /tmp && podman --cgroup-manager=cgroupfs build -t paw-pwa:latest -f /git/pawvax/pwa/Containerfile /git/pawvax/pwa"
+
+# 5. Restart paw-api
+PAW_API_UID=$(id -u paw-api) && su -s /bin/bash paw-api -c "cd /tmp && XDG_RUNTIME_DIR=/run/user/$PAW_API_UID DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$PAW_API_UID/bus systemctl --user restart paw-api"
+
+# 6. Restart paw-pwa
+PAW_PWA_UID=$(id -u paw-pwa) && su -s /bin/bash paw-pwa -c "cd /tmp && XDG_RUNTIME_DIR=/run/user/$PAW_PWA_UID DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$PAW_PWA_UID/bus systemctl --user restart paw-pwa"
+
+# 7. Check paw-api status
+PAW_API_UID=$(id -u paw-api) && su -s /bin/bash paw-api -c "cd /tmp && XDG_RUNTIME_DIR=/run/user/$PAW_API_UID systemctl --user status paw-api --no-pager"
+
+# 8. Check paw-pwa status
+PAW_PWA_UID=$(id -u paw-pwa) && su -s /bin/bash paw-pwa -c "cd /tmp && XDG_RUNTIME_DIR=/run/user/$PAW_PWA_UID systemctl --user status paw-pwa --no-pager"
+```
+
+---
+
 ## Optional: Shells zurück zu /sbin/nologin (für Security)
 
 Nach dem Deployment können die User-Shells für zusätzliche Sicherheit auf `/sbin/nologin` zurückgesetzt werden:

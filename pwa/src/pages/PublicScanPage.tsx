@@ -44,14 +44,16 @@ export default function PublicScanPage() {
   const handleNfc = useCallback((tagId: string) => handleTag(tagId), [handleTag])
   const { start: startNfc, stop: stopNfc } = useNfc(handleNfc, setNfcError)
 
-  // Start selected scanner
+  // Start selected scanner and stop others
   useEffect(() => {
     if (phase === 'scan' && scanMode === 'barcode') {
+      stopNfc?.()
       startBarcode()
     } else if (phase === 'scan' && scanMode === 'nfc') {
+      stopBarcode()
       startNfc()
     }
-  }, [phase, scanMode, startBarcode, startNfc])
+  }, [phase, scanMode, startBarcode, startNfc, stopBarcode, stopNfc])
 
   const speciesEmoji: Record<string, string> = { dog: '🐶', cat: '🐱', other: '🐾' }
 
@@ -239,6 +241,8 @@ export default function PublicScanPage() {
             <button
               className="btn btn-ghost btn-full"
               onClick={() => {
+                stopBarcode()
+                stopNfc?.()
                 setScanMode(null)
                 setCameraError(null)
                 setNfcError(null)
