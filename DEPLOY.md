@@ -564,6 +564,62 @@ PAW_API_UID=$(id -u paw-api) && su -s /bin/bash paw-api -c "XDG_RUNTIME_DIR=/run
 
 ---
 
+## 15. Lokales Testen & Debugging
+
+Falls du Fehler auf dem Server vermutest, kannst du das System lokal auf dem Server wie folgt debuggen:
+
+### 15a. Interaktives Testen (Swagger UI)
+Fastify generiert automatisch eine interaktive Dokumentation. Das ist die beste Methode, um Endpoints manuell zu debuggen.
+
+**Zugriff:**  
+Öffne `https://pawapi.oxs.at/documentation` im Browser.
+
+**Authentifizierung im Swagger:**
+1. Logge dich in der PWA ein.
+2. Öffne die Entwicklertools (F12) -> Tab "Anwendung" -> "Lokaler Speicher".
+3. Kopiere den Wert des Schlüssels `token`.
+4. Klicke im Swagger UI oben rechts auf **"Authorize"** und füge den Token ein.
+5. Jetzt kannst du jeden Endpoint mit `Try it out` sicher gegen die Live-Datenbank testen.
+
+### 15b. Datenbank Inspecting (Live SQLite)
+Da wir SQLite nutzen, kannst du die Datenbank live auslesen und verändern, ohne den Server stoppen zu müssen.
+
+Öffne im Terminal als API-User:
+```bash
+PAW_API_UID=$(id -u paw-api) && su -s /bin/bash paw-api -c "sqlite3 /home/paw-api/data/paw.db"
+```
+
+**Nützliche Debug-Befehle (im sqlite3-Prompt):**
+- Zeige alle Nutzer und ihre Rollen: `SELECT email, role, verified FROM accounts;`
+- Zeige das Audit-Log: `SELECT action, resource, created_at FROM audit_log ORDER BY created_at DESC LIMIT 5;`
+- Beenden mit: `.quit`
+
+### 15c. E2E API Tests ausführen
+Wir haben ein Skript vorbereitet, das reale HTTP-Aufrufe gegen das Backend macht und den gesamten Lebenszyklus eines Tieres testet.
+
+```bash
+PAW_API_UID=$(id -u paw-api) && su -s /bin/bash paw-api -c "cd /git/pawvax/server && node test-api.js"
+```
+
+### 15d. WebSocket (Dokumenten-Upload) Debugging
+Der Foto-Upload verwendet WebSockets. Um dies tiefgehend zu debuggen:
+
+1. Öffne die PWA in Chrome (`https://paw.oxs.at`).
+2. Drücke F12 für die DevTools.
+3. Wechsle auf den Tab **Network (Netzwerk)**.
+4. Wähle im Filter `WS` (WebSocket) aus.
+5. Starte in der App einen Foto-Upload.
+6. Klicke in den DevTools auf die entstandene WebSocket-Verbindung (`ws?token=...`).
+7. Im Unter-Tab **"Messages" (Nachrichten)** siehst du nun in Echtzeit den gesamten Datenaustausch:
+   - Du siehst den initialen JSON-Startframe.
+   - Du siehst die gesendeten Binärpakete (Bild-Chunks).
+   - Du siehst den `upload_end` Text-Frame.
+   - Du siehst live die Statusmeldungen (`Tesseract liest Text... 45%`) und das fertige JSON.
+
+Sollte die OCR fehlschlagen, findest du im Server-Log (`journalctl --user -u paw-api`) zudem immer den exakten Stacktrace.
+
+---
+
 ## Anhang: Update-Workflow
 
 **Wichtig:** Wenn die Shells auf `/sbin/nologin` gesetzt sind (siehe "Optional" unten), müssen sie erst auf `/bin/bash` gewechselt werden:

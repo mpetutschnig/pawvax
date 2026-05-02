@@ -220,6 +220,21 @@ Beim Speichern im Profil wird der Key live gegen `GET https://generativelanguage
 
 ---
 
+## 📚 Interaktive API-Dokumentation (Swagger/OpenAPI)
+
+Fastify generiert automatisch eine interaktive API-Dokumentation.
+
+**Zugriff:** `http://localhost:3000/documentation` (bzw. auf deinem Server unter der entsprechenden Subdomain).
+
+**So testest du Endpoints im Swagger:**
+1. Logge dich in der PWA ein (`http://localhost:5173/login`).
+2. Öffne die Entwicklertools (F12) → Tab "Anwendung/Application" → "Lokaler Speicher/Local Storage".
+3. Kopiere den Wert des Schlüssels `token`.
+4. Klicke im Swagger UI oben rechts auf den grünen Button **"Authorize"** und füge den Token ein.
+5. Jetzt kannst du jeden Endpoint mit `Try it out` testen!
+
+---
+
 ## 🔌 API-Endpunkte
 
 ### Öffentlich (kein Token nötig)
@@ -339,6 +354,15 @@ Jede Änderung wird protokolliert: `who` (accountId + role), `when`, `what` (act
 ---
 
 ## 📱 Android App (Kotlin) — Integration
+
+### Server-URL für lokales Testen eintragen
+Wenn du die App im Android Studio entwickelst, trage im Login-Screen diese URLs ein:
+
+| Gerät | URL |
+|---|---|
+| **Android Emulator** | `http://10.0.2.2:3000/api/` |
+| **USB-Debugging** | `http://localhost:3000/api/` (nach `adb reverse tcp:3000 tcp:3000`) |
+| **LAN-Gerät** | `http://192.168.X.X:3000/api/` (IP des Servers im lokalen WLAN) |
 
 Beim Implementieren der Android App müssen folgende Punkte beachtet werden:
 
@@ -636,6 +660,59 @@ podman compose logs -f
 - [ ] Freigaben einstellen
 - [ ] Öffentliches Profil testen (logout → „Tier scannen ohne Anmeldung")
 - [ ] Audit-Log ansehen
+
+---
+
+## 📁 Projektstruktur
+
+```text
+paw.oxs.at/
+├── server/
+│   ├── src/
+│   │   ├── app.js                    # Fastify Setup, Routes
+│   │   ├── db/
+│   │   │   ├── index.js              # DB Init, Migrations
+│   │   │   └── schema.sql            # DB Schema
+│   │   ├── routes/                   # API Endpoints
+│   │   ├── services/                 # OCR, Audit Logging, Storage
+│   │   └── ws/                       # WebSocket Upload Handler
+│   ├── .env.example
+│   └── package.json
+├── pwa/
+│   ├── src/
+│   │   ├── App.tsx                   # Main App + Routing
+│   │   ├── api/
+│   │   │   └── rest.ts               # API Client
+│   │   ├── pages/                    # React Views (Login, Animals, Scan...)
+│   │   └── index.css                 # Styles & Theme Variables
+│   └── package.json
+└── android/                          # Native Kotlin App
+```
+
+---
+
+## ✨ Tipps & Tricks für die Entwicklung
+
+### QR-Code zum Testen generieren
+- Nutze ein Online-Tool (z.B. qr-code-generator.com).
+- Text eingeben: `TEST-BARCODE-12345`
+- QR-Code auf dem Bildschirm anzeigen und mit dem Barcode-Scanner der App einscannen.
+
+### NFC-Tag simulieren (Android Emulator)
+Du kannst NFC-Scans im Emulator über das Terminal simulieren:
+```bash
+adb emu gsm send-nfc-test-event nfc_data
+```
+*Oder direkt in Android Studio: Extended controls (...) → Virtual sensors → NFC → "Tap tag".*
+
+### Mehrere Accounts lokal testen
+Öffne ein normales Browserfenster und ein Inkognito-Fenster, um das Teilen von Tieren (Vet vs. User) zu testen.
+
+### Datenbank zurücksetzen
+```bash
+rm server/paw.db
+# Server neu starten → eine frische, leere Datenbank wird erstellt.
+```
 
 ---
 
