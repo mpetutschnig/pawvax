@@ -1,11 +1,10 @@
-import { useEffect, useState, useRef, useMemo } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { getAnimal, getAnimalDocuments, getAnimalTags, updateAnimal, deleteAnimal, uploadAnimalAvatar, deleteDocument, getMe } from '../api/rest'
 import { PageHeader } from '../components/PageHeader'
-import { PawPrint, Cat, Edit2, Trash2, Lock, Camera, Search, Syringe, FileText, Radio, CheckCircle, ShieldAlert, AlertTriangle, RefreshCw, X } from 'lucide-react'
+import { PawPrint, Cat, Edit2, Trash2, Lock, Camera, Search, Radio, ShieldAlert, AlertTriangle, RefreshCw, X } from 'lucide-react'
 import { AnimalDTO } from '../types/animal'
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 interface AnimalTag {
   tag_id: string; tag_type: string; active: number; added_at: string
 }
@@ -18,14 +17,6 @@ export default function AnimalPage() {
   const navigate = useNavigate()
   const { t, i18n } = useTranslation()
 
-  const docTypeLabel = (type: string) => {
-    const typeMap: Record<string, string> = {
-      vaccination: t('animal.docTypeVaccination'),
-      medication: t('animal.docTypeMedication'),
-      other: t('animal.docTypeOther')
-    }
-    return typeMap[type] || type
-  }
   const [animal, setAnimal] = useState<AnimalDTO | null>(null)
   const [tags, setTags] = useState<AnimalTag[]>([])
   const [documents, setDocuments] = useState<Document[]>([])
@@ -267,28 +258,6 @@ export default function AnimalPage() {
 
   const hasNfcTag = tags.some(t => t.tag_type === 'nfc' && t.active === 1)
   const isVetVerified = false // Placeholder for future implementation
-
-  const DOC_TYPE_ORDER = ['vaccination', 'medication', 'other'] as const
-
-  const groupedDocs = useMemo(() => {
-    const visible = documents.filter(doc =>
-      doc.analysis_status !== 'pending_analysis' &&
-      (!documentSearch ||
-        (docTypeLabel(doc.doc_type) || '').toLowerCase().includes(documentSearch) ||
-        new Date(doc.created_at).toLocaleString(i18n.language === 'de' ? 'de-AT' : 'en-GB').includes(documentSearch))
-    )
-    const map = new Map<string, Document[]>()
-    for (const type of DOC_TYPE_ORDER) {
-      const forType = visible.filter(d => d.doc_type === type)
-      if (forType.length > 0) map.set(type, forType)
-    }
-    const unknownTypes = visible.filter(d => !DOC_TYPE_ORDER.includes(d.doc_type as any))
-    if (unknownTypes.length > 0) {
-      const otherDocs = map.get('other') || []
-      map.set('other', [...otherDocs, ...unknownTypes])
-    }
-    return map
-  }, [documents, documentSearch, i18n.language])
 
   if (showRetryModal) {
     return (
@@ -640,55 +609,11 @@ export default function AnimalPage() {
         </div>
       )}
 
-      {groupedDocs.size > 0 && (
-        <Accordion type="multiple" defaultValue={Array.from(groupedDocs.keys()).slice(0, 1)}>
-          {Array.from(groupedDocs.entries()).map(([docType, docs]) => (
-            <AccordionItem key={docType} value={docType}
-              style={{ border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)',
-                       background: 'var(--bg-elevated)', marginBottom: 'var(--space-2)', overflow: 'hidden' }}>
-              <AccordionTrigger style={{ padding: 'var(--space-3) var(--space-4)', fontWeight: 600,
-                                         fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)' }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                  {docType === 'vaccination' ? <Syringe size={16} color="var(--primary-600)" /> : <FileText size={16} color="var(--primary-600)" />}
-                  {docTypeLabel(docType)}
-                  <span className="badge" style={{ marginLeft: 'var(--space-1)' }}>{docs.length}</span>
-                </span>
-              </AccordionTrigger>
-              <AccordionContent style={{ padding: '0 var(--space-3) var(--space-3)' }}>
-                {docs.map(doc => (
-                  <Link key={doc.id} to={`/animals/${id}/documents/${doc.id}`} style={{ textDecoration: 'none' }}>
-                    <div className="card card-sm" style={{
-                      display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-3)',
-                      border: doc.added_by_role === 'vet' ? '1.5px solid var(--success-500)' : undefined,
-                      background: doc.added_by_role === 'vet' ? 'var(--success-50)' : 'var(--bg-elevated)',
-                      boxShadow: doc.added_by_role === 'vet' ? '0 4px 12px rgba(16, 185, 129, 0.1)' : undefined
-                    }}>
-                      <div style={{
-                        width: 36, height: 36, borderRadius: 'var(--radius-sm)', flexShrink: 0,
-                        background: doc.added_by_role === 'vet' ? 'var(--success-100)' : 'var(--primary-50)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      }}>
-                        {doc.doc_type === 'vaccination' ? <Syringe size={16} color={doc.added_by_role === 'vet' ? "var(--success-600)" : "var(--primary-600)"} strokeWidth={2} /> : <FileText size={16} color={doc.added_by_role === 'vet' ? "var(--success-600)" : "var(--primary-600)"} strokeWidth={2} />}
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)' }}>{doc.extracted_json?.title || docTypeLabel(doc.doc_type)}</div>
-                        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
-                          {new Date(doc.created_at).toLocaleString(i18n.language === 'de' ? 'de-AT' : 'en-GB')}
-                        </div>
-                      </div>
-                      <div style={{ display: 'flex', gap: '4px', flexDirection: 'column', alignItems: 'flex-end' }}>
-                        {doc.added_by_role === 'vet' && <span className="badge badge-vet" style={{ display: 'flex', alignItems: 'center', gap: '3px' }}><CheckCircle size={10} /> {t('animal.vet')}</span>}
-                        {doc.added_by_role === 'authority' && <span className="badge badge-authority" style={{ display: 'flex', alignItems: 'center', gap: '3px' }}><ShieldAlert size={10} /> {t('animal.authority')}</span>}
-                        {!['vet', 'authority'].includes(doc.added_by_role ?? '') && <span className="badge" style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: '3px', fontSize: '10px' }}>{t('animal.owner')}</span>}
-                        <span className="text-muted" style={{ fontSize: '10px' }}>{doc.ocr_provider}</span>
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </AccordionContent>
-            </AccordionItem>
-          ))}
-        </Accordion>
+      {/* TEMP: Accordion disabled for debugging */}
+      {documents.length > 0 && (
+        <div style={{ padding: 'var(--space-4)', background: 'var(--primary-50)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-4)' }}>
+          <p style={{ margin: 0, color: 'var(--primary-900)' }}>📄 {documents.length} Dokumente geladen (Accordion deaktiviert zum Debugging)</p>
+        </div>
       )}
         </>
       )}
