@@ -99,14 +99,22 @@ export default async function animalRoutes(fastify) {
     if (sharing.share_birthdate) result.birthdate = row.birthdate
     if (sharing.share_contact) result.contact = { name: row.owner_name }
 
-    // Öffentliche Dokumente (nur Impfungen falls freigegeben)
-    if (sharing.share_vaccination) {
+    // Öffentliche Dokumente – alle freigegebenen Typen, nur für 'readonly' sichtbare
+    const allowedTypes = []
+    if (sharing.share_vaccination) allowedTypes.push('vaccination')
+    if (sharing.share_medication)  allowedTypes.push('medication')
+    if (sharing.share_other_docs)  allowedTypes.push('other')
+
+    if (allowedTypes.length > 0) {
+      const placeholders = allowedTypes.map(() => '?').join(', ')
       const docs = db.prepare(`
         SELECT id, doc_type, created_at, ocr_provider FROM documents
-        WHERE animal_id = ? AND doc_type = 'vaccination'
+        WHERE animal_id = ?
+          AND doc_type IN (${placeholders})
+          AND (instr(allowed_roles, '"readonly"') > 0 OR allowed_roles IS NULL)
         ORDER BY created_at DESC
-      `).all(row.id)
-      result.vaccinations = docs
+      `).all(row.id, ...allowedTypes)
+      result.documents = docs
     }
 
     return result

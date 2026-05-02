@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useBarcode } from '../hooks/useBarcode'
 import { useNfc } from '../hooks/useNfc'
-import { PawPrint, Camera, LogIn, ShieldCheck, Syringe, Radio } from 'lucide-react'
+import { PawPrint, Camera, LogIn, ShieldCheck, Syringe, Pill, FileText, Radio } from 'lucide-react'
 import axios from 'axios'
 
 type Phase = 'scan' | 'result' | 'notfound'
@@ -126,32 +126,50 @@ export default function PublicScanPage() {
             </div>
           )}
 
-          {/* Impfungen */}
-          {animal.vaccinations && animal.vaccinations.length > 0 && (
-            <div style={{ marginBottom: 'var(--space-4)' }}>
-              <h3 style={{ fontSize: 'var(--font-size-base)', marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                <Syringe size={18} /> {t('publicScan.vaccinations')} ({animal.vaccinations.length})
-              </h3>
-              {animal.vaccinations.map((doc: any) => (
-                <div key={doc.id} className="card card-sm" style={{ marginBottom: 'var(--space-2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>{t('animal.docTypeVaccination')}</span>
-                  <span className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>
-                    {new Date(doc.created_at).toLocaleDateString(i18n.language === 'de' ? 'de-AT' : 'en-GB')}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* No vaccinations message */}
-          {(!animal.vaccinations || animal.vaccinations.length === 0) && (
+          {/* Dokumente – gruppiert nach Typ */}
+          {animal.documents && animal.documents.length > 0 ? (() => {
+            const groups: Record<string, { icon: React.ReactNode; label: string; docs: any[] }> = {
+              vaccination: { icon: <Syringe size={18} />, label: t('animal.vaccinations'), docs: [] },
+              medication:  { icon: <Pill size={18} />,    label: t('animal.medications'),  docs: [] },
+              other:       { icon: <FileText size={18} />, label: t('animal.documents'),   docs: [] },
+            }
+            for (const doc of animal.documents) {
+              if (groups[doc.doc_type]) groups[doc.doc_type].docs.push(doc)
+              else groups.other.docs.push(doc)
+            }
+            return (
+              <>
+                {Object.entries(groups).map(([type, { icon, label, docs }]) =>
+                  docs.length > 0 && (
+                    <div key={type} style={{ marginBottom: 'var(--space-4)' }}>
+                      <h3 style={{ fontSize: 'var(--font-size-base)', marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                        {icon} {label} ({docs.length})
+                      </h3>
+                      {docs.map((doc: any) => (
+                        <div key={doc.id} className="card card-sm" style={{ marginBottom: 'var(--space-2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>
+                            {type === 'vaccination' ? t('animal.docTypeVaccination')
+                            : type === 'medication'  ? t('animal.docTypeMedication')
+                            :                          t('animal.docTypeOther')}
+                          </span>
+                          <span className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>
+                            {new Date(doc.created_at).toLocaleDateString(i18n.language === 'de' ? 'de-AT' : 'en-GB')}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                )}
+              </>
+            )
+          })() : (
             <div style={{
               padding: 'var(--space-4)', background: 'var(--surface)',
               borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-4)',
               textAlign: 'center'
             }}>
               <p className="text-muted" style={{ margin: 0, fontSize: 'var(--font-size-sm)' }}>
-                {t('publicScan.noVaccinations')}
+                {t('publicScan.noDocuments')}
               </p>
             </div>
           )}

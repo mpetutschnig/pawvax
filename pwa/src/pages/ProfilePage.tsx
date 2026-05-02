@@ -366,7 +366,9 @@ export default function ProfilePage() {
           {aiPriority.map((provider, index) => (
             <div key={provider} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', background: 'var(--surface)', padding: 'var(--space-2)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
               <span style={{ fontWeight: 600, width: '20px' }}>{index + 1}.</span>
-              <span style={{ textTransform: 'capitalize', flex: 1 }}>{provider}</span>
+              <span style={{ flex: 1 }}>
+                {provider === 'google' ? 'Google Gemini' : provider === 'anthropic' ? 'Anthropic Claude' : 'OpenAI'}
+              </span>
               <button className="btn-ghost" style={{ padding: '4px' }} disabled={index === 0} onClick={() => {
                 const newPrio = [...aiPriority]
                 ;[newPrio[index - 1], newPrio[index]] = [newPrio[index], newPrio[index - 1]]

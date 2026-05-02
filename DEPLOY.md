@@ -75,7 +75,7 @@ chmod 755 /git
 Mit `/bin/bash` als Shell (für rootless Podman + su-Befehle nötig):
 
 ```bash
-useradd -r -m -d /home/paw-git -s /bin/bash paw-git
+useradd -r -m -d /home/paw-git -s /bin/bash -G systemd-journal paw-git
 ```
 
 ```bash
