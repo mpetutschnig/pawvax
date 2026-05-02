@@ -641,7 +641,7 @@ export default function AnimalPage() {
       )}
 
       {groupedDocs.size > 0 && (
-        <Accordion type="multiple" defaultValue={['vaccination']}>
+        <Accordion type="multiple" defaultValue={Array.from(groupedDocs.keys()).slice(0, 1)}>
           {Array.from(groupedDocs.entries()).map(([docType, docs]) => (
             <AccordionItem key={docType} value={docType}
               style={{ border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)',
