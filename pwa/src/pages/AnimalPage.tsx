@@ -352,7 +352,9 @@ export default function AnimalPage() {
                   background: 'oklch(100% 0 0 / 0.18)',
                   border: '1.5px solid oklch(100% 0 0 / 0.28)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
-                  cursor: wtatar_path ? (
+                  cursor: isOwner ? 'pointer' : 'default', transition: 'opacity 0.2s'
+                }} onClick={isOwner ? () => avatarInputRef.current?.click() : undefined}>
+                  {animal.avatar_path ? (
                     <img src={`/uploads/${animal.avatar_path.split('/').pop()}`} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   ) : (
                     animal.species === 'cat' ? <Cat size={28} color="white" strokeWidth={1.6} /> : <PawPrint size={28} color="white" strokeWidth={1.6} />
@@ -403,6 +405,13 @@ export default function AnimalPage() {
               } catch { return null; }
             })()}
           </div>
+
+          {!isOwner && animal.contact && (
+            <div style={{ background: 'var(--surface)', padding: 'var(--space-3)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-4)', border: '1px solid var(--border)' }}>
+              <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>{t('publicScan.contact')}</div>
+              <div style={{ fontWeight: 600 }}>{animal.contact.name}</div>
+            </div>
+          )}
 
           {isOwner && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
