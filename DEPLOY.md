@@ -502,6 +502,54 @@ Jetzt im Admin-Panel einloggen: `https://paw.oxs.at/admin`
 
 ---
 
+## 14. Datenbank-Migration (Multi-AI Update)
+
+Falls du ein bestehendes Deployment aktualisierst, müssen die neuen Spalten für Anthropic und OpenAI in der SQLite Datenbank angelegt werden. Dies geschieht ohne Datenverlust.
+
+Zuerst ein Backup der bestehenden Datenbank erstellen:
+
+```bash
+PAW_API_UID=$(id -u paw-api) && su -s /bin/bash paw-api -c "cp /home/paw-api/data/paw.db /home/paw-api/data/paw.db.backup_$(date +%F)"
+```
+
+Migrations-Skript temporär anlegen:
+
+```bash
+cat > /tmp/migrate.sql << 'EOF'
+ALTER TABLE accounts ADD COLUMN anthropic_token TEXT;
+ALTER TABLE accounts ADD COLUMN claude_model TEXT;
+ALTER TABLE accounts ADD COLUMN openai_token TEXT;
+ALTER TABLE accounts ADD COLUMN openai_model TEXT;
+ALTER TABLE accounts ADD COLUMN ai_provider_priority TEXT DEFAULT '["google", "anthropic", "openai"]';
+EOF
+```
+
+Rechte für den API-User setzen:
+
+```bash
+chown paw-api:paw-api /tmp/migrate.sql
+```
+
+Migration ausführen (Fehlermeldungen wie "duplicate column name" können ignoriert werden, falls die Spalten schon existieren):
+
+```bash
+PAW_API_UID=$(id -u paw-api) && su -s /bin/bash paw-api -c "sqlite3 /home/paw-api/data/paw.db < /tmp/migrate.sql"
+```
+
+Temporäres Skript aufräumen:
+
+```bash
+rm /tmp/migrate.sql
+```
+
+API-Service neu starten, damit das Backend das neue Schema erkennt:
+
+```bash
+PAW_API_UID=$(id -u paw-api) && su -s /bin/bash paw-api -c "XDG_RUNTIME_DIR=/run/user/$PAW_API_UID DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$PAW_API_UID/bus systemctl --user restart paw-api"
+```
+
+---
+
 ## Anhang: Update-Workflow
 
 **Wichtig:** Wenn die Shells auf `/sbin/nologin` gesetzt sind (siehe "Optional" unten), müssen sie erst auf `/bin/bash` gewechselt werden:
