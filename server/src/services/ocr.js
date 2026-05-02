@@ -1,9 +1,6 @@
 import { createWorker } from 'tesseract.js'
 import { readFileSync } from 'fs'
 
-const GEMINI_KEY = process.env.GEMINI_API_KEY
-const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY
-
 const GEMINI_PROMPT = `
 Du bist ein Veterinär-Dokumentenanalyst. Analysiere das folgende Tierdokument (Impfpass, Medikament, etc.)
 und gib die Daten strukturiert als JSON zurück.
@@ -48,8 +45,8 @@ Antworte NUR mit dem JSON-Objekt, kein erklärender Text.
 `.trim()
 
 export async function analyzeDocument(imagePath, userGeminiKey = null, model = null, onProgress = null, userAnthropicKey = null, claudeModel = null) {
-  const anthropicKey = userAnthropicKey || ANTHROPIC_KEY
-  const geminiKey = userGeminiKey || GEMINI_KEY
+  const anthropicKey = userAnthropicKey
+  const geminiKey = userGeminiKey
 
   if (onProgress) onProgress(`Initialisiere OCR-Analyse...`)
   try {
