@@ -4,7 +4,7 @@ import {
   adminGetStats, adminGetAccounts, adminGetAnimals, adminGetPendingVerifications,
   adminVerifyAccount, adminPatchAccount, adminGetAuditLog, adminDeleteAnimal, adminDeleteAccount
 } from '../api/rest'
-import { PawPrint, LogOut, LayoutDashboard, Users, Cat, ShieldCheck, FileClock, CheckCircle, XCircle, Menu, X, Settings } from 'lucide-react'
+import { PawPrint, LogOut, LayoutDashboard, Users, Cat, ShieldCheck, FileClock, CheckCircle, Menu, X, Settings } from 'lucide-react'
 
 type Section = 'overview' | 'accounts' | 'animals' | 'verifications' | 'audit' | 'settings'
 

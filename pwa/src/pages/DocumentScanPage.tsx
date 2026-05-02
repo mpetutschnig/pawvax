@@ -1,4 +1,4 @@
-verifizierte import { useRef, useState, useEffect } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { CheckCircle, AlertCircle, Syringe, FileText, Cpu, BookOpen, Camera, RefreshCw, Plus, X } from 'lucide-react'
@@ -55,7 +55,7 @@ export default function DocumentScanPage() {
   const [hasOpenai, setHasOpenai] = useState(false)
   const [hasSystemAi, setHasSystemAi] = useState(true)
   const hasAnyKey = hasGemini || hasAnthropic || hasOpenai || hasSystemAi
-  const [availableModels, setAvailableModels] = useState<any>({
+  const [availableModels] = useState<any>({
     google: [
       { id: 'gemini-3.1-flash-lite-preview', name: 'Gemini 3.1 Flash-Lite' },
       { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash' },

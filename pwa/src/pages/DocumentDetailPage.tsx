@@ -34,7 +34,7 @@ export default function DocumentDetailPage() {
   const [hasOpenai, setHasOpenai] = useState(false)
   const [hasSystemAi, setHasSystemAi] = useState(true)
   const hasAnyKey = hasGemini || hasAnthropic || hasOpenai || hasSystemAi
-  const [availableModels, setAvailableModels] = useState<any>({
+  const [availableModels] = useState<any>({
     google: [
       { id: 'gemini-3.1-flash-lite-preview', name: 'Gemini 3.1 Flash-Lite' },
       { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash' },
