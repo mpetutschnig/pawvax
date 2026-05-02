@@ -17,6 +17,7 @@ import documentRoutes from './routes/documents.js'
 import adminRoutes from './routes/admin.js'
 import organizationRoutes from './routes/organizations.js'
 import wsDocumentUpload from './ws/documentUpload.js'
+import settingsRoutes from './routes/settings.js'
 
 const __dir = dirname(fileURLToPath(import.meta.url))
 
@@ -36,7 +37,7 @@ if (!jwtSecret || INSECURE_DEFAULTS.includes(jwtSecret)) {
 
 // Plugins
 await fastify.register(fastifyCors, {
-  origin: ['https://paw.oxs.at', 'http://localhost:5173', 'http://localhost:3000'],
+  origin: ['https://paw.oxs.at', 'https://pawapi.oxs.at', 'http://localhost:5173', 'http://localhost:3000'],
   credentials: true
 })
 await fastify.register(fastifyHelmet, {
@@ -66,6 +67,10 @@ await fastify.register(fastifyStatic, {
 await fastify.register(fastifySwagger, {
   openapi: {
     info: { title: 'PAW API', description: 'Digitaler Tierimpfpass REST API', version: '1.0.0' },
+    servers: [
+      { url: 'https://pawapi.oxs.at', description: 'Production API Server' },
+      { url: 'http://localhost:3000', description: 'Local Development' }
+    ],
     components: {
       securitySchemes: {
         bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' }
@@ -106,6 +111,7 @@ await fastify.register(documentRoutes)
 await fastify.register(adminRoutes)
 await fastify.register(organizationRoutes)
 await fastify.register(wsDocumentUpload)
+await fastify.register(settingsRoutes)
 
 // Healthcheck
 fastify.get('/health', async () => ({ status: 'ok' }))
