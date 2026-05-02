@@ -63,7 +63,7 @@ export default function ScanPage() {
 
   const handleBarcode = useCallback((code: string) => handleTag(code, 'barcode'), [handleTag])
   const { start: startBarcode, stop: stopBarcode } = useBarcode('barcode-reader', handleBarcode, setCameraError)
-  const { state: nfcState, error: nfcError, start: startNfc } = useNfc((id) => handleTag(id, 'nfc'))
+  const { state: nfcState, error: nfcError, start: startNfc, stop: stopNfc } = useNfc((id) => handleTag(id, 'nfc'))
 
   useEffect(() => {
     if (mode === 'barcode') {
