@@ -6,6 +6,7 @@ import {
 } from '../api/rest'
 import { PawPrint, LogOut, LayoutDashboard, Users, Cat, ShieldCheck, FileClock, CheckCircle, Menu, X, Settings } from 'lucide-react'
 import { AdminAnimalDTO } from '../types/animal'
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 
 type Section = 'overview' | 'accounts' | 'animals' | 'verifications' | 'audit' | 'settings'
 
@@ -43,6 +44,8 @@ export default function AdminPage() {
   const [verifications, setVerifications] = useState<Verification[]>([])
   const [auditLog, setAuditLog] = useState<AuditLog | null>(null)
   const [auditPage, setAuditPage] = useState(1)
+  const [selectedAuditEntry, setSelectedAuditEntry] = useState<AuditEntry | null>(null)
+  const [auditSheetOpen, setAuditSheetOpen] = useState(false)
   const [appSettings, setAppSettings] = useState({ app_name: '', theme_color: '', logo_data: '' })
   const [settingsSaving, setSettingsSaving] = useState(false)
 
@@ -348,7 +351,14 @@ export default function AdminPage() {
                     const details = entry.details ? (typeof entry.details === 'string' ? JSON.parse(entry.details) : entry.details) : null
                     const detailsText = details ? Object.entries(details).map(([k, v]) => `${k}: ${v}`).join(', ') : '—'
                     return (
-                      <tr key={entry.id}>
+                      <tr
+                        key={entry.id}
+                        onClick={() => {
+                          setSelectedAuditEntry(entry)
+                          setAuditSheetOpen(true)
+                        }}
+                        style={{ cursor: 'pointer' }}
+                      >
                         <td><code style={{ fontSize: '11px', background: 'var(--surface)', padding: '2px 6px', borderRadius: '4px' }}>{entry.action}</code></td>
                         <td style={{ fontSize: '13px' }}>{entry.resource}</td>
                         <td style={{ fontSize: '12px' }}>{entry.account_email || entry.account_name || (entry.account_id ? entry.account_id.substring(0, 8) : '—')}</td>
@@ -524,6 +534,165 @@ export default function AdminPage() {
           </button>
         </div>
       )}
+
+      {/* Audit Entry Detail Sheet */}
+      <Sheet open={auditSheetOpen} onOpenChange={setAuditSheetOpen}>
+        <SheetContent
+          side="right"
+          style={{
+            width: 420,
+            maxWidth: '90vw',
+            background: 'var(--bg-elevated)',
+            borderLeft: '1px solid var(--border-subtle)',
+            padding: 'var(--space-6)',
+          }}
+        >
+          {selectedAuditEntry && (
+            <>
+              <SheetHeader style={{ marginBottom: 'var(--space-5)' }}>
+                <SheetTitle
+                  style={{
+                    fontFamily: 'var(--font-display)',
+                    color: 'var(--text-primary)',
+                  }}
+                >
+                  <code
+                    style={{
+                      background: 'var(--surface)',
+                      padding: '2px 8px',
+                      borderRadius: 'var(--radius-xs)',
+                      fontWeight: 700,
+                    }}
+                  >
+                    {selectedAuditEntry.action}
+                  </code>
+                </SheetTitle>
+                <SheetDescription
+                  style={{
+                    color: 'var(--text-tertiary)',
+                    fontSize: 'var(--font-size-xs)',
+                  }}
+                >
+                  {new Date(selectedAuditEntry.created_at).toLocaleString(
+                    i18n.language === 'de' ? 'de-AT' : 'en-GB'
+                  )}
+                </SheetDescription>
+              </SheetHeader>
+
+              {/* Resource */}
+              <div style={{ marginBottom: 'var(--space-4)' }}>
+                <p
+                  style={{
+                    fontSize: 'var(--font-size-xs)',
+                    textTransform: 'uppercase',
+                    color: 'var(--text-tertiary)',
+                    margin: '0 0 4px',
+                  }}
+                >
+                  Resource
+                </p>
+                <p style={{ margin: 0, fontWeight: 600 }}>
+                  {selectedAuditEntry.resource}
+                </p>
+                {selectedAuditEntry.resource_id && (
+                  <code
+                    style={{
+                      fontSize: 'var(--font-size-xs)',
+                      color: 'var(--text-tertiary)',
+                    }}
+                  >
+                    {selectedAuditEntry.resource_id}
+                  </code>
+                )}
+              </div>
+
+              {/* User */}
+              <div style={{ marginBottom: 'var(--space-4)' }}>
+                <p
+                  style={{
+                    fontSize: 'var(--font-size-xs)',
+                    textTransform: 'uppercase',
+                    color: 'var(--text-tertiary)',
+                    margin: '0 0 4px',
+                  }}
+                >
+                  {t('admin.user')}
+                </p>
+                <p style={{ margin: 0, fontWeight: 600 }}>
+                  {selectedAuditEntry.account_email ||
+                    selectedAuditEntry.account_name ||
+                    '—'}
+                </p>
+                {selectedAuditEntry.account_role && (
+                  <span
+                    className="badge badge-info"
+                    style={{ fontSize: '11px', marginTop: 4 }}
+                  >
+                    {selectedAuditEntry.account_role}
+                  </span>
+                )}
+              </div>
+
+              {/* IP */}
+              {selectedAuditEntry.ip && (
+                <div style={{ marginBottom: 'var(--space-4)' }}>
+                  <p
+                    style={{
+                      fontSize: 'var(--font-size-xs)',
+                      textTransform: 'uppercase',
+                      color: 'var(--text-tertiary)',
+                      margin: '0 0 4px',
+                    }}
+                  >
+                    IP
+                  </p>
+                  <code style={{ fontSize: 'var(--font-size-sm)' }}>
+                    {selectedAuditEntry.ip}
+                  </code>
+                </div>
+              )}
+
+              {/* Details JSON */}
+              {selectedAuditEntry.details && (
+                <div>
+                  <p
+                    style={{
+                      fontSize: 'var(--font-size-xs)',
+                      textTransform: 'uppercase',
+                      color: 'var(--text-tertiary)',
+                      margin: '0 0 8px',
+                    }}
+                  >
+                    {t('admin.details')}
+                  </p>
+                  <pre
+                    style={{
+                      background: 'var(--surface)',
+                      padding: 'var(--space-4)',
+                      borderRadius: 'var(--radius-md)',
+                      fontSize: 'var(--font-size-xs)',
+                      overflow: 'auto',
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word',
+                      maxHeight: 300,
+                      fontFamily: 'var(--font-mono)',
+                      margin: 0,
+                    }}
+                  >
+                    {JSON.stringify(
+                      typeof selectedAuditEntry.details === 'string'
+                        ? JSON.parse(selectedAuditEntry.details)
+                        : selectedAuditEntry.details,
+                      null,
+                      2
+                    )}
+                  </pre>
+                </div>
+              )}
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }
