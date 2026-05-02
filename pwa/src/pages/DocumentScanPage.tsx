@@ -53,22 +53,6 @@ export default function DocumentScanPage() {
   const [hasAnthropic, setHasAnthropic] = useState(false)
   const [hasOpenai, setHasOpenai] = useState(false)
   const hasAnyKey = hasGemini || hasAnthropic || hasOpenai
-  const [availableModels, setAvailableModels] = useState<any>({
-    google: [
-      { id: 'gemini-3.1-flash-lite-preview', name: 'Gemini 3.1 Flash-Lite' },
-      { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash' },
-      { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash' },
-      { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro' }
-    ],
-    anthropic: [
-      { id: 'claude-3-7-sonnet-20250219', name: 'Claude 3.7 Sonnet' },
-      { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet' }
-    ],
-    openai: [
-      { id: 'gpt-4o-mini', name: 'GPT-4o Mini' },
-      { id: 'gpt-4o', name: 'GPT-4o' }
-    ]
-  })
 
   useEffect(() => {
     getMe().then(res => {
@@ -356,13 +340,24 @@ export default function DocumentScanPage() {
                 <label className="form-label">{t('docDetail.model')}</label>
                 <select className="form-select" value={retryModel} onChange={e => setRetryModel(e.target.value)}>
                   {retryProvider === 'google' && (
-                    availableModels.google.map((m: any) => <option key={m.id} value={m.id}>{m.name}</option>)
+                    <>
+                      <option value="gemini-3.1-flash-lite-preview">Gemini 3.1 Flash-Lite</option>
+                      <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+                      <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+                      <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+                    </>
                   )}
                   {retryProvider === 'anthropic' && (
-                    availableModels.anthropic.map((m: any) => <option key={m.id} value={m.id}>{m.name}</option>)
+                    <>
+                      <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
+                      <option value="claude-3-haiku-20240307">Claude 3 Haiku</option>
+                    </>
                   )}
                   {retryProvider === 'openai' && (
-                    availableModels.openai.map((m: any) => <option key={m.id} value={m.id}>{m.name}</option>)
+                    <>
+                      <option value="gpt-4o-mini">GPT-4o Mini</option>
+                      <option value="gpt-4o">GPT-4o</option>
+                    </>
                   )}
                 </select>
               </div>
