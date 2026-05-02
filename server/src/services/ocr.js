@@ -44,24 +44,33 @@ Für unbekannte Dokumente:
 Antworte NUR mit dem JSON-Objekt, kein erklärender Text.
 `.trim()
 
-export async function analyzeDocument(imagePath, userGeminiKey = null, model = null, onProgress = null, userAnthropicKey = null, claudeModel = null) {
-  const anthropicKey = userAnthropicKey
-  const geminiKey = userGeminiKey
-
+export async function analyzeDocument(imagePath, userGeminiKey = null, model = null, onProgress = null, userAnthropicKey = null, claudeModel = null, userOpenAiKey = null, openAiModel = null, priority = ['google', 'anthropic', 'openai']) {
   if (onProgress) onProgress(`Initialisiere OCR-Analyse...`)
   try {
-    // Claude hat Vorrang wenn Key verfügbar
-    if (anthropicKey) {
-      const effectiveModel = claudeModel || 'claude-haiku-4-5-20251001'
-      console.log(`[OCR] Versuche Claude-Analyse mit Key: ${anthropicKey.substring(0, 10)}... (model: ${effectiveModel})`)
-      return await analyzeWithClaude(imagePath, anthropicKey, effectiveModel, onProgress)
-    } else if (geminiKey) {
-      const effectiveModel = model || 'gemini-3.1-flash-lite-preview'
-      console.log(`[OCR] Versuche Gemini-Analyse mit Key: ${geminiKey.substring(0, 10)}... (model: ${effectiveModel})`)
-      return await analyzeWithGemini(imagePath, geminiKey, effectiveModel, onProgress)
-    } else {
-      throw new Error('Kein API Key verfügbar (weder Claude noch Gemini). Bild wird gespeichert für spätere Verarbeitung.')
+    for (const provider of priority) {
+      if (provider === 'google' && userGeminiKey) {
+        const effectiveModel = model || 'gemini-1.5-flash'
+        console.log(`[OCR] Versuche Gemini-Analyse mit Key: ${userGeminiKey.substring(0, 10)}... (model: ${effectiveModel})`)
+        return await analyzeWithGemini(imagePath, userGeminiKey, effectiveModel, onProgress)
+      }
+      if (provider === 'anthropic' && userAnthropicKey) {
+        const effectiveModel = claudeModel || 'claude-3-5-sonnet-20241022'
+        console.log(`[OCR] Versuche Claude-Analyse mit Key: ${userAnthropicKey.substring(0, 10)}... (model: ${effectiveModel})`)
+        return await analyzeWithClaude(imagePath, userAnthropicKey, effectiveModel, onProgress)
+      }
+      if (provider === 'openai' && userOpenAiKey) {
+        const effectiveModel = openAiModel || 'gpt-4o-mini'
+        console.log(`[OCR] Versuche OpenAI-Analyse mit Key: ${userOpenAiKey.substring(0, 10)}... (model: ${effectiveModel})`)
+        return await analyzeWithOpenAI(imagePath, userOpenAiKey, effectiveModel, onProgress)
+      }
     }
+
+    // Fallback falls die Priorisierung keine Treffer ergab, aber Keys existieren
+    if (userGeminiKey) return await analyzeWithGemini(imagePath, userGeminiKey, model || 'gemini-1.5-flash', onProgress)
+    if (userAnthropicKey) return await analyzeWithClaude(imagePath, userAnthropicKey, claudeModel || 'claude-3-5-sonnet-20241022', onProgress)
+    if (userOpenAiKey) return await analyzeWithOpenAI(imagePath, userOpenAiKey, openAiModel || 'gpt-4o-mini', onProgress)
+
+    throw new Error('Analyse nicht möglich. Keine Tokens hinterlegt.')
   } catch (err) {
     console.error('OCR fehlgeschlagen:', err.message, err.stack)
     throw err // Throw error to be handled by caller (will trigger pending_analysis status)
@@ -203,4 +212,59 @@ function parseTesseractText(text) {
     return { type: 'medication', rawText: text, medications: [] }
   }
   return { type: 'other', rawText: text }
+}
+
+async function analyzeWithOpenAI(imagePath, openAiKey, model, onProgress) {
+  if (onProgress) onProgress('Bild wird für OpenAI API verarbeitet...')
+  const imageData = readFileSync(imagePath)
+  const base64 = imageData.toString('base64')
+  const mimeType = imagePath.endsWith('.png') ? 'image/png' : 'image/jpeg'
+
+  if (onProgress) onProgress(`Sende POST Request an OpenAI ${model} API...`)
+  const url = 'https://api.openai.com/v1/chat/completions'
+  
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${openAiKey}`
+    },
+    body: JSON.stringify({
+      model: model,
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a veterinary document analyzer. Always return valid JSON.'
+        },
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: GEMINI_PROMPT },
+            {
+              type: 'image_url',
+              image_url: {
+                url: `data:${mimeType};base64,${base64}`
+              }
+            }
+          ]
+        }
+      ]
+    })
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    console.error(`[OCR] OpenAI API Error (${response.status}):`, errorText)
+    throw new Error(`OpenAI API Fehler (${response.status}): ${errorText}`)
+  }
+
+  if (onProgress) onProgress('Anmeldung bei OpenAI erfolgreich! Verarbeite JSON-Antwort...')
+  const result = await response.json()
+  const text = result.choices?.[0]?.message?.content || ''
+
+  const jsonMatch = text.match(/\{[\s\S]*\}/)
+  if (!jsonMatch) throw new Error('Kein JSON in OpenAI-Antwort')
+
+  return { provider: 'openai', data: JSON.parse(jsonMatch[0]) }
 }

@@ -17,11 +17,16 @@ export default function ProfilePage() {
   const [anthropicToken, setAnthropicToken] = useState('')
   const [claudeError, setClaudeError] = useState('')
   const [claudeSuccess, setClaudeSuccess] = useState('')
+  const [openaiToken, setOpenaiToken] = useState('')
+  const [openaiError, setOpenaiError] = useState('')
+  const [openaiSuccess, setOpenaiSuccess] = useState('')
   const [showConfirmDelete, setShowConfirmDelete] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [geminiModel, setGeminiModel] = useState('')
   const [claudeModel, setClaudeModel] = useState('')
+  const [openaiModel, setOpenaiModel] = useState('')
+  const [aiPriority, setAiPriority] = useState<string[]>(['google', 'anthropic', 'openai'])
   const [modelSaving, setModelSaving] = useState(false)
 
   useEffect(() => {
@@ -34,8 +39,17 @@ export default function ProfilePage() {
       setProfile(res.data)
       setGeminiModel(res.data.gemini_model || 'gemini-3.1-flash-lite-preview')
       setClaudeModel(res.data.claude_model || 'claude-haiku-4-5-20251001')
+      setOpenaiModel(res.data.openai_model || 'gpt-4o-mini')
+      
+      try {
+        if (res.data.ai_provider_priority) {
+          setAiPriority(typeof res.data.ai_provider_priority === 'string' ? JSON.parse(res.data.ai_provider_priority) : res.data.ai_provider_priority)
+        }
+      } catch {}
+
       setGeminiToken('')
       setAnthropicToken('')
+      setOpenaiToken('')
       setError(null)
     } catch (err) {
       setError(t('profile.loadError'))
@@ -176,6 +190,75 @@ export default function ProfilePage() {
     }
   }
 
+  const saveOpenaiToken = async () => {
+    if (!openaiToken) return
+    setSaving(true)
+    setOpenaiError('')
+    setOpenaiSuccess('')
+    try {
+      // Minimal validation for OpenAI key
+      const validateRes = await fetch('https://api.openai.com/v1/models', {
+        headers: { 'Authorization': `Bearer ${openaiToken}` }
+      })
+      if (!validateRes.ok) throw new Error('Invalid OpenAI API key')
+
+      await patchMe({ openai_token: openaiToken || null })
+      setOpenaiSuccess('OpenAI API key saved')
+      setOpenaiToken('')
+      setTimeout(() => {
+        loadProfile()
+        setOpenaiSuccess('')
+      }, 3000)
+    } catch (err) {
+      setOpenaiError(err instanceof Error ? err.message : 'Error saving key')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const clearOpenaiToken = async () => {
+    setSaving(true)
+    try {
+      await patchMe({ openai_token: null })
+      setSuccess(t('profile.deleteSuccess'))
+      setOpenaiToken('')
+      setTimeout(() => {
+        loadProfile()
+        setSuccess(null)
+      }, 1000)
+    } catch (err) {
+      setError(t('profile.saveError'))
+      console.error(err)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const saveOpenaiModel = async (model: string) => {
+    setModelSaving(true)
+    try {
+      await patchMe({ openai_model: model })
+      setOpenaiModel(model)
+      setSuccess(t('profile.modelSaved'))
+      setTimeout(() => setSuccess(null), 2000)
+    } catch (err) {
+      setError(t('profile.saveError'))
+    } finally {
+      setModelSaving(false)
+    }
+  }
+
+  const updatePriority = async (newPriority: string[]) => {
+    setAiPriority(newPriority)
+    try {
+      await patchMe({ ai_provider_priority: JSON.stringify(newPriority) })
+      setSuccess('Priorität gespeichert')
+      setTimeout(() => setSuccess(null), 2000)
+    } catch (err) {
+      setError(t('profile.saveError'))
+    }
+  }
+
   const requestVerify = async () => {
     try {
       await requestVerification()
@@ -271,6 +354,31 @@ export default function ProfilePage() {
           >
             {t('profile.english')}
           </button>
+        </div>
+
+        <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginTop: 'var(--space-6)', marginBottom: 'var(--space-3)' }}>
+          AI Anbieter Priorität
+        </h3>
+        <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-4)' }}>
+          In dieser Reihenfolge werden die Anbieter für die automatische Dokumentenanalyse versucht.
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+          {aiPriority.map((provider, index) => (
+            <div key={provider} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', background: 'var(--surface)', padding: 'var(--space-2)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
+              <span style={{ fontWeight: 600, width: '20px' }}>{index + 1}.</span>
+              <span style={{ textTransform: 'capitalize', flex: 1 }}>{provider}</span>
+              <button className="btn-ghost" style={{ padding: '4px' }} disabled={index === 0} onClick={() => {
+                const newPrio = [...aiPriority]
+                ;[newPrio[index - 1], newPrio[index]] = [newPrio[index], newPrio[index - 1]]
+                updatePriority(newPrio)
+              }}>↑</button>
+              <button className="btn-ghost" style={{ padding: '4px' }} disabled={index === aiPriority.length - 1} onClick={() => {
+                const newPrio = [...aiPriority]
+                ;[newPrio[index + 1], newPrio[index]] = [newPrio[index], newPrio[index + 1]]
+                updatePriority(newPrio)
+              }}>↓</button>
+            </div>
+          ))}
         </div>
 
         <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginTop: 'var(--space-6)', marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
@@ -396,6 +504,53 @@ export default function ProfilePage() {
 
         {claudeError && <div className="error-card" style={{ marginTop: 'var(--space-3)', padding: 'var(--space-3)' }}><p style={{ margin: 0 }}>{claudeError}</p></div>}
         {claudeSuccess && <div className="card" style={{ marginTop: 'var(--space-3)', padding: 'var(--space-3)', background: 'var(--success-50)', borderColor: 'var(--success-500)', display: 'flex', gap: 'var(--space-2)' }}><CheckCircle size={16} color="var(--success-600)" /><p style={{ margin: 0, color: 'var(--success-600)', fontWeight: 500, fontSize: 'var(--font-size-sm)' }}>{claudeSuccess}</p></div>}
+
+        <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginTop: 'var(--space-6)', marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+          <Key size={18} color="var(--primary-500)" /> OpenAI
+        </h3>
+        
+        <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginTop: 'var(--space-4)', marginBottom: 'var(--space-3)' }}>{t('profile.model')}</h4>
+        <div className="form-group">
+          <select
+            className="form-select"
+            value={openaiModel}
+            onChange={(e) => saveOpenaiModel(e.target.value)}
+            disabled={modelSaving}
+          >
+            <option value="gpt-4o-mini">GPT-4o Mini (Standard)</option>
+            <option value="gpt-4o">GPT-4o</option>
+          </select>
+        </div>
+
+        {profile.has_openai_token && (
+          <p style={{ color: 'var(--success-600)', marginBottom: 'var(--space-3)', marginTop: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontWeight: 500 }}><CheckCircle size={16} /> OpenAI API-Schlüssel gespeichert</p>
+        )}
+
+        {!profile.has_openai_token && (
+          <div className="form-group" style={{ marginTop: 'var(--space-4)' }}>
+            <input
+              className="form-input"
+              type="password"
+              placeholder="sk-proj-..."
+              value={openaiToken}
+              onChange={e => setOpenaiToken(e.target.value)}
+            />
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+          {!profile.has_openai_token ? (
+            <button className="btn btn-primary" onClick={saveOpenaiToken} disabled={saving || !openaiToken}>
+              {saving ? 'Prüft...' : 'Prüfen & Speichern'}
+            </button>
+          ) : (
+            <button className="btn btn-danger" onClick={clearOpenaiToken} disabled={saving}>
+              {saving ? 'Löscht...' : 'Löschen'}
+            </button>
+          )}
+        </div>
+        {openaiError && <div className="error-card" style={{ marginTop: 'var(--space-3)', padding: 'var(--space-3)' }}><p style={{ margin: 0 }}>{openaiError}</p></div>}
+        {openaiSuccess && <div className="card" style={{ marginTop: 'var(--space-3)', padding: 'var(--space-3)', background: 'var(--success-50)', borderColor: 'var(--success-500)', display: 'flex', gap: 'var(--space-2)' }}><CheckCircle size={16} color="var(--success-600)" /><p style={{ margin: 0, color: 'var(--success-600)', fontWeight: 500, fontSize: 'var(--font-size-sm)' }}>{openaiSuccess}</p></div>}
 
         <hr className="divider" style={{ margin: 'var(--space-6) 0' }} />
 

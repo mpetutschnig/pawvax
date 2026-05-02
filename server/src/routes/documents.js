@@ -190,6 +190,7 @@ export default async function documentRoutes(fastify) {
     const db = getDb()
     const { accountId, role } = req.user
     const docId = req.params.id
+    const { provider: requestedProvider, model: requestedModel } = req.body || {}
 
     const doc = db.prepare(`
       SELECT d.*, a.account_id AS owner_id FROM documents d
@@ -207,21 +208,38 @@ export default async function documentRoutes(fastify) {
     }
 
     try {
-      // Get user's Gemini key and model
-      const acc = db.prepare('SELECT gemini_token, gemini_model FROM accounts WHERE id = ?').get(accountId)
+      // Get user's keys and models
+      const acc = db.prepare('SELECT gemini_token, gemini_model, anthropic_token, claude_model, openai_token, openai_model, ai_provider_priority FROM accounts WHERE id = ?').get(accountId)
+      
       let userGeminiKey = null
-      const userGeminiModel = acc?.gemini_model || 'gemini-3.1-flash-lite-preview'
-      try {
-        userGeminiKey = acc?.gemini_token ? decrypt(acc.gemini_token) : null
-      } catch (err) {
-        console.warn(`Could not decrypt user gemini_token: ${err.message}`)
+      let userAnthropicKey = null
+      let userOpenAiKey = null
+      
+      try { userGeminiKey = acc?.gemini_token ? decrypt(acc.gemini_token) : null } catch {}
+      try { userAnthropicKey = acc?.anthropic_token ? decrypt(acc.anthropic_token) : null } catch {}
+      try { userOpenAiKey = acc?.openai_token ? decrypt(acc.openai_token) : null } catch {}
+
+      const userGeminiModel = (requestedProvider === 'google' && requestedModel) ? requestedModel : (acc?.gemini_model || 'gemini-1.5-flash')
+      const userClaudeModel = (requestedProvider === 'anthropic' && requestedModel) ? requestedModel : (acc?.claude_model || 'claude-3-5-sonnet-20241022')
+      const userOpenAiModel = (requestedProvider === 'openai' && requestedModel) ? requestedModel : (acc?.openai_model || 'gpt-4o-mini')
+
+      let priority = acc?.ai_provider_priority ? JSON.parse(acc.ai_provider_priority) : ['google', 'anthropic', 'openai']
+      if (requestedProvider) {
+        priority = [requestedProvider]
       }
 
       // Setze status auf 'analyzing'
       db.prepare('UPDATE documents SET analysis_status = ? WHERE id = ?').run('analyzing', docId)
 
       // Analyze the document image
-      const result = await analyzeDocument(doc.image_path, userGeminiKey, userGeminiModel)
+      const result = await analyzeDocument(
+        doc.image_path, 
+        userGeminiKey, userGeminiModel, 
+        null, 
+        userAnthropicKey, userClaudeModel, 
+        userOpenAiKey, userOpenAiModel, 
+        priority
+      )
       const extractedData = result.data
       const provider = result.provider
 

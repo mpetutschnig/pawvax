@@ -119,8 +119,7 @@ export default async function animalRoutes(fastify) {
 
     // Fremdes Tier — prüfe Rolle
     const userRoles = roles ?? [role]
-    const requestRole = (userRoles.includes('vet') && verified) ? 'vet' : userRoles.includes('authority') ? 'authority' : null
-    if (!requestRole) return reply.code(404).send({ error: 'Tag nicht gefunden oder nicht in deinem Konto' })
+    const requestRole = (userRoles.includes('vet') && verified) ? 'vet' : userRoles.includes('authority') ? 'authority' : 'readonly'
 
     const row = db.prepare(`
       SELECT a.*, ac.name AS owner_name, ac.email AS owner_email
@@ -132,7 +131,13 @@ export default async function animalRoutes(fastify) {
 
     if (!row) return reply.code(404).send({ error: 'Tag nicht gefunden' })
 
-    const filtered = applySharing(db, row, requestRole, row.owner_name, row.owner_email)
+    let filtered = applySharing(db, row, requestRole, row.owner_name, row.owner_email)
+    
+    // Fallback auf public (readonly) falls vet/authority keine speziellen Freigaben haben
+    if (!filtered && requestRole !== 'readonly') {
+      filtered = applySharing(db, row, 'readonly', row.owner_name, row.owner_email)
+    }
+
     if (!filtered) return reply.code(403).send({ error: 'Kein Zugriff auf diese Tierdaten' })
     return filtered
   })

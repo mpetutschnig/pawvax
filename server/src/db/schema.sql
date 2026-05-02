@@ -3,6 +3,13 @@ CREATE TABLE IF NOT EXISTS accounts (
   name          TEXT NOT NULL,
   email         TEXT UNIQUE NOT NULL,
   password_hash TEXT NOT NULL,
+  gemini_token  TEXT,
+  gemini_model  TEXT,
+  anthropic_token TEXT,
+  claude_model  TEXT,
+  openai_token  TEXT,
+  openai_model  TEXT,
+  ai_provider_priority TEXT DEFAULT '["google", "anthropic", "openai"]',
   created_at    TEXT DEFAULT (datetime('now'))
 );
 
