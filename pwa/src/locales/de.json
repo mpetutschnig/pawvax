@@ -348,5 +348,11 @@
   "animal.years": "Jahre",
   "animalEdit.dynamicFields": "Zusatzfelder (JSON)",
   "animalEdit.customFieldsDesc": "Benutzerdefinierte Schlüssel-Wert-Paare",
-  "admin.adminUser": "Administrator"
+  "admin.adminUser": "Administrator",
+  "admin.settings": "Einstellungen",
+  "admin.appName": "App Name",
+  "admin.themeColor": "Hauptfarbe (Akzent)",
+  "admin.logo": "Logo (Bild)",
+  "admin.saveSettings": "Einstellungen speichern",
+  "admin.settingsSaved": "Einstellungen wurden aktualisiert!"
 }

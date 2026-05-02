@@ -74,3 +74,8 @@ CREATE INDEX IF NOT EXISTS idx_audit_account ON audit_log(account_id);
 CREATE INDEX IF NOT EXISTS idx_audit_resource ON audit_log(resource, resource_id);
 CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log(created_at);
 CREATE INDEX IF NOT EXISTS idx_sharing_animal ON animal_sharing(animal_id);
+
+CREATE TABLE IF NOT EXISTS settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);

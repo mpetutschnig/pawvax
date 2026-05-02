@@ -4,9 +4,9 @@ import {
   adminGetStats, adminGetAccounts, adminGetAnimals, adminGetPendingVerifications,
   adminVerifyAccount, adminPatchAccount, adminGetAuditLog, adminDeleteAnimal, adminDeleteAccount
 } from '../api/rest'
-import { PawPrint, LogOut, LayoutDashboard, Users, Cat, ShieldCheck, FileClock, CheckCircle, XCircle, Menu, X } from 'lucide-react'
+import { PawPrint, LogOut, LayoutDashboard, Users, Cat, ShieldCheck, FileClock, CheckCircle, XCircle, Menu, X, Settings } from 'lucide-react'
 
-type Section = 'overview' | 'accounts' | 'animals' | 'verifications' | 'audit'
+type Section = 'overview' | 'accounts' | 'animals' | 'verifications' | 'audit' | 'settings'
 
 interface Account {
   id: string; name: string; email: string; role: string; verified: number; verification_status?: string; created_at: string
@@ -46,6 +46,8 @@ export default function AdminPage() {
   const [verifications, setVerifications] = useState<Verification[]>([])
   const [auditLog, setAuditLog] = useState<AuditLog | null>(null)
   const [auditPage, setAuditPage] = useState(1)
+  const [appSettings, setAppSettings] = useState({ app_name: '', theme_color: '', logo_data: '' })
+  const [settingsSaving, setSettingsSaving] = useState(false)
 
   useEffect(() => {
     loadData()
@@ -69,11 +71,36 @@ export default function AdminPage() {
       } else if (section === 'audit') {
         const res = await adminGetAuditLog({ page: auditPage })
         setAuditLog(res.data)
+      } else if (section === 'settings') {
+        const res = await fetch('/api/settings')
+        const data = await res.json()
+        setAppSettings(data)
       }
     } catch (err) {
       console.error('Admin load error:', err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const saveSettings = async () => {
+    setSettingsSaving(true)
+    try {
+      const res = await fetch('/api/admin/settings', {
+        method: 'PATCH',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify(appSettings)
+      })
+      if (!res.ok) throw new Error('Failed to save settings')
+      alert(t('admin.settingsSaved'))
+      window.location.reload() // Lade die Seite neu, um Farbe/Name direkt global zu übernehmen
+    } catch (e) {
+      alert(t('common.error'))
+    } finally {
+      setSettingsSaving(false)
     }
   }
 
@@ -126,7 +153,8 @@ export default function AdminPage() {
           { id: 'accounts', labelKey: 'admin.accounts', icon: <Users size={18} /> },
           { id: 'animals', labelKey: 'admin.animals', icon: <Cat size={18} /> },
           { id: 'verifications', labelKey: 'admin.verifications', icon: <ShieldCheck size={18} /> },
-          { id: 'audit', labelKey: 'admin.audit', icon: <FileClock size={18} /> }
+          { id: 'audit', labelKey: 'admin.audit', icon: <FileClock size={18} /> },
+          { id: 'settings', labelKey: 'admin.settings', icon: <Settings size={18} /> }
         ].map(item => (
           <a
             key={item.id}
@@ -348,6 +376,41 @@ export default function AdminPage() {
                 disabled={auditPage === auditLog.pages}
               >
                 {t('admin.next')}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Settings */}
+        {section === 'settings' && !loading && (
+          <div className="animate-fade-in">
+            <h1 style={{ marginBottom: 'var(--space-6)' }}>{t('admin.settings')}</h1>
+            <div className="card">
+              <div className="form-group">
+                <label className="form-label">{t('admin.appName')}</label>
+                <input className="form-input" value={appSettings.app_name || ''} onChange={e => setAppSettings({...appSettings, app_name: e.target.value})} placeholder="z.B. Tierarztpraxis Huber" />
+              </div>
+              <div className="form-group">
+                <label className="form-label">{t('admin.themeColor')}</label>
+                <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                  <input type="color" value={appSettings.theme_color || '#0ea5e9'} onChange={e => setAppSettings({...appSettings, theme_color: e.target.value})} style={{ width: '40px', height: '40px', padding: 0, border: 'none', borderRadius: 'var(--radius-sm)' }} />
+                  <input className="form-input" value={appSettings.theme_color || '#0ea5e9'} onChange={e => setAppSettings({...appSettings, theme_color: e.target.value})} />
+                </div>
+              </div>
+              <div className="form-group">
+                <label className="form-label">{t('admin.logo')}</label>
+                <input type="file" accept="image/*" className="form-input" onChange={e => {
+                  const file = e.target.files?.[0]
+                  if (file) {
+                    const reader = new FileReader()
+                    reader.onload = ev => setAppSettings({...appSettings, logo_data: ev.target?.result as string})
+                    reader.readAsDataURL(file)
+                  }
+                }} />
+                {appSettings.logo_data && <img src={appSettings.logo_data} alt="Logo" style={{ marginTop: 'var(--space-3)', maxHeight: '80px', borderRadius: 'var(--radius-md)' }} />}
+              </div>
+              <button className="btn btn-primary" onClick={saveSettings} disabled={settingsSaving} style={{ marginTop: 'var(--space-4)' }}>
+                {settingsSaving ? t('common.loading') : t('admin.saveSettings')}
               </button>
             </div>
           </div>
