@@ -7,7 +7,7 @@ import { logAudit } from '../services/audit.js'
 
 export default async function wsDocumentUpload(fastify) {
   fastify.get('/ws', { websocket: true }, async (socket, req) => {
-    let accountId, userRole, userGeminiKey = null, userGeminiModel = null
+    let accountId, userRole, userGeminiKey = null, userGeminiModel = null, userAnthropicKey = null, userClaudeModel = null
     let authenticated = false
     let uploadState = null
     const MAX_UPLOAD_SIZE = 15 * 1024 * 1024 // 15MB per document
@@ -61,17 +61,24 @@ export default async function wsDocumentUpload(fastify) {
                    : 'user'
 
           const db = getDb()
-          const acc = db.prepare('SELECT gemini_token, gemini_model FROM accounts WHERE id = ?').get(accountId)
+          const acc = db.prepare('SELECT gemini_token, gemini_model, anthropic_token, claude_model FROM accounts WHERE id = ?').get(accountId)
           try {
             userGeminiKey = acc?.gemini_token ? decrypt(acc.gemini_token) : null
           } catch (decryptErr) {
             console.warn(`[WS] Could not decrypt user gemini_token: ${decryptErr.message}. Will use server GEMINI_API_KEY if available.`)
             userGeminiKey = null
           }
+          try {
+            userAnthropicKey = acc?.anthropic_token ? decrypt(acc.anthropic_token) : null
+          } catch (decryptErr) {
+            console.warn(`[WS] Could not decrypt user anthropic_token: ${decryptErr.message}. Will use server ANTHROPIC_API_KEY if available.`)
+            userAnthropicKey = null
+          }
           userGeminiModel = acc?.gemini_model || 'gemini-3.1-flash-lite-preview'
+          userClaudeModel = acc?.claude_model || 'claude-haiku-4-5-20251001'
 
           authenticated = true
-          console.log(`[WS] Client authenticated: ${accountId} (${userRole}, has_gemini_key: ${!!userGeminiKey}, model: ${userGeminiModel})`)
+          console.log(`[WS] Client authenticated: ${accountId} (${userRole}, has_gemini_key: ${!!userGeminiKey}, has_anthropic_key: ${!!userAnthropicKey})`)
           send(socket, { type: 'auth_ok' })
         } catch (err) {
           console.error('[WS] Auth error:', err.message)
@@ -179,7 +186,7 @@ export default async function wsDocumentUpload(fastify) {
               try {
                 const result = await analyzeDocument(page.image_path, userGeminiKey, userGeminiModel, (progressMsg) => {
                   send(socket, { type: 'status', message: `Seite ${page.page_number}: ${progressMsg}` })
-                })
+                }, userAnthropicKey, userClaudeModel)
                 combinedText += (combinedText ? '\n---\n' : '') + (result.data.text || '')
                 lastProvider = result.provider
               } catch (err) {

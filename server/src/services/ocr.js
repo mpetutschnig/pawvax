@@ -2,6 +2,7 @@ import { createWorker } from 'tesseract.js'
 import { readFileSync } from 'fs'
 
 const GEMINI_KEY = process.env.GEMINI_API_KEY
+const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY
 
 const GEMINI_PROMPT = `
 Du bist ein Veterinär-Dokumentenanalyst. Analysiere das folgende Tierdokument (Impfpass, Medikament, etc.)
@@ -46,23 +47,84 @@ Für unbekannte Dokumente:
 Antworte NUR mit dem JSON-Objekt, kein erklärender Text.
 `.trim()
 
-export async function analyzeDocument(imagePath, userGeminiKey = null, model = null, onProgress = null) {
+export async function analyzeDocument(imagePath, userGeminiKey = null, model = null, onProgress = null, userAnthropicKey = null, claudeModel = null) {
+  const anthropicKey = userAnthropicKey || ANTHROPIC_KEY
   const geminiKey = userGeminiKey || GEMINI_KEY
-  const effectiveModel = model || 'gemini-3.1-flash-lite-preview'
-  console.log(`[OCR] analyzeDocument: userGeminiKey=${!!userGeminiKey}, GEMINI_KEY=${!!GEMINI_KEY}, effectiveKey=${!!geminiKey}, model=${effectiveModel}`)
 
-  if (!geminiKey) {
-    throw new Error('Kein Gemini API Key verfügbar. Bild wird gespeichert für spätere Verarbeitung.')
-  }
-
-  if (onProgress) onProgress(`Technologie: ${effectiveModel} wird initialisiert...`)
+  if (onProgress) onProgress(`Initialisiere OCR-Analyse...`)
   try {
-    console.log(`[OCR] Versuche Gemini-Analyse mit Key: ${geminiKey.substring(0, 10)}... (model: ${effectiveModel})`)
-    return await analyzeWithGemini(imagePath, geminiKey, effectiveModel, onProgress)
+    // Claude hat Vorrang wenn Key verfügbar
+    if (anthropicKey) {
+      const effectiveModel = claudeModel || 'claude-haiku-4-5-20251001'
+      console.log(`[OCR] Versuche Claude-Analyse mit Key: ${anthropicKey.substring(0, 10)}... (model: ${effectiveModel})`)
+      return await analyzeWithClaude(imagePath, anthropicKey, effectiveModel, onProgress)
+    } else if (geminiKey) {
+      const effectiveModel = model || 'gemini-3.1-flash-lite-preview'
+      console.log(`[OCR] Versuche Gemini-Analyse mit Key: ${geminiKey.substring(0, 10)}... (model: ${effectiveModel})`)
+      return await analyzeWithGemini(imagePath, geminiKey, effectiveModel, onProgress)
+    } else {
+      throw new Error('Kein API Key verfügbar (weder Claude noch Gemini). Bild wird gespeichert für spätere Verarbeitung.')
+    }
   } catch (err) {
-    console.error('Gemini OCR fehlgeschlagen:', err.message, err.stack)
+    console.error('OCR fehlgeschlagen:', err.message, err.stack)
     throw err // Throw error to be handled by caller (will trigger pending_analysis status)
   }
+}
+
+async function analyzeWithClaude(imagePath, anthropicKey, model, onProgress) {
+  if (onProgress) onProgress('Bild wird für Claude API verarbeitet...')
+  const imageData = readFileSync(imagePath)
+  const base64 = imageData.toString('base64')
+  const mimeType = imagePath.endsWith('.png') ? 'image/png' : 'image/jpeg'
+
+  if (onProgress) onProgress(`Sende POST Request an Claude ${model} API...`)
+  const url = 'https://api.anthropic.com/v1/messages'
+  console.log(`[OCR] Claude API URL: ${url}`)
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': anthropicKey,
+      'anthropic-version': '2023-06-01'
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: 2048,
+      messages: [{
+        role: 'user',
+        content: [
+          {
+            type: 'image',
+            source: {
+              type: 'base64',
+              media_type: mimeType,
+              data: base64
+            }
+          },
+          {
+            type: 'text',
+            text: GEMINI_PROMPT
+          }
+        ]
+      }]
+    })
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    console.error(`[OCR] Claude API Error (${response.status}):`, errorText)
+    throw new Error(`Claude API Fehler (${response.status}): ${errorText}`)
+  }
+
+  if (onProgress) onProgress('Anmeldung bei Claude API erfolgreich! Verarbeite JSON-Antwort...')
+  const result = await response.json()
+  const text = result.content?.[0]?.text || ''
+
+  const jsonMatch = text.match(/\{[\s\S]*\}/)
+  if (!jsonMatch) throw new Error('Kein JSON in Claude-Antwort')
+
+  return { provider: 'claude', data: JSON.parse(jsonMatch[0]) }
 }
 
 async function analyzeWithGemini(imagePath, geminiKey, model, onProgress) {

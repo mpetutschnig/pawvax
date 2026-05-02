@@ -34,6 +34,8 @@ export function initDb(dbPath) {
     `ALTER TABLE documents ADD COLUMN analysis_status TEXT DEFAULT 'pending_analysis'`,
     `ALTER TABLE animal_sharing ADD COLUMN share_dynamic_fields INTEGER NOT NULL DEFAULT 0`,
     `ALTER TABLE accounts ADD COLUMN gemini_model TEXT DEFAULT 'gemini-3.1-flash-lite-preview'`,
+    `ALTER TABLE accounts ADD COLUMN anthropic_token TEXT`,
+    `ALTER TABLE accounts ADD COLUMN claude_model TEXT DEFAULT 'claude-haiku-4-5-20251001'`,
   ]
   for (const sql of migrations) {
     try { db.exec(sql) } catch { /* column already exists */ }

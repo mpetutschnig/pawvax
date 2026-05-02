@@ -118,18 +118,23 @@ export default async function authRoutes(fastify) {
   // Eigenes Profil lesen
   fastify.get('/api/accounts/me', { onRequest: [fastify.authenticate] }, async (req) => {
     const db = getDb()
-    const account = db.prepare('SELECT id, name, email, role, verified, verification_status, gemini_model, created_at FROM accounts WHERE id = ?').get(req.user.accountId)
+    const account = db.prepare('SELECT id, name, email, role, verified, verification_status, gemini_model, claude_model, created_at FROM accounts WHERE id = ?').get(req.user.accountId)
     if (!account) return { error: 'Account nicht gefunden' }
     const roles = (account.role ?? 'user').split(',').map(r => r.trim())
-    return { ...account, roles, has_gemini_token: !!db.prepare('SELECT gemini_token FROM accounts WHERE id = ?').get(account.id)?.gemini_token }
+    const fullAccount = db.prepare('SELECT gemini_token, anthropic_token FROM accounts WHERE id = ?').get(account.id)
+    return { ...account, roles,
+      has_gemini_token: !!fullAccount?.gemini_token,
+      has_anthropic_token: !!fullAccount?.anthropic_token
+    }
   })
 
   // Eigenes Profil ändern
   fastify.patch('/api/accounts/me', { onRequest: [fastify.authenticate] }, async (req, reply) => {
     const db = getDb()
-    const { name, gemini_token, gemini_model } = req.body
+    const { name, gemini_token, gemini_model, anthropic_token, claude_model } = req.body
     const accountId = req.user.accountId
-    const ALLOWED_MODELS = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-3.1-flash-lite-preview', 'gemini-1.5-pro']
+    const ALLOWED_GEMINI_MODELS = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-3.1-flash-lite-preview', 'gemini-1.5-pro']
+    const ALLOWED_CLAUDE_MODELS = ['claude-haiku-4-5-20251001', 'claude-sonnet-4-6', 'claude-opus-4-7']
     const updates = []
     const vals = []
     if (name !== undefined) { updates.push('name = ?'); vals.push(name) }
@@ -138,11 +143,22 @@ export default async function authRoutes(fastify) {
       vals.push(gemini_token ? encrypt(gemini_token) : null)
     }
     if (gemini_model !== undefined) {
-      if (!ALLOWED_MODELS.includes(gemini_model)) {
+      if (!ALLOWED_GEMINI_MODELS.includes(gemini_model)) {
         return reply.code(400).send({ error: 'Ungültiges Gemini-Modell' })
       }
       updates.push('gemini_model = ?')
       vals.push(gemini_model)
+    }
+    if (anthropic_token !== undefined) {
+      updates.push('anthropic_token = ?')
+      vals.push(anthropic_token ? encrypt(anthropic_token) : null)
+    }
+    if (claude_model !== undefined) {
+      if (!ALLOWED_CLAUDE_MODELS.includes(claude_model)) {
+        return reply.code(400).send({ error: 'Ungültiges Claude-Modell' })
+      }
+      updates.push('claude_model = ?')
+      vals.push(claude_model)
     }
     if (!updates.length) return reply.code(400).send({ error: 'Keine Änderungen' })
     vals.push(accountId)
