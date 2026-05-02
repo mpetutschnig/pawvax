@@ -285,12 +285,28 @@ export default function ProfilePage() {
           </a>
         </p>
 
+        <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginTop: 'var(--space-4)', marginBottom: 'var(--space-3)' }}>{t('profile.model')}</h4>
+        <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-4)' }}>{t('profile.modelDesc')}</p>
+        <div className="form-group">
+          <select
+            className="form-select"
+            value={geminiModel}
+            onChange={(e) => saveGeminiModel(e.target.value)}
+            disabled={modelSaving}
+          >
+            <option value="gemini-3.1-flash-lite-preview">Gemini 3.1 Flash-Lite (Standard)</option>
+            <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+            <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+            <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+          </select>
+        </div>
+
         {profile.has_gemini_token && (
-          <p style={{ color: 'var(--success-600)', marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontWeight: 500 }}><CheckCircle size={16} /> {t('profile.geminiSaved')}</p>
+          <p style={{ color: 'var(--success-600)', marginBottom: 'var(--space-3)', marginTop: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontWeight: 500 }}><CheckCircle size={16} /> {t('profile.geminiSaved')}</p>
         )}
 
         {!profile.has_gemini_token && (
-          <div className="form-group">
+          <div className="form-group" style={{ marginTop: 'var(--space-4)' }}>
             <input
               className="form-input"
               type="password"
@@ -316,26 +332,6 @@ export default function ProfilePage() {
         {geminiError && <div className="error-card" style={{ marginTop: 'var(--space-3)', padding: 'var(--space-3)' }}><p style={{ margin: 0 }}>{geminiError}</p></div>}
         {geminiSuccess && <div className="card" style={{ marginTop: 'var(--space-3)', padding: 'var(--space-3)', background: 'var(--success-50)', borderColor: 'var(--success-500)', display: 'flex', gap: 'var(--space-2)' }}><CheckCircle size={16} color="var(--success-600)" /><p style={{ margin: 0, color: 'var(--success-600)', fontWeight: 500, fontSize: 'var(--font-size-sm)' }}>{geminiSuccess}</p></div>}
 
-        {profile.has_gemini_token && (
-          <>
-            <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginTop: 'var(--space-6)', marginBottom: 'var(--space-3)' }}>{t('profile.model')}</h3>
-            <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-4)' }}>{t('profile.modelDesc')}</p>
-            <div className="form-group">
-              <select
-                className="form-select"
-                value={geminiModel}
-                onChange={(e) => saveGeminiModel(e.target.value)}
-                disabled={modelSaving}
-              >
-                <option value="gemini-3.1-flash-lite-preview">Gemini 3.1 Flash-Lite (Standard)</option>
-                <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
-                <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
-                <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
-              </select>
-            </div>
-          </>
-        )}
-
         <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-4)', padding: 'var(--space-3)', background: 'color-mix(in oklch, var(--warning-500) 12%, var(--surface))', borderRadius: 'var(--radius-md)', border: '1px solid color-mix(in oklch, var(--warning-500) 30%, transparent)' }}>
           <AlertTriangle size={16} color="var(--warning-600)" style={{ flexShrink: 0, marginTop: '2px' }} />
           <p style={{ fontSize: 'var(--font-size-xs)', margin: 0, color: 'var(--text-primary)' }}>
@@ -344,23 +340,38 @@ export default function ProfilePage() {
         </div>
 
         <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginTop: 'var(--space-6)', marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-          <Key size={18} color="var(--primary-500)" /> {t('profile.claude') || 'Claude / Anthropic'}
+          <Key size={18} color="var(--primary-500)" /> {t('profile.claude')}
         </h3>
         <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-4)' }}>
-          {t('profile.claudeDesc') || 'Use Claude for document analysis'}
+          {t('profile.claudeDesc')}
         </p>
         <p style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-4)' }}>
           <a href="https://console.anthropic.com/account/keys" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary-500)', textDecoration: 'underline' }}>
-            {t('profile.claudeCreateKey') || 'Create API key at console.anthropic.com'}
+            {t('profile.claudeCreateKey')}
           </a>
         </p>
 
+        <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginTop: 'var(--space-4)', marginBottom: 'var(--space-3)' }}>{t('profile.model')}</h4>
+        <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-4)' }}>{t('profile.modelDesc')}</p>
+        <div className="form-group">
+          <select
+            className="form-select"
+            value={claudeModel}
+            onChange={(e) => saveClaudeModel(e.target.value)}
+            disabled={modelSaving}
+          >
+            <option value="claude-haiku-4-5-20251001">Claude Haiku (Standard)</option>
+            <option value="claude-sonnet-4-6">Claude Sonnet</option>
+            <option value="claude-opus-4-7">Claude Opus</option>
+          </select>
+        </div>
+
         {profile.has_anthropic_token && (
-          <p style={{ color: 'var(--success-600)', marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontWeight: 500 }}><CheckCircle size={16} /> {t('profile.claudeSaved') || 'Claude API key saved'}</p>
+          <p style={{ color: 'var(--success-600)', marginBottom: 'var(--space-3)', marginTop: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontWeight: 500 }}><CheckCircle size={16} /> {t('profile.claudeSaved')}</p>
         )}
 
         {!profile.has_anthropic_token && (
-          <div className="form-group">
+          <div className="form-group" style={{ marginTop: 'var(--space-4)' }}>
             <input
               className="form-input"
               type="password"
@@ -374,36 +385,17 @@ export default function ProfilePage() {
         <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
           {!profile.has_anthropic_token ? (
             <button className="btn btn-primary" onClick={saveAnthropicToken} disabled={saving || !anthropicToken}>
-              {saving ? t('profile.claudeChecking') || 'Checking...' : t('profile.claudeCheck') || 'Save API Key'}
+              {saving ? t('profile.claudeChecking') : t('profile.claudeCheck')}
             </button>
           ) : (
             <button className="btn btn-danger" onClick={clearAnthropicToken} disabled={saving}>
-              {saving ? t('profile.claudeDeleting') || 'Deleting...' : t('profile.claudeDelete') || 'Remove API Key'}
+              {saving ? t('profile.claudeDeleting') : t('profile.claudeDelete')}
             </button>
           )}
         </div>
 
         {claudeError && <div className="error-card" style={{ marginTop: 'var(--space-3)', padding: 'var(--space-3)' }}><p style={{ margin: 0 }}>{claudeError}</p></div>}
         {claudeSuccess && <div className="card" style={{ marginTop: 'var(--space-3)', padding: 'var(--space-3)', background: 'var(--success-50)', borderColor: 'var(--success-500)', display: 'flex', gap: 'var(--space-2)' }}><CheckCircle size={16} color="var(--success-600)" /><p style={{ margin: 0, color: 'var(--success-600)', fontWeight: 500, fontSize: 'var(--font-size-sm)' }}>{claudeSuccess}</p></div>}
-
-        {profile.has_anthropic_token && (
-          <>
-            <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginTop: 'var(--space-6)', marginBottom: 'var(--space-3)' }}>{t('profile.model')}</h3>
-            <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-4)' }}>{t('profile.modelDesc')}</p>
-            <div className="form-group">
-              <select
-                className="form-select"
-                value={claudeModel}
-                onChange={(e) => saveClaudeModel(e.target.value)}
-                disabled={modelSaving}
-              >
-                <option value="claude-haiku-4-5-20251001">Claude Haiku (Standard)</option>
-                <option value="claude-sonnet-4-6">Claude Sonnet</option>
-                <option value="claude-opus-4-7">Claude Opus</option>
-              </select>
-            </div>
-          </>
-        )}
 
         <hr className="divider" style={{ margin: 'var(--space-6) 0' }} />
 
