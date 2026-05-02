@@ -55,7 +55,7 @@ export default function AnimalPage() {
 
       if (!res.ok) {
         const errData = await res.json()
-        setError(errData.error || 'Analyse fehlgeschlagen')
+        setError(errData.error || t('animal.documentFailed'))
         // Keep document in pending list, just show error
         return
       }
@@ -74,19 +74,19 @@ export default function AnimalPage() {
       setError(null)
     } catch (err) {
       console.error('Fehler beim Analysieren:', err)
-      setError('Fehler beim Analysieren. Bitte versuchen Sie es später erneut.')
+      setError(t('animal.analyzeFailedRetry'))
     } finally {
       setRetrying(null)
     }
   }
 
   const handleDeletePendingDoc = async (docId: string) => {
-    if (!confirm('Dokument wirklich löschen?')) return
+    if (!confirm(t('docDetail.deleteConfirm'))) return
     try {
       await deleteDocument(docId)
       setPendingDocuments(prev => prev.filter(d => d.id !== docId))
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Fehler beim Löschen')
+      setError(err.response?.data?.error || t('common.deleteError'))
     }
   }
 
@@ -113,7 +113,7 @@ export default function AnimalPage() {
             setPendingDocuments([])
           })
       })
-      .catch(() => setError('Tier nicht gefunden'))
+      .catch(() => setError(t('error.notFound')))
       .finally(() => setLoading(false))
   }, [id])
 
@@ -130,7 +130,7 @@ export default function AnimalPage() {
       setAnimal(editData)
       setEditing(false)
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Fehler beim Speichern')
+      setError(err.response?.data?.error || t('profile.saveError'))
     } finally {
       setSubmitting(false)
     }
@@ -143,7 +143,7 @@ export default function AnimalPage() {
       await deleteAnimal(id)
       navigate('/animals')
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Fehler beim Löschen')
+      setError(err.response?.data?.error || t('common.deleteError'))
       setSubmitting(false)
     }
   }
@@ -182,9 +182,9 @@ export default function AnimalPage() {
           const compressed = canvas.toDataURL('image/jpeg', 0.75)
           resolve(compressed)
         }
-        img.onerror = () => reject(new Error('Fehler beim Laden des Bildes'))
+        img.onerror = () => reject(new Error(t('common.imageLoadError')))
       }
-      reader.onerror = () => reject(new Error('Fehler beim Lesen der Datei'))
+      reader.onerror = () => reject(new Error(t('common.fileReadError')))
     })
   }
 
@@ -200,7 +200,7 @@ export default function AnimalPage() {
       setAnimal(res.data)
       setError(null)
     } catch (err: any) {
-      setError(err.response?.data?.error || err.message || 'Fehler beim Hochladen des Avatars')
+      setError(err.response?.data?.error || err.message || t('animal.avatarUploadError'))
     } finally {
       setUploadingAvatar(false)
       if (avatarInputRef.current) avatarInputRef.current.value = ''
@@ -208,7 +208,7 @@ export default function AnimalPage() {
   }
 
   if (loading) return <div className="container page" style={{ display: 'flex', justifyContent: 'center', paddingTop: '4rem' }}><div className="spinner spinner-lg"></div></div>
-  if (!animal) return <div className="container page"><div className="error-card"><p>{error || 'Tier nicht gefunden'}</p></div></div>
+  if (!animal) return <div className="container page"><div className="error-card"><p>{error || t('error.notFound')}</p></div></div>
 
   const hasNfcTag = tags.some(t => t.tag_type === 'nfc' && t.active === 1)
   const isVetVerified = false // Placeholder for future implementation
@@ -370,7 +370,7 @@ export default function AnimalPage() {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Dynamic Fields (JSON)</label>
+              <label className="form-label">{t('animalEdit.dynamicFields')}</label>
               <textarea
                 className="form-input"
                 rows={3}
@@ -378,7 +378,7 @@ export default function AnimalPage() {
                 value={editData?.dynamic_fields || ''}
                 onChange={(e) => setEditData({ ...editData!, dynamic_fields: e.target.value })}
               />
-              <p className="text-muted" style={{ fontSize: '11px', marginTop: 'var(--space-1)' }}>Custom key-value pairs</p>
+              <p className="text-muted" style={{ fontSize: '11px', marginTop: 'var(--space-1)' }}>{t('animalEdit.customFieldsDesc')}</p>
             </div>
 
             <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-6)' }}>

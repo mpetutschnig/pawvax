@@ -96,7 +96,7 @@ export default function PublicScanPage() {
             </div>
             <h1 style={{ margin: '0 0 4px 0', fontSize: 'var(--font-size-xl)' }}>{animal.name}</h1>
             <p className="text-muted" style={{ margin: 0 }}>
-              {animal.species} {animal.breed ? `· ${animal.breed}` : ''} {animal.birthdate ? `· geb. ${animal.birthdate}` : ''}
+              {animal.species} {animal.breed ? `· ${animal.breed}` : ''} {animal.birthdate ? `· ${t('publicScan.born')} ${animal.birthdate}` : ''}
             </p>
           </div>
 

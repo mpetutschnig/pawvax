@@ -80,7 +80,7 @@ export default function AdminPage() {
   const selectedAccount = selectedId ? accounts.find(a => a.id === selectedId) : null
   const selectedAnimal = selectedId ? animals.find(a => a.id === selectedId) : null
 
-  const adminName = 'Admin User' // Ideally from Auth context
+  const adminName = t('admin.adminUser') // Ideally from Auth context
 
   return (
     <div className={`admin-layout ${sidebarOpen ? 'sidebar-open' : ''}`}>

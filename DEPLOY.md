@@ -176,6 +176,20 @@ PAW_API_UID=$(id -u paw-api) && XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bi
 
 ### 7b. paw-pwa (React + nginx Frontend)
 
+Vor dem Build des Frontends können Mandanten-spezifische Umgebungsvariablen definiert werden. Vite backt diese beim Build-Prozess fest in die HTML/JS-Dateien ein.
+
+```bash
+cat > /git/pawvax/pwa/.env.production.local << 'EOF'
+VITE_APP_NAME="PAW - Tierarztpraxis Dr. Müller"
+VITE_APP_SHORT_NAME="Dr. Müller"
+VITE_THEME_COLOR="#10b981"
+EOF
+```
+
+```bash
+chown paw-git:paw-git /git/pawvax/pwa/.env.production.local
+```
+
 ```bash
 PAW_PWA_UID=$(id -u paw-pwa) && XDG_RUNTIME_DIR=/run/user/$PAW_PWA_UID su -s /bin/bash paw-pwa -c "cd /tmp && podman --cgroup-manager=cgroupfs build -t paw-pwa:latest -f /git/pawvax/pwa/Containerfile /git/pawvax/pwa"
 ```

@@ -183,7 +183,7 @@ export default function AnimalsPage() {
               name={animal.name}
               species={animal.species}
               breed={animal.breed}
-              age={animal.birthdate ? new Date().getFullYear() - new Date(animal.birthdate).getFullYear() + ' Jahre' : undefined}
+              age={animal.birthdate ? new Date().getFullYear() - new Date(animal.birthdate).getFullYear() + ' ' + t('animal.years') : undefined}
               vaccinationStatus="current" // Placeholder, should come from API eventually
               hasNfcTag={false} // Placeholder
               isVetVerified={false} // Placeholder

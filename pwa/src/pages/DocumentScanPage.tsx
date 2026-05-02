@@ -115,7 +115,7 @@ export default function DocumentScanPage() {
       setCurrentPageIndex(0)
     } catch (err) {
       console.error(err)
-      setErrorMsg("Bild konnte nicht verarbeitet werden.")
+      setErrorMsg(t('docScan.imageProcessError'))
     }
   }
 
@@ -130,7 +130,7 @@ export default function DocumentScanPage() {
       setCurrentPageIndex(pages.length)
     } catch (err) {
       console.error(err)
-      setErrorMsg("Seite konnte nicht hinzugefügt werden.")
+      setErrorMsg(t('docScan.pageAddError'))
     }
   }
 
@@ -278,24 +278,24 @@ export default function DocumentScanPage() {
           <button className="btn-ghost" style={{ padding: '8px', margin: '-8px' }} onClick={() => { setShowModelSelection(false); setErrorMsg(null); }}>
             <X size={24} />
           </button>
-          <h1 style={{ margin: 0, fontSize: 'var(--font-size-xl)' }}>KI Analyse</h1>
+          <h1 style={{ margin: 0, fontSize: 'var(--font-size-xl)' }}>{t('docDetail.aiAnalysis')}</h1>
         </div>
         
         {errorMsg && <div className="error-card" style={{ marginBottom: 'var(--space-4)' }}><p>{errorMsg}</p></div>}
 
         <div className="card animate-slide-up" style={{ borderColor: 'var(--primary-200)' }}>
           <p className="text-muted" style={{ marginBottom: 'var(--space-4)' }}>
-            Wähle den gewünschten Anbieter und das Modell für die Dokumenten-Analyse aus.
+            {t('docDetail.aiSelectProvider')}
           </p>
           
           {!hasAnyKey ? (
             <div className="error-card" style={{ marginBottom: 'var(--space-4)' }}>
-              <p style={{ margin: 0 }}>Keine KI-Anbieter konfiguriert. Bitte hinterlege einen API-Schlüssel in deinem Profil.</p>
+              <p style={{ margin: 0 }}>{t('docDetail.noProvidersConfigured')}</p>
             </div>
           ) : (
             <>
               <div className="form-group">
-                <label className="form-label">Anbieter</label>
+                <label className="form-label">{t('docDetail.provider')}</label>
                 <select className="form-select" value={retryProvider} onChange={e => handleProviderChange(e.target.value)}>
                   {hasGemini && <option value="google">Google Gemini</option>}
                   {hasAnthropic && <option value="anthropic">Anthropic Claude</option>}
@@ -303,7 +303,7 @@ export default function DocumentScanPage() {
                 </select>
               </div>
               <div className="form-group">
-                <label className="form-label">Modell</label>
+                <label className="form-label">{t('docDetail.model')}</label>
                 <select className="form-select" value={retryModel} onChange={e => setRetryModel(e.target.value)}>
                   {retryProvider === 'google' && (
                     <>
@@ -332,7 +332,7 @@ export default function DocumentScanPage() {
           <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-6)' }}>
             {hasAnyKey && (
               <button className="btn btn-primary flex-1" onClick={handleRetryAnalysisAPI} disabled={savingModel}>
-                {savingModel ? 'Analysiere...' : 'Analyse starten'}
+                {savingModel ? t('animal.retrying') : t('animal.analyzeBtn')}
               </button>
             )}
             <button className="btn btn-ghost flex-1" onClick={() => navigate(`/animals/${animalId}`)} disabled={savingModel}>

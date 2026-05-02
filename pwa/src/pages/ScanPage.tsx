@@ -155,7 +155,7 @@ export default function ScanPage() {
                 <AlertCircle size={18} color="var(--danger-500)" style={{ flexShrink: 0, marginTop: '2px' }} />
                 <div>
                   <p style={{ margin: '0 0 var(--space-1) 0', fontWeight: 600 }}>{cameraError}</p>
-                  <p style={{ margin: 0, fontSize: 'var(--font-size-xs)' }}>{t('common.error')}: HTTPS oder localhost erforderlich</p>
+                  <p style={{ margin: 0, fontSize: 'var(--font-size-xs)' }}>{t('common.error')}: {t('scan.httpsRequired')}</p>
                 </div>
               </div>
             </div>
@@ -215,12 +215,12 @@ export default function ScanPage() {
           <h2 style={{ marginBottom: 'var(--space-4)' }}>{t('chip.enterTag')}</h2>
           <div className="form-group">
             <label className="form-label">Tag-ID</label>
-            <input className="form-input" value={manualId} onChange={e => setManualId(e.target.value)} placeholder="z.B. ABC123..." />
+            <input className="form-input" value={manualId} onChange={e => setManualId(e.target.value)} placeholder={t('chip.enterTagPlaceholder')} />
           </div>
           {error && <div className="error-card" style={{ marginBottom: 'var(--space-4)' }}><p>{error}</p></div>}
           <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
             <button className="btn btn-primary flex-1" disabled={!manualId || loading} onClick={() => handleTag(manualId, 'barcode')}>
-              {loading ? t('common.loading') : 'Suchen'}
+              {loading ? t('common.loading') : t('common.search')}
             </button>
             <button className="btn btn-ghost flex-1" onClick={() => setMode('choose')}>{t('common.cancel')}</button>
           </div>

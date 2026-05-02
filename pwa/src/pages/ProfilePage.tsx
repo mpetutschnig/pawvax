@@ -200,17 +200,17 @@ export default function ProfilePage() {
       const validateRes = await fetch('https://api.openai.com/v1/models', {
         headers: { 'Authorization': `Bearer ${openaiToken}` }
       })
-      if (!validateRes.ok) throw new Error('Invalid OpenAI API key')
+      if (!validateRes.ok) throw new Error(t('profile.openaiInvalid'))
 
       await patchMe({ openai_token: openaiToken || null })
-      setOpenaiSuccess('OpenAI API key saved')
+      setOpenaiSuccess(t('profile.openaiSaved'))
       setOpenaiToken('')
       setTimeout(() => {
         loadProfile()
         setOpenaiSuccess('')
       }, 3000)
     } catch (err) {
-      setOpenaiError(err instanceof Error ? err.message : 'Error saving key')
+      setOpenaiError(err instanceof Error ? err.message : t('profile.saveError'))
     } finally {
       setSaving(false)
     }
@@ -252,7 +252,7 @@ export default function ProfilePage() {
     setAiPriority(newPriority)
     try {
       await patchMe({ ai_provider_priority: JSON.stringify(newPriority) })
-      setSuccess('Priorität gespeichert')
+      setSuccess(t('common.success'))
       setTimeout(() => setSuccess(null), 2000)
     } catch (err) {
       setError(t('profile.saveError'))
@@ -357,10 +357,10 @@ export default function ProfilePage() {
         </div>
 
         <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginTop: 'var(--space-6)', marginBottom: 'var(--space-3)' }}>
-          AI Anbieter Priorität
+          {t('profile.aiPriorityTitle')}
         </h3>
         <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-4)' }}>
-          In dieser Reihenfolge werden die Anbieter für die automatische Dokumentenanalyse versucht.
+          {t('profile.aiPriorityDesc')}
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
           {aiPriority.map((provider, index) => (
@@ -523,7 +523,7 @@ export default function ProfilePage() {
         </div>
 
         {profile.has_openai_token && (
-          <p style={{ color: 'var(--success-600)', marginBottom: 'var(--space-3)', marginTop: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontWeight: 500 }}><CheckCircle size={16} /> OpenAI API-Schlüssel gespeichert</p>
+          <p style={{ color: 'var(--success-600)', marginBottom: 'var(--space-3)', marginTop: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontWeight: 500 }}><CheckCircle size={16} /> {t('profile.openaiSaved')}</p>
         )}
 
         {!profile.has_openai_token && (
@@ -541,11 +541,11 @@ export default function ProfilePage() {
         <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
           {!profile.has_openai_token ? (
             <button className="btn btn-primary" onClick={saveOpenaiToken} disabled={saving || !openaiToken}>
-              {saving ? 'Prüft...' : 'Prüfen & Speichern'}
+              {saving ? t('profile.openaiChecking') : t('profile.openaiCheck')}
             </button>
           ) : (
             <button className="btn btn-danger" onClick={clearOpenaiToken} disabled={saving}>
-              {saving ? 'Löscht...' : 'Löschen'}
+              {saving ? t('profile.openaiDeleting') : t('profile.openaiDelete')}
             </button>
           )}
         </div>

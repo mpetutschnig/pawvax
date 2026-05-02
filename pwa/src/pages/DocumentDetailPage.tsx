@@ -220,24 +220,24 @@ export default function DocumentDetailPage() {
           <button className="btn-ghost" style={{ padding: '8px', margin: '-8px' }} onClick={() => { setShowRetryModal(false); setError(null); }}>
             <X size={24} />
           </button>
-          <h1 style={{ margin: 0, fontSize: 'var(--font-size-xl)' }}>KI Analyse</h1>
+          <h1 style={{ margin: 0, fontSize: 'var(--font-size-xl)' }}>{t('docDetail.aiAnalysis')}</h1>
         </div>
         
         {error && <div className="error-card" style={{ marginBottom: 'var(--space-4)' }}><p>{error}</p></div>}
 
         <div className="card animate-slide-up" style={{ borderColor: 'var(--primary-200)' }}>
           <p className="text-muted" style={{ marginBottom: 'var(--space-4)' }}>
-            Wähle den gewünschten Anbieter und das Modell für die Dokumenten-Analyse aus.
+            {t('docDetail.aiSelectProvider')}
           </p>
           
           {!hasAnyKey ? (
             <div className="error-card" style={{ marginBottom: 'var(--space-4)' }}>
-              <p style={{ margin: 0 }}>Keine KI-Anbieter konfiguriert. Bitte hinterlege einen API-Schlüssel in deinem Profil.</p>
+              <p style={{ margin: 0 }}>{t('docDetail.noProvidersConfigured')}</p>
             </div>
           ) : (
             <>
               <div className="form-group">
-                <label className="form-label">Anbieter</label>
+                <label className="form-label">{t('docDetail.provider')}</label>
                 <select className="form-select" value={retryProvider} onChange={e => handleProviderChange(e.target.value)}>
                   {hasGemini && <option value="google">Google Gemini</option>}
                   {hasAnthropic && <option value="anthropic">Anthropic Claude</option>}
@@ -245,7 +245,7 @@ export default function DocumentDetailPage() {
                 </select>
               </div>
               <div className="form-group">
-                <label className="form-label">Modell</label>
+                <label className="form-label">{t('docDetail.model')}</label>
                 <select className="form-select" value={retryModel} onChange={e => setRetryModel(e.target.value)}>
                   {retryProvider === 'google' && (
                     <>
@@ -274,7 +274,7 @@ export default function DocumentDetailPage() {
           <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-6)' }}>
             {hasAnyKey && (
               <button className="btn btn-primary flex-1" onClick={handleRetryAnalysis} disabled={saving}>
-                {saving ? 'Analysiere...' : 'Analyse starten'}
+                {saving ? t('animal.retrying') : t('animal.analyzeBtn')}
               </button>
             )}
             <button className="btn btn-ghost flex-1" onClick={() => { setShowRetryModal(false); setError(null); }} disabled={saving}>
@@ -344,7 +344,7 @@ export default function DocumentDetailPage() {
 
         {extracted.summary && (
           <div style={{ background: 'var(--primary-50)', padding: 'var(--space-4)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-6)', borderLeft: '4px solid var(--primary-500)' }}>
-            <h4 style={{ margin: '0 0 var(--space-2) 0', color: 'var(--primary-700)' }}>Zusammenfassung</h4>
+            <h4 style={{ margin: '0 0 var(--space-2) 0', color: 'var(--primary-700)' }}>{t('docDetail.summary')}</h4>
             <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', color: 'var(--primary-900)' }}>{extracted.summary}</p>
           </div>
         )}
@@ -517,7 +517,7 @@ export default function DocumentDetailPage() {
 
           <div className="form-group">
             <label className="form-label">{t('docDetail.reminderTitleLabel')}</label>
-            <input className="form-input" value={reminderTitle} onChange={e => setReminderTitle(e.target.value)} placeholder="e.g. Tetanus" />
+            <input className="form-input" value={reminderTitle} onChange={e => setReminderTitle(e.target.value)} placeholder={t('docDetail.reminderTitlePlaceholder')} />
           </div>
 
           <div className="form-group">
@@ -531,7 +531,7 @@ export default function DocumentDetailPage() {
               className="form-input"
               value={reminderNotes}
               onChange={e => setReminderNotes(e.target.value)}
-              placeholder="e.g. Booster needed..."
+              placeholder={t('docDetail.reminderNotesPlaceholder')}
               style={{ minHeight: '80px', resize: 'vertical' }}
             />
           </div>
