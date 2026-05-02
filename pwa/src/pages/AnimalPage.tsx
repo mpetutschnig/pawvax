@@ -8,6 +8,7 @@ import { PawPrint, Cat, Edit2, Trash2, Lock, Camera, Search, Syringe, FileText, 
 interface Animal {
   id: string; name: string; species: string; breed?: string; birthdate?: string;
   avatar_path?: string; dynamic_fields?: string; avatar_base64?: string;
+  is_owner?: boolean; request_role?: string; contact?: { name: string; email: string };
 }
 interface AnimalTag {
   tag_id: string; tag_type: string; active: number; added_at: string
@@ -259,6 +260,9 @@ export default function AnimalPage() {
   if (loading) return <div className="container page" style={{ display: 'flex', justifyContent: 'center', paddingTop: '4rem' }}><div className="spinner spinner-lg"></div></div>
   if (!animal) return <div className="container page"><div className="error-card"><p>{error || t('error.notFound')}</p></div></div>
 
+  const isOwner = animal.is_owner !== false
+  const isVet = animal.request_role === 'vet'
+
   const hasNfcTag = tags.some(t => t.tag_type === 'nfc' && t.active === 1)
   const isVetVerified = false // Placeholder for future implementation
 
@@ -323,6 +327,15 @@ export default function AnimalPage() {
 
       {error && <div className="error-card"><p>{error}</p></div>}
 
+      {!isOwner && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', padding: 'var(--space-3)', background: 'var(--info-50)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-4)', border: '1px solid var(--info-200)' }}>
+          <ShieldAlert size={18} color="var(--info-600)" />
+          <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--info-800)' }}>
+            {t('scan.sharedAccess')}: <strong style={{ textTransform: 'capitalize' }}>{animal.request_role === 'vet' ? t('docScan.vet') : animal.request_role === 'authority' ? t('docScan.authority') : t('docScan.readonlyAccess')}</strong>
+          </span>
+        </div>
+      )}
+
       {!editing ? (
         <>
           <div style={{
@@ -339,9 +352,7 @@ export default function AnimalPage() {
                   background: 'oklch(100% 0 0 / 0.18)',
                   border: '1.5px solid oklch(100% 0 0 / 0.28)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
-                  cursor: 'pointer', transition: 'opacity 0.2s'
-                }} onClick={() => avatarInputRef.current?.click()}>
-                  {animal.avatar_path ? (
+                  cursor: wtatar_path ? (
                     <img src={`/uploads/${animal.avatar_path.split('/').pop()}`} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   ) : (
                     animal.species === 'cat' ? <Cat size={28} color="white" strokeWidth={1.6} /> : <PawPrint size={28} color="white" strokeWidth={1.6} />
@@ -393,32 +404,32 @@ export default function AnimalPage() {
             })()}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
-            <button className="btn btn-secondary" onClick={() => setEditing(true)}><Edit2 size={16} /> {t('animal.edit')}</button>
-            <button className="btn btn-outline" onClick={handleDelete} disabled={submitting} style={{ borderColor: 'var(--danger-500)', color: 'var(--danger-500)' }}><Trash2 size={16} /> {t('animal.delete')}</button>
-            <Link to={`/animals/${id}/tags`} className="btn btn-ghost" style={{ textDecoration: 'none' }}>
-              <Radio size={16} /> {t('animal.chips')}
+          {!  s
+
+isOwner && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
+              <button className="btn btn-secondary" onClick={() => setEditing(true)}><Edit2 size={16} /> {t('animal.edit')}</button>
+              <button className="btn btn-outline" onClick={handleDelete} disabled={submitting} style={{ borderColor: 'var(--danger-500)', color: 'var(--danger-500)' }}><Trash2 size={16} /> {t('animal.delete')}</button>
+              <Link to={`/animals/${id}/tags`} className="btn btn-ghost" style={{ textDecoration: 'none' }}>
+                <Radio size={16} /> {t('animal.chips')}
+              </Link>
+              <Link to={`/animals/${id}/sharing`} className="btn btn-ghost" style={{ textDecoration: 'none' }}>
+                <Lock size={16} /> {t('animal.sharing')}
+              </Link>
+            </div>
+          )}
+
+          {(isOwner || isVet) && (
+            <Link to={`/animals/${id}/scan`} className="btn btn-primary btn-full" style={{ marginBottom: 'var(--space-6)' }}>
+              <Camera size={18} /> {t('animal.addDocument')}
             </Link>
-            <Link to={`/animals/${id}/sharing`} className="btn btn-ghost" style={{ textDecoration: 'none' }}>
-              <Lock size={16} /> {t('animal.sharing')}
-            </Link>
-          </div>
-          <Link to={`/animals/${id}/scan`} className="btn btn-primary btn-full" style={{ marginBottom: 'var(--space-6)' }}>
-            <Camera size={18} /> {t('animal.addDocument')}
-          </Link>
+          )}
         </>
       ) : (
         <div className="card animate-slide-up">
           <h3 style={{ marginBottom: 'var(--space-4)' }}>{t('animalEdit.title')}</h3>
-          <form>
-            <div className="form-group">
-              <label className="form-label">{t('animalEdit.name')}</label>
-              <input
-                className="form-input"
-                type="text"
-                value={editData?.name || ''}
-                onChange={(e) => setEditData({ ...editData!, name: e.target.value })}
-                required
+          <form>assName="form-group">
+>                required
               />
             </div>
 

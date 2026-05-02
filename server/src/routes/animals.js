@@ -276,10 +276,32 @@ export default async function animalRoutes(fastify) {
   // Tierprofil
   fastify.get('/api/animals/:id', async (req, reply) => {
     const db = getDb()
-    const animal = db.prepare('SELECT * FROM animals WHERE id = ? AND account_id = ?')
-      .get(req.params.id, req.user.accountId)
+    const { id } = req.params
+    const { accountId, role, roles, verified } = req.user
+
+    const animal = db.prepare(`
+      SELECT a.*, ac.name AS owner_name, ac.email AS owner_email 
+      FROM animals a
+      JOIN accounts ac ON a.account_id = ac.id
+      WHERE a.id = ?
+    `).get(id)
+
     if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden' })
-    return animal
+
+    if (animal.account_id === accountId) {
+      animal.is_owner = true
+      return animal
+    }
+
+    const userRoles = roles ?? [role]
+    const requestRole = (userRoles.includes('vet') && verified) ? 'vet' : userRoles.includes('authority') ? 'authority' : 'readonly'
+    let filtered = applySharing(db, animal, requestRole, animal.owner_name, animal.owner_email)
+    if (!filtered && requestRole !== 'readonly') filtered = applySharing(db, animal, 'readonly', animal.owner_name, animal.owner_email)
+    if (!filtered) return reply.code(403).send({ error: 'Kein Zugriff auf diese Tierdaten' })
+    filtered.is_owner = false
+    filtered.request_role = requestRole
+    delete filtered.documents // Dokumente werden separat über /documents geladen
+    return filtered
   })
 
   // Tier-Daten ändern
@@ -368,10 +390,12 @@ export default async function animalRoutes(fastify) {
     // Rollenbasiert für Vet/Behörde
     const rolesArray = roles ?? [role]
     const requestRole = (rolesArray.includes('vet') && verified) ? 'vet' : rolesArray.includes('authority') ? 'authority' : null
-    if (!requestRole) return reply.code(403).send({ error: 'Kein Zugriff' })
 
-    const sharing = db.prepare('SELECT * FROM animal_sharing WHERE animal_id = ? AND role = ?').get(id, requestRole)
-    if (!sharing) return reply.code(403).send({ error: 'Kein Zugriff' })
+    let sharing = null
+    if (requestRole) sharing = db.prepare('SELECT * FROM animal_sharing WHERE animal_id = ? AND role = ?').get(id, requestRole)
+    if (!sharing) sharing = db.prepare('SELECT * FROM animal_sharing WHERE animal_id = ? AND role = ?').get(id, 'readonly')
+
+    if (!sharing) return []
 
     const allowed = []
     if (sharing.share_vaccination) allowed.push('vaccination')
@@ -388,7 +412,7 @@ export default async function animalRoutes(fastify) {
       if (!d.allowed_roles) return true
       try {
         const roles = JSON.parse(d.allowed_roles)
-        return roles.includes(requestRole)
+        return roles.includes(requestRole) || roles.includes('readonly')
       } catch {
         return true
       }
@@ -398,8 +422,8 @@ export default async function animalRoutes(fastify) {
   // Tag-Liste eines Tieres
   fastify.get('/api/animals/:id/tags', async (req, reply) => {
     const db = getDb()
-    const animal = db.prepare('SELECT id FROM animals WHERE id = ? AND account_id = ?')
-      .get(req.params.id, req.user.accountId)
+    const animal = db.prepare('SELECT id FROM animals WHERE id = ?')
+      .get(req.params.id)
     if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden' })
 
     return db.prepare('SELECT * FROM animal_tags WHERE animal_id = ? ORDER BY added_at DESC')

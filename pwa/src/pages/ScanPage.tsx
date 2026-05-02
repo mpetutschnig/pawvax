@@ -5,9 +5,9 @@ import { useBarcode } from '../hooks/useBarcode'
 import { useNfc } from '../hooks/useNfc'
 import { getAnimalByTag, createAnimal } from '../api/rest'
 import { PageHeader } from '../components/PageHeader'
-import { Camera, Radio, Keyboard, AlertCircle, ShieldCheck, Syringe, Pill, FileText, ChevronUp, ChevronDown } from 'lucide-react'
+import { Camera, Radio, Keyboard, AlertCircle } from 'lucide-react'
 
-type Mode = 'choose' | 'barcode' | 'nfc' | 'manual' | 'new-animal' | 'shared-result'
+type Mode = 'choose' | 'barcode' | 'nfc' | 'manual' | 'new-animal'
 
 export default function ScanPage() {
   const navigate = useNavigate()
@@ -19,9 +19,6 @@ export default function ScanPage() {
   const [unknownTag, setUnknownTag] = useState<{ id: string; type: 'barcode' | 'nfc' } | null>(null)
   const [newAnimal, setNewAnimal] = useState({ name: '', species: 'dog' as 'dog' | 'cat' | 'other', breed: '' })
   const [cameraError, setCameraError] = useState<string | null>(null)
-  const [sharedAnimal, setSharedAnimal] = useState<any>(null)
-  const [expandedDocId, setExpandedDocId] = useState<string | null>(null)
-  const speciesEmoji: Record<string, string> = { dog: '🐶', cat: '🐱', other: '🐾' }
 
   const handleTag = useCallback(async (rawTagId: string, tagType: 'barcode' | 'nfc') => {
     setError(null)
@@ -42,14 +39,9 @@ export default function ScanPage() {
 
     try {
       const res = await getAnimalByTag(tagId)
-      if (res.data.is_owner) {
-        navigate(`/animals/${res.data.id}`)
-      } else {
-        setSharedAnimal(res.data)
-        setMode('shared-result')
-        stopBarcode()
-        if (tagType === 'nfc') stopNfc?.()
-      }
+      navigate(`/animals/${res.data.id}`)
+      stopBarcode()
+      if (tagType === 'nfc') stopNfc?.()
     } catch (err: unknown) {
       const status = (err as { response?: { status?: number } })?.response?.status
       if (status === 404) {
@@ -242,88 +234,6 @@ export default function ScanPage() {
             </button>
             <button className="btn btn-ghost flex-1" onClick={() => setMode('choose')}>{t('common.cancel')}</button>
           </div>
-        </div>
-      )}
-
-      {mode === 'shared-result' && sharedAnimal && (
-        <div className="card animate-slide-up" style={{ padding: 'var(--space-6)' }}>
-          <div style={{ textAlign: 'center', marginBottom: 'var(--space-6)' }}>
-            <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 80, height: 80, borderRadius: '50%', background: 'var(--primary-50)', fontSize: '2.5rem', marginBottom: 'var(--space-3)' }}>
-              {speciesEmoji[sharedAnimal.species] ?? '🐾'}
-            </div>
-            <h1 style={{ margin: '0 0 4px 0', fontSize: 'var(--font-size-xl)' }}>{sharedAnimal.name}</h1>
-            <p className="text-muted" style={{ margin: 0 }}>
-              {sharedAnimal.species} {sharedAnimal.breed ? `· ${sharedAnimal.breed}` : ''} {sharedAnimal.birthdate ? `· ${t('publicScan.born')} ${sharedAnimal.birthdate}` : ''}
-            </p>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', padding: 'var(--space-3)', background: 'var(--info-50)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-4)', border: '1px solid var(--info-200)' }}>
-            <ShieldCheck size={18} color="var(--info-600)" />
-            <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--info-800)' }}>
-              {t('scan.sharedAccess')}: <strong style={{ textTransform: 'capitalize' }}>{sharedAnimal.request_role}</strong>
-            </span>
-          </div>
-
-          {sharedAnimal.contact && (
-            <div style={{ marginBottom: 'var(--space-4)', padding: 'var(--space-3)', background: 'var(--surface)', borderRadius: 'var(--radius-md)' }}>
-              <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)', marginBottom: 4 }}>{t('publicScan.contact')}</div>
-              <div style={{ fontWeight: 600 }}>{sharedAnimal.contact.name}</div>
-            </div>
-          )}
-
-          {sharedAnimal.documents && sharedAnimal.documents.length > 0 ? (() => {
-            const groups: Record<string, { icon: React.ReactNode; label: string; docs: any[] }> = {
-              vaccination: { icon: <Syringe size={18} />, label: t('animal.vaccinations'), docs: [] },
-              medication:  { icon: <Pill size={18} />,    label: t('animal.medications'),  docs: [] },
-              other:       { icon: <FileText size={18} />, label: t('animal.documents'),   docs: [] },
-            }
-            for (const doc of sharedAnimal.documents) {
-              if (groups[doc.doc_type]) groups[doc.doc_type].docs.push(doc)
-              else groups.other.docs.push(doc)
-            }
-            return (
-              <>
-                {Object.entries(groups).map(([type, { icon, label, docs }]) =>
-                  docs.length > 0 && (
-                    <div key={type} style={{ marginBottom: 'var(--space-4)' }}>
-                      <h3 style={{ fontSize: 'var(--font-size-base)', marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>{icon} {label} ({docs.length})</h3>
-                      {docs.map((doc: any) => {
-                        const isExpanded = expandedDocId === doc.id;
-                        return (
-                          <div key={doc.id} className="card card-sm" style={{ marginBottom: 'var(--space-2)', cursor: 'pointer', transition: 'all 0.2s' }} onClick={() => setExpandedDocId(isExpanded ? null : doc.id)}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                                <span style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>
-                                  {type === 'vaccination' ? t('animal.docTypeVaccination') : type === 'medication' ? t('animal.docTypeMedication') : t('animal.docTypeOther')}
-                                </span>
-                              </div>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                                <span className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>{new Date(doc.created_at).toLocaleDateString(i18n.language === 'de' ? 'de-AT' : 'en-GB')}</span>
-                                {isExpanded ? <ChevronUp size={16} className="text-muted" /> : <ChevronDown size={16} className="text-muted" />}
-                              </div>
-                            </div>
-                            {isExpanded && (
-                              <div className="animate-slide-up" style={{ marginTop: 'var(--space-3)', paddingTop: 'var(--space-3)', borderTop: '1px solid var(--border)' }}>
-                                {doc.extracted_json?.summary && <div style={{ background: 'var(--primary-50)', padding: 'var(--space-3)', borderRadius: 'var(--radius-sm)', marginBottom: 'var(--space-3)', borderLeft: '3px solid var(--primary-500)' }}><p style={{ margin: 0, fontSize: 'var(--font-size-sm)', color: 'var(--primary-900)' }}>{doc.extracted_json.summary}</p></div>}
-                                {[doc.image_path, ...(doc.pages || [])].filter(Boolean).map((imgPath: string, idx: number) => (
-                                  <img key={idx} src={`/uploads/${imgPath.split('/').pop()}`} alt={`Page ${idx + 1}`} style={{ width: '100%', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-2)', display: 'block' }} />
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )
-                )}
-              </>
-            )
-          })() : (
-            <div style={{ padding: 'var(--space-4)', background: 'var(--surface)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-4)', textAlign: 'center' }}>
-              <p className="text-muted" style={{ margin: 0, fontSize: 'var(--font-size-sm)' }}>{t('publicScan.noDocuments')}</p>
-            </div>
-          )}
-          <button className="btn btn-ghost btn-full" onClick={() => { setMode('choose'); setSharedAnimal(null) }}>{t('scan.backToSelection')}</button>
         </div>
       )}
     </div>

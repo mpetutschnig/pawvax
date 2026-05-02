@@ -21,7 +21,9 @@ function GlobalBrand() {
   const location = useLocation()
   const { t } = useTranslation()
   const [settings, setSettings] = useState({ app_name: 'PAW', logo_data: '' })
-  const role = localStorage.getItem('role')
+  const rolesStr = localStorage.getItem('roles')
+  const roles = rolesStr ? JSON.parse(rolesStr) : (localStorage.getItem('role') ? [localStorage.getItem('role')] : [])
+  const verified = localStorage.getItem('verified') === '1' || localStorage.getItem('verified') === 'true'
   
   useEffect(() => {
     fetch('/api/settings').then(res => res.json()).then(data => setSettings(data)).catch(() => {})
@@ -51,12 +53,12 @@ function GlobalBrand() {
         {settings.logo_data && <img src={settings.logo_data} alt="Logo" style={{ height: '24px', objectFit: 'contain' }} />}
         <span style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-primary)' }}>{settings.app_name || 'PAW'}</span>
       </div>
-      <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>
-        {role && (
-          <span className="badge badge-info" style={{ fontSize: '10px', padding: '2px 6px', textTransform: 'capitalize' }}>
-            {role === 'vet' ? t('docScan.vet') : role === 'authority' ? t('docScan.authority') : role}
+      <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', gap: '4px', flexWrap: 'wrap' }}>
+        {roles.map((r: string) => (
+          <span key={r} className={`badge ${r === 'vet' && verified ? 'badge-success' : 'badge-info'}`} style={{ fontSize: '10px', padding: '2px 6px', textTransform: 'capitalize' }}>
+            {r === 'vet' ? t('docScan.vet') : r === 'authority' ? t('docScan.authority') : r === 'admin' ? 'Admin' : r === 'readonly' ? t('docScan.readonlyAccess') : 'User'}
           </span>
-        )}
+        ))}
       </div>
     </div>
   )

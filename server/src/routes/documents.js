@@ -39,7 +39,7 @@ export default async function documentRoutes(fastify) {
           if (doc.allowed_roles) {
             try {
               const parsedRoles = JSON.parse(doc.allowed_roles)
-              roleAllowed = parsedRoles.includes(requestRole)
+              roleAllowed = parsedRoles.includes(requestRole) || parsedRoles.includes('readonly')
             } catch {}
           }
           hasAccess = typeAllowed && roleAllowed
@@ -173,17 +173,19 @@ export default async function documentRoutes(fastify) {
     const { accountId } = req.user
     const { animalId } = req.params
 
-    // Verify ownership
     const animal = db.prepare('SELECT account_id FROM animals WHERE id = ?').get(animalId)
-    if (!animal || animal.account_id !== accountId) {
-      return reply.code(403).send({ error: 'Keine Berechtigung' })
-    }
+    if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden' })
 
     const docs = db.prepare(`
       SELECT * FROM documents
       WHERE animal_id = ? AND analysis_status = 'pending_analysis'
       ORDER BY created_at DESC
     `).all(animalId)
+
+    // Vets sehen nur ihre eigenen fehlerhaften OCR Uploads, Besitzer sehen alle
+    if (animal.account_id !== accountId) {
+      return reply.send(docs.filter(d => d.added_by_account === accountId))
+    }
 
     return reply.send(docs)
   })
