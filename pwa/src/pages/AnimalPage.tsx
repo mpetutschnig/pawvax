@@ -4,12 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { getAnimal, getAnimalDocuments, getAnimalTags, updateAnimal, deleteAnimal, uploadAnimalAvatar, deleteDocument, getMe } from '../api/rest'
 import { PageHeader } from '../components/PageHeader'
 import { PawPrint, Cat, Edit2, Trash2, Lock, Camera, Search, Syringe, FileText, Radio, CheckCircle, ShieldAlert, AlertTriangle, RefreshCw, X } from 'lucide-react'
-
-interface Animal {
-  id: string; name: string; species: string; breed?: string; birthdate?: string; address?: string;
-  avatar_path?: string; dynamic_fields?: string; avatar_base64?: string;
-  is_owner?: boolean; request_role?: string; contact?: { name: string; email: string };
-}
+import { AnimalDTO } from '../types/animal'
 interface AnimalTag {
   tag_id: string; tag_type: string; active: number; added_at: string
 }
@@ -30,14 +25,14 @@ export default function AnimalPage() {
     }
     return typeMap[type] || type
   }
-  const [animal, setAnimal] = useState<Animal | null>(null)
+  const [animal, setAnimal] = useState<AnimalDTO | null>(null)
   const [tags, setTags] = useState<AnimalTag[]>([])
   const [documents, setDocuments] = useState<Document[]>([])
   const [pendingDocuments, setPendingDocuments] = useState<Document[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
-  const [editData, setEditData] = useState<Animal | null>(null)
+  const [editData, setEditData] = useState<AnimalDTO | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [documentSearch, setDocumentSearch] = useState('')
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
@@ -466,7 +461,7 @@ export default function AnimalPage() {
               <select
                 className="form-select"
                 value={editData?.species || 'dog'}
-                onChange={(e) => setEditData({ ...editData!, species: e.target.value })}
+                onChange={(e) => setEditData({ ...editData!, species: e.target.value as 'dog' | 'cat' | 'other' })}
               >
                 <option value="dog">{t('animals.dog')}</option>
                 <option value="cat">{t('animals.cat')}</option>

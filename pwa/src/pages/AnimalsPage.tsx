@@ -4,19 +4,11 @@ import * as api from '../api/rest'
 import { PetCard } from '../components/PetCard'
 import { PageHeader } from '../components/PageHeader'
 import { Search, Plus, PawPrint } from 'lucide-react'
-
-interface Animal {
-  id: string
-  name: string
-  species: string
-  breed?: string
-  birthdate?: string
-  avatar_path?: string
-}
+import { AnimalListItemDTO } from '../types/animal'
 
 export default function AnimalsPage() {
   const { t } = useTranslation()
-  const [animals, setAnimals] = useState<Animal[]>([])
+  const [animals, setAnimals] = useState<AnimalListItemDTO[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [formData, setFormData] = useState({ name: '', species: 'dog', breed: '', birthdate: '' })

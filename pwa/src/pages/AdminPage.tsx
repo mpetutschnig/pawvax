@@ -5,15 +5,12 @@ import {
   adminVerifyAccount, adminPatchAccount, adminGetAuditLog, adminDeleteAnimal, adminDeleteAccount
 } from '../api/rest'
 import { PawPrint, LogOut, LayoutDashboard, Users, Cat, ShieldCheck, FileClock, CheckCircle, Menu, X, Settings } from 'lucide-react'
+import { AdminAnimalDTO } from '../types/animal'
 
 type Section = 'overview' | 'accounts' | 'animals' | 'verifications' | 'audit' | 'settings'
 
 interface Account {
   id: string; name: string; email: string; role: string; verified: number; verification_status?: string; created_at: string
-}
-
-interface Animal {
-  id: string; name: string; species: string; breed?: string; birthdate?: string; owner_name: string; owner_email: string
 }
 
 interface Verification {
@@ -42,7 +39,7 @@ export default function AdminPage() {
   // Data
   const [stats, setStats] = useState<Stats | null>(null)
   const [accounts, setAccounts] = useState<Account[]>([])
-  const [animals, setAnimals] = useState<Animal[]>([])
+  const [animals, setAnimals] = useState<AdminAnimalDTO[]>([])
   const [verifications, setVerifications] = useState<Verification[]>([])
   const [auditLog, setAuditLog] = useState<AuditLog | null>(null)
   const [auditPage, setAuditPage] = useState(1)
