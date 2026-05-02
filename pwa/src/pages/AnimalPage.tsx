@@ -404,9 +404,7 @@ export default function AnimalPage() {
             })()}
           </div>
 
-          {!  s
-
-isOwner && (
+          {isOwner && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
               <button className="btn btn-secondary" onClick={() => setEditing(true)}><Edit2 size={16} /> {t('animal.edit')}</button>
               <button className="btn btn-outline" onClick={handleDelete} disabled={submitting} style={{ borderColor: 'var(--danger-500)', color: 'var(--danger-500)' }}><Trash2 size={16} /> {t('animal.delete')}</button>
@@ -428,8 +426,15 @@ isOwner && (
       ) : (
         <div className="card animate-slide-up">
           <h3 style={{ marginBottom: 'var(--space-4)' }}>{t('animalEdit.title')}</h3>
-          <form>assName="form-group">
->                required
+          <form>
+            <div className="form-group">
+              <label className="form-label">{t('animalEdit.name')}</label>
+              <input
+                className="form-input"
+                type="text"
+                value={editData?.name || ''}
+                onChange={(e) => setEditData({ ...editData!, name: e.target.value })}
+                required
               />
             </div>
 
