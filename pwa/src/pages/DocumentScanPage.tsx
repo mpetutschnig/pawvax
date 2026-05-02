@@ -45,8 +45,9 @@ export default function DocumentScanPage() {
   const [documentId, setDocumentId] = useState<string | null>(null)
   const [savingDocType, setSavingDocType] = useState(false)
   const [showModelSelection, setShowModelSelection] = useState(false)
-  const [selectedModel, setSelectedModel] = useState<string>('gemini-3.1-flash-lite-preview')
   const [savingModel, setSavingModel] = useState(false)
+  const [retryProvider, setRetryProvider] = useState('google')
+  const [retryModel, setRetryModel] = useState('gemini-3.1-flash-lite-preview')
 
   const docTypes = [
     { id: 'vaccination', label: t('animal.docTypeVaccination'), icon: <Syringe size={14} /> },
@@ -170,24 +171,43 @@ export default function DocumentScanPage() {
     img.src = previews[currentPageIndex]
   }
 
-  const handleSwitchModel = async (model: string) => {
+  const handleProviderChange = (prov: string) => {
+    setRetryProvider(prov)
+    if (prov === 'google') setRetryModel('gemini-3.1-flash-lite-preview')
+    else if (prov === 'anthropic') setRetryModel('claude-3-5-sonnet-20241022')
+    else if (prov === 'openai') setRetryModel('gpt-4o-mini')
+  }
+
+  const handleRetryAnalysisAPI = async () => {
+    if (!documentId) return
     setSavingModel(true)
+    setErrorMsg(null)
     try {
-      await patchMe({ gemini_model: model })
-      setSuccess(t('docScan.modelSaved'))
+      const res = await fetch(`/api/documents/${documentId}/retry-analysis`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ provider: retryProvider, model: retryModel })
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || t('animal.documentFailed'))
+      }
+      const data = await res.json()
+      setResult(data.extractedData)
+      setOcrProvider(data.provider)
+      setSuggestedType(data.extractedData?.type || data.extractedData?.suggestedType || 'other')
       setShowModelSelection(false)
-      // Retry the upload
-      handleUpload()
-    } catch (err) {
-      setErrorMsg(t('profile.saveError'))
+      setPhase('done')
+    } catch (err: any) {
+      setErrorMsg(err.message)
+      setShowModelSelection(false)
+      setPhase('error')
     } finally {
       setSavingModel(false)
     }
-  }
-
-  const setSuccess = (msg: string) => {
-    // This is a temporary success message - could be stored in state if needed
-    console.log('Success:', msg)
   }
 
   async function handleUpload() {
@@ -211,13 +231,13 @@ export default function DocumentScanPage() {
         },
         onResult: (data: any) => {
           setResult(data.data)
-          setSuggestedType(data.data.suggestedType || 'other')
+          setSuggestedType(data.data.type || data.data.suggestedType || 'other')
           setDocumentId(data.data.documentId)
           setOcrProvider(data.data.ocrProvider || 'unknown')
 
           // If analysis failed (pending_analysis), show error instead of done
           if (data.data.analysisStatus === 'pending_analysis') {
-            setErrorMsg('⚠️ Gemini API Quota überschritten. Dokument gespeichert. Versuchen Sie später erneut.')
+            setErrorMsg('⚠️ Analyse fehlgeschlagen. Dokument gespeichert. Versuchen Sie es mit einem anderen Modell.')
             setPhase('error')
           } else {
             setPhase('done')
@@ -233,6 +253,66 @@ export default function DocumentScanPage() {
       setErrorMsg(err instanceof Error ? err.message : 'Unbekannter Fehler')
       setPhase('error')
     }
+  }
+
+  // Eigener "Screen" für die Analyse
+  if (showModelSelection) {
+    return (
+      <div className="container page">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-6)', marginTop: 'var(--space-2)' }}>
+          <button className="btn-ghost" style={{ padding: '8px', margin: '-8px' }} onClick={() => { setShowModelSelection(false); setErrorMsg(null); }}>
+            <X size={24} />
+          </button>
+          <h1 style={{ margin: 0, fontSize: 'var(--font-size-xl)' }}>KI Analyse</h1>
+        </div>
+        
+        {errorMsg && <div className="error-card" style={{ marginBottom: 'var(--space-4)' }}><p>{errorMsg}</p></div>}
+
+        <div className="card animate-slide-up" style={{ borderColor: 'var(--primary-200)' }}>
+          <p className="text-muted" style={{ marginBottom: 'var(--space-4)' }}>
+            Wähle den gewünschten Anbieter und das Modell für die Dokumenten-Analyse aus.
+          </p>
+          <div className="form-group">
+            <label className="form-label">Anbieter</label>
+            <select className="form-select" value={retryProvider} onChange={e => handleProviderChange(e.target.value)}>
+              <option value="google">Google Gemini</option>
+              <option value="anthropic">Anthropic Claude</option>
+              <option value="openai">OpenAI</option>
+            </select>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Modell</label>
+            <select className="form-select" value={retryModel} onChange={e => setRetryModel(e.target.value)}>
+              {retryProvider === 'google' && (
+                <>
+                  <option value="gemini-3.1-flash-lite-preview">Gemini 3.1 Flash-Lite</option>
+                  <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+                  <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+                  <option value="gemini-1.5-pro-latest">Gemini 1.5 Pro</option>
+                </>
+              )}
+              {retryProvider === 'anthropic' && (
+                <>
+                  <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
+                  <option value="claude-3-haiku-20240307">Claude 3 Haiku</option>
+                </>
+              )}
+              {retryProvider === 'openai' && (
+                <>
+                  <option value="gpt-4o-mini">GPT-4o Mini</option>
+                  <option value="gpt-4o">GPT-4o</option>
+                </>
+              )}
+            </select>
+          </div>
+          <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-6)' }}>
+            <button className="btn btn-primary" onClick={handleRetryAnalysisAPI} disabled={savingModel}>
+              {savingModel ? 'Analysiere...' : 'Analyse starten'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -448,48 +528,19 @@ export default function DocumentScanPage() {
 
           {phase === 'error' && (
             <div>
-              {errorMsg?.includes('Quota') && !showModelSelection ? (
+              {documentId ? (
                 <>
-                  <div style={{ color: 'var(--warning-500)', marginBottom: 'var(--space-3)', display: 'flex', justifyContent: 'center' }}>
+                  <div style={{ color: 'var(--danger-500)', marginBottom: 'var(--space-3)', display: 'flex', justifyContent: 'center' }}>
                     <AlertCircle size={48} strokeWidth={1.5} />
                   </div>
-                  <h3 style={{ marginBottom: 'var(--space-2)' }}>{t('docScan.quotaExceeded')}</h3>
+                  <h3 style={{ marginBottom: 'var(--space-2)' }}>{t('docScan.analyzeFailed')}</h3>
                   <p className="text-muted" style={{ marginBottom: 'var(--space-4)' }}>{errorMsg || t('common.error')}</p>
                   <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
                     <button className="btn btn-primary flex-1" onClick={() => setShowModelSelection(true)} type="button">
-                      {t('docScan.switchModel')}
+                      {t('animal.retry')}
                     </button>
                     <button className="btn btn-ghost flex-1" onClick={() => navigate(`/animals/${animalId}`)} type="button">
                       {t('docScan.saveForLater')}
-                    </button>
-                  </div>
-                </>
-              ) : showModelSelection ? (
-                <>
-                  <div style={{ color: 'var(--primary-500)', marginBottom: 'var(--space-3)', display: 'flex', justifyContent: 'center' }}>
-                    <AlertCircle size={48} strokeWidth={1.5} />
-                  </div>
-                  <h3 style={{ marginBottom: 'var(--space-2)' }}>{t('profile.model')}</h3>
-                  <p className="text-muted" style={{ marginBottom: 'var(--space-4)' }}>{t('profile.modelDesc')}</p>
-                  <div className="form-group" style={{ marginBottom: 'var(--space-4)' }}>
-                    <select
-                      className="form-select"
-                      value={selectedModel}
-                      onChange={(e) => setSelectedModel(e.target.value)}
-                      disabled={savingModel}
-                    >
-                      <option value="gemini-3.1-flash-lite-preview">Gemini 3.1 Flash-Lite (Standard)</option>
-                      <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
-                      <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
-                      <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
-                    </select>
-                  </div>
-                  <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
-                    <button className="btn btn-primary flex-1" onClick={() => handleSwitchModel(selectedModel)} disabled={savingModel} type="button">
-                      {savingModel ? t('animal.retrying') : t('animal.analyzeBtn')}
-                    </button>
-                    <button className="btn btn-ghost flex-1" onClick={() => { setPhase('capture'); setErrorMsg(null); setPreviews([]); setPages([]); setShowModelSelection(false) }} type="button">
-                      {t('common.cancel')}
                     </button>
                   </div>
                 </>
