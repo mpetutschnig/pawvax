@@ -65,13 +65,13 @@ export default async function wsDocumentUpload(fastify) {
           try {
             userGeminiKey = acc?.gemini_token ? decrypt(acc.gemini_token) : null
           } catch (decryptErr) {
-            console.warn(`[WS] Could not decrypt user gemini_token: ${decryptErr.message}. Will use server GEMINI_API_KEY if available.`)
+            console.warn(`[WS] Could not decrypt user gemini_token: ${decryptErr.message}.`)
             userGeminiKey = null
           }
           try {
             userAnthropicKey = acc?.anthropic_token ? decrypt(acc.anthropic_token) : null
           } catch (decryptErr) {
-            console.warn(`[WS] Could not decrypt user anthropic_token: ${decryptErr.message}. Will use server ANTHROPIC_API_KEY if available.`)
+            console.warn(`[WS] Could not decrypt user anthropic_token: ${decryptErr.message}.`)
             userAnthropicKey = null
           }
           userGeminiModel = acc?.gemini_model || 'gemini-3.1-flash-lite-preview'
