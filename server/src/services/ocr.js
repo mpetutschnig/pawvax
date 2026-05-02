@@ -10,12 +10,14 @@ WICHTIGE REGELN:
 2. Lies alle vorhandenen Daten (Datum) extrem sorgfältig heraus (z.B. Ausstellungsdatum, Impfdatum, Ablaufdatum).
 3. Generiere unter "suggested_tags" passende, aussagekräftige Tags zum Dokument (z.B. "Tollwut", "Rezept", "Laborbericht").
 4. Generiere unter "document_date" das erkannte Hauptdatum des Dokuments im Format YYYY-MM-DD, falls eines auffindbar ist.
-5. Generiere unter "summary" eine kurze, gut lesbare Zusammenfassung bzw. Beschreibung des Dokuments.
-6. Bei Medikamenten (medication): Recherchiere und inkludiere zusätzliche Hintergrundinfos (z.B. Wirkstoff, Anwendung) sowie nach Möglichkeit einen Link zum Hersteller.
+5. Generiere unter "title" einen kurzen, prägnanten Titel für das Dokument (max. 3-5 Wörter, z.B. "Tollwut Impfung", "Rezept Amoxicillin", "Blutbefund").
+6. Generiere unter "summary" eine kurze, gut lesbare Zusammenfassung bzw. Beschreibung des Dokuments.
+7. Bei Medikamenten (medication): Recherchiere und inkludiere zusätzliche Hintergrundinfos (z.B. Wirkstoff, Anwendung) sowie nach Möglichkeit einen Link zum Hersteller.
 
 Für Impfdokumente verwende:
 {
   "type": "vaccination",
+  "title": "...",
   "document_date": "...",
   "summary": "...",
   "animal": { "name": "...", "species": "...", "breed": "...", "birthdate": "..." },
@@ -26,6 +28,7 @@ Für Impfdokumente verwende:
 Für Medikamentendokumente verwende:
 {
   "type": "medication",
+  "title": "...",
   "document_date": "...",
   "summary": "...",
   "medications": [{ "name": "...", "dosage": "...", "frequency": "...", "startDate": "...", "endDate": "...", "details": "...", "manufacturer_link": "..." }],
@@ -35,6 +38,7 @@ Für Medikamentendokumente verwende:
 Für unbekannte Dokumente:
 {
   "type": "other",
+  "title": "...",
   "document_date": "...",
   "summary": "...",
   "rawText": "...",

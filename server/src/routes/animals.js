@@ -355,9 +355,14 @@ export default async function animalRoutes(fastify) {
     const animal = db.prepare('SELECT * FROM animals WHERE id = ?').get(id)
     if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden' })
 
+    const parseDocs = (docs) => docs.map(d => {
+      try { d.extracted_json = JSON.parse(d.extracted_json) } catch { d.extracted_json = {} }
+      return d
+    })
+
     // Eigentümer: voller Zugriff
     if (animal.account_id === accountId) {
-      return db.prepare('SELECT * FROM documents WHERE animal_id = ? ORDER BY created_at DESC').all(id)
+      return parseDocs(db.prepare('SELECT * FROM documents WHERE animal_id = ? ORDER BY created_at DESC').all(id))
     }
 
     // Rollenbasiert für Vet/Behörde
@@ -379,7 +384,7 @@ export default async function animalRoutes(fastify) {
     const docs = db.prepare(`SELECT * FROM documents WHERE animal_id = ? AND doc_type IN (${ph}) ORDER BY created_at DESC`)
       .all(id, ...allowed)
 
-    return docs.filter(d => {
+    return parseDocs(docs.filter(d => {
       if (!d.allowed_roles) return true
       try {
         const roles = JSON.parse(d.allowed_roles)
@@ -387,7 +392,7 @@ export default async function animalRoutes(fastify) {
       } catch {
         return true
       }
-    })
+    }))
   })
 
   // Tag-Liste eines Tieres

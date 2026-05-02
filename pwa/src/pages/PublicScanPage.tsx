@@ -153,9 +153,7 @@ export default function PublicScanPage() {
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
                                 <span style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>
-                                  {type === 'vaccination' ? t('animal.docTypeVaccination')
-                                  : type === 'medication'  ? t('animal.docTypeMedication')
-                                  :                          t('animal.docTypeOther')}
+                                  {doc.extracted_json?.title || (type === 'vaccination' ? t('animal.docTypeVaccination') : type === 'medication' ? t('animal.docTypeMedication') : t('animal.docTypeOther'))}
                                 </span>
                               </div>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>

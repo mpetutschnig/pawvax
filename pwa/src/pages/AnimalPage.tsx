@@ -601,7 +601,7 @@ export default function AnimalPage() {
               {doc.doc_type === 'vaccination' ? <Syringe size={16} color={doc.added_by_role === 'vet' ? "var(--success-600)" : "var(--primary-600)"} strokeWidth={2} /> : <FileText size={16} color={doc.added_by_role === 'vet' ? "var(--success-600)" : "var(--primary-600)"} strokeWidth={2} />}
             </div>
             <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)' }}>{docTypeLabel(doc.doc_type) ?? doc.doc_type}</div>
+              <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)' }}>{doc.extracted_json?.title || docTypeLabel(doc.doc_type) ?? doc.doc_type}</div>
               <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
                 {new Date(doc.created_at).toLocaleString(i18n.language === 'de' ? 'de-AT' : 'en-GB')}
               </div>

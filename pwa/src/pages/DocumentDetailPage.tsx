@@ -19,11 +19,12 @@ export default function DocumentDetailPage() {
   const [reminderNotes, setReminderNotes] = useState('')
   
   const [tags, setTags] = useState<string[]>([])
-  const [editMode, setEditMode] = useState(false)
   const [newTag, setNewTag] = useState('')
   const [saving, setSaving] = useState(false)
   const [visibility, setVisibility] = useState<string[]>([])
   const [showJsonDetails, setShowJsonDetails] = useState(false)
+  const [titleEditMode, setTitleEditMode] = useState(false)
+  const [tempTitle, setTempTitle] = useState('')
   
   const [showRetryModal, setShowRetryModal] = useState(false)
   const [retryProvider, setRetryProvider] = useState('google')
@@ -129,21 +130,50 @@ export default function DocumentDetailPage() {
     window.open(`mailto:${userEmail}?subject=${subject}&body=${body}`)
   }
 
-  const handleSaveDoc = async () => {
+  const handleSaveTitle = async () => {
+    if (!tempTitle.trim()) return
     setSaving(true)
     try {
-      const updates: any = {}
-      if (doc.isOwner) updates.allowed_roles = visibility
-      if (canEditTags) updates.extracted_json = { ...doc.extracted_json, suggested_tags: tags }
-
-      await patchDocument(docId!, updates)
-      setEditMode(false)
-      loadDocument()
+      const newJson = { ...doc.extracted_json, title: tempTitle.trim() }
+      await patchDocument(docId!, { extracted_json: newJson })
+      setDoc({ ...doc, extracted_json: newJson })
+      setTitleEditMode(false)
     } catch (err: any) {
       setError(err.response?.data?.error || t('profile.saveError'))
     } finally {
       setSaving(false)
     }
+  }
+
+  const handleAddTag = async () => {
+    if (!newTag.trim() || tags.includes(newTag.trim())) return
+    const newTags = [...tags, newTag.trim()]
+    setTags(newTags)
+    setNewTag('')
+    try {
+      const newJson = { ...doc.extracted_json, suggested_tags: newTags }
+      await patchDocument(docId!, { extracted_json: newJson })
+      setDoc({ ...doc, extracted_json: newJson })
+    } catch (err: any) { setError(t('common.error')) }
+  }
+
+  const handleRemoveTag = async (tagToRemove: string) => {
+    const newTags = tags.filter(t => t !== tagToRemove)
+    setTags(newTags)
+    try {
+      const newJson = { ...doc.extracted_json, suggested_tags: newTags }
+      await patchDocument(docId!, { extracted_json: newJson })
+      setDoc({ ...doc, extracted_json: newJson })
+    } catch (err: any) { setError(t('common.error')) }
+  }
+
+  const handleToggleVisibility = async (roleId: string, checked: boolean) => {
+    const newVis = checked ? [...visibility, roleId] : visibility.filter(r => r !== roleId)
+    setVisibility(newVis)
+    try {
+      await patchDocument(docId!, { allowed_roles: newVis })
+      setDoc({ ...doc, allowed_roles: JSON.stringify(newVis) })
+    } catch (err: any) { setError(t('common.error')) }
   }
 
   const handleDeleteDoc = async () => {
@@ -181,17 +211,6 @@ export default function DocumentDetailPage() {
     } finally {
       setSaving(false)
     }
-  }
-
-  const addTag = () => {
-    if (newTag.trim() && !tags.includes(newTag.trim())) {
-      setTags([...tags, newTag.trim()])
-      setNewTag('')
-    }
-  }
-
-  const removeTag = (t: string) => {
-    setTags(tags.filter(x => x !== t))
   }
 
   const handleProviderChange = (prov: string) => {
@@ -289,10 +308,32 @@ export default function DocumentDetailPage() {
 
   return (
     <div className="container page">
-      <PageHeader title={config.label} backTo={`/animals/${animalId}`} showThemeToggle />
+      <PageHeader title={t('docDetail.title')} backTo={`/animals/${animalId}`} showThemeToggle />
       {error && <div className="error-card" style={{ marginBottom: 'var(--space-4)' }}><p>{error}</p></div>}
 
       <div className="card animate-slide-up">
+        {/* Title Section */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--space-4)' }}>
+          {titleEditMode ? (
+            <div style={{ display: 'flex', gap: 'var(--space-2)', flex: 1 }}>
+              <input className="form-input" value={tempTitle} onChange={e => setTempTitle(e.target.value)} autoFocus placeholder="Titel..." />
+              <button className="btn btn-primary" onClick={handleSaveTitle} disabled={saving}><Save size={16} /></button>
+              <button className="btn btn-ghost" onClick={() => setTitleEditMode(false)} disabled={saving}><X size={16} /></button>
+            </div>
+          ) : (
+            <>
+              <h2 style={{ margin: 0, fontSize: 'var(--font-size-lg)', flex: 1, wordBreak: 'break-word' }}>
+                {extracted.title || config.label}
+              </h2>
+              {(canEditTags || canEditVisibility) && (
+                <button className="btn-ghost" onClick={() => { setTempTitle(extracted.title || config.label); setTitleEditMode(true); }} style={{ padding: '4px', margin: '-4px' }}>
+                  <Edit2 size={16} />
+                </button>
+              )}
+            </>
+          )}
+        </div>
+
         {doc.added_by_role === 'vet' && (
           <div style={{
             background: 'var(--success-50)', border: '1px solid var(--success-200)',
@@ -350,92 +391,60 @@ export default function DocumentDetailPage() {
           </div>
         )}
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-3)' }}>
-          <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0, display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <Tag size={18} /> {t('docDetail.sharedWith')}
+        {/* Tags Section */}
+        <div style={{ marginBottom: 'var(--space-6)' }}>
+          <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, display: 'flex', gap: '8px', alignItems: 'center', marginBottom: 'var(--space-3)' }}>
+            <Tag size={18} /> {t('docDetail.tagsLabel')}
           </h3>
-          {!editMode && (canEditTags || canEditVisibility) && (
-            <button className="btn-ghost" style={{ padding: '4px 8px', fontSize: '12px' }} onClick={() => setEditMode(true)}>
-              <Edit2 size={14} /> {t('docDetail.edit')}
-            </button>
-          )}
+          <div style={{ background: 'var(--surface)', padding: 'var(--space-3)', borderRadius: 'var(--radius-md)' }}>
+            <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap', marginBottom: canEditTags ? 'var(--space-3)' : 0 }}>
+              {tags.length > 0 ? tags.map(t => (
+                <span key={t} className="badge badge-info" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  {t} {canEditTags && <X size={12} style={{ cursor: 'pointer' }} onClick={() => handleRemoveTag(t)} />}
+                </span>
+              )) : <span className="text-muted" style={{ fontSize: 'var(--font-size-sm)' }}>{t('docDetail.noTags')}</span>}
+            </div>
+            {canEditTags && (
+              <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                <input className="form-input" value={newTag} onChange={e => setNewTag(e.target.value)} placeholder={t('docDetail.tagPlaceholder')} onKeyDown={e => e.key === 'Enter' && handleAddTag()} />
+                <button className="btn btn-secondary" onClick={handleAddTag} disabled={saving}>{t('docDetail.tagAdd')}</button>
+              </div>
+            )}
+          </div>
         </div>
 
-        {editMode ? (
-          <div style={{ background: 'var(--surface)', padding: 'var(--space-4)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-6)' }}>
-            {canEditTags && (
-              <div className="form-group">
-                <label className="form-label">{t('docDetail.tagAdd')}</label>
-                <div style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-2)', flexWrap: 'wrap' }}>
-                  {tags.map(t => (
-                    <span key={t} className="badge badge-info" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      {t} <X size={12} style={{ cursor: 'pointer' }} onClick={() => removeTag(t)} />
-                    </span>
-                  ))}
-                </div>
-                <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-                  <input className="form-input" value={newTag} onChange={e => setNewTag(e.target.value)} placeholder={t('docDetail.tagPlaceholder')} onKeyDown={e => e.key === 'Enter' && addTag()} />
-                  <button className="btn btn-secondary" onClick={addTag}>{t('docDetail.tagAdd')}</button>
-                </div>
+        {/* Sharing Section */}
+        <div style={{ marginBottom: 'var(--space-6)' }}>
+          <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, display: 'flex', gap: '8px', alignItems: 'center', marginBottom: 'var(--space-3)' }}>
+            <Shield size={18} /> {t('docDetail.sharingLabel')}
+          </h3>
+          <div style={{ background: 'var(--surface)', padding: 'var(--space-3)', borderRadius: 'var(--radius-md)' }}>
+            {canEditVisibility ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                {[{ id: 'vet', label: t('docScan.vet') }, { id: 'authority', label: t('docScan.authority') }, { id: 'readonly', label: t('docScan.readonlyAccess') }].map(r => (
+                  <label key={r.id} style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={visibility.includes(r.id)}
+                      onChange={(e) => handleToggleVisibility(r.id, e.target.checked)}
+                      style={{ width: 16, height: 16, accentColor: 'var(--primary-500)' }}
+                      disabled={saving}
+                    />
+                    <span style={{ fontSize: 'var(--font-size-sm)' }}>{r.label}</span>
+                  </label>
+                ))}
+              </div>
+            ) : (
+              <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+                {visibility.length > 0 ? visibility.map(r => (
+                  <span key={r} className="badge" style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}>
+                    {r === 'vet' ? t('docDetail.vetDoc') : r === 'authority' ? t('docDetail.authorityDoc') : t('docDetail.readonlyDoc')}
+                  </span>
+                )) : <span className="text-muted" style={{ fontSize: 'var(--font-size-sm)' }}>{t('docDetail.onlyMe')}</span>}
               </div>
             )}
-
-            {canEditVisibility && (
-              <div className="form-group" style={{ marginTop: 'var(--space-4)' }}>
-                <label className="form-label">{t('docScan.whoCanSee')}</label>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-                  {[{ id: 'vet', label: t('docScan.vet') }, { id: 'authority', label: t('docScan.authority') }, { id: 'readonly', label: t('docScan.readonlyAccess') }].map(r => (
-                    <label key={r.id} style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
-                      <input 
-                        type="checkbox" 
-                        checked={visibility.includes(r.id)} 
-                        onChange={(e) => {
-                          if (e.target.checked) setVisibility([...visibility, r.id])
-                          else setVisibility(visibility.filter(role => role !== r.id))
-                        }} 
-                        style={{ width: 16, height: 16, accentColor: 'var(--primary-500)' }}
-                      />
-                      <span style={{ fontSize: 'var(--font-size-sm)' }}>{r.label}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-            )}
-            
-            <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-4)' }}>
-              <button className="btn btn-primary" onClick={handleSaveDoc} disabled={saving}><Save size={16} /> {t('docDetail.save')}</button>
-              <button className="btn btn-ghost" onClick={() => { setEditMode(false); loadDocument(); }} disabled={saving}>{t('docDetail.cancel')}</button>
-            </div>
           </div>
-        ) : (
-          <div style={{ marginBottom: 'var(--space-6)' }}>
-            <div style={{ marginBottom: 'var(--space-4)' }}>
-              <h4 style={{ fontSize: 'var(--font-size-sm)', margin: '0 0 var(--space-2) 0', color: 'var(--text-secondary)' }}>{t('docDetail.tagAdd')}</h4>
-              {tags.length > 0 ? (
-                <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
-                  {tags.map(t => <span key={t} className="badge badge-info">{t}</span>)}
-                </div>
-              ) : (
-                <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', margin: 0 }}>{t('docDetail.noTags')}</p>
-              )}
-            </div>
-
-            <div>
-              <h4 style={{ fontSize: 'var(--font-size-sm)', margin: '0 0 var(--space-2) 0', color: 'var(--text-secondary)' }}>{t('docDetail.sharedWith')}</h4>
-              {visibility.length > 0 ? (
-                <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
-                  {visibility.map(r => (
-                    <span key={r} className="badge" style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}>
-                      {r === 'vet' ? t('docDetail.vetDoc') : r === 'authority' ? t('docDetail.authorityDoc') : t('docDetail.readonlyDoc')}
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', margin: 0 }}>{t('docDetail.onlyMe')}</p>
-              )}
-            </div>
-          </div>
-        )}
+        </div>
 
         {rawText && (
           <>
