@@ -266,7 +266,7 @@ export default function AnimalPage() {
                 <label className="form-label">{t('docDetail.model')}</label>
                 <select className="form-select" value={retryModel} onChange={e => setRetryModel(e.target.value)}>
                   {retryProvider === 'google' && (
-                    <><option value="gemini-3.1-flash-lite-preview">Gemini 3.1 Flash-Lite</option><option value="gemini-2.0-flash">Gemini 2.0 Flash</option><option value="gemini-1.5-flash">Gemini 1.5 Flash</option><option value="gemini-1.5-pro-latest">Gemini 1.5 Pro</option></>
+                    <><option value="gemini-3.1-flash-lite-preview">Gemini 3.1 Flash-Lite</option><option value="gemini-2.0-flash">Gemini 2.0 Flash</option><option value="gemini-1.5-flash">Gemini 1.5 Flash</option><option value="gemini-1.5-pro">Gemini 1.5 Pro</option></>
                   )}
                   {retryProvider === 'anthropic' && (
                     <><option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option><option value="claude-3-haiku-20240307">Claude 3 Haiku</option></>
