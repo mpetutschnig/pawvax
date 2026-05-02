@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { getMe, patchMe, deleteMe, requestVerification } from '../api/rest'
 import { PageHeader } from '../components/PageHeader'
-import { User, Shield, Stethoscope, Settings, Trash2, CheckCircle, Clock, AlertTriangle, Key } from 'lucide-react'
+import { User, Shield, Stethoscope, Settings, Trash2, CheckCircle, Clock, AlertTriangle, Key, BookOpen } from 'lucide-react'
 
 export default function ProfilePage() {
   const navigate = useNavigate()
@@ -551,6 +551,15 @@ export default function ProfilePage() {
         </div>
         {openaiError && <div className="error-card" style={{ marginTop: 'var(--space-3)', padding: 'var(--space-3)' }}><p style={{ margin: 0 }}>{openaiError}</p></div>}
         {openaiSuccess && <div className="card" style={{ marginTop: 'var(--space-3)', padding: 'var(--space-3)', background: 'var(--success-50)', borderColor: 'var(--success-500)', display: 'flex', gap: 'var(--space-2)' }}><CheckCircle size={16} color="var(--success-600)" /><p style={{ margin: 0, color: 'var(--success-600)', fontWeight: 500, fontSize: 'var(--font-size-sm)' }}>{openaiSuccess}</p></div>}
+
+        <hr className="divider" style={{ margin: 'var(--space-6) 0' }} />
+
+        <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+          <BookOpen size={18} color="var(--primary-500)" /> {t('docs.title')}
+        </h3>
+        <button className="btn btn-outline btn-full" onClick={() => navigate('/docs')}>
+          {t('docs.openDocs')}
+        </button>
 
         <hr className="divider" style={{ margin: 'var(--space-6) 0' }} />
 

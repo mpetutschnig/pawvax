@@ -13,6 +13,7 @@ import AdminPage from './pages/AdminPage'
 import ProfilePage from './pages/ProfilePage'
 import DocumentDetailPage from './pages/DocumentDetailPage'
 import PublicScanPage from './pages/PublicScanPage'
+import DocumentationPage from './pages/DocumentationPage'
 import WelcomePage from './pages/WelcomePage'
 
 function RequireAuth({ children, adminOnly }: { children: React.ReactNode; adminOnly?: boolean }) {
@@ -85,6 +86,7 @@ export default function App() {
         <Route path="/animals/:id/sharing" element={<RequireAuth><SharingSettingsPage /></RequireAuth>} />
         <Route path="/animals/:id/documents/:docId" element={<RequireAuth><DocumentDetailPage /></RequireAuth>} />
         <Route path="/scan" element={<RequireAuth><ScanPage /></RequireAuth>} />
+        <Route path="/docs" element={<RequireAuth><DocumentationPage /></RequireAuth>} />
         <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
         <Route path="/admin" element={<RequireAuth adminOnly><AdminPage /></RequireAuth>} />
         <Route path="*" element={<Navigate to="/animals" replace />} />
