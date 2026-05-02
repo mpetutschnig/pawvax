@@ -269,6 +269,9 @@ paw.oxs.at {
     handle /uploads/* {
         reverse_proxy localhost:3000
     }
+    handle /documentation* {
+        reverse_proxy localhost:3000
+    }
     handle {
         reverse_proxy localhost:8080
     }
