@@ -30,10 +30,14 @@ export default function ScanPage() {
     let tagId = rawTagId.trim()
     try {
       const url = new URL(tagId)
-      const parts = url.pathname.split('/')
-      tagId = parts[parts.length - 1]
+      if (url.searchParams.has('tag')) {
+        tagId = url.searchParams.get('tag') || tagId
+      } else {
+        const parts = url.pathname.split('/').filter(Boolean)
+        if (parts.length > 0) tagId = parts[parts.length - 1]
+      }
     } catch {
-      // Ist keine URL, bleibt unverändert
+      // Keine URL, bleibt unverändert
     }
 
     try {
@@ -214,7 +218,7 @@ export default function ScanPage() {
           </div>
           <h2 style={{ marginBottom: 'var(--space-2)' }}>{t('scan.nfcActive')}</h2>
           {nfcState === 'unsupported' ? (
-            <p className="text-danger" style={{ marginBottom: 'var(--space-4)' }}>{t('publicScan.notFound')}</p>
+            <p className="text-danger" style={{ marginBottom: 'var(--space-4)' }}>{t('chip.nfcNotSupported')}</p>
           ) : (
             <p className="text-muted" style={{ marginBottom: 'var(--space-6)' }}>{t('chip.enterTag')}...</p>
           )}
