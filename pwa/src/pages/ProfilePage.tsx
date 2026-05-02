@@ -116,7 +116,8 @@ export default function ProfilePage() {
         headers: {
           'x-api-key': anthropicToken,
           'anthropic-version': '2023-06-01',
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'anthropic-dangerous-direct-browser-access': 'true'
         },
         body: JSON.stringify({
           model: 'claude-haiku-4-5-20251001',
