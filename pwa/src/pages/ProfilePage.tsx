@@ -14,10 +14,14 @@ export default function ProfilePage() {
   const [geminiToken, setGeminiToken] = useState('')
   const [geminiError, setGeminiError] = useState('')
   const [geminiSuccess, setGeminiSuccess] = useState('')
+  const [anthropicToken, setAnthropicToken] = useState('')
+  const [claudeError, setClaudeError] = useState('')
+  const [claudeSuccess, setClaudeSuccess] = useState('')
   const [showConfirmDelete, setShowConfirmDelete] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [geminiModel, setGeminiModel] = useState('')
+  const [claudeModel, setClaudeModel] = useState('')
   const [modelSaving, setModelSaving] = useState(false)
 
   useEffect(() => {
@@ -29,7 +33,9 @@ export default function ProfilePage() {
       const res = await getMe()
       setProfile(res.data)
       setGeminiModel(res.data.gemini_model || 'gemini-3.1-flash-lite-preview')
+      setClaudeModel(res.data.claude_model || 'claude-haiku-4-5-20251001')
       setGeminiToken('')
+      setAnthropicToken('')
       setError(null)
     } catch (err) {
       setError(t('profile.loadError'))
@@ -88,6 +94,77 @@ export default function ProfilePage() {
     try {
       await patchMe({ gemini_model: model })
       setGeminiModel(model)
+      setSuccess(t('profile.modelSaved'))
+      setTimeout(() => setSuccess(null), 2000)
+    } catch (err) {
+      setError(t('profile.saveError'))
+      console.error(err)
+    } finally {
+      setModelSaving(false)
+    }
+  }
+
+  const saveAnthropicToken = async () => {
+    if (!anthropicToken) return
+    setSaving(true)
+    setClaudeError('')
+    setClaudeSuccess('')
+    try {
+      // Validate key by calling Claude API
+      const validateRes = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key': anthropicToken,
+          'anthropic-version': '2023-06-01',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 10,
+          messages: [{ role: 'user', content: 'test' }]
+        })
+      })
+      if (!validateRes.ok) {
+        throw new Error(t('profile.claudeInvalid') || 'Invalid API key')
+      }
+
+      await patchMe({ anthropic_token: anthropicToken || null })
+      setClaudeSuccess(t('profile.claudeSuccess') || 'Claude API key saved')
+      setAnthropicToken('')
+      setTimeout(() => {
+        loadProfile()
+        setClaudeSuccess('')
+      }, 3000)
+    } catch (err) {
+      setClaudeError(err instanceof Error ? err.message : t('profile.claudeError') || 'Error saving key')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const clearAnthropicToken = async () => {
+    setSaving(true)
+    try {
+      await patchMe({ anthropic_token: null })
+      setSuccess(t('profile.deleteSuccess'))
+      setAnthropicToken('')
+      setTimeout(() => {
+        loadProfile()
+        setSuccess(null)
+      }, 1000)
+    } catch (err) {
+      setError(t('profile.saveError'))
+      console.error(err)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const saveClaudeModel = async (model: string) => {
+    setModelSaving(true)
+    try {
+      await patchMe({ claude_model: model })
+      setClaudeModel(model)
       setSuccess(t('profile.modelSaved'))
       setTimeout(() => setSuccess(null), 2000)
     } catch (err) {
@@ -264,6 +341,68 @@ export default function ProfilePage() {
             {t('profile.geminiWarning')}
           </p>
         </div>
+
+        <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginTop: 'var(--space-6)', marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+          <Key size={18} color="var(--primary-500)" /> {t('profile.claude') || 'Claude / Anthropic'}
+        </h3>
+        <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-4)' }}>
+          {t('profile.claudeDesc') || 'Use Claude for document analysis'}
+        </p>
+        <p style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-4)' }}>
+          <a href="https://console.anthropic.com/account/keys" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary-500)', textDecoration: 'underline' }}>
+            {t('profile.claudeCreateKey') || 'Create API key at console.anthropic.com'}
+          </a>
+        </p>
+
+        {profile.has_anthropic_token && (
+          <p style={{ color: 'var(--success-600)', marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontWeight: 500 }}><CheckCircle size={16} /> {t('profile.claudeSaved') || 'Claude API key saved'}</p>
+        )}
+
+        {!profile.has_anthropic_token && (
+          <div className="form-group">
+            <input
+              className="form-input"
+              type="password"
+              placeholder="sk-ant-..."
+              value={anthropicToken}
+              onChange={e => setAnthropicToken(e.target.value)}
+            />
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+          {!profile.has_anthropic_token ? (
+            <button className="btn btn-primary" onClick={saveAnthropicToken} disabled={saving || !anthropicToken}>
+              {saving ? t('profile.claudeChecking') || 'Checking...' : t('profile.claudeCheck') || 'Save API Key'}
+            </button>
+          ) : (
+            <button className="btn btn-danger" onClick={clearAnthropicToken} disabled={saving}>
+              {saving ? t('profile.claudeDeleting') || 'Deleting...' : t('profile.claudeDelete') || 'Remove API Key'}
+            </button>
+          )}
+        </div>
+
+        {claudeError && <div className="error-card" style={{ marginTop: 'var(--space-3)', padding: 'var(--space-3)' }}><p style={{ margin: 0 }}>{claudeError}</p></div>}
+        {claudeSuccess && <div className="card" style={{ marginTop: 'var(--space-3)', padding: 'var(--space-3)', background: 'var(--success-50)', borderColor: 'var(--success-500)', display: 'flex', gap: 'var(--space-2)' }}><CheckCircle size={16} color="var(--success-600)" /><p style={{ margin: 0, color: 'var(--success-600)', fontWeight: 500, fontSize: 'var(--font-size-sm)' }}>{claudeSuccess}</p></div>}
+
+        {profile.has_anthropic_token && (
+          <>
+            <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginTop: 'var(--space-6)', marginBottom: 'var(--space-3)' }}>{t('profile.model')}</h3>
+            <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-4)' }}>{t('profile.modelDesc')}</p>
+            <div className="form-group">
+              <select
+                className="form-select"
+                value={claudeModel}
+                onChange={(e) => saveClaudeModel(e.target.value)}
+                disabled={modelSaving}
+              >
+                <option value="claude-haiku-4-5-20251001">Claude Haiku (Standard)</option>
+                <option value="claude-sonnet-4-6">Claude Sonnet</option>
+                <option value="claude-opus-4-7">Claude Opus</option>
+              </select>
+            </div>
+          </>
+        )}
 
         <hr className="divider" style={{ margin: 'var(--space-6) 0' }} />
 
