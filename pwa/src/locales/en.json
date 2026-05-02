@@ -63,7 +63,7 @@
   "docs.admin.h3": "3. Audit Log",
   "docs.admin.t3": "All critical actions (animal deleted, role changed, settings adjusted) are logged in a tamper-proof and traceable manner in the audit log.",
   "docs.dev.title": "Developer Documentation (API)",
-  "docs.dev.p1": "All REST API endpoints require a `Bearer <JWT>` token in the Authorization header (except Public routes).",
+  "docs.dev.p1": "All REST API endpoints require a `Bearer <JWT>` token in the Authorization header (except Public routes).\n\nThe interactive Swagger/OpenAPI documentation can be found at the URL:\n👉 /documentation",
   "docs.dev.h1": "REST API Endpoints (Core)",
   "docs.dev.t1": "GET /api/animals (Own animals)\nGET /api/animals/by-tag/:tagId (Find animal via NFC)\nPATCH /api/animals/:id (Edit animal)\nPOST /api/documents/:id/retry-analysis (Restart AI analysis)",
   "docs.dev.h2": "WebSocket Upload (Documents)",

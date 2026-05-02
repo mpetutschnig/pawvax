@@ -50,6 +50,10 @@ export default function AdminPage() {
   const [settingsSaving, setSettingsSaving] = useState(false)
 
   useEffect(() => {
+    fetch('/api/settings').then(res => res.json()).then(data => setAppSettings(data)).catch(console.error)
+  }, [])
+
+  useEffect(() => {
     loadData()
   }, [section, auditPage])
 
@@ -123,8 +127,12 @@ export default function AdminPage() {
             {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
           <div className="admin-header-brand">
-            <PawPrint size={20} strokeWidth={1.8} style={{ verticalAlign: 'middle', marginRight: 8 }} />
-            PAW {t('nav.admin')}
+            {appSettings.logo_data ? (
+              <img src={appSettings.logo_data} alt="Logo" style={{ height: '24px', verticalAlign: 'middle', marginRight: 8, objectFit: 'contain' }} />
+            ) : (
+              <PawPrint size={20} strokeWidth={1.8} style={{ verticalAlign: 'middle', marginRight: 8 }} />
+            )}
+            {appSettings.app_name || 'PAW'} {t('nav.admin')}
           </div>
         </div>
         <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>

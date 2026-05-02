@@ -377,7 +377,7 @@
   "docs.admin.h3": "3. Audit-Log",
   "docs.admin.t3": "Alle kritischen Aktionen (Tier gelöscht, Rolle geändert, Einstellungen angepasst) werden manipulationssicher und nachvollziehbar im Audit-Log protokolliert.",
   "docs.dev.title": "Entwickler-Dokumentation (API)",
-  "docs.dev.p1": "Alle REST API Endpoints erfordern einen `Bearer <JWT>` Token im Authorization-Header (außer Public-Routes).",
+  "docs.dev.p1": "Alle REST API Endpoints erfordern einen `Bearer <JWT>` Token im Authorization-Header (außer Public-Routes).\n\nDie interaktive Swagger/OpenAPI Dokumentation findest du unter der URL:\n👉 /documentation",
   "docs.dev.h1": "REST API Endpoints (Core)",
   "docs.dev.t1": "GET /api/animals (Eigene Tiere)\nGET /api/animals/by-tag/:tagId (Tier via NFC finden)\nPATCH /api/animals/:id (Tier bearbeiten)\nPOST /api/documents/:id/retry-analysis (KI Analyse neu starten)",
   "docs.dev.h2": "WebSocket Upload (Dokumente)",

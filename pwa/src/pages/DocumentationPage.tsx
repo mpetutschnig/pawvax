@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { PageHeader } from '../components/PageHeader'
 import { BookOpen, User, Shield, Code } from 'lucide-react'
@@ -8,6 +8,14 @@ type DocTab = 'user' | 'admin' | 'dev'
 export default function DocumentationPage() {
   const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState<DocTab>('user')
+  const [logoData, setLogoData] = useState<string>('')
+
+  useEffect(() => {
+    fetch('/api/settings')
+      .then(res => res.json())
+      .then(data => { if (data.logo_data) setLogoData(data.logo_data) })
+      .catch(err => console.error(err))
+  }, [])
 
   const textStyle = { 
     whiteSpace: 'pre-wrap' as const, 
@@ -74,6 +82,12 @@ export default function DocumentationPage() {
   return (
     <div className="container page">
       <PageHeader title={t('docs.title')} backTo="/profile" showThemeToggle />
+      
+      {logoData && (
+        <div className="animate-fade-in" style={{ display: 'flex', justifyContent: 'center', marginBottom: 'var(--space-4)', marginTop: 'var(--space-2)' }}>
+          <img src={logoData} alt="Franchise Logo" style={{ maxHeight: '80px', borderRadius: 'var(--radius-md)', objectFit: 'contain' }} />
+        </div>
+      )}
       
       <div className="card" style={{ padding: '0 0 var(--space-4) 0', overflow: 'hidden' }}>
         <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>

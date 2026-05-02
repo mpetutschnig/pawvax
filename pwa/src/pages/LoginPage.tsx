@@ -1,4 +1,4 @@
-import { useState, FormEvent } from 'react'
+import { useState, useEffect, FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { login, register } from '../api/rest'
@@ -13,6 +13,11 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [logoData, setLogoData] = useState<string>('')
+
+  useEffect(() => {
+    fetch('/api/settings').then(res => res.json()).then(data => { if (data.logo_data) setLogoData(data.logo_data) }).catch(() => {})
+  }, [])
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -39,9 +44,13 @@ export default function LoginPage() {
     <div className="container page" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: '100dvh', padding: 'var(--space-4)' }}>
       <div className="card animate-slide-up" style={{ padding: 'var(--space-8) var(--space-6)', maxWidth: '400px', margin: '0 auto', width: '100%' }}>
         <div style={{ textAlign: 'center', marginBottom: 'var(--space-6)' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 64, height: 64, borderRadius: '50%', background: 'var(--primary-50)', marginBottom: 'var(--space-4)' }}>
-            <PawPrint size={32} color="var(--primary-500)" />
-          </div>
+          {logoData ? (
+            <img src={logoData} alt="Logo" style={{ maxHeight: '64px', objectFit: 'contain', marginBottom: 'var(--space-4)' }} />
+          ) : (
+            <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 64, height: 64, borderRadius: '50%', background: 'var(--primary-50)', marginBottom: 'var(--space-4)' }}>
+              <PawPrint size={32} color="var(--primary-500)" />
+            </div>
+          )}
           <h1 style={{ margin: 0, fontSize: 'var(--font-size-xl)' }}>{t('app.title')}</h1>
           <p className="text-muted" style={{ margin: '4px 0 0 0' }}>{t('app.subtitle')}</p>
         </div>

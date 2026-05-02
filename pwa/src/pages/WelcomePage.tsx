@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { PawPrint, Radio, Edit3, CheckCircle, AlertCircle } from 'lucide-react'
@@ -6,6 +7,11 @@ export default function WelcomePage() {
   const navigate = useNavigate()
   const { t } = useTranslation()
   const token = localStorage.getItem('token')
+  const [logoData, setLogoData] = useState<string>('')
+
+  useEffect(() => {
+    fetch('/api/settings').then(res => res.json()).then(data => { if (data.logo_data) setLogoData(data.logo_data) }).catch(() => {})
+  }, [])
 
   // Redirect to login if no token
   if (!token) {
@@ -16,14 +22,18 @@ export default function WelcomePage() {
   return (
     <div className="container page" style={{ maxWidth: 560, margin: '0 auto' }}>
       <div style={{ textAlign: 'center', paddingTop: 'var(--space-6)', marginBottom: 'var(--space-6)' }}>
-        <div style={{
-          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          width: 64, height: 64, borderRadius: '50%',
-          background: 'linear-gradient(135deg, var(--primary-500), var(--primary-700))',
-          marginBottom: 'var(--space-4)'
-        }}>
-          <PawPrint size={32} color="white" strokeWidth={1.5} />
-        </div>
+        {logoData ? (
+          <img src={logoData} alt="Logo" style={{ maxHeight: '80px', objectFit: 'contain', marginBottom: 'var(--space-4)' }} />
+        ) : (
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            width: 64, height: 64, borderRadius: '50%',
+            background: 'linear-gradient(135deg, var(--primary-500), var(--primary-700))',
+            marginBottom: 'var(--space-4)'
+          }}>
+            <PawPrint size={32} color="white" strokeWidth={1.5} />
+          </div>
+        )}
         <h1 style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 700, margin: '0 0 var(--space-2) 0' }}>
           {t('welcome.title')}
         </h1>
