@@ -19,7 +19,9 @@ import WelcomePage from './pages/WelcomePage'
 
 function GlobalBrand() {
   const location = useLocation()
+  const { t } = useTranslation()
   const [settings, setSettings] = useState({ app_name: 'PAW', logo_data: '' })
+  const role = localStorage.getItem('role')
   
   useEffect(() => {
     fetch('/api/settings').then(res => res.json()).then(data => setSettings(data)).catch(() => {})
@@ -43,9 +45,19 @@ function GlobalBrand() {
   if (!settings.logo_data && (!settings.app_name || settings.app_name === 'PAW')) return null
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '10px var(--space-4)', background: 'var(--surface)', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, zIndex: 100 }}>
-      {settings.logo_data && <img src={settings.logo_data} alt="Logo" style={{ height: '24px', objectFit: 'contain' }} />}
-      <span style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-primary)' }}>{settings.app_name || 'PAW'}</span>
+    <div style={{ display: 'flex', alignItems: 'center', padding: '10px var(--space-4)', background: 'var(--surface)', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, zIndex: 100 }}>
+      <div style={{ flex: 1 }}></div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+        {settings.logo_data && <img src={settings.logo_data} alt="Logo" style={{ height: '24px', objectFit: 'contain' }} />}
+        <span style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-primary)' }}>{settings.app_name || 'PAW'}</span>
+      </div>
+      <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>
+        {role && (
+          <span className="badge badge-info" style={{ fontSize: '10px', padding: '2px 6px', textTransform: 'capitalize' }}>
+            {role === 'vet' ? t('docScan.vet') : role === 'authority' ? t('docScan.authority') : role}
+          </span>
+        )}
+      </div>
     </div>
   )
 }
