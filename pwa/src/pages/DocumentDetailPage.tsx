@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { getDocument, deleteDocument, patchDocument } from '../api/rest'
+import { getDocument, deleteDocument, patchDocument, getMe } from '../api/rest'
 import { generateICS, downloadBlob } from '../utils/ics'
 import { PageHeader } from '../components/PageHeader'
 import { Shield, Pill, FileText, PawPrint, Landmark, Calendar, Download, Mail, Tag, Save, X, Edit2, Trash2, CheckCircle } from 'lucide-react'
@@ -29,6 +29,11 @@ export default function DocumentDetailPage() {
   const [retryProvider, setRetryProvider] = useState('google')
   const [retryModel, setRetryModel] = useState('gemini-3.1-flash-lite-preview')
 
+  const [hasGemini, setHasGemini] = useState(false)
+  const [hasAnthropic, setHasAnthropic] = useState(false)
+  const [hasOpenai, setHasOpenai] = useState(false)
+  const hasAnyKey = hasGemini || hasAnthropic || hasOpenai
+
   const docTypeConfig: Record<string, { label: string; icon: React.ReactNode }> = {
     vaccination: { label: t('animal.docTypeVaccination'), icon: <Shield size={20} /> },
     medication: { label: t('animal.docTypeMedication'), icon: <Pill size={20} /> },
@@ -38,6 +43,25 @@ export default function DocumentDetailPage() {
   useEffect(() => {
     if (docId) loadDocument()
   }, [docId])
+
+  useEffect(() => {
+    getMe().then(res => {
+      setHasGemini(res.data.has_gemini_token)
+      setHasAnthropic(res.data.has_anthropic_token)
+      setHasOpenai(res.data.has_openai_token)
+      
+      if (res.data.has_gemini_token) {
+        setRetryProvider('google')
+        setRetryModel('gemini-3.1-flash-lite-preview')
+      } else if (res.data.has_anthropic_token) {
+        setRetryProvider('anthropic')
+        setRetryModel('claude-3-5-sonnet-20241022')
+      } else if (res.data.has_openai_token) {
+        setRetryProvider('openai')
+        setRetryModel('gpt-4o-mini')
+      }
+    }).catch(err => console.error(err))
+  }, [])
 
   const loadDocument = async () => {
     try {
@@ -205,42 +229,56 @@ export default function DocumentDetailPage() {
           <p className="text-muted" style={{ marginBottom: 'var(--space-4)' }}>
             Wähle den gewünschten Anbieter und das Modell für die Dokumenten-Analyse aus.
           </p>
-          <div className="form-group">
-            <label className="form-label">Anbieter</label>
-            <select className="form-select" value={retryProvider} onChange={e => handleProviderChange(e.target.value)}>
-              <option value="google">Google Gemini</option>
-              <option value="anthropic">Anthropic Claude</option>
-              <option value="openai">OpenAI</option>
-            </select>
-          </div>
-          <div className="form-group">
-            <label className="form-label">Modell</label>
-            <select className="form-select" value={retryModel} onChange={e => setRetryModel(e.target.value)}>
-              {retryProvider === 'google' && (
-                <>
-                  <option value="gemini-3.1-flash-lite-preview">Gemini 3.1 Flash-Lite</option>
-                  <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
-                  <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
-                  <option value="gemini-1.5-pro-latest">Gemini 1.5 Pro</option>
-                </>
-              )}
-              {retryProvider === 'anthropic' && (
-                <>
-                  <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
-                  <option value="claude-3-haiku-20240307">Claude 3 Haiku</option>
-                </>
-              )}
-              {retryProvider === 'openai' && (
-                <>
-                  <option value="gpt-4o-mini">GPT-4o Mini</option>
-                  <option value="gpt-4o">GPT-4o</option>
-                </>
-              )}
-            </select>
-          </div>
+          
+          {!hasAnyKey ? (
+            <div className="error-card" style={{ marginBottom: 'var(--space-4)' }}>
+              <p style={{ margin: 0 }}>Keine KI-Anbieter konfiguriert. Bitte hinterlege einen API-Schlüssel in deinem Profil.</p>
+            </div>
+          ) : (
+            <>
+              <div className="form-group">
+                <label className="form-label">Anbieter</label>
+                <select className="form-select" value={retryProvider} onChange={e => handleProviderChange(e.target.value)}>
+                  {hasGemini && <option value="google">Google Gemini</option>}
+                  {hasAnthropic && <option value="anthropic">Anthropic Claude</option>}
+                  {hasOpenai && <option value="openai">OpenAI</option>}
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Modell</label>
+                <select className="form-select" value={retryModel} onChange={e => setRetryModel(e.target.value)}>
+                  {retryProvider === 'google' && (
+                    <>
+                      <option value="gemini-3.1-flash-lite-preview">Gemini 3.1 Flash-Lite</option>
+                      <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+                      <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+                      <option value="gemini-1.5-pro-latest">Gemini 1.5 Pro</option>
+                    </>
+                  )}
+                  {retryProvider === 'anthropic' && (
+                    <>
+                      <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
+                      <option value="claude-3-haiku-20240307">Claude 3 Haiku</option>
+                    </>
+                  )}
+                  {retryProvider === 'openai' && (
+                    <>
+                      <option value="gpt-4o-mini">GPT-4o Mini</option>
+                      <option value="gpt-4o">GPT-4o</option>
+                    </>
+                  )}
+                </select>
+              </div>
+            </>
+          )}
           <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-6)' }}>
-            <button className="btn btn-primary" onClick={handleRetryAnalysis} disabled={saving}>
-              {saving ? 'Analysiere...' : 'Analyse starten'}
+            {hasAnyKey && (
+              <button className="btn btn-primary flex-1" onClick={handleRetryAnalysis} disabled={saving}>
+                {saving ? 'Analysiere...' : 'Analyse starten'}
+              </button>
+            )}
+            <button className="btn btn-ghost flex-1" onClick={() => { setShowRetryModal(false); setError(null); }} disabled={saving}>
+              {t('docScan.saveForLater')}
             </button>
           </div>
         </div>
