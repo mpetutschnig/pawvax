@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { CheckCircle, AlertCircle, Syringe, FileText, Cpu, BookOpen, Camera, RefreshCw, Plus, X } from 'lucide-react'
 import { PageHeader } from '../components/PageHeader'
 import { uploadMultiPageDocument } from '../api/ws'
-import { patchDocument, patchMe } from '../api/rest'
+import { patchDocument, getMe } from '../api/rest'
 
 type Phase = 'capture' | 'uploading' | 'analysing' | 'done' | 'error'
 
@@ -45,10 +45,33 @@ export default function DocumentScanPage() {
   const [documentId, setDocumentId] = useState<string | null>(null)
   const [savingDocType, setSavingDocType] = useState(false)
   const [showModelSelection, setShowModelSelection] = useState(false)
-  const [selectedModel, setSelectedModel] = useState<string>('gemini-3.1-flash-lite-preview')
   const [savingModel, setSavingModel] = useState(false)
   const [retryProvider, setRetryProvider] = useState('google')
   const [retryModel, setRetryModel] = useState('gemini-3.1-flash-lite-preview')
+
+  const [hasGemini, setHasGemini] = useState(false)
+  const [hasAnthropic, setHasAnthropic] = useState(false)
+  const [hasOpenai, setHasOpenai] = useState(false)
+  const hasAnyKey = hasGemini || hasAnthropic || hasOpenai
+
+  useEffect(() => {
+    getMe().then(res => {
+      setHasGemini(res.data.has_gemini_token)
+      setHasAnthropic(res.data.has_anthropic_token)
+      setHasOpenai(res.data.has_openai_token)
+      
+      if (res.data.has_gemini_token) {
+        setRetryProvider('google')
+        setRetryModel('gemini-3.1-flash-lite-preview')
+      } else if (res.data.has_anthropic_token) {
+        setRetryProvider('anthropic')
+        setRetryModel('claude-3-5-sonnet-20241022')
+      } else if (res.data.has_openai_token) {
+        setRetryProvider('openai')
+        setRetryModel('gpt-4o-mini')
+      }
+    }).catch(err => console.error(err))
+  }, [])
 
   const docTypes = [
     { id: 'vaccination', label: t('animal.docTypeVaccination'), icon: <Syringe size={14} /> },

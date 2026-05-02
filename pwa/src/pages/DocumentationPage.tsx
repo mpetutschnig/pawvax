@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { PageHeader } from '../components/PageHeader'
-import { BookOpen, User, Shield, Code } from 'lucide-react'
+import { User, Shield, Code } from 'lucide-react'
 
 type DocTab = 'user' | 'admin' | 'dev'
 
