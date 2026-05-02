@@ -36,6 +36,9 @@ export function initDb(dbPath) {
     `ALTER TABLE accounts ADD COLUMN gemini_model TEXT DEFAULT 'gemini-3.1-flash-lite-preview'`,
     `ALTER TABLE accounts ADD COLUMN anthropic_token TEXT`,
     `ALTER TABLE accounts ADD COLUMN claude_model TEXT DEFAULT 'claude-haiku-4-5-20251001'`,
+    `ALTER TABLE accounts ADD COLUMN openai_token TEXT`,
+    `ALTER TABLE accounts ADD COLUMN openai_model TEXT DEFAULT 'gpt-4.1-mini'`,
+    `ALTER TABLE accounts ADD COLUMN ai_provider_priority TEXT DEFAULT '["google", "anthropic", "openai"]'`,
   ]
   for (const sql of migrations) {
     try { db.exec(sql) } catch { /* column already exists */ }
