@@ -294,6 +294,7 @@ export default function ProfilePage() {
 
   const roles = profile.roles ?? []
   const isVet = roles.includes('vet')
+  const isOrg = roles.includes('authority')
   const verificationStatus = profile.verification_status
 
   return (
@@ -323,11 +324,13 @@ export default function ProfilePage() {
           )}
         </div>
 
-        {isVet && (
+        {(isVet || isOrg || verificationStatus === 'pending' || !isVet) && (
           <>
             <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginTop: 'var(--space-6)', marginBottom: 'var(--space-3)' }}>{t('profile.verification')}</h3>
             {isVet ? (
-              <p style={{ color: 'var(--success-600)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', margin: 0, fontWeight: 500 }}><CheckCircle size={18} /> {t('profile.verified')} (Tierarzt-Zugriff aktiv)</p>
+              <p style={{ color: 'var(--success-600)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', margin: 0, fontWeight: 500 }}><CheckCircle size={18} /> {t('profile.verifiedVet')} (Zugriff aktiv)</p>
+            ) : isOrg ? (
+              <p style={{ color: 'var(--info-600)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', margin: 0, fontWeight: 500 }}><CheckCircle size={18} /> {t('profile.verifiedOrg')} (Zugriff aktiv)</p>
             ) : verificationStatus === 'pending' ? (
               <p className="text-muted" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', margin: 0 }}><Clock size={18} /> {t('profile.verificationPending')}</p>
             ) : (

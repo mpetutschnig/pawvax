@@ -301,20 +301,25 @@ export default function AdminPage() {
                       </div>
                       <span className="badge badge-warning">{t('admin.pending')}</span>
                     </div>
-                    <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
-                      <button
-                        className="btn btn-primary flex-1"
-                        onClick={() => adminPatchAccount(v.id, { role: 'user,vet' }).then(() => adminVerifyAccount(v.id, true)).then(() => loadData())}
-                        style={{ padding: '8px 0' }}
-                      >
-                        <CheckCircle size={16} /> {t('admin.approve')}
-                      </button>
-                      <button
-                        className="btn btn-danger flex-1"
-                        onClick={() => adminVerifyAccount(v.id, false).then(() => loadData())}
-                        style={{ padding: '8px 0' }}
-                      >
-                        <XCircle size={16} /> {t('admin.reject')}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                      <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                        <button
+                          className="btn btn-primary flex-1"
+                          onClick={() => adminPatchAccount(v.id, { role: 'user,vet' }).then(() => adminVerifyAccount(v.id, true)).then(() => loadData())}
+                          style={{ padding: '8px 0', fontSize: '12px' }}
+                        >
+                          <CheckCircle size={14} /> {t('admin.approveVet')}
+                        </button>
+                        <button
+                          className="btn btn-secondary flex-1"
+                          onClick={() => adminPatchAccount(v.id, { role: 'user,authority' }).then(() => adminVerifyAccount(v.id, true)).then(() => loadData())}
+                          style={{ padding: '8px 0', fontSize: '12px' }}
+                        >
+                          <ShieldCheck size={14} /> {t('admin.approveOrg')}
+                        </button>
+                      </div>
+                      <button className="btn btn-ghost btn-full" onClick={() => adminVerifyAccount(v.id, false).then(() => loadData())}>
+                        {t('admin.reject')}
                       </button>
                     </div>
                   </div>

@@ -6,7 +6,7 @@ import { PageHeader } from '../components/PageHeader'
 import { PawPrint, Cat, Edit2, Trash2, Lock, Camera, Search, Syringe, FileText, Radio, CheckCircle, ShieldAlert, AlertTriangle, RefreshCw, X } from 'lucide-react'
 
 interface Animal {
-  id: string; name: string; species: string; breed?: string; birthdate?: string;
+  id: string; name: string; species: string; breed?: string; birthdate?: string; address?: string;
   avatar_path?: string; dynamic_fields?: string; avatar_base64?: string;
   is_owner?: boolean; request_role?: string; contact?: { name: string; email: string };
 }
