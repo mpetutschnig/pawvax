@@ -27,7 +27,7 @@ export default function DocumentDetailPage() {
   
   const [showRetryModal, setShowRetryModal] = useState(false)
   const [retryProvider, setRetryProvider] = useState('google')
-  const [retryModel, setRetryModel] = useState('gemini-1.5-flash')
+  const [retryModel, setRetryModel] = useState('gemini-3.1-flash-lite-preview')
 
   const docTypeConfig: Record<string, { label: string; icon: React.ReactNode }> = {
     vaccination: { label: t('animal.docTypeVaccination'), icon: <Shield size={20} /> },
@@ -172,13 +172,13 @@ export default function DocumentDetailPage() {
 
   const handleProviderChange = (prov: string) => {
     setRetryProvider(prov)
-    if (prov === 'google') setRetryModel('gemini-1.5-flash')
+    if (prov === 'google') setRetryModel('gemini-3.1-flash-lite-preview')
     else if (prov === 'anthropic') setRetryModel('claude-3-5-sonnet-20241022')
     else if (prov === 'openai') setRetryModel('gpt-4o-mini')
   }
 
   if (loading) return <div className="container page" style={{ display: 'flex', justifyContent: 'center', paddingTop: '4rem' }}><div className="spinner spinner-lg"></div></div>
-  if (error) return <div className="container page"><div className="error-card"><p>{error}</p></div></div>
+  if (!doc && error) return <div className="container page"><div className="error-card"><p>{error}</p></div></div>
   if (!doc) return <div className="container page"><div className="error-card"><p>{t('error.notFound')}</p></div></div>
 
   const extracted = doc.extracted_json || {}
@@ -188,9 +188,70 @@ export default function DocumentDetailPage() {
   const canEditTags = doc.isUploader || doc.added_by_role !== 'vet'
   const canEditVisibility = doc.isOwner
 
+  // Eigener "Screen" für die Analyse, der die Detailansicht komplett überlagert
+  if (showRetryModal) {
+    return (
+      <div className="container page">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-6)', marginTop: 'var(--space-2)' }}>
+          <button className="btn-ghost" style={{ padding: '8px', margin: '-8px' }} onClick={() => { setShowRetryModal(false); setError(null); }}>
+            <X size={24} />
+          </button>
+          <h1 style={{ margin: 0, fontSize: 'var(--font-size-xl)' }}>KI Analyse</h1>
+        </div>
+        
+        {error && <div className="error-card" style={{ marginBottom: 'var(--space-4)' }}><p>{error}</p></div>}
+
+        <div className="card animate-slide-up" style={{ borderColor: 'var(--primary-200)' }}>
+          <p className="text-muted" style={{ marginBottom: 'var(--space-4)' }}>
+            Wähle den gewünschten Anbieter und das Modell für die Dokumenten-Analyse aus.
+          </p>
+          <div className="form-group">
+            <label className="form-label">Anbieter</label>
+            <select className="form-select" value={retryProvider} onChange={e => handleProviderChange(e.target.value)}>
+              <option value="google">Google Gemini</option>
+              <option value="anthropic">Anthropic Claude</option>
+              <option value="openai">OpenAI</option>
+            </select>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Modell</label>
+            <select className="form-select" value={retryModel} onChange={e => setRetryModel(e.target.value)}>
+              {retryProvider === 'google' && (
+                <>
+                  <option value="gemini-3.1-flash-lite-preview">Gemini 3.1 Flash-Lite</option>
+                  <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+                  <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+                  <option value="gemini-1.5-pro-latest">Gemini 1.5 Pro</option>
+                </>
+              )}
+              {retryProvider === 'anthropic' && (
+                <>
+                  <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
+                  <option value="claude-3-haiku-20240307">Claude 3 Haiku</option>
+                </>
+              )}
+              {retryProvider === 'openai' && (
+                <>
+                  <option value="gpt-4o-mini">GPT-4o Mini</option>
+                  <option value="gpt-4o">GPT-4o</option>
+                </>
+              )}
+            </select>
+          </div>
+          <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-6)' }}>
+            <button className="btn btn-primary" onClick={handleRetryAnalysis} disabled={saving}>
+              {saving ? 'Analysiere...' : 'Analyse starten'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="container page">
       <PageHeader title={config.label} backTo={`/animals/${animalId}`} showThemeToggle />
+      {error && <div className="error-card" style={{ marginBottom: 'var(--space-4)' }}><p>{error}</p></div>}
 
       <div className="card animate-slide-up">
         {doc.added_by_role === 'vet' && (
@@ -447,47 +508,6 @@ export default function DocumentDetailPage() {
             <button className="btn btn-ghost" onClick={() => setReminderMode(false)}>
               {t('common.cancel')}
             </button>
-          </div>
-        </div>
-      )}
-
-      {showRetryModal && (
-        <div className="card animate-slide-up" style={{ marginTop: 'var(--space-4)', borderColor: 'var(--primary-200)' }}>
-          <h3 style={{ marginTop: 0, marginBottom: 'var(--space-4)' }}>Erneute Analyse</h3>
-          <div className="form-group">
-            <label className="form-label">Anbieter</label>
-            <select className="form-select" value={retryProvider} onChange={e => handleProviderChange(e.target.value)}>
-              <option value="google">Google Gemini</option>
-              <option value="anthropic">Anthropic Claude</option>
-              <option value="openai">OpenAI</option>
-            </select>
-          </div>
-          <div className="form-group">
-            <label className="form-label">Modell</label>
-            <select className="form-select" value={retryModel} onChange={e => setRetryModel(e.target.value)}>
-              {retryProvider === 'google' && (
-                <>
-                  <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
-                  <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
-                </>
-              )}
-              {retryProvider === 'anthropic' && (
-                <>
-                  <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
-                  <option value="claude-3-haiku-20240307">Claude 3 Haiku</option>
-                </>
-              )}
-              {retryProvider === 'openai' && (
-                <>
-                  <option value="gpt-4o-mini">GPT-4o Mini</option>
-                  <option value="gpt-4o">GPT-4o</option>
-                </>
-              )}
-            </select>
-          </div>
-          <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-6)' }}>
-            <button className="btn btn-primary" onClick={handleRetryAnalysis} disabled={saving}>{saving ? 'Analysiere...' : 'Starten'}</button>
-            <button className="btn btn-ghost" onClick={() => setShowRetryModal(false)} disabled={saving}>{t('common.cancel')}</button>
           </div>
         </div>
       )}
