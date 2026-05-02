@@ -202,6 +202,31 @@ export default function DocumentScanPage() {
     else if (prov === 'openai') setRetryModel('gpt-4o-mini')
   }
 
+  const startUploadWithModel = async () => {
+    setSavingModel(true)
+    try {
+      const updates: any = {}
+      if (retryProvider === 'google') updates.gemini_model = retryModel
+      if (retryProvider === 'anthropic') updates.claude_model = retryModel
+      if (retryProvider === 'openai') updates.openai_model = retryModel
+
+      const res = await getMe()
+      let currentPrio = ['google', 'anthropic', 'openai']
+      try { if (res.data.ai_provider_priority) currentPrio = JSON.parse(res.data.ai_provider_priority) } catch {}
+      
+      const newPrio = [retryProvider, ...currentPrio.filter((p: string) => p !== retryProvider)]
+      updates.ai_provider_priority = JSON.stringify(newPrio)
+
+      await patchMe(updates)
+      setShowModelSelection(false)
+      handleUpload() // Starte den Upload erst nach Festlegung des Modells
+    } catch (err: any) {
+      setErrorMsg(err.message || t('common.error'))
+    } finally {
+      setSavingModel(false)
+    }
+  }
+
   const handleRetryAnalysisAPI = async () => {
     if (!documentId) return
     setSavingModel(true)
@@ -340,7 +365,7 @@ export default function DocumentScanPage() {
           )}
           <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-6)' }}>
             {hasAnyKey && (
-              <button className="btn btn-primary flex-1" onClick={handleRetryAnalysisAPI} disabled={savingModel}>
+              <button className="btn btn-primary flex-1" onClick={documentId ? handleRetryAnalysisAPI : startUploadWithModel} disabled={savingModel}>
                 {savingModel ? t('animal.retrying') : t('animal.analyzeBtn')}
               </button>
             )}
@@ -514,7 +539,7 @@ export default function DocumentScanPage() {
                 </div>
               )}
 
-              <button className="btn btn-primary btn-full" onClick={handleUpload}>{t('docScan.uploadAndAnalyze')}</button>
+              <button className="btn btn-primary btn-full" onClick={() => setShowModelSelection(true)}>{t('docScan.uploadAndAnalyze')}</button>
               <button className="btn btn-ghost btn-full" style={{ marginTop: 'var(--space-2)' }} onClick={() => { setPreviews([]); setPages([]) }}>
                 {t('docScan.chooseAnother')}
               </button>

@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { Routes, Route, Navigate, useLocation, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { PawPrint, ScanLine, User, Settings } from 'lucide-react'
@@ -15,6 +16,39 @@ import DocumentDetailPage from './pages/DocumentDetailPage'
 import PublicScanPage from './pages/PublicScanPage'
 import DocumentationPage from './pages/DocumentationPage'
 import WelcomePage from './pages/WelcomePage'
+
+function GlobalBrand() {
+  const location = useLocation()
+  const [settings, setSettings] = useState({ app_name: 'PAW', logo_data: '' })
+  
+  useEffect(() => {
+    fetch('/api/settings').then(res => res.json()).then(data => setSettings(data)).catch(() => {})
+  }, [])
+  
+  useEffect(() => {
+    if (settings.app_name) document.title = settings.app_name
+    if (settings.logo_data) {
+      let link = document.querySelector("link[rel~='icon']") as HTMLLinkElement
+      if (!link) {
+        link = document.createElement('link')
+        link.rel = 'icon'
+        document.head.appendChild(link)
+      }
+      link.href = settings.logo_data
+    }
+  }, [settings])
+
+  const hideOn = ['/login', '/welcome', '/admin', '/public-scan']
+  if (hideOn.some(path => location.pathname.startsWith(path))) return null
+  if (!settings.logo_data && (!settings.app_name || settings.app_name === 'PAW')) return null
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '10px var(--space-4)', background: 'var(--surface)', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, zIndex: 100 }}>
+      {settings.logo_data && <img src={settings.logo_data} alt="Logo" style={{ height: '24px', objectFit: 'contain' }} />}
+      <span style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-primary)' }}>{settings.app_name || 'PAW'}</span>
+    </div>
+  )
+}
 
 function RequireAuth({ children, adminOnly }: { children: React.ReactNode; adminOnly?: boolean }) {
   const token = localStorage.getItem('token')
@@ -74,6 +108,7 @@ export default function App() {
 
   return (
     <>
+      <GlobalBrand />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/welcome" element={<WelcomePage />} />
