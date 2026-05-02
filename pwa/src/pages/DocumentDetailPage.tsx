@@ -211,6 +211,7 @@ export default function DocumentDetailPage() {
 
   const canEditTags = doc.isUploader || doc.added_by_role !== 'vet'
   const canEditVisibility = doc.isOwner
+  const allImages = [doc.image_path, ...(doc.pages || [])].filter(Boolean)
 
   // Eigener "Screen" für die Analyse, der die Detailansicht komplett überlagert
   if (showRetryModal) {
@@ -332,13 +333,13 @@ export default function DocumentDetailPage() {
           {t('docDetail.addedAt')} {new Date(doc.created_at).toLocaleString(i18n.language === 'de' ? 'de-AT' : 'en-GB')}
         </p>
 
-        {doc.image_path && (
-          <div style={{ borderRadius: 'var(--radius-lg)', overflow: 'hidden', marginBottom: 'var(--space-6)', border: '1px solid var(--border)' }}>
-            <img
-              src={`/uploads/${doc.image_path.split('/').pop()}`}
-              alt="Dokument"
-              style={{ width: '100%', display: 'block' }}
-            />
+        {allImages.length > 0 && (
+          <div style={{ marginBottom: 'var(--space-6)' }}>
+            {allImages.map((imgPath, idx) => (
+              <div key={idx} style={{ borderRadius: 'var(--radius-lg)', overflow: 'hidden', marginBottom: idx < allImages.length - 1 ? 'var(--space-2)' : 0, border: '1px solid var(--border)' }}>
+                <img src={`/uploads/${imgPath.split('/').pop()}`} alt={`Dokument Seite ${idx + 1}`} style={{ width: '100%', display: 'block' }} />
+              </div>
+            ))}
           </div>
         )}
 

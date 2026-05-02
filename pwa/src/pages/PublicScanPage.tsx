@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useBarcode } from '../hooks/useBarcode'
 import { useNfc } from '../hooks/useNfc'
-import { PawPrint, Camera, LogIn, ShieldCheck, Syringe, Pill, FileText, Radio } from 'lucide-react'
+import { PawPrint, Camera, LogIn, ShieldCheck, Syringe, Pill, FileText, Radio, ChevronDown, ChevronUp } from 'lucide-react'
 import axios from 'axios'
 
 type Phase = 'scan' | 'result' | 'notfound'
@@ -17,6 +17,7 @@ export default function PublicScanPage() {
   const [nfcError, setNfcError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [scanMode, setScanMode] = useState<'barcode' | 'nfc' | null>(null)
+  const [expandedDocId, setExpandedDocId] = useState<string | null>(null)
 
   const handleTag = useCallback(async (rawTagId: string) => {
     setLoading(true)
@@ -145,18 +146,41 @@ export default function PublicScanPage() {
                       <h3 style={{ fontSize: 'var(--font-size-base)', marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
                         {icon} {label} ({docs.length})
                       </h3>
-                      {docs.map((doc: any) => (
-                        <div key={doc.id} className="card card-sm" style={{ marginBottom: 'var(--space-2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>
-                            {type === 'vaccination' ? t('animal.docTypeVaccination')
-                            : type === 'medication'  ? t('animal.docTypeMedication')
-                            :                          t('animal.docTypeOther')}
-                          </span>
-                          <span className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>
-                            {new Date(doc.created_at).toLocaleDateString(i18n.language === 'de' ? 'de-AT' : 'en-GB')}
-                          </span>
-                        </div>
-                      ))}
+                      {docs.map((doc: any) => {
+                        const isExpanded = expandedDocId === doc.id;
+                        return (
+                          <div key={doc.id} className="card card-sm" style={{ marginBottom: 'var(--space-2)', cursor: 'pointer', transition: 'all 0.2s' }} onClick={() => setExpandedDocId(isExpanded ? null : doc.id)}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                                <span style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>
+                                  {type === 'vaccination' ? t('animal.docTypeVaccination')
+                                  : type === 'medication'  ? t('animal.docTypeMedication')
+                                  :                          t('animal.docTypeOther')}
+                                </span>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                                <span className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>
+                                  {new Date(doc.created_at).toLocaleDateString(i18n.language === 'de' ? 'de-AT' : 'en-GB')}
+                                </span>
+                                {isExpanded ? <ChevronUp size={16} className="text-muted" /> : <ChevronDown size={16} className="text-muted" />}
+                              </div>
+                            </div>
+                            
+                            {isExpanded && (
+                              <div className="animate-slide-up" style={{ marginTop: 'var(--space-3)', paddingTop: 'var(--space-3)', borderTop: '1px solid var(--border)' }}>
+                                {doc.extracted_json?.summary && (
+                                  <div style={{ background: 'var(--primary-50)', padding: 'var(--space-3)', borderRadius: 'var(--radius-sm)', marginBottom: 'var(--space-3)', borderLeft: '3px solid var(--primary-500)' }}>
+                                    <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', color: 'var(--primary-900)' }}>{doc.extracted_json.summary}</p>
+                                  </div>
+                                )}
+                                {[doc.image_path, ...(doc.pages || [])].filter(Boolean).map((imgPath: string, idx: number) => (
+                                  <img key={idx} src={`/uploads/${imgPath.split('/').pop()}`} alt={`Page ${idx + 1}`} style={{ width: '100%', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-2)', display: 'block' }} />
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
                     </div>
                   )
                 )}

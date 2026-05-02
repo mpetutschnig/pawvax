@@ -108,12 +108,18 @@ export default async function animalRoutes(fastify) {
     if (allowedTypes.length > 0) {
       const placeholders = allowedTypes.map(() => '?').join(', ')
       const docs = db.prepare(`
-        SELECT id, doc_type, created_at, ocr_provider FROM documents
+        SELECT * FROM documents
         WHERE animal_id = ?
           AND doc_type IN (${placeholders})
           AND (instr(allowed_roles, '"readonly"') > 0 OR allowed_roles IS NULL)
         ORDER BY created_at DESC
       `).all(row.id, ...allowedTypes)
+
+      for (const d of docs) {
+        try { d.extracted_json = JSON.parse(d.extracted_json) } catch { d.extracted_json = {} }
+        const pages = db.prepare('SELECT image_path FROM document_pages WHERE document_id = ? ORDER BY id ASC').all(d.id)
+        d.pages = pages.map(p => p.image_path)
+      }
       result.documents = docs
     }
 

@@ -41,6 +41,13 @@ CREATE TABLE IF NOT EXISTS documents (
   created_at     TEXT DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS document_pages (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  document_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+  image_path  TEXT NOT NULL,
+  page_number INTEGER NOT NULL DEFAULT 1
+);
+
 CREATE TABLE IF NOT EXISTS audit_log (
   id           TEXT PRIMARY KEY,
   account_id   TEXT REFERENCES accounts(id),
@@ -70,6 +77,7 @@ CREATE INDEX IF NOT EXISTS idx_animals_account ON animals(account_id);
 CREATE INDEX IF NOT EXISTS idx_tags_animal ON animal_tags(animal_id);
 CREATE INDEX IF NOT EXISTS idx_tags_active ON animal_tags(tag_id, active);
 CREATE INDEX IF NOT EXISTS idx_documents_animal ON documents(animal_id);
+CREATE INDEX IF NOT EXISTS idx_document_pages_doc ON document_pages(document_id);
 CREATE INDEX IF NOT EXISTS idx_audit_account ON audit_log(account_id);
 CREATE INDEX IF NOT EXISTS idx_audit_resource ON audit_log(resource, resource_id);
 CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log(created_at);

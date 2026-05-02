@@ -51,8 +51,11 @@ export default async function documentRoutes(fastify) {
 
     const isUploader = doc.added_by_account === accountId
 
+    const pages = db.prepare('SELECT image_path FROM document_pages WHERE document_id = ? ORDER BY id ASC').all(doc.id)
+
     return {
       ...doc,
+      pages: pages.map(p => p.image_path),
       extracted_json: JSON.parse(doc.extracted_json),
       added_by_role: doc.added_by_role || 'user',
       isOwner,
