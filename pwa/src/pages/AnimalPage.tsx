@@ -52,7 +52,8 @@ export default function AnimalPage() {
   const [hasGemini, setHasGemini] = useState(false)
   const [hasAnthropic, setHasAnthropic] = useState(false)
   const [hasOpenai, setHasOpenai] = useState(false)
-  const hasAnyKey = hasGemini || hasAnthropic || hasOpenai
+  const [hasSystemAi, setHasSystemAi] = useState(true)
+  const hasAnyKey = hasGemini || hasAnthropic || hasOpenai || hasSystemAi
   const [availableModels, setAvailableModels] = useState<any>({
     google: [
       { id: 'gemini-3.1-flash-lite-preview', name: 'Gemini 3.1 Flash-Lite' },
@@ -75,6 +76,11 @@ export default function AnimalPage() {
       setHasGemini(res.data.has_gemini_token)
       setHasAnthropic(res.data.has_anthropic_token)
       setHasOpenai(res.data.has_openai_token)
+
+      let prio = ['system', 'google', 'anthropic', 'openai']
+      try { if (res.data.ai_provider_priority) prio = typeof res.data.ai_provider_priority === 'string' ? JSON.parse(res.data.ai_provider_priority) : res.data.ai_provider_priority } catch {}
+      setHasSystemAi(prio.includes('system'))
+
       if (res.data.has_gemini_token) { setRetryProvider('google'); setRetryModel('gemini-3.1-flash-lite-preview') }
       else if (res.data.has_anthropic_token) { setRetryProvider('anthropic'); setRetryModel('claude-3-5-sonnet-20241022') }
       else if (res.data.has_openai_token) { setRetryProvider('openai'); setRetryModel('gpt-4o-mini') }
@@ -287,9 +293,9 @@ export default function AnimalPage() {
               <div className="form-group">
                 <label className="form-label">{t('docDetail.provider')}</label>
                 <select className="form-select" value={retryProvider} onChange={e => handleProviderChange(e.target.value)}>
-                  {hasGemini && <option value="google">Google Gemini</option>}
-                  {hasAnthropic && <option value="anthropic">Anthropic Claude</option>}
-                  {hasOpenai && <option value="openai">OpenAI</option>}
+                  {(hasGemini || hasSystemAi) && <option value="google">Google Gemini</option>}
+                  {(hasAnthropic || hasSystemAi) && <option value="anthropic">Anthropic Claude</option>}
+                  {(hasOpenai || hasSystemAi) && <option value="openai">OpenAI</option>}
                 </select>
               </div>
               <div className="form-group">
@@ -422,6 +428,14 @@ export default function AnimalPage() {
               </Link>
               <Link to={`/animals/${id}/sharing`} className="btn btn-ghost" style={{ textDecoration: 'none' }}>
                 <Lock size={16} /> {t('animal.sharing')}
+              </Link>
+            </div>
+          )}
+
+          {!isOwner && isVet && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
+              <Link to={`/animals/${id}/tags`} className="btn btn-ghost" style={{ textDecoration: 'none', border: '1px solid var(--border)' }}>
+                <Radio size={16} /> {t('animal.chips')}
               </Link>
             </div>
           )}

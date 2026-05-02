@@ -235,12 +235,9 @@ export default function AdminPage() {
                       <td>
                         <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                           {acc.role.split(',').map(r => (
-                            <span key={r} className="badge badge-info" style={{ fontSize: '10px', padding: '2px 6px' }}>{r.trim()}</span>
+                            <span key={r} className={`badge ${r.trim() === 'vet' ? 'badge-success' : 'badge-info'}`} style={{ fontSize: '10px', padding: '2px 6px', textTransform: 'capitalize' }}>{r.trim()}</span>
                           ))}
                         </div>
-                      </td>
-                      <td>
-                        {acc.verified ? <span className="badge badge-success">{t('admin.verified')}</span> : <span className="badge badge-warning">{t('admin.pending')}</span>}
                       </td>
                     </tr>
                   ))}
@@ -307,7 +304,7 @@ export default function AdminPage() {
                     <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
                       <button
                         className="btn btn-primary flex-1"
-                        onClick={() => adminVerifyAccount(v.id, true).then(() => loadData())}
+                        onClick={() => adminPatchAccount(v.id, { role: 'user,vet' }).then(() => adminVerifyAccount(v.id, true)).then(() => loadData())}
                         style={{ padding: '8px 0' }}
                       >
                         <CheckCircle size={16} /> {t('admin.approve')}
@@ -451,19 +448,6 @@ export default function AdminPage() {
               </label>
             ))}
           </div>
-
-          <hr className="divider" style={{ margin: 'var(--space-4) 0' }} />
-
-          <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--space-3)' }}>{t('profile.verification')}</h3>
-          <label style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center', cursor: 'pointer', padding: 'var(--space-2) 0' }}>
-            <input
-              type="checkbox"
-              style={{ width: 16, height: 16, accentColor: 'var(--primary-500)' }}
-              checked={!!selectedAccount.verified}
-              onChange={e => adminPatchAccount(selectedAccount.id, { verified: e.target.checked }).then(() => loadData())}
-            />
-            <span style={{ fontSize: 'var(--font-size-sm)' }}>{t('profile.verified')}</span>
-          </label>
 
           <button
             className="btn btn-danger btn-full"

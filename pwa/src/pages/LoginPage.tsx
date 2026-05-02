@@ -29,7 +29,6 @@ export default function LoginPage() {
         : await register(name, email, password)
       localStorage.setItem('token', res.data.token)
       localStorage.setItem('role', res.data.account.role || 'user')
-      localStorage.setItem('roles', JSON.stringify(res.data.account.roles ?? [res.data.account.role || 'user']))
       localStorage.setItem('verified', String(res.data.account.verified || 0))
       navigate(mode === 'register' ? '/welcome' : '/')
     } catch (err: unknown) {

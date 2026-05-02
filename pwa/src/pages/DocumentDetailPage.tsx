@@ -19,12 +19,11 @@ export default function DocumentDetailPage() {
   const [reminderNotes, setReminderNotes] = useState('')
   
   const [tags, setTags] = useState<string[]>([])
+  const [editMode, setEditMode] = useState(false)
   const [newTag, setNewTag] = useState('')
   const [saving, setSaving] = useState(false)
   const [visibility, setVisibility] = useState<string[]>([])
   const [showJsonDetails, setShowJsonDetails] = useState(false)
-  const [titleEditMode, setTitleEditMode] = useState(false)
-  const [tempTitle, setTempTitle] = useState('')
   
   const [showRetryModal, setShowRetryModal] = useState(false)
   const [retryProvider, setRetryProvider] = useState('google')
@@ -33,7 +32,24 @@ export default function DocumentDetailPage() {
   const [hasGemini, setHasGemini] = useState(false)
   const [hasAnthropic, setHasAnthropic] = useState(false)
   const [hasOpenai, setHasOpenai] = useState(false)
-  const hasAnyKey = hasGemini || hasAnthropic || hasOpenai
+  const [hasSystemAi, setHasSystemAi] = useState(true)
+  const hasAnyKey = hasGemini || hasAnthropic || hasOpenai || hasSystemAi
+  const [availableModels, setAvailableModels] = useState<any>({
+    google: [
+      { id: 'gemini-3.1-flash-lite-preview', name: 'Gemini 3.1 Flash-Lite' },
+      { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash' },
+      { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash' },
+      { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro' }
+    ],
+    anthropic: [
+      { id: 'claude-3-7-sonnet-20250219', name: 'Claude 3.7 Sonnet' },
+      { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet' }
+    ],
+    openai: [
+      { id: 'gpt-4o-mini', name: 'GPT-4o Mini' },
+      { id: 'gpt-4o', name: 'GPT-4o' }
+    ]
+  })
 
   const docTypeConfig: Record<string, { label: string; icon: React.ReactNode }> = {
     vaccination: { label: t('animal.docTypeVaccination'), icon: <Shield size={20} /> },
@@ -51,6 +67,10 @@ export default function DocumentDetailPage() {
       setHasAnthropic(res.data.has_anthropic_token)
       setHasOpenai(res.data.has_openai_token)
       
+      let prio = ['system', 'google', 'anthropic', 'openai']
+      try { if (res.data.ai_provider_priority) prio = typeof res.data.ai_provider_priority === 'string' ? JSON.parse(res.data.ai_provider_priority) : res.data.ai_provider_priority } catch {}
+      setHasSystemAi(prio.includes('system'))
+
       if (res.data.has_gemini_token) {
         setRetryProvider('google')
         setRetryModel('gemini-3.1-flash-lite-preview')
@@ -130,50 +150,21 @@ export default function DocumentDetailPage() {
     window.open(`mailto:${userEmail}?subject=${subject}&body=${body}`)
   }
 
-  const handleSaveTitle = async () => {
-    if (!tempTitle.trim()) return
+  const handleSaveDoc = async () => {
     setSaving(true)
     try {
-      const newJson = { ...doc.extracted_json, title: tempTitle.trim() }
-      await patchDocument(docId!, { extracted_json: newJson })
-      setDoc({ ...doc, extracted_json: newJson })
-      setTitleEditMode(false)
+      const updates: any = {}
+      if (doc.isOwner) updates.allowed_roles = visibility
+      if (canEditTags) updates.extracted_json = { ...doc.extracted_json, suggested_tags: tags }
+
+      await patchDocument(docId!, updates)
+      setEditMode(false)
+      loadDocument()
     } catch (err: any) {
       setError(err.response?.data?.error || t('profile.saveError'))
     } finally {
       setSaving(false)
     }
-  }
-
-  const handleAddTag = async () => {
-    if (!newTag.trim() || tags.includes(newTag.trim())) return
-    const newTags = [...tags, newTag.trim()]
-    setTags(newTags)
-    setNewTag('')
-    try {
-      const newJson = { ...doc.extracted_json, suggested_tags: newTags }
-      await patchDocument(docId!, { extracted_json: newJson })
-      setDoc({ ...doc, extracted_json: newJson })
-    } catch (err: any) { setError(t('common.error')) }
-  }
-
-  const handleRemoveTag = async (tagToRemove: string) => {
-    const newTags = tags.filter(t => t !== tagToRemove)
-    setTags(newTags)
-    try {
-      const newJson = { ...doc.extracted_json, suggested_tags: newTags }
-      await patchDocument(docId!, { extracted_json: newJson })
-      setDoc({ ...doc, extracted_json: newJson })
-    } catch (err: any) { setError(t('common.error')) }
-  }
-
-  const handleToggleVisibility = async (roleId: string, checked: boolean) => {
-    const newVis = checked ? [...visibility, roleId] : visibility.filter(r => r !== roleId)
-    setVisibility(newVis)
-    try {
-      await patchDocument(docId!, { allowed_roles: newVis })
-      setDoc({ ...doc, allowed_roles: JSON.stringify(newVis) })
-    } catch (err: any) { setError(t('common.error')) }
   }
 
   const handleDeleteDoc = async () => {
@@ -213,6 +204,17 @@ export default function DocumentDetailPage() {
     }
   }
 
+  const addTag = () => {
+    if (newTag.trim() && !tags.includes(newTag.trim())) {
+      setTags([...tags, newTag.trim()])
+      setNewTag('')
+    }
+  }
+
+  const removeTag = (t: string) => {
+    setTags(tags.filter(x => x !== t))
+  }
+
   const handleProviderChange = (prov: string) => {
     setRetryProvider(prov)
     if (prov === 'google') setRetryModel('gemini-3.1-flash-lite-preview')
@@ -230,7 +232,6 @@ export default function DocumentDetailPage() {
 
   const canEditTags = doc.isUploader || doc.added_by_role !== 'vet'
   const canEditVisibility = doc.isOwner
-  const allImages = [doc.image_path, ...(doc.pages || [])].filter(Boolean)
 
   // Eigener "Screen" für die Analyse, der die Detailansicht komplett überlagert
   if (showRetryModal) {
@@ -259,33 +260,22 @@ export default function DocumentDetailPage() {
               <div className="form-group">
                 <label className="form-label">{t('docDetail.provider')}</label>
                 <select className="form-select" value={retryProvider} onChange={e => handleProviderChange(e.target.value)}>
-                  {hasGemini && <option value="google">Google Gemini</option>}
-                  {hasAnthropic && <option value="anthropic">Anthropic Claude</option>}
-                  {hasOpenai && <option value="openai">OpenAI</option>}
+                  {(hasGemini || hasSystemAi) && <option value="google">Google Gemini</option>}
+                  {(hasAnthropic || hasSystemAi) && <option value="anthropic">Anthropic Claude</option>}
+                  {(hasOpenai || hasSystemAi) && <option value="openai">OpenAI</option>}
                 </select>
               </div>
               <div className="form-group">
                 <label className="form-label">{t('docDetail.model')}</label>
                 <select className="form-select" value={retryModel} onChange={e => setRetryModel(e.target.value)}>
                   {retryProvider === 'google' && (
-                    <>
-                      <option value="gemini-3.1-flash-lite-preview">Gemini 3.1 Flash-Lite</option>
-                      <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
-                      <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
-                      <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
-                    </>
+                    availableModels.google.map((m: any) => <option key={m.id} value={m.id}>{m.name}</option>)
                   )}
                   {retryProvider === 'anthropic' && (
-                    <>
-                      <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
-                      <option value="claude-3-haiku-20240307">Claude 3 Haiku</option>
-                    </>
+                    availableModels.anthropic.map((m: any) => <option key={m.id} value={m.id}>{m.name}</option>)
                   )}
                   {retryProvider === 'openai' && (
-                    <>
-                      <option value="gpt-4o-mini">GPT-4o Mini</option>
-                      <option value="gpt-4o">GPT-4o</option>
-                    </>
+                    availableModels.openai.map((m: any) => <option key={m.id} value={m.id}>{m.name}</option>)
                   )}
                 </select>
               </div>
@@ -308,32 +298,10 @@ export default function DocumentDetailPage() {
 
   return (
     <div className="container page">
-      <PageHeader title={t('docDetail.title')} backTo={`/animals/${animalId}`} showThemeToggle />
+      <PageHeader title={config.label} backTo={`/animals/${animalId}`} showThemeToggle />
       {error && <div className="error-card" style={{ marginBottom: 'var(--space-4)' }}><p>{error}</p></div>}
 
       <div className="card animate-slide-up">
-        {/* Title Section */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--space-4)' }}>
-          {titleEditMode ? (
-            <div style={{ display: 'flex', gap: 'var(--space-2)', flex: 1 }}>
-              <input className="form-input" value={tempTitle} onChange={e => setTempTitle(e.target.value)} autoFocus placeholder="Titel..." />
-              <button className="btn btn-primary" onClick={handleSaveTitle} disabled={saving}><Save size={16} /></button>
-              <button className="btn btn-ghost" onClick={() => setTitleEditMode(false)} disabled={saving}><X size={16} /></button>
-            </div>
-          ) : (
-            <>
-              <h2 style={{ margin: 0, fontSize: 'var(--font-size-lg)', flex: 1, wordBreak: 'break-word' }}>
-                {extracted.title || config.label}
-              </h2>
-              {(canEditTags || canEditVisibility) && (
-                <button className="btn-ghost" onClick={() => { setTempTitle(extracted.title || config.label); setTitleEditMode(true); }} style={{ padding: '4px', margin: '-4px' }}>
-                  <Edit2 size={16} />
-                </button>
-              )}
-            </>
-          )}
-        </div>
-
         {doc.added_by_role === 'vet' && (
           <div style={{
             background: 'var(--success-50)', border: '1px solid var(--success-200)',
@@ -374,13 +342,13 @@ export default function DocumentDetailPage() {
           {t('docDetail.addedAt')} {new Date(doc.created_at).toLocaleString(i18n.language === 'de' ? 'de-AT' : 'en-GB')}
         </p>
 
-        {allImages.length > 0 && (
-          <div style={{ marginBottom: 'var(--space-6)' }}>
-            {allImages.map((imgPath, idx) => (
-              <div key={idx} style={{ borderRadius: 'var(--radius-lg)', overflow: 'hidden', marginBottom: idx < allImages.length - 1 ? 'var(--space-2)' : 0, border: '1px solid var(--border)' }}>
-                <img src={`/uploads/${imgPath.split('/').pop()}`} alt={`Dokument Seite ${idx + 1}`} style={{ width: '100%', display: 'block' }} />
-              </div>
-            ))}
+        {doc.image_path && (
+          <div style={{ borderRadius: 'var(--radius-lg)', overflow: 'hidden', marginBottom: 'var(--space-6)', border: '1px solid var(--border)' }}>
+            <img
+              src={`/uploads/${doc.image_path.split('/').pop()}`}
+              alt="Dokument"
+              style={{ width: '100%', display: 'block' }}
+            />
           </div>
         )}
 
@@ -391,60 +359,92 @@ export default function DocumentDetailPage() {
           </div>
         )}
 
-        {/* Tags Section */}
-        <div style={{ marginBottom: 'var(--space-6)' }}>
-          <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, display: 'flex', gap: '8px', alignItems: 'center', marginBottom: 'var(--space-3)' }}>
-            <Tag size={18} /> {t('docDetail.tagsLabel')}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-3)' }}>
+          <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0, display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <Tag size={18} /> {t('docDetail.sharedWith')}
           </h3>
-          <div style={{ background: 'var(--surface)', padding: 'var(--space-3)', borderRadius: 'var(--radius-md)' }}>
-            <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap', marginBottom: canEditTags ? 'var(--space-3)' : 0 }}>
-              {tags.length > 0 ? tags.map(t => (
-                <span key={t} className="badge badge-info" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  {t} {canEditTags && <X size={12} style={{ cursor: 'pointer' }} onClick={() => handleRemoveTag(t)} />}
-                </span>
-              )) : <span className="text-muted" style={{ fontSize: 'var(--font-size-sm)' }}>{t('docDetail.noTags')}</span>}
-            </div>
-            {canEditTags && (
-              <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-                <input className="form-input" value={newTag} onChange={e => setNewTag(e.target.value)} placeholder={t('docDetail.tagPlaceholder')} onKeyDown={e => e.key === 'Enter' && handleAddTag()} />
-                <button className="btn btn-secondary" onClick={handleAddTag} disabled={saving}>{t('docDetail.tagAdd')}</button>
-              </div>
-            )}
-          </div>
+          {!editMode && (canEditTags || canEditVisibility) && (
+            <button className="btn-ghost" style={{ padding: '4px 8px', fontSize: '12px' }} onClick={() => setEditMode(true)}>
+              <Edit2 size={14} /> {t('docDetail.edit')}
+            </button>
+          )}
         </div>
 
-        {/* Sharing Section */}
-        <div style={{ marginBottom: 'var(--space-6)' }}>
-          <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, display: 'flex', gap: '8px', alignItems: 'center', marginBottom: 'var(--space-3)' }}>
-            <Shield size={18} /> {t('docDetail.sharingLabel')}
-          </h3>
-          <div style={{ background: 'var(--surface)', padding: 'var(--space-3)', borderRadius: 'var(--radius-md)' }}>
-            {canEditVisibility ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-                {[{ id: 'vet', label: t('docScan.vet') }, { id: 'authority', label: t('docScan.authority') }, { id: 'readonly', label: t('docScan.readonlyAccess') }].map(r => (
-                  <label key={r.id} style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center', cursor: 'pointer' }}>
-                    <input
-                      type="checkbox"
-                      checked={visibility.includes(r.id)}
-                      onChange={(e) => handleToggleVisibility(r.id, e.target.checked)}
-                      style={{ width: 16, height: 16, accentColor: 'var(--primary-500)' }}
-                      disabled={saving}
-                    />
-                    <span style={{ fontSize: 'var(--font-size-sm)' }}>{r.label}</span>
-                  </label>
-                ))}
-              </div>
-            ) : (
-              <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
-                {visibility.length > 0 ? visibility.map(r => (
-                  <span key={r} className="badge" style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}>
-                    {r === 'vet' ? t('docDetail.vetDoc') : r === 'authority' ? t('docDetail.authorityDoc') : t('docDetail.readonlyDoc')}
-                  </span>
-                )) : <span className="text-muted" style={{ fontSize: 'var(--font-size-sm)' }}>{t('docDetail.onlyMe')}</span>}
+        {editMode ? (
+          <div style={{ background: 'var(--surface)', padding: 'var(--space-4)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-6)' }}>
+            {canEditTags && (
+              <div className="form-group">
+                <label className="form-label">{t('docDetail.tagAdd')}</label>
+                <div style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-2)', flexWrap: 'wrap' }}>
+                  {tags.map(t => (
+                    <span key={t} className="badge badge-info" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      {t} <X size={12} style={{ cursor: 'pointer' }} onClick={() => removeTag(t)} />
+                    </span>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                  <input className="form-input" value={newTag} onChange={e => setNewTag(e.target.value)} placeholder={t('docDetail.tagPlaceholder')} onKeyDown={e => e.key === 'Enter' && addTag()} />
+                  <button className="btn btn-secondary" onClick={addTag}>{t('docDetail.tagAdd')}</button>
+                </div>
               </div>
             )}
+
+            {canEditVisibility && (
+              <div className="form-group" style={{ marginTop: 'var(--space-4)' }}>
+                <label className="form-label">{t('docScan.whoCanSee')}</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                  {[{ id: 'vet', label: t('docScan.vet') }, { id: 'authority', label: t('docScan.authority') }, { id: 'readonly', label: t('docScan.readonlyAccess') }].map(r => (
+                    <label key={r.id} style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={visibility.includes(r.id)} 
+                        onChange={(e) => {
+                          if (e.target.checked) setVisibility([...visibility, r.id])
+                          else setVisibility(visibility.filter(role => role !== r.id))
+                        }} 
+                        style={{ width: 16, height: 16, accentColor: 'var(--primary-500)' }}
+                      />
+                      <span style={{ fontSize: 'var(--font-size-sm)' }}>{r.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-4)' }}>
+              <button className="btn btn-primary" onClick={handleSaveDoc} disabled={saving}><Save size={16} /> {t('docDetail.save')}</button>
+              <button className="btn btn-ghost" onClick={() => { setEditMode(false); loadDocument(); }} disabled={saving}>{t('docDetail.cancel')}</button>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div style={{ marginBottom: 'var(--space-6)' }}>
+            <div style={{ marginBottom: 'var(--space-4)' }}>
+              <h4 style={{ fontSize: 'var(--font-size-sm)', margin: '0 0 var(--space-2) 0', color: 'var(--text-secondary)' }}>{t('docDetail.tagAdd')}</h4>
+              {tags.length > 0 ? (
+                <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+                  {tags.map(t => <span key={t} className="badge badge-info">{t}</span>)}
+                </div>
+              ) : (
+                <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', margin: 0 }}>{t('docDetail.noTags')}</p>
+              )}
+            </div>
+
+            <div>
+              <h4 style={{ fontSize: 'var(--font-size-sm)', margin: '0 0 var(--space-2) 0', color: 'var(--text-secondary)' }}>{t('docDetail.sharedWith')}</h4>
+              {visibility.length > 0 ? (
+                <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+                  {visibility.map(r => (
+                    <span key={r} className="badge" style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}>
+                      {r === 'vet' ? t('docDetail.vetDoc') : r === 'authority' ? t('docDetail.authorityDoc') : t('docDetail.readonlyDoc')}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', margin: 0 }}>{t('docDetail.onlyMe')}</p>
+              )}
+            </div>
+          </div>
+        )}
 
         {rawText && (
           <>

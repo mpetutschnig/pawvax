@@ -11,7 +11,7 @@ export default async function documentRoutes(fastify) {
   // Einzelnes Dokument abrufen
   fastify.get('/api/documents/:id', async (req, reply) => {
     const db = getDb()
-    const { accountId, role, roles, verified } = req.user
+    const { accountId, role } = req.user
 
     const doc = db.prepare(`
       SELECT d.*, a.account_id AS owner_id FROM documents d
@@ -25,8 +25,8 @@ export default async function documentRoutes(fastify) {
     let hasAccess = isOwner
 
     if (!isOwner) {
-      const rolesArray = roles ?? [role]
-      const requestRole = (rolesArray.includes('vet') && verified) ? 'vet' : rolesArray.includes('authority') ? 'authority' : null
+      const userRoles = (role || '').split(',').map(r => r.trim())
+      const requestRole = userRoles.includes('vet') ? 'vet' : userRoles.includes('authority') ? 'authority' : null
       
       if (requestRole) {
         const sharing = db.prepare('SELECT * FROM animal_sharing WHERE animal_id = ? AND role = ?').get(doc.animal_id, requestRole)
@@ -228,9 +228,16 @@ export default async function documentRoutes(fastify) {
       const userClaudeModel = (requestedProvider === 'anthropic' && requestedModel) ? requestedModel : (acc?.claude_model || 'claude-3-5-sonnet-20241022')
       const userOpenAiModel = (requestedProvider === 'openai' && requestedModel) ? requestedModel : (acc?.openai_model || 'gpt-4o-mini')
 
-      let priority = acc?.ai_provider_priority ? JSON.parse(acc.ai_provider_priority) : ['google', 'anthropic', 'openai']
+      let priority = acc?.ai_provider_priority ? JSON.parse(acc.ai_provider_priority) : ['system', 'google', 'anthropic', 'openai']
       if (requestedProvider) {
         priority = [requestedProvider]
+      }
+
+      const useSystem = priority.includes('system')
+      if (useSystem) {
+        if (!userGeminiKey) userGeminiKey = process.env.GEMINI_API_KEY || null
+        if (!userAnthropicKey) userAnthropicKey = process.env.ANTHROPIC_API_KEY || null
+        if (!userOpenAiKey) userOpenAiKey = process.env.OPENAI_API_KEY || null
       }
 
       // Setze status auf 'analyzing'

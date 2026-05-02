@@ -274,6 +274,8 @@
   "profile.model": "Analyse-Modell",
   "profile.modelDesc": "Modell für automatische Dokumenten-Erkennung.",
   "profile.modelSaved": "Modell gespeichert",
+  "profile.systemAi": "System AI (Standard)",
+  "profile.systemAiDesc": "Nutze die integrierte KI des Systems (in Zukunft kostenpflichtig via Token-Pakete).",
   "profile.deleteAccount": "Daten löschen",
   "profile.deleteAccountDesc": "Dies löscht deinen Account und ALLE Tierdaten dauerhaft. Diese Aktion kann nicht rückgängig gemacht werden.",
   "profile.deleteAccountBtn": "Account löschen",

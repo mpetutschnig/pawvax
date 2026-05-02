@@ -280,6 +280,8 @@
   "profile.model": "Analysis Model",
   "profile.modelDesc": "Model for automatic document recognition.",
   "profile.modelSaved": "Model saved",
+  "profile.systemAi": "System AI (Default)",
+  "profile.systemAiDesc": "Use the integrated system AI (will be paid via token packages in the future).",
   "profile.deleteAccount": "Delete Data",
   "profile.deleteAccountDesc": "This will permanently delete your account and ALL pet data. This action cannot be undone.",
   "profile.deleteAccountBtn": "Delete Account",

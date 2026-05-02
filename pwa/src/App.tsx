@@ -21,9 +21,8 @@ function GlobalBrand() {
   const location = useLocation()
   const { t } = useTranslation()
   const [settings, setSettings] = useState({ app_name: 'PAW', logo_data: '' })
-  const rolesStr = localStorage.getItem('roles')
-  const roles = rolesStr ? JSON.parse(rolesStr) : (localStorage.getItem('role') ? [localStorage.getItem('role')] : [])
-  const verified = localStorage.getItem('verified') === '1' || localStorage.getItem('verified') === 'true'
+  const roleStr = localStorage.getItem('role') || 'user'
+  const roles = roleStr.split(',').map(r => r.trim()).filter(Boolean)
   
   useEffect(() => {
     fetch('/api/settings').then(res => res.json()).then(data => setSettings(data)).catch(() => {})
@@ -55,7 +54,7 @@ function GlobalBrand() {
       </div>
       <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', gap: '4px', flexWrap: 'wrap' }}>
         {roles.map((r: string) => (
-          <span key={r} className={`badge ${r === 'vet' && verified ? 'badge-success' : 'badge-info'}`} style={{ fontSize: '10px', padding: '2px 6px', textTransform: 'capitalize' }}>
+          <span key={r} className={`badge ${r === 'vet' ? 'badge-success' : 'badge-info'}`} style={{ fontSize: '10px', padding: '2px 6px', textTransform: 'capitalize' }}>
             {r === 'vet' ? t('docScan.vet') : r === 'authority' ? t('docScan.authority') : r === 'admin' ? 'Admin' : r === 'readonly' ? t('docScan.readonlyAccess') : 'User'}
           </span>
         ))}
@@ -78,8 +77,8 @@ function BottomNav() {
   const location = useLocation()
   const { t } = useTranslation()
   const token = localStorage.getItem('token')
-  const rolesStr = localStorage.getItem('roles')
-  const roles = rolesStr ? JSON.parse(rolesStr) : []
+  const roleStr = localStorage.getItem('role') || ''
+  const roles = roleStr.split(',').map(r => r.trim()).filter(Boolean)
 
   if (!token || location.pathname === '/login') return null
 

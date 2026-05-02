@@ -26,7 +26,7 @@ export default function ProfilePage() {
   const [geminiModel, setGeminiModel] = useState('')
   const [claudeModel, setClaudeModel] = useState('')
   const [openaiModel, setOpenaiModel] = useState('')
-  const [aiPriority, setAiPriority] = useState<string[]>(['google', 'anthropic', 'openai'])
+  const [aiPriority, setAiPriority] = useState<string[]>(['system', 'google', 'anthropic', 'openai'])
   const [modelSaving, setModelSaving] = useState(false)
 
   useEffect(() => {
@@ -294,7 +294,6 @@ export default function ProfilePage() {
 
   const roles = profile.roles ?? []
   const isVet = roles.includes('vet')
-  const isVerified = profile.verified
   const verificationStatus = profile.verification_status
 
   return (
@@ -327,8 +326,8 @@ export default function ProfilePage() {
         {isVet && (
           <>
             <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginTop: 'var(--space-6)', marginBottom: 'var(--space-3)' }}>{t('profile.verification')}</h3>
-            {isVerified ? (
-              <p style={{ color: 'var(--success-600)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', margin: 0, fontWeight: 500 }}><CheckCircle size={18} /> {t('profile.verified')}</p>
+            {isVet ? (
+              <p style={{ color: 'var(--success-600)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', margin: 0, fontWeight: 500 }}><CheckCircle size={18} /> {t('profile.verified')} (Tierarzt-Zugriff aktiv)</p>
             ) : verificationStatus === 'pending' ? (
               <p className="text-muted" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', margin: 0 }}><Clock size={18} /> {t('profile.verificationPending')}</p>
             ) : (
@@ -367,7 +366,7 @@ export default function ProfilePage() {
             <div key={provider} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', background: 'var(--surface)', padding: 'var(--space-2)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
               <span style={{ fontWeight: 600, width: '20px' }}>{index + 1}.</span>
               <span style={{ flex: 1 }}>
-                {provider === 'google' ? 'Google Gemini' : provider === 'anthropic' ? 'Anthropic Claude' : 'OpenAI'}
+                {provider === 'system' ? t('profile.systemAi') : provider === 'google' ? 'Google Gemini' : provider === 'anthropic' ? 'Anthropic Claude' : 'OpenAI'}
               </span>
               <button className="btn-ghost" style={{ padding: '4px' }} disabled={index === 0} onClick={() => {
                 const newPrio = [...aiPriority]

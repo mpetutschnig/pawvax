@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from 'react'
+verifizierte import { useRef, useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { CheckCircle, AlertCircle, Syringe, FileText, Cpu, BookOpen, Camera, RefreshCw, Plus, X } from 'lucide-react'
@@ -14,7 +14,8 @@ export default function DocumentScanPage() {
   const { t } = useTranslation()
 
   // Readonly-User dürfen keine Dokumente hochladen
-  const myRoles: string[] = JSON.parse(localStorage.getItem('roles') || '[]')
+  const roleStr = localStorage.getItem('role') || ''
+  const myRoles = roleStr.split(',').map(r => r.trim()).filter(Boolean)
   const isReadOnly = myRoles.length > 0 && myRoles.every(r => r === 'readonly')
   if (isReadOnly) {
     return (
@@ -52,7 +53,24 @@ export default function DocumentScanPage() {
   const [hasGemini, setHasGemini] = useState(false)
   const [hasAnthropic, setHasAnthropic] = useState(false)
   const [hasOpenai, setHasOpenai] = useState(false)
-  const hasAnyKey = hasGemini || hasAnthropic || hasOpenai
+  const [hasSystemAi, setHasSystemAi] = useState(true)
+  const hasAnyKey = hasGemini || hasAnthropic || hasOpenai || hasSystemAi
+  const [availableModels, setAvailableModels] = useState<any>({
+    google: [
+      { id: 'gemini-3.1-flash-lite-preview', name: 'Gemini 3.1 Flash-Lite' },
+      { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash' },
+      { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash' },
+      { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro' }
+    ],
+    anthropic: [
+      { id: 'claude-3-7-sonnet-20250219', name: 'Claude 3.7 Sonnet' },
+      { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet' }
+    ],
+    openai: [
+      { id: 'gpt-4o-mini', name: 'GPT-4o Mini' },
+      { id: 'gpt-4o', name: 'GPT-4o' }
+    ]
+  })
 
   useEffect(() => {
     getMe().then(res => {
@@ -60,6 +78,10 @@ export default function DocumentScanPage() {
       setHasAnthropic(res.data.has_anthropic_token)
       setHasOpenai(res.data.has_openai_token)
       
+      let prio = ['system', 'google', 'anthropic', 'openai']
+      try { if (res.data.ai_provider_priority) prio = typeof res.data.ai_provider_priority === 'string' ? JSON.parse(res.data.ai_provider_priority) : res.data.ai_provider_priority } catch {}
+      setHasSystemAi(prio.includes('system'))
+
       if (res.data.has_gemini_token) {
         setRetryProvider('google')
         setRetryModel('gemini-3.1-flash-lite-preview')
@@ -331,33 +353,22 @@ export default function DocumentScanPage() {
               <div className="form-group">
                 <label className="form-label">{t('docDetail.provider')}</label>
                 <select className="form-select" value={retryProvider} onChange={e => handleProviderChange(e.target.value)}>
-                  {hasGemini && <option value="google">Google Gemini</option>}
-                  {hasAnthropic && <option value="anthropic">Anthropic Claude</option>}
-                  {hasOpenai && <option value="openai">OpenAI</option>}
+                  {(hasGemini || hasSystemAi) && <option value="google">Google Gemini</option>}
+                  {(hasAnthropic || hasSystemAi) && <option value="anthropic">Anthropic Claude</option>}
+                  {(hasOpenai || hasSystemAi) && <option value="openai">OpenAI</option>}
                 </select>
               </div>
               <div className="form-group">
                 <label className="form-label">{t('docDetail.model')}</label>
                 <select className="form-select" value={retryModel} onChange={e => setRetryModel(e.target.value)}>
                   {retryProvider === 'google' && (
-                    <>
-                      <option value="gemini-3.1-flash-lite-preview">Gemini 3.1 Flash-Lite</option>
-                      <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
-                      <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
-                      <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
-                    </>
+                    availableModels.google.map((m: any) => <option key={m.id} value={m.id}>{m.name}</option>)
                   )}
                   {retryProvider === 'anthropic' && (
-                    <>
-                      <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
-                      <option value="claude-3-haiku-20240307">Claude 3 Haiku</option>
-                    </>
+                    availableModels.anthropic.map((m: any) => <option key={m.id} value={m.id}>{m.name}</option>)
                   )}
                   {retryProvider === 'openai' && (
-                    <>
-                      <option value="gpt-4o-mini">GPT-4o Mini</option>
-                      <option value="gpt-4o">GPT-4o</option>
-                    </>
+                    availableModels.openai.map((m: any) => <option key={m.id} value={m.id}>{m.name}</option>)
                   )}
                 </select>
               </div>
