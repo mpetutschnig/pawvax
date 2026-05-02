@@ -18,6 +18,7 @@ import adminRoutes from './routes/admin.js'
 import organizationRoutes from './routes/organizations.js'
 import wsDocumentUpload from './ws/documentUpload.js'
 import settingsRoutes from './routes/settings.js'
+import aiRoutes from './routes/ai.js'
 
 const __dir = dirname(fileURLToPath(import.meta.url))
 
@@ -112,6 +113,7 @@ await fastify.register(adminRoutes)
 await fastify.register(organizationRoutes)
 await fastify.register(wsDocumentUpload)
 await fastify.register(settingsRoutes)
+await fastify.register(aiRoutes)
 
 // Healthcheck
 fastify.get('/health', async () => ({ status: 'ok' }))

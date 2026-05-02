@@ -28,9 +28,34 @@ export default function ProfilePage() {
   const [openaiModel, setOpenaiModel] = useState('')
   const [aiPriority, setAiPriority] = useState<string[]>(['google', 'anthropic', 'openai'])
   const [modelSaving, setModelSaving] = useState(false)
+  const [availableModels, setAvailableModels] = useState<any>({
+    google: [
+      { id: 'gemini-3.1-flash-lite-preview', name: 'Gemini 3.1 Flash-Lite' },
+      { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash' },
+      { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash' },
+      { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro' }
+    ],
+    anthropic: [
+      { id: 'claude-3-7-sonnet-20250219', name: 'Claude 3.7 Sonnet' },
+      { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet' }
+    ],
+    openai: [
+      { id: 'gpt-4o-mini', name: 'GPT-4o Mini' },
+      { id: 'gpt-4o', name: 'GPT-4o' }
+    ]
+  })
 
   useEffect(() => {
     loadProfile()
+    fetch('/api/ai/models', { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } })
+      .then(r => r.json())
+      .then(data => {
+        setAvailableModels((prev: any) => ({
+          google: data.google || prev.google,
+          anthropic: data.anthropic || prev.anthropic,
+          openai: data.openai || prev.openai
+        }))
+      }).catch(console.error)
   }, [])
 
   const loadProfile = async () => {
@@ -404,14 +429,7 @@ export default function ProfilePage() {
             onChange={(e) => saveGeminiModel(e.target.value)}
             disabled={modelSaving}
           >
-            <option value="gemini-3.1-flash-lite-preview">Gemini 3.1 Flash-Lite (Standard)</option>
-            <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
-            <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
-            <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
-          </select>
-        </div>
-
-        {profile.has_gemini_token && (
+            file.has_gemini_token && (
           <p style={{ color: 'var(--success-600)', marginBottom: 'var(--space-3)', marginTop: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontWeight: 500 }}><CheckCircle size={16} /> {t('profile.geminiSaved')}</p>
         )}
 
@@ -470,16 +488,11 @@ export default function ProfilePage() {
             onChange={(e) => saveClaudeModel(e.target.value)}
             disabled={modelSaving}
           >
-            <option value="claude-haiku-4-5-20251001">Claude Haiku (Standard)</option>
-            <option value="claude-sonnet-4-6">Claude Sonnet</option>
-            <option value="claude-opus-4-7">Claude Opus</option>
+            {availableModels.anthropic.map((m: any) => <option key={m.id} value={m.id}>{m.name}</option>)}
           </select>
         </div>
 
-        {profile.has_anthropic_token && (
-          <p style={{ color: 'var(--success-600)', marginBottom: 'var(--space-3)', marginTop: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontWeight: 500 }}><CheckCircle size={16} /> {t('profile.claudeSaved')}</p>
-        )}
-
+       {pros
         {!profile.has_anthropic_token && (
           <div className="form-group" style={{ marginTop: 'var(--space-4)' }}>
             <input
@@ -519,16 +532,13 @@ export default function ProfilePage() {
             onChange={(e) => saveOpenaiModel(e.target.value)}
             disabled={modelSaving}
           >
-            <option value="gpt-4o-mini">GPT-4o Mini (Standard)</option>
-            <option value="gpt-4o">GPT-4o</option>
+            {availableModels.openai.map((m: any) => <option key={m.id} value={m.id}>{m.name}</option>)}
           </select>
         </div>
 
         {profile.has_openai_token && (
-          <p style={{ color: 'var(--success-600)', marginBottom: 'var(--space-3)', marginTop: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontWeight: 500 }}><CheckCircle size={16} /> {t('profile.openaiSaved')}</p>
-        )}
-
-        {!profile.has_openai_token && (
+          <p style={{ color: 'var(
+     {!pra
           <div className="form-group" style={{ marginTop: 'var(--space-4)' }}>
             <input
               className="form-input"
