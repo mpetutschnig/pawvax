@@ -8,7 +8,7 @@ import fastifyRateLimit from '@fastify/rate-limit'
 import fastifyStatic from '@fastify/static'
 import fastifySwagger from '@fastify/swagger'
 import fastifySwaggerUi from '@fastify/swagger-ui'
-import { join, dirname } from 'path'
+import { join, dirname, resolve } from 'path'
 import { fileURLToPath } from 'url'
 import { initDb, getDb } from './db/index.js'
 import authRoutes from './routes/auth.js'
@@ -54,8 +54,12 @@ await fastify.register(fastifyRateLimit, {
   timeWindow: '1 minute'
 })
 await fastify.register(fastifyWs)
+
+const uploadsRoot = process.env.UPLOADS_DIR
+  ? resolve(process.env.UPLOADS_DIR)
+  : join(__dir, '..', 'uploads')
 await fastify.register(fastifyStatic, {
-  root: join(__dir, '..', process.env.UPLOADS_DIR ?? 'uploads'),
+  root: uploadsRoot,
   prefix: '/uploads/'
 })
 
