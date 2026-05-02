@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { getDocument, deleteDocument, patchDocument, getMe } from '../api/rest'
+import { getDocument, deleteDocument, patchDocument, getAnimalDocuments, getMe } from '../api/rest'
 import { generateICS, downloadBlob } from '../utils/ics'
 import { PageHeader } from '../components/PageHeader'
 import { Shield, Pill, FileText, PawPrint, Landmark, Calendar, Download, Mail, Tag, Save, X, Edit2, Trash2, CheckCircle } from 'lucide-react'
+import { TagCombobox } from '../components/TagCombobox'
 
 export default function DocumentDetailPage() {
   const { id: animalId, docId } = useParams<{ id: string; docId: string }>()
@@ -19,8 +20,8 @@ export default function DocumentDetailPage() {
   const [reminderNotes, setReminderNotes] = useState('')
   
   const [tags, setTags] = useState<string[]>([])
+  const [allExistingTags, setAllExistingTags] = useState<string[]>([])
   const [editMode, setEditMode] = useState(false)
-  const [newTag, setNewTag] = useState('')
   const [saving, setSaving] = useState(false)
   const [visibility, setVisibility] = useState<string[]>([])
   const [showJsonDetails, setShowJsonDetails] = useState(false)
@@ -100,6 +101,21 @@ export default function DocumentDetailPage() {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    if (animalId) {
+      getAnimalDocuments(animalId)
+        .then((res: any) => {
+          const tagSet = new Set<string>()
+          res.data.forEach((d: any) => {
+            const suggestedTags = d.extracted_json?.suggested_tags || []
+            suggestedTags.forEach((t: string) => tagSet.add(t))
+          })
+          setAllExistingTags(Array.from(tagSet))
+        })
+        .catch(() => {})
+    }
+  }, [animalId])
 
   const handleCreateReminder = () => {
     const json = doc?.extracted_json || {}
@@ -204,12 +220,6 @@ export default function DocumentDetailPage() {
     }
   }
 
-  const addTag = () => {
-    if (newTag.trim() && !tags.includes(newTag.trim())) {
-      setTags([...tags, newTag.trim()])
-      setNewTag('')
-    }
-  }
 
   const removeTag = (t: string) => {
     setTags(tags.filter(x => x !== t))
@@ -382,10 +392,13 @@ export default function DocumentDetailPage() {
                     </span>
                   ))}
                 </div>
-                <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-                  <input className="form-input" value={newTag} onChange={e => setNewTag(e.target.value)} placeholder={t('docDetail.tagPlaceholder')} onKeyDown={e => e.key === 'Enter' && addTag()} />
-                  <button className="btn btn-secondary" onClick={addTag}>{t('docDetail.tagAdd')}</button>
-                </div>
+                <TagCombobox
+                  existingTags={allExistingTags}
+                  currentTags={tags}
+                  placeholder={t('docDetail.tagPlaceholder')}
+                  addLabel={t('docDetail.tagAdd')}
+                  onAdd={(tag) => setTags(prev => [...prev, tag])}
+                />
               </div>
             )}
 
