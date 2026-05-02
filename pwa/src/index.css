@@ -736,6 +736,30 @@ html[data-theme="dark"] .badge-primary {
   border-color: oklch(from var(--primary-500) l c h / 0.35);
 }
 
+html[data-theme="dark"] .badge-info {
+  background: oklch(from var(--info-500) l c h / 0.15);
+  color: oklch(from var(--info-500) calc(l + 0.2) c h);
+  border-color: oklch(from var(--info-500) l c h / 0.35);
+}
+
+html[data-theme="dark"] .badge-vet {
+  background: oklch(from var(--success-500) l c h / 0.15);
+  color: var(--success-400);
+  border-color: oklch(from var(--success-500) l c h / 0.35);
+}
+
+html[data-theme="dark"] .badge-authority {
+  background: oklch(from var(--primary-500) l c h / 0.15);
+  color: var(--primary-400);
+  border-color: oklch(from var(--primary-500) l c h / 0.35);
+}
+
+html[data-theme="dark"] .badge-purple {
+  background: oklch(38% 0.18 290 / 0.15);
+  color: oklch(75% 0.14 290);
+  border-color: oklch(38% 0.18 290 / 0.35);
+}
+
 .badge-info {
   background: var(--info-50);
   color: var(--info-600);
