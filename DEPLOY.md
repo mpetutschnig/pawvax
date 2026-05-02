@@ -236,7 +236,8 @@ PAW_API_UID=$(id -u paw-api) && XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bi
 
 ### 9b. .env für paw-api (OHNE JWT_SECRET)
 
-JWT_SECRET kommt via Podman Secret, nicht aus dieser Datei:
+JWT_SECRET kommt via Podman Secret, nicht aus dieser Datei.
+GEMINI_API_KEY und ANTHROPIC_API_KEY sind optional — User können ihre eigenen Keys in der App setzen:
 
 ```bash
 cat > /home/paw-api/.env << 'EOF'
@@ -244,6 +245,8 @@ PORT=3000
 NODE_ENV=production
 DB_PATH=/app/data/paw.db
 UPLOADS_DIR=/app/uploads
+GEMINI_API_KEY=
+ANTHROPIC_API_KEY=
 EOF
 ```
 
