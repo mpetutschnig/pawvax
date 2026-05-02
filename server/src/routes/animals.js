@@ -22,11 +22,43 @@ function applySharing(db, animal, requestRole, ownerName, ownerEmail) {
   const sharing = db.prepare('SELECT * FROM animal_sharing WHERE animal_id = ? AND role = ?').get(animal.id, requestRole)
   if (!sharing) return null
 
-  const result = { id: animal.id, name: animal.name, species: animal.species, avatar_path: animal.avatar_path }
+  const result = { id: animal.id, name: animal.name, species: animal.species, avatar_path: animal.avatar_path, account_id: animal.account_id }
   if (sharing.share_breed) result.breed = animal.breed
   if (sharing.share_birthdate) result.birthdate = animal.birthdate
   if (sharing.share_contact) result.contact = { name: ownerName, email: ownerEmail }
   if (sharing.share_dynamic_fields) result.dynamic_fields = animal.dynamic_fields
+
+  // Dokumente anfügen
+  const allowedTypes = []
+  if (sharing.share_vaccination) allowedTypes.push('vaccination')
+  if (sharing.share_medication)  allowedTypes.push('medication')
+  if (sharing.share_other_docs)  allowedTypes.push('other')
+
+  if (allowedTypes.length > 0) {
+    const placeholders = allowedTypes.map(() => '?').join(', ')
+    const docs = db.prepare(`
+      SELECT * FROM documents
+      WHERE animal_id = ? AND doc_type IN (${placeholders})
+      ORDER BY created_at DESC
+    `).all(animal.id, ...allowedTypes)
+
+    result.documents = docs.filter(d => {
+      if (!d.allowed_roles) return true
+      try {
+        const roles = JSON.parse(d.allowed_roles)
+        return roles.includes(requestRole) || roles.includes('readonly')
+      } catch { return true }
+    })
+
+    for (const d of result.documents) {
+      try { d.extracted_json = JSON.parse(d.extracted_json) } catch { d.extracted_json = {} }
+      const pages = db.prepare('SELECT image_path FROM document_pages WHERE document_id = ? ORDER BY id ASC').all(d.id)
+      d.pages = pages.map(p => p.image_path)
+    }
+  } else {
+    result.documents = []
+  }
+
   return result
 }
 
@@ -156,7 +188,10 @@ export default async function animalRoutes(fastify) {
       `).get(originalTagId, accountId)
     }
 
-    if (ownRow) return ownRow
+    if (ownRow) {
+      ownRow.is_owner = true
+      return ownRow
+    }
 
     // Fremdes Tier — prüfe Rolle
     const userRoles = roles ?? [role]
@@ -191,6 +226,9 @@ export default async function animalRoutes(fastify) {
     }
 
     if (!filtered) return reply.code(403).send({ error: 'Kein Zugriff auf diese Tierdaten' })
+    
+    filtered.is_owner = false
+    filtered.request_role = requestRole
     return filtered
   })
 
