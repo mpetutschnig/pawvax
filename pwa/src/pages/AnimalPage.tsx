@@ -148,8 +148,8 @@ export default function AnimalPage() {
       .then(([a, d, t]) => {
         setAnimal(a.data)
         setEditData(a.data)
-        setDocuments(d.data)
-        setTags(t.data)
+        setDocuments(Array.isArray(d.data) ? d.data : [])
+        setTags(Array.isArray(t.data) ? t.data : [])
         // Load pending documents with JWT token
         const token = localStorage.getItem('token')
         const headers: Record<string, string> = {}
@@ -158,7 +158,7 @@ export default function AnimalPage() {
           .then(r => r.json())
           .then(pendingDocs => {
             console.log('Pending documents loaded:', pendingDocs)
-            setPendingDocuments(pendingDocs)
+            setPendingDocuments(Array.isArray(pendingDocs) ? pendingDocs : [])
           })
           .catch(err => {
             console.error('Fehler beim Laden von pending Dokumenten:', err)
@@ -274,7 +274,7 @@ export default function AnimalPage() {
     const visible = documents.filter(doc =>
       doc.analysis_status !== 'pending_analysis' &&
       (!documentSearch ||
-        docTypeLabel(doc.doc_type).toLowerCase().includes(documentSearch) ||
+        (docTypeLabel(doc.doc_type) || '').toLowerCase().includes(documentSearch) ||
         new Date(doc.created_at).toLocaleString(i18n.language === 'de' ? 'de-AT' : 'en-GB').includes(documentSearch))
     )
     const map = new Map<string, Document[]>()
