@@ -44,10 +44,17 @@ export default function TagManagementPage() {
     }
   }, [scanning, startNfc])
 
-  const handleNewTag = useCallback(async (tagId: string, tagType: 'barcode' | 'nfc') => {
+  const handleNewTag = useCallback(async (rawTagId: string, tagType: 'barcode' | 'nfc') => {
     if (!id) return
     setScanning('none')
     setError(null)
+
+    let tagId = rawTagId.trim()
+    try {
+      const url = new URL(tagId)
+      const parts = url.pathname.split('/')
+      tagId = parts[parts.length - 1]
+    } catch { /* keine URL */ }
 
     // Check if tag is already on this animal
     if (tags.find(t => t.tag_id === tagId)) {

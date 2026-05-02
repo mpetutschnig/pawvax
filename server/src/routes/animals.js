@@ -35,7 +35,8 @@ export default async function animalRoutes(fastify) {
   // ──── ÖFFENTLICHER Endpunkt (kein Login nötig) ────────────────────────────
   fastify.get('/api/public/tag/:tagId', async (req, reply) => {
     const db = getDb()
-    let { tagId } = req.params
+    const originalTagId = req.params.tagId
+    let tagId = originalTagId
 
     // URL-Parsing falls jemand die volle URL scannt
     try {
@@ -44,13 +45,25 @@ export default async function animalRoutes(fastify) {
       tagId = parts[parts.length - 1]
     } catch { /* war keine URL */ }
 
-    const row = db.prepare(`
+    let row = db.prepare(`
       SELECT a.*, ac.name AS owner_name
       FROM animals a
       JOIN animal_tags t ON t.animal_id = a.id
       JOIN accounts ac ON ac.id = a.account_id
       WHERE t.tag_id = ? AND t.active = 1
     `).get(tagId)
+
+    // Fallback: Falls nichts gefunden und tagId != originalTagId, ursprüngliche ID versuchen
+    // Dies behebt Tags, die als volle URL gespeichert wurden
+    if (!row && tagId !== originalTagId) {
+      row = db.prepare(`
+        SELECT a.*, ac.name AS owner_name
+        FROM animals a
+        JOIN animal_tags t ON t.animal_id = a.id
+        JOIN accounts ac ON ac.id = a.account_id
+        WHERE t.tag_id = ? AND t.active = 1
+      `).get(originalTagId)
+    }
 
     if (!row) return reply.code(404).send({ error: 'Tag nicht gefunden' })
 
@@ -100,20 +113,34 @@ export default async function animalRoutes(fastify) {
   })
 
   // ──── Alle weiteren Routen erfordern Auth ─────────────────────────────────
-  fastify.addHook('onRequest', fastify.authenticate)
+  fastify.addHook('onRequest', async (req, reply) => {
+    // Skip public routes
+    if (req.url.startsWith('/api/public/')) return
+    await fastify.authenticate(req, reply)
+  })
 
   // Tier per Tag-ID suchen (inkl. Rollenfilter für Vets/Behörden)
   fastify.get('/api/animals/by-tag/:tagId', async (req, reply) => {
     const db = getDb()
-    const { tagId } = req.params
+    const originalTagId = req.params.tagId
+    let tagId = originalTagId
     const { accountId, role, roles, verified } = req.user
 
     // Eigenes Tier?
-    const ownRow = db.prepare(`
+    let ownRow = db.prepare(`
       SELECT a.* FROM animals a
       JOIN animal_tags t ON t.animal_id = a.id
       WHERE t.tag_id = ? AND t.active = 1 AND a.account_id = ?
     `).get(tagId, accountId)
+
+    // Fallback: Falls nichts gefunden, als URL gespeicherte Version versuchen
+    if (!ownRow) {
+      ownRow = db.prepare(`
+        SELECT a.* FROM animals a
+        JOIN animal_tags t ON t.animal_id = a.id
+        WHERE t.tag_id = ? AND t.active = 1 AND a.account_id = ?
+      `).get(originalTagId, accountId)
+    }
 
     if (ownRow) return ownRow
 
@@ -121,13 +148,24 @@ export default async function animalRoutes(fastify) {
     const userRoles = roles ?? [role]
     const requestRole = (userRoles.includes('vet') && verified) ? 'vet' : userRoles.includes('authority') ? 'authority' : 'readonly'
 
-    const row = db.prepare(`
+    let row = db.prepare(`
       SELECT a.*, ac.name AS owner_name, ac.email AS owner_email
       FROM animals a
       JOIN animal_tags t ON t.animal_id = a.id
       JOIN accounts ac ON ac.id = a.account_id
       WHERE t.tag_id = ? AND t.active = 1
     `).get(tagId)
+
+    // Fallback: Falls nichts gefunden und als URL gespeichert sein könnte
+    if (!row) {
+      row = db.prepare(`
+        SELECT a.*, ac.name AS owner_name, ac.email AS owner_email
+        FROM animals a
+        JOIN animal_tags t ON t.animal_id = a.id
+        JOIN accounts ac ON ac.id = a.account_id
+        WHERE t.tag_id = ? AND t.active = 1
+      `).get(originalTagId)
+    }
 
     if (!row) return reply.code(404).send({ error: 'Tag nicht gefunden' })
 

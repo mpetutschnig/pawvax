@@ -32,8 +32,13 @@ export default function PublicScanPage() {
       setAnimal(res.data)
       setPhase('result')
       stopBarcode()
-    } catch {
-      setPhase('notfound')
+    } catch (err: unknown) {
+      const status = (err as { response?: { status?: number } })?.response?.status
+      if (!status || status === 404) {
+        setPhase('notfound')
+      } else {
+        setCameraError(`Error: ${status || 'Network error'}`)
+      }
       stopBarcode()
     } finally {
       setLoading(false)
