@@ -81,7 +81,12 @@ async function analyzeWithClaude(imagePath, anthropicKey, model, onProgress) {
   if (onProgress) onProgress('Bild wird für Claude API verarbeitet...')
   const imageData = readFileSync(imagePath)
   const base64 = imageData.toString('base64')
-  const mimeType = imagePath.endsWith('.png') ? 'image/png' : 'image/jpeg'
+  let mimeType = imagePath.endsWith('.png') ? 'image/png' : 'image/jpeg'
+
+  // Magic Bytes Check: Erkennt den wahren Dateityp, unabhängig von der Dateiendung
+  if (base64.startsWith('/9j/')) mimeType = 'image/jpeg'
+  else if (base64.startsWith('iVBORw')) mimeType = 'image/png'
+  else if (base64.startsWith('UklGRg')) mimeType = 'image/webp'
 
   if (onProgress) onProgress(`Sende POST Request an Claude ${model} API...`)
   const url = 'https://api.anthropic.com/v1/messages'
@@ -137,7 +142,11 @@ async function analyzeWithGemini(imagePath, geminiKey, model, onProgress) {
   if (onProgress) onProgress('Bild wird für Gemini API verarbeitet...')
   const imageData = readFileSync(imagePath)
   const base64 = imageData.toString('base64')
-  const mimeType = imagePath.endsWith('.png') ? 'image/png' : 'image/jpeg'
+  let mimeType = imagePath.endsWith('.png') ? 'image/png' : 'image/jpeg'
+
+  if (base64.startsWith('/9j/')) mimeType = 'image/jpeg'
+  else if (base64.startsWith('iVBORw')) mimeType = 'image/png'
+  else if (base64.startsWith('UklGRg')) mimeType = 'image/webp'
 
   if (onProgress) onProgress(`Sende POST Request an ${model} API...`)
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`
@@ -218,7 +227,11 @@ async function analyzeWithOpenAI(imagePath, openAiKey, model, onProgress) {
   if (onProgress) onProgress('Bild wird für OpenAI API verarbeitet...')
   const imageData = readFileSync(imagePath)
   const base64 = imageData.toString('base64')
-  const mimeType = imagePath.endsWith('.png') ? 'image/png' : 'image/jpeg'
+  let mimeType = imagePath.endsWith('.png') ? 'image/png' : 'image/jpeg'
+
+  if (base64.startsWith('/9j/')) mimeType = 'image/jpeg'
+  else if (base64.startsWith('iVBORw')) mimeType = 'image/png'
+  else if (base64.startsWith('UklGRg')) mimeType = 'image/webp'
 
   if (onProgress) onProgress(`Sende POST Request an OpenAI ${model} API...`)
   const url = 'https://api.openai.com/v1/chat/completions'
