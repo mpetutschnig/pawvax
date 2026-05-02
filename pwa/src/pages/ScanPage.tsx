@@ -11,7 +11,7 @@ type Mode = 'choose' | 'barcode' | 'nfc' | 'manual' | 'new-animal'
 
 export default function ScanPage() {
   const navigate = useNavigate()
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
   const [mode, setMode] = useState<Mode>('choose')
   const [manualId, setManualId] = useState('')
   const [error, setError] = useState<string | null>(null)
