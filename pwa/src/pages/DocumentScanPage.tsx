@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { CheckCircle, AlertCircle, Syringe, FileText, Cpu, BookOpen, Camera, RefreshCw, Plus, X } from 'lucide-react'
 import { PageHeader } from '../components/PageHeader'
 import { uploadMultiPageDocument } from '../api/ws'
-import { patchDocument, getMe } from '../api/rest'
+import { patchDocument, getMe, patchMe } from '../api/rest'
 
 type Phase = 'capture' | 'uploading' | 'analysing' | 'done' | 'error'
 
@@ -364,14 +364,27 @@ export default function DocumentScanPage() {
             </>
           )}
           <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-6)' }}>
-            {hasAnyKey && (
-              <button className="btn btn-primary flex-1" onClick={documentId ? handleRetryAnalysisAPI : startUploadWithModel} disabled={savingModel}>
-                {savingModel ? t('animal.retrying') : t('animal.analyzeBtn')}
-              </button>
+            {hasAnyKey ? (
+              <>
+                <button className="btn btn-primary flex-1" onClick={documentId ? handleRetryAnalysisAPI : startUploadWithModel} disabled={savingModel}>
+                  {savingModel ? t('animal.retrying') : (documentId ? t('animal.analyzeBtn') : t('docScan.uploadAndAnalyze'))}
+                </button>
+                <button className="btn btn-ghost flex-1" onClick={() => documentId ? navigate(`/animals/${animalId}`) : setShowModelSelection(false)} disabled={savingModel}>
+                  {documentId ? t('docScan.saveForLater') : t('common.cancel')}
+                </button>
+              </>
+            ) : (
+              <>
+                {!documentId && (
+                  <button className="btn btn-primary flex-1" onClick={handleUpload} disabled={savingModel}>
+                    {t('docScan.upload')}
+                  </button>
+                )}
+                <button className="btn btn-ghost flex-1" onClick={() => documentId ? navigate(`/animals/${animalId}`) : setShowModelSelection(false)} disabled={savingModel}>
+                  {documentId ? t('docScan.saveForLater') : t('common.cancel')}
+                </button>
+              </>
             )}
-            <button className="btn btn-ghost flex-1" onClick={() => navigate(`/animals/${animalId}`)} disabled={savingModel}>
-              {t('docScan.saveForLater')}
-            </button>
           </div>
         </div>
       </div>
