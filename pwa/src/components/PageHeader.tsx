@@ -82,7 +82,7 @@ export function PageHeader({
             aria-label={t('theme.light')}
             title={`${t('theme.light')}/${t('theme.dark')}`}
           >
-            {theme === 'light' || (theme === 'system' && !window.matchMedia('(prefers-color-scheme: dark)').matches) ? (
+            {theme === 'light' ? (
               <Moon size={20} />
             ) : (
               <Sun size={20} />
