@@ -155,6 +155,18 @@ export default async function adminRoutes(fastify) {
     return { accounts, animals, documents, auditEntries }
   })
 
+  // Test Results
+  fastify.get('/api/admin/test-results', async (req) => {
+    const db = getDb()
+    const summary = db.prepare("SELECT value FROM settings WHERE key = 'last_test_run'").get()
+    const details = db.prepare("SELECT value FROM settings WHERE key = 'last_test_run_details'").get()
+
+    return {
+      summary: summary ? JSON.parse(summary.value) : null,
+      tests: details ? JSON.parse(details.value) : null
+    }
+  })
+
   // DELETE account
   fastify.delete('/api/admin/accounts/:id', async (req, reply) => {
     const db = getDb()

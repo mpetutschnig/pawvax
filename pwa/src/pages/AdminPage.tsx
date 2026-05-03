@@ -2,13 +2,13 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   adminGetStats, adminGetAccounts, adminGetAnimals, adminGetPendingVerifications,
-  adminVerifyAccount, adminPatchAccount, adminGetAuditLog, adminDeleteAnimal, adminDeleteAccount
+  adminVerifyAccount, adminPatchAccount, adminGetAuditLog, adminDeleteAnimal, adminDeleteAccount, adminGetTestResults
 } from '../api/rest'
-import { PawPrint, LogOut, LayoutDashboard, Users, Cat, ShieldCheck, FileClock, CheckCircle, Menu, X, Settings, XCircle } from 'lucide-react'
+import { PawPrint, LogOut, LayoutDashboard, Users, Cat, ShieldCheck, FileClock, CheckCircle, Menu, X, Settings, XCircle, FlaskConical } from 'lucide-react'
 import { AdminAnimalDTO } from '../types/animal'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 
-type Section = 'overview' | 'accounts' | 'animals' | 'verifications' | 'audit' | 'settings'
+type Section = 'overview' | 'accounts' | 'animals' | 'verifications' | 'audit' | 'settings' | 'tests'
 
 interface Account {
   id: string; name: string; email: string; role: string; verified: number; verification_status?: string; created_at: string
@@ -30,6 +30,24 @@ interface AuditLog {
   rows: AuditEntry[]; page: number; pages: number; total: number
 }
 
+interface TestCase {
+  ancestorTitles: string[]
+  title: string
+  fullName: string
+  status: 'passed' | 'failed'
+  duration: number
+  failureMessages?: string[]
+}
+
+interface TestResults {
+  summary: { status: string; date: string } | null
+  tests: {
+    numPassedTests: number
+    numFailedTests: number
+    testResults: { testResults: TestCase[] }[]
+  } | null
+}
+
 export default function AdminPage() {
   const { t, i18n } = useTranslation()
   const [section, setSection] = useState<Section>('overview')
@@ -48,6 +66,8 @@ export default function AdminPage() {
   const [auditSheetOpen, setAuditSheetOpen] = useState(false)
   const [appSettings, setAppSettings] = useState({ app_name: '', theme_color: '', logo_data: '' })
   const [settingsSaving, setSettingsSaving] = useState(false)
+  const [testResults, setTestResults] = useState<TestResults | null>(null)
+  const [selectedTest, setSelectedTest] = useState<TestCase | null>(null)
 
   useEffect(() => {
     fetch('/api/settings').then(res => res.json()).then(data => setAppSettings(data)).catch(console.error)
@@ -82,6 +102,10 @@ export default function AdminPage() {
         const res = await fetch('/api/settings')
         const data = await res.json()
         setAppSettings(data)
+      } else if (section === 'tests') {
+        const res = await adminGetTestResults()
+        setTestResults(res.data)
+        setSelectedTest(null)
       }
     } catch (err) {
       console.error('Admin load error:', err)
@@ -172,6 +196,7 @@ export default function AdminPage() {
           { id: 'animals', labelKey: 'admin.animals', icon: <Cat size={18} /> },
           { id: 'verifications', labelKey: 'admin.verifications', icon: <ShieldCheck size={18} /> },
           { id: 'audit', labelKey: 'admin.audit', icon: <FileClock size={18} /> },
+          { id: 'tests', labelKey: 'admin.tests', icon: <FlaskConical size={18} /> },
           { id: 'settings', labelKey: 'admin.settings', icon: <Settings size={18} /> }
         ].map(item => (
           <a
@@ -220,7 +245,7 @@ export default function AdminPage() {
                 </div>
               ))}
               
-              <div className="card card-sm" style={{ marginBottom: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+              <div className="card card-sm" style={{ marginBottom: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', cursor: 'pointer' }} onClick={() => setSection('tests')}>
                 <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 'var(--space-2)' }}>
                   {t('admin.testResults')}
                 </div>
@@ -234,6 +259,9 @@ export default function AdminPage() {
                     </div>
                     <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
                       {new Date(lastTestRun.date).toLocaleString(i18n.language === 'de' ? 'de-AT' : 'en-GB')}
+                    </div>
+                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--primary-600)', marginTop: 'var(--space-2)', fontWeight: 500 }}>
+                      {t('admin.viewDetails')} →
                     </div>
                   </div>
                 ) : (
@@ -463,6 +491,126 @@ export default function AdminPage() {
                 {settingsSaving ? t('common.loading') : t('admin.saveSettings')}
               </button>
             </div>
+          </div>
+        )}
+
+        {/* Tests Section */}
+        {section === 'tests' && !loading && testResults && (
+          <div className="animate-fade-in" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)', height: '100%' }}>
+            {/* Left: Test List */}
+            <div>
+              <h1 style={{ marginBottom: 'var(--space-4)' }}>{t('admin.tests')}</h1>
+              <div className="card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', height: 'calc(100vh - 200px)' }}>
+                <div style={{ padding: 'var(--space-4)', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
+                  <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
+                    <span style={{ color: 'var(--success-600)', fontWeight: 600 }}>{testResults.tests?.numPassedTests || 0}</span> / <span style={{ color: testResults.tests?.numFailedTests ? 'var(--danger-600)' : 'var(--text-secondary)' }}>{(testResults.tests?.numPassedTests || 0) + (testResults.tests?.numFailedTests || 0)}</span> Tests
+                  </div>
+                </div>
+                <div style={{ flex: 1, overflowY: 'auto' }}>
+                  {testResults.tests && testResults.tests.testResults && testResults.tests.testResults.length > 0 ? (
+                    testResults.tests.testResults.map((suite, suiteIdx) =>
+                      suite.testResults && suite.testResults.length > 0 ? (
+                        <div key={suiteIdx}>
+                          {suite.testResults.map((test, testIdx) => (
+                            <div
+                              key={testIdx}
+                              onClick={() => setSelectedTest(test)}
+                              style={{
+                                padding: 'var(--space-3)',
+                                borderBottom: '1px solid var(--border)',
+                                cursor: 'pointer',
+                                background: selectedTest === test ? 'var(--primary-50)' : 'transparent',
+                                transition: 'all 0.2s'
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-2)' }}>
+                                <div style={{ marginTop: '2px', flexShrink: 0 }}>
+                                  {test.status === 'passed' ? (
+                                    <CheckCircle size={16} color="var(--success-600)" />
+                                  ) : (
+                                    <XCircle size={16} color="var(--danger-500)" />
+                                  )}
+                                </div>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 500, lineHeight: 1.4, wordBreak: 'break-word' }}>
+                                    {test.title}
+                                  </div>
+                                  <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginTop: '2px' }}>
+                                    {test.duration}ms
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null
+                    )
+                  ) : (
+                    <div style={{ padding: 'var(--space-4)', textAlign: 'center', color: 'var(--text-tertiary)' }}>
+                      {t('admin.noTestResults')}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Right: Test Detail */}
+            {selectedTest && (
+              <div>
+                <div className="card" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 200px)', overflowY: 'auto' }}>
+                  <h2 style={{ marginBottom: 'var(--space-2)' }}>{t('admin.testDetails')}</h2>
+
+                  <div style={{ marginBottom: 'var(--space-4)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-2)' }}>
+                      {selectedTest.status === 'passed' ? (
+                        <CheckCircle size={20} color="var(--success-600)" />
+                      ) : (
+                        <XCircle size={20} color="var(--danger-500)" />
+                      )}
+                      <span style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, color: selectedTest.status === 'passed' ? 'var(--success-600)' : 'var(--danger-500)' }}>
+                        {selectedTest.status === 'passed' ? t('admin.testsPassed') : t('admin.testsFailed')}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div style={{ marginBottom: 'var(--space-4)' }}>
+                    <label style={{ fontSize: 'var(--font-size-xs)', textTransform: 'uppercase', color: 'var(--text-tertiary)' }}>Title</label>
+                    <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 500, marginTop: '4px', wordBreak: 'break-word' }}>
+                      {selectedTest.title}
+                    </div>
+                  </div>
+
+                  <div style={{ marginBottom: 'var(--space-4)' }}>
+                    <label style={{ fontSize: 'var(--font-size-xs)', textTransform: 'uppercase', color: 'var(--text-tertiary)' }}>Suite</label>
+                    <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                      {selectedTest.ancestorTitles.slice(1).join(' › ')}
+                    </div>
+                  </div>
+
+                  <div style={{ marginBottom: 'var(--space-4)' }}>
+                    <label style={{ fontSize: 'var(--font-size-xs)', textTransform: 'uppercase', color: 'var(--text-tertiary)' }}>Duration</label>
+                    <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                      {selectedTest.duration}ms
+                    </div>
+                  </div>
+
+                  {selectedTest.failureMessages && selectedTest.failureMessages.length > 0 && (
+                    <div>
+                      <label style={{ fontSize: 'var(--font-size-xs)', textTransform: 'uppercase', color: 'var(--text-tertiary)', display: 'block', marginBottom: 'var(--space-2)' }}>Error Message</label>
+                      <pre style={{ background: 'var(--surface)', padding: 'var(--space-3)', borderRadius: 'var(--radius-sm)', fontSize: 'var(--font-size-xs)', lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word', margin: 0, color: 'var(--danger-600)' }}>
+                        {selectedTest.failureMessages.join('\n')}
+                      </pre>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {section === 'tests' && !loading && !testResults && (
+          <div style={{ padding: 'var(--space-6)', textAlign: 'center' }}>
+            <p style={{ color: 'var(--text-tertiary)' }}>{t('admin.noTestResults')}</p>
           </div>
         )}
       </main>
