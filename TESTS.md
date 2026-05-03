@@ -12,14 +12,14 @@ Testet alle API-Endpunkte gegen die Live-API (`https://paw.oxs.at`).
 PAW_API_UID=$(id -u paw-api) && XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "
   cd /tmp && \
   podman run --rm \
+    --network=host \
     --cgroup-manager=cgroupfs \
     --security-opt label=disable \
     -v /git/pawvax/server/tests:/app/tests \
-    -e API_URL=https://paw.oxs.at/api \
+    -e API_URL=http://127.0.0.1:3000/api \
     -e NODE_OPTIONS=--experimental-vm-modules \
-    -e TEST_TIMEOUT=20000 \
     paw-api:latest \
-    npx jest --passWithNoTests --forceExit
+    npx jest --passWithNoTests --forceExit --testTimeout=20000
 "
 ```
 
@@ -61,13 +61,15 @@ Nur eine bestimmte Gruppe testen (z.B. nur Auth oder nur Animals).
 PAW_API_UID=$(id -u paw-api) && XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "
   cd /tmp && \
   podman run --rm \
+    --network=host \
     --cgroup-manager=cgroupfs \
     --security-opt label=disable \
     -v /git/pawvax/server/tests:/app/tests \
-    -e API_URL=https://paw.oxs.at/api \
+    -e API_URL=http://127.0.0.1:3000/api \
     -e NODE_OPTIONS=--experimental-vm-modules \
     localhost/paw-api:latest \
     npx jest --testNamePattern='Auth' --passWithNoTests --forceExit
+"
 ```
 
 Verfügbare Test-Suites:
