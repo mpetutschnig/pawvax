@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { PawPrint, FileText, Syringe, Calendar, User, MapPin } from 'lucide-react'
+import { PawPrint, Calendar, User, MapPin } from 'lucide-react'
 
 export default function PublicSharePage() {
   const { shareId } = useParams<{ shareId: string }>()
