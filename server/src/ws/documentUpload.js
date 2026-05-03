@@ -38,7 +38,7 @@ export default async function wsDocumentUpload(fastify) {
         msg = JSON.parse(raw.toString())
         console.log(`[WS] Message: ${msg.type}`)
       } catch (err) {
-        console.error('[WS] Parse error:', err.message)
+        fastify.log.error({ err }, '[WS] Parse error')
         send(socket, { type: 'error', message: 'Ungültige Nachricht' })
         return
       }
@@ -81,7 +81,7 @@ export default async function wsDocumentUpload(fastify) {
           console.log(`[WS] Client authenticated: ${accountId} (${userRole}, has_gemini_key: ${!!userGeminiKey}, has_anthropic_key: ${!!userAnthropicKey})`)
           send(socket, { type: 'auth_ok' })
         } catch (err) {
-          console.error('[WS] Auth error:', err.message)
+          fastify.log.error({ err }, '[WS] Auth error')
           send(socket, { type: 'error', message: 'Authentifizierung fehlgeschlagen' })
           socket.close()
         }
@@ -116,7 +116,7 @@ export default async function wsDocumentUpload(fastify) {
             .get(animalId, accountId)
 
           if (!animal) {
-            console.error(`[WS] Animal not found: ${animalId}`)
+            fastify.log.error({ animalId }, '[WS] Animal not found')
             send(socket, { type: 'error', message: 'Tier nicht gefunden' })
             return
           }
@@ -190,7 +190,7 @@ export default async function wsDocumentUpload(fastify) {
                 combinedText += (combinedText ? '\n---\n' : '') + (result.data.text || '')
                 lastProvider = result.provider
               } catch (err) {
-                console.error(`Error analyzing page ${page.page_number}:`, err.message)
+                fastify.log.error({ err, pageNumber: page.page_number }, 'WS: Error analyzing page')
                 analysisError = err
                 // Store error but continue - will save as pending_analysis
                 send(socket, { type: 'status', message: `⚠️ ${err.message}` })
@@ -206,7 +206,7 @@ export default async function wsDocumentUpload(fastify) {
                 const typeGuess = await guessDocumentType(combinedText, userGeminiKey, userGeminiModel)
                 suggestedType = typeGuess
               } catch (err) {
-                console.error('Error guessing type:', err)
+                fastify.log.error({ err }, 'WS: Error guessing document type')
               }
             }
 
@@ -266,7 +266,7 @@ export default async function wsDocumentUpload(fastify) {
               data: { documentId: docId, docType: suggestedType, pages: pages.length, suggestedType, ocrProvider: lastProvider, analysisStatus }
             })
           } catch (err) {
-            console.error('OCR/Upload Fehler:', err)
+            fastify.log.error({ err }, 'WS: OCR/Upload error')
             send(socket, { type: 'error', message: err.message })
           } finally {
             uploadState = null
@@ -279,7 +279,7 @@ export default async function wsDocumentUpload(fastify) {
       }
     })
 
-    socket.on('error', (err) => console.error('WS Fehler:', err))
+    socket.on('error', (err) => fastify.log.error({ err }, 'WS socket error'))
   })
 }
 
@@ -306,7 +306,7 @@ Text: ${text.slice(0, 500)}`
     const types = ['vaccination', 'vet_report', 'microchip', 'passport', 'other']
     return types.find(t => response.includes(t)) || 'other'
   } catch (err) {
-    console.error('guessDocumentType error:', err)
+    fastify.log.error({ err }, 'guessDocumentType error')
     return 'other'
   }
 }

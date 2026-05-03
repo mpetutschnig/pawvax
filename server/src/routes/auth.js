@@ -1,9 +1,15 @@
 import bcrypt from 'bcrypt'
 import { v4 as uuid } from 'uuid'
 import crypto from 'crypto'
+import { createReadStream, existsSync } from 'fs'
+import { resolve } from 'path'
 import { getDb } from '../db/index.js'
 import { logAudit } from '../services/audit.js'
 import { encrypt, decrypt } from '../utils/crypto.js'
+
+const UPLOADS_DIR = process.env.UPLOADS_DIR
+  ? resolve(process.env.UPLOADS_DIR)
+  : resolve('./uploads')
 
 export default async function authRoutes(fastify) {
   fastify.post('/api/auth/register', {
@@ -186,5 +192,84 @@ export default async function authRoutes(fastify) {
     db.prepare('DELETE FROM audit_log WHERE account_id = ?').run(accountId)
     db.prepare('DELETE FROM accounts WHERE id = ?').run(accountId)
     return reply.code(204).send()
+  })
+
+  // DSGVO Datenexport (Takeout) — liefert ZIP mit allen Tier- und Dokumentdaten
+  fastify.get('/api/accounts/me/export', { onRequest: [fastify.authenticate] }, async (req, reply) => {
+    const db = getDb()
+    const { accountId } = req.user
+
+    const account = db.prepare('SELECT id, name, email, created_at FROM accounts WHERE id = ?').get(accountId)
+    if (!account) return reply.code(404).send({ error: 'Account nicht gefunden' })
+
+    const animals = db.prepare('SELECT * FROM animals WHERE account_id = ?').all(accountId)
+
+    const archiver = (await import('archiver')).default
+    const archive = archiver('zip', { zlib: { level: 6 } })
+
+    reply.raw.setHeader('Content-Type', 'application/zip')
+    reply.raw.setHeader('Content-Disposition', `attachment; filename="pawvax-export-${accountId.slice(0, 8)}.zip"`)
+
+    archive.on('error', (err) => {
+      fastify.log.error({ err, accountId }, 'Takeout archive error')
+    })
+
+    archive.pipe(reply.raw)
+
+    // account.json
+    archive.append(JSON.stringify({ ...account, export_date: new Date().toISOString() }, null, 2), { name: 'account.json' })
+
+    for (const animal of animals) {
+      const prefix = `animals/${animal.id}/`
+      const docs = db.prepare('SELECT * FROM documents WHERE animal_id = ?').all(animal.id)
+
+      // animal.json (ohne sensitive DB-Felder)
+      const parsedDocs = docs.map(d => ({
+        ...d,
+        extracted_json: (() => { try { return JSON.parse(d.extracted_json) } catch { return {} } })()
+      }))
+      archive.append(JSON.stringify({ ...animal, documents: parsedDocs }, null, 2), { name: `${prefix}animal.json` })
+
+      // Avatar
+      if (animal.avatar_path) {
+        const avatarPath = resolve(UPLOADS_DIR, animal.avatar_path)
+        if (existsSync(avatarPath)) {
+          archive.file(avatarPath, { name: `${prefix}avatar.webp` })
+        }
+      }
+
+      // Dokument-Bilder
+      for (const doc of docs) {
+        if (doc.image_path) {
+          const imgPath = resolve(UPLOADS_DIR, doc.image_path)
+          if (existsSync(imgPath)) {
+            const ext = doc.image_path.split('.').pop() || 'jpg'
+            archive.file(imgPath, { name: `${prefix}documents/${doc.id}.${ext}` })
+          }
+        }
+        // Zusätzliche Seiten
+        const pages = db.prepare('SELECT * FROM document_pages WHERE document_id = ?').all(doc.id)
+        for (const page of pages) {
+          if (page.image_path) {
+            const pagePath = resolve(UPLOADS_DIR, page.image_path)
+            if (existsSync(pagePath)) {
+              archive.file(pagePath, { name: `${prefix}documents/${doc.id}_page${page.page_number}.jpg` })
+            }
+          }
+        }
+      }
+    }
+
+    logAudit(db, {
+      accountId,
+      role: req.user.role,
+      action: 'data_export',
+      resource: 'account',
+      resourceId: accountId,
+      details: { animals_count: animals.length },
+      ip: req.ip
+    })
+
+    await archive.finalize()
   })
 }

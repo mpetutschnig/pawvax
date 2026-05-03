@@ -122,7 +122,7 @@
   --bottom-nav-height: 64px;
   --sidebar-width:     220px;
   --sidebar-collapsed: 64px;
-  --max-content:       480px;
+  --max-content:       600px;
 
   /* ── Transitions ─────────────────────────────────────────────── */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
@@ -1360,4 +1360,106 @@ html[data-theme="dark"] .nav-bar h2 {
   outline: 2px solid var(--primary-400);
   outline-offset: 2px;
   border-radius: var(--radius-xs);
+}
+
+/* ════════════════════════════════════════════════════════════════
+   RESPONSIVE DESKTOP LAYOUT (≥ 1024px)
+   ════════════════════════════════════════════════════════════════ */
+@media (min-width: 1024px) {
+  .container {
+    max-width: 1100px;
+  }
+  .page {
+    padding-bottom: var(--space-6);
+  }
+  .page.has-sidenav {
+    padding-left: calc(var(--sidebar-width) + var(--space-6));
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   CONTENT GRID (Two-Column on Desktop)
+   ════════════════════════════════════════════════════════════════ */
+.content-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-6);
+}
+@media (min-width: 1024px) {
+  .content-grid {
+    grid-template-columns: 360px 1fr;
+    align-items: start;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   CHIP ROW (Horizontal scrolling chips on mobile)
+   ════════════════════════════════════════════════════════════════ */
+.chip-row {
+  display: flex;
+  gap: var(--space-2);
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  flex-wrap: nowrap;
+}
+.chip-row::-webkit-scrollbar { display: none; }
+
+/* ════════════════════════════════════════════════════════════════
+   SIDE NAVIGATION (Desktop)
+   ════════════════════════════════════════════════════════════════ */
+.side-nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: var(--sidebar-width);
+  height: 100vh;
+  background: var(--bg-elevated);
+  border-right: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  z-index: 200;
+  padding: var(--space-4) 0;
+}
+
+.side-nav-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-5);
+  margin-bottom: var(--space-4);
+  color: var(--primary-500);
+  font-weight: 700;
+  font-size: var(--font-size-lg);
+}
+
+.side-nav-links {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.side-nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-5);
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  border-radius: 0;
+  transition: background var(--t-fast), color var(--t-fast);
+}
+
+.side-nav-item:hover {
+  background: var(--primary-50);
+  color: var(--primary-600);
+}
+
+.side-nav-item.active {
+  background: var(--primary-50);
+  color: var(--primary-600);
+  border-right: 3px solid var(--primary-500);
+  font-weight: 600;
 }

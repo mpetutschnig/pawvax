@@ -223,7 +223,7 @@ export default function AnimalsPage() {
         <>
           <div style={{ display: 'grid', gap: 'var(--space-4)' }}>
             {filteredAnimals.map((animal) => (
-              <div key={animal.id} style={{ opacity: animal.is_archived ? 0.6 : 1, transition: 'opacity 0.3s' }}>
+              <div key={animal.id}>
                 <PetCard
                   id={animal.id}
                   name={animal.name}

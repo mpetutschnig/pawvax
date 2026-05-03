@@ -1,5 +1,7 @@
+import { v4 as uuid } from 'uuid'
 import { getDb } from '../db/index.js'
 import { logAudit } from '../services/audit.js'
+import { generateApiKey } from '../utils/apikey.js'
 
 export default async function adminRoutes(fastify) {
   // alle Admin-Routen erfordern JWT + Admin-Rolle
@@ -228,5 +230,86 @@ export default async function adminRoutes(fastify) {
 
     logAudit(db, { accountId, role, action: 'delete_tag', resource: 'tag', resourceId: tagId, ip: req.ip })
     return reply.code(204).send()
+  })
+
+  // ──────────────────────────────────────────────────────────
+  // API Key Management (VET-API)
+  // ──────────────────────────────────────────────────────────
+
+  // Generate new API key for a verified vet account
+  fastify.post('/api/admin/api-keys', async (req, reply) => {
+    const db = getDb()
+    const { account_id, name } = req.body
+    const { accountId, role } = req.user
+
+    if (!account_id || !name) {
+      return reply.code(400).send({ error: 'account_id and name are required' })
+    }
+
+    // Verify the target account is a verified vet
+    const target = db.prepare('SELECT id, role, verified, name AS account_name FROM accounts WHERE id = ?').get(account_id)
+    if (!target) return reply.code(404).send({ error: 'Account not found' })
+    if (!target.verified || !target.role.includes('vet')) {
+      return reply.code(400).send({ error: 'Target account must be a verified veterinarian' })
+    }
+
+    const { raw, hash, prefix } = generateApiKey()
+    const keyId = uuid()
+
+    db.prepare(`
+      INSERT INTO api_keys (id, key_hash, key_prefix, account_id, name)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(keyId, hash, prefix, account_id, name)
+
+    logAudit(db, {
+      accountId, role, action: 'create_api_key',
+      resource: 'api_key', resourceId: keyId,
+      details: { target_account: account_id, key_name: name },
+      ip: req.ip
+    })
+
+    // Return raw key ONCE — it cannot be retrieved again
+    return reply.code(201).send({
+      id: keyId,
+      key: raw,
+      prefix,
+      name,
+      account_id,
+      account_name: target.account_name,
+      message: 'Store this key securely. It will not be shown again.'
+    })
+  })
+
+  // List all API keys (without hashes)
+  fastify.get('/api/admin/api-keys', async (req) => {
+    const db = getDb()
+    return db.prepare(`
+      SELECT k.id, k.key_prefix, k.account_id, k.name, k.permissions, k.rate_limit, k.active, k.last_used_at, k.created_at,
+             a.name AS account_name, a.email AS account_email
+      FROM api_keys k
+      JOIN accounts a ON a.id = k.account_id
+      ORDER BY k.created_at DESC
+    `).all()
+  })
+
+  // Deactivate an API key
+  fastify.delete('/api/admin/api-keys/:id', async (req, reply) => {
+    const db = getDb()
+    const keyId = req.params.id
+    const { accountId, role } = req.user
+
+    const key = db.prepare('SELECT id, name FROM api_keys WHERE id = ?').get(keyId)
+    if (!key) return reply.code(404).send({ error: 'API key not found' })
+
+    db.prepare('UPDATE api_keys SET active = 0 WHERE id = ?').run(keyId)
+
+    logAudit(db, {
+      accountId, role, action: 'deactivate_api_key',
+      resource: 'api_key', resourceId: keyId,
+      details: { key_name: key.name },
+      ip: req.ip
+    })
+
+    return reply.code(200).send({ success: true, message: 'API key deactivated' })
   })
 }

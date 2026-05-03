@@ -3,7 +3,9 @@ import { Routes, Route, Navigate, useLocation, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { PawPrint, ScanLine, User, Settings } from 'lucide-react'
 import { useGlobalNfc } from './hooks/useGlobalNfc'
+import { useMediaQuery } from './hooks/useMediaQuery'
 import { ErrorBoundary } from './components/ErrorBoundary'
+import { SideNav } from './components/SideNav'
 import LoginPage from './pages/LoginPage'
 import AnimalsPage from './pages/AnimalsPage'
 import ScanPage from './pages/ScanPage'
@@ -124,29 +126,33 @@ function BottomNav() {
 
 export default function App() {
   useGlobalNfc()
+  const isDesktop = useMediaQuery('(min-width: 1024px)')
 
   return (
     <ErrorBoundary>
       <GlobalBrand />
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/welcome" element={<WelcomePage />} />
-        <Route path="/public-scan" element={<PublicScanPage />} />
-        <Route path="/share/:shareId" element={<PublicSharePage />} />
-        <Route path="/" element={<Navigate to="/animals" replace />} />
-        <Route path="/animals" element={<RequireAuth><AnimalsPage /></RequireAuth>} />
-        <Route path="/animals/:id" element={<RequireAuth><AnimalPage /></RequireAuth>} />
-        <Route path="/animals/:id/tags" element={<RequireAuth><TagManagementPage /></RequireAuth>} />
-        <Route path="/animals/:id/scan" element={<RequireAuth><DocumentScanPage /></RequireAuth>} />
-        <Route path="/animals/:id/sharing" element={<RequireAuth><SharingSettingsPage /></RequireAuth>} />
-        <Route path="/animals/:id/documents/:docId" element={<RequireAuth><DocumentDetailPage /></RequireAuth>} />
-        <Route path="/scan" element={<RequireAuth><ScanPage /></RequireAuth>} />
-        <Route path="/docs" element={<RequireAuth><DocumentationPage /></RequireAuth>} />
-        <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
-        <Route path="/admin" element={<RequireAuth adminOnly><AdminPage /></RequireAuth>} />
-        <Route path="*" element={<Navigate to="/animals" replace />} />
-      </Routes>
-      <BottomNav />
+      {isDesktop && <SideNav />}
+      <div className={isDesktop ? 'page has-sidenav' : ''}>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/welcome" element={<WelcomePage />} />
+          <Route path="/public-scan" element={<PublicScanPage />} />
+          <Route path="/share/:shareId" element={<PublicSharePage />} />
+          <Route path="/" element={<Navigate to="/animals" replace />} />
+          <Route path="/animals" element={<RequireAuth><AnimalsPage /></RequireAuth>} />
+          <Route path="/animals/:id" element={<RequireAuth><AnimalPage /></RequireAuth>} />
+          <Route path="/animals/:id/tags" element={<RequireAuth><TagManagementPage /></RequireAuth>} />
+          <Route path="/animals/:id/scan" element={<RequireAuth><DocumentScanPage /></RequireAuth>} />
+          <Route path="/animals/:id/sharing" element={<RequireAuth><SharingSettingsPage /></RequireAuth>} />
+          <Route path="/animals/:id/documents/:docId" element={<RequireAuth><DocumentDetailPage /></RequireAuth>} />
+          <Route path="/scan" element={<RequireAuth><ScanPage /></RequireAuth>} />
+          <Route path="/docs" element={<RequireAuth><DocumentationPage /></RequireAuth>} />
+          <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
+          <Route path="/admin" element={<RequireAuth adminOnly><AdminPage /></RequireAuth>} />
+          <Route path="*" element={<Navigate to="/animals" replace />} />
+        </Routes>
+      </div>
+      {!isDesktop && <BottomNav />}
     </ErrorBoundary>
   )
 }
