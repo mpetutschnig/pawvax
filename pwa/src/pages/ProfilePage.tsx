@@ -29,6 +29,7 @@ export default function ProfilePage() {
   const [aiPriority, setAiPriority] = useState<string[]>(['system', 'google', 'anthropic', 'openai'])
   const [modelSaving, setModelSaving] = useState(false)
   const [requestedRole, setRequestedRole] = useState<string>('vet')
+  const [isLocalPending, setIsLocalPending] = useState(false)
 
   useEffect(() => {
     loadProfile()
@@ -282,8 +283,16 @@ export default function ProfilePage() {
 
       if (!res.ok) {
         const err = await res.json()
-        throw new Error(err.error || err.message || t('common.error'))
+        const errMsg = err.error || err.message || t('common.error')
+        if (errMsg.toLowerCase().includes('bereits') || errMsg.toLowerCase().includes('already') || errMsg.toLowerCase().includes('pending')) {
+          setIsLocalPending(true)
+          setSuccess(t('profile.requestVerificationSuccess'))
+          setTimeout(() => setSuccess(null), 3000)
+          return
+        }
+        throw new Error(errMsg)
       }
+      setIsLocalPending(true)
       setSuccess(t('profile.requestVerificationSuccess'))
       setTimeout(() => {
         loadProfile()
@@ -336,7 +345,7 @@ export default function ProfilePage() {
 
   const roles = profile.roles ?? (typeof profile.role === 'string' ? profile.role.split(',').map((r: string) => r.trim()) : [])
   const isVerified = profile.verified === 1 || profile.verified === true
-  const isPending = profile.verification_status === 'pending' || ((roles.includes('vet') || roles.includes('authority')) && !isVerified)
+  const isPending = profile.verification_status === 'pending' || ((roles.includes('vet') || roles.includes('authority')) && !isVerified) || isLocalPending
   
   const isVet = roles.includes('vet') && !isPending
   const isOrg = roles.includes('authority') && !isPending
@@ -380,19 +389,19 @@ export default function ProfilePage() {
               <p className="text-muted" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', margin: 0 }}><Clock size={18} /> {t('profile.verificationPending')}</p>
             ) : (
               <div style={{ background: 'var(--surface)', padding: 'var(--space-4)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
-                <p style={{ margin: '0 0 var(--space-3) 0' }}>{t('profile.selectRoleToVerify', 'Als Partner verifizieren (Tierarzt oder Behörde):')}</p>
+                <p style={{ margin: '0 0 var(--space-3) 0' }}>{t('profile.selectRoleToVerify')}</p>
                 <div style={{ display: 'flex', gap: 'var(--space-4)', marginBottom: 'var(--space-3)' }}>
                   <label style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center', cursor: 'pointer' }}>
                     <input type="radio" name="requestRole" checked={requestedRole === 'vet'}
                       onChange={() => setRequestedRole('vet')} 
                       style={{ width: 16, height: 16, accentColor: 'var(--primary-500)' }} />
-                    Tierarzt
+                    {t('docScan.vet')}
                   </label>
                   <label style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center', cursor: 'pointer' }}>
                     <input type="radio" name="requestRole" checked={requestedRole === 'authority'}
                       onChange={() => setRequestedRole('authority')} 
                       style={{ width: 16, height: 16, accentColor: 'var(--primary-500)' }} />
-                    Behörde
+                    {t('docScan.authority')}
                   </label>
                 </div>
                 <button className="btn btn-primary" onClick={requestVerify}>

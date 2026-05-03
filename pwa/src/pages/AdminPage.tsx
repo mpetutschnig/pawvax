@@ -4,7 +4,7 @@ import {
   adminGetStats, adminGetAccounts, adminGetAnimals, adminGetPendingVerifications,
   adminVerifyAccount, adminPatchAccount, adminGetAuditLog, adminDeleteAnimal, adminDeleteAccount
 } from '../api/rest'
-import { PawPrint, LogOut, LayoutDashboard, Users, Cat, ShieldCheck, FileClock, CheckCircle, Menu, X, Settings } from 'lucide-react'
+import { PawPrint, LogOut, LayoutDashboard, Users, Cat, ShieldCheck, FileClock, CheckCircle, Menu, X, Settings, XCircle } from 'lucide-react'
 import { AdminAnimalDTO } from '../types/animal'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 
@@ -63,6 +63,9 @@ export default function AdminPage() {
       if (section === 'overview') {
         const res = await adminGetStats()
         setStats(res.data)
+        const setRes = await fetch('/api/settings')
+        const setData = await setRes.json()
+        setAppSettings(setData)
       } else if (section === 'accounts') {
         const res = await adminGetAccounts()
         setAccounts(res.data)
@@ -110,6 +113,13 @@ export default function AdminPage() {
 
   const selectedAccount = selectedId ? accounts.find(a => a.id === selectedId) : null
   const selectedAnimal = selectedId ? animals.find(a => a.id === selectedId) : null
+
+  let lastTestRun: { status: string; date: string } | null = null
+  try {
+    if ((appSettings as any).last_test_run) {
+      lastTestRun = JSON.parse((appSettings as any).last_test_run)
+    }
+  } catch {}
 
   const adminName = t('admin.adminUser') // Ideally from Auth context
 
@@ -209,6 +219,29 @@ export default function AdminPage() {
                   </div>
                 </div>
               ))}
+              
+              <div className="card card-sm" style={{ marginBottom: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 'var(--space-2)' }}>
+                  {t('admin.testResults')}
+                </div>
+                {lastTestRun ? (
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                      {lastTestRun.status === 'success' ? <CheckCircle size={20} color="var(--success-600)" /> : <XCircle size={20} color="var(--danger-500)" />}
+                      <span style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, color: lastTestRun.status === 'success' ? 'var(--success-600)' : 'var(--danger-500)' }}>
+                        {lastTestRun.status === 'success' ? t('admin.testSuccess') : t('admin.testFailed')}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
+                      {new Date(lastTestRun.date).toLocaleString(i18n.language === 'de' ? 'de-AT' : 'en-GB')}
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-tertiary)', fontWeight: 500, marginTop: 'auto', paddingBottom: '4px' }}>
+                    {t('admin.testNever')}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}

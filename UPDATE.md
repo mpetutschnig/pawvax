@@ -66,6 +66,28 @@ usermod -s /sbin/nologin paw-pwa
 sleep 3
 
 echo "11/11: 🚀 PAW Update erfolgreich abgeschlossen!"
+
+echo "12/12: Führe API-Tests aus und speichere Ergebnis..."
+PAW_API_UID=$(id -u paw-api)
+
+set +e
+XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "cd /tmp && podman run --rm --network=host --cgroup-manager=cgroupfs --security-opt label=disable -v /git/pawvax/server/tests:/app/tests -e API_URL=http://127.0.0.1:3000/api -e NODE_OPTIONS=--experimental-vm-modules localhost/paw-api:latest npx jest --passWithNoTests --forceExit --testTimeout=20000"
+TEST_EXIT_CODE=$?
+set -e
+
+if [ $TEST_EXIT_CODE -eq 0 ]; then
+  TEST_STATUS="success"
+  echo "✅ Tests erfolgreich! Ergebnis gespeichert."
+else
+  TEST_STATUS="failed"
+  echo "❌ Tests fehlgeschlagen!"
+fi
+
+TEST_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+JSON_RESULT="{\"status\": \"$TEST_STATUS\", \"date\": \"$TEST_DATE\"}"
+
+su -s /bin/bash paw-api -c "sqlite3 /home/paw-api/data/paw.db \"INSERT OR REPLACE INTO settings (key, value) VALUES ('last_test_run', '$JSON_RESULT');\""
+
 ```
 
 *Tipp: Du kannst dir diesen Block auch direkt auf dem Server in eine Datei (z.B. `update.sh`) speichern und sie in Zukunft einfach mit `bash update.sh` ausführen.*

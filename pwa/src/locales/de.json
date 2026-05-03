@@ -263,6 +263,7 @@
   "profile.roles": "Rollen",
   "profile.verification": "Verifikation",
   "profile.verificationPending": "Verifikationsantrag läuft (Wartet auf Admin-Genehmigung)",
+  "profile.selectRoleToVerify": "Als Partner verifizieren (Tierarzt oder Behörde):",
   "profile.requestVerification": "Als Partner verifizieren (Vet/Org)",
   "profile.verifiedVet": "Du bist als Tierarzt verifiziert",
   "profile.verifiedOrg": "Du bist als Tierschutzorganisation verifiziert",
@@ -354,6 +355,10 @@
   "admin.deleteAnimal": "Tier löschen",
   "admin.deleteAccount": "Account löschen",
   "admin.next": "Weiter",
+  "admin.testResults": "Letzter API-Test",
+  "admin.testSuccess": "Erfolgreich",
+  "admin.testFailed": "Fehlgeschlagen",
+  "admin.testNever": "Noch nie ausgeführt",
   "petCard.upToDate": "Aktuell",
   "petCard.dueSoon": "Fällig",
   "petCard.overdue": "Überfällig",
@@ -441,5 +446,6 @@
   "sharing.days": "Tagen",
   "sharing.generateLink": "Link generieren",
   "sharing.copyLink": "Link kopieren",
+  "sharing.tempLinkDesc": "Erstelle einen 14 Tage gültigen Link, um das Tierprofil (Lesezugriff) mit anderen, z.B. einer Tierpension, zu teilen.",
   "docDetail.ocrDisclaimer": "Die extrahierten Textdaten dienen nur der Übersicht. Rechtlich bindend ist ausschließlich das angehängte Originaldokument (Foto)."
 }

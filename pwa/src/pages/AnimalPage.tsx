@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { getAnimal, getAnimalDocuments, getAnimalTags, updateAnimal, deleteAnimal, uploadAnimalAvatar, deleteDocument, getMe } from '../api/rest'
 import { PageHeader } from '../components/PageHeader' 
-import { PawPrint, Cat, Edit2, Trash2, Lock, Camera, Search, Radio, ShieldAlert, AlertTriangle, RefreshCw, X, Syringe, FileText, CheckCircle, ArrowDownAZ, ArrowUpAZ, SlidersHorizontal, ArrowRightLeft } from 'lucide-react'
+import { PawPrint, Cat, Edit2, Trash2, Lock, Camera, Search, Radio, ShieldAlert, AlertTriangle, RefreshCw, X, Syringe, FileText, CheckCircle, ArrowDownAZ, ArrowUpAZ, SlidersHorizontal, ArrowRightLeft, Share2 } from 'lucide-react'
 import { AnimalDTO } from '../types/animal'
 interface AnimalTag {
   tag_id: string; tag_type: string; active: number; added_at: string
@@ -47,6 +47,9 @@ export default function AnimalPage() {
   const [showAdvancedFilter, setShowAdvancedFilter] = useState(false)
   const [showTransfer, setShowTransfer] = useState(false)
   const [transferCode, setTransferCode] = useState('')
+  const [showShare, setShowShare] = useState(false)
+  const [shareLink, setShareLink] = useState('')
+  const [generatingShare, setGeneratingShare] = useState(false)
   const avatarInputRef = useRef<HTMLInputElement>(null)
   
   const [showRetryModal, setShowRetryModal] = useState(false)
@@ -299,6 +302,28 @@ export default function AnimalPage() {
     }
   }
 
+  const handleGenerateShare = async () => {
+    try {
+      setGeneratingShare(true)
+      const token = localStorage.getItem('token')
+      const res = await fetch(`/api/animals/${id}/sharing/temporary`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setShareLink(`${window.location.origin}/share/${data.shareId}`)
+    } catch (err) {
+      setError(t('common.error'))
+    } finally {
+      setGeneratingShare(false)
+    }
+  }
+
+  const copyShareLink = () => {
+    navigator.clipboard.writeText(shareLink)
+  }
+
   if (loading) return <div className="container page" style={{ display: 'flex', justifyContent: 'center', paddingTop: '4rem' }}><div className="spinner spinner-lg"></div></div>
   if (!animal) return <div className="container page"><div className="error-card"><p>{error || t('error.notFound')}</p></div></div>
 
@@ -516,9 +541,9 @@ export default function AnimalPage() {
                   <Link to={`/animals/${id}/tags`} className="btn btn-ghost" style={{ textDecoration: 'none', gridColumn: 'span 2' }}>
                     <Radio size={16} /> {t('animal.chips')}
                   </Link>
-                  <Link to={`/animals/${id}/sharing`} className="btn btn-ghost" style={{ textDecoration: 'none' }}>
-                    <Lock size={16} /> {t('animal.sharing')}
-                  </Link>
+                  <button className="btn btn-ghost" onClick={() => setShowShare(true)}>
+                    <Share2 size={16} /> {t('animal.sharing')}
+                  </button>
                   <button className="btn btn-ghost" onClick={() => setShowTransfer(true)}>
                     <ArrowRightLeft size={16} /> {t('animal.transferBtn')}
                   </button>
@@ -541,6 +566,27 @@ export default function AnimalPage() {
                     </button>
                   )}
                   <button className="btn btn-ghost btn-full mt-4" onClick={() => { setShowTransfer(false); setTransferCode(''); }}>{t('common.cancel')}</button>
+                </div>
+              )}
+
+              {showShare && (
+                <div className="card animate-slide-up">
+                  <h3 style={{ marginBottom: 'var(--space-2)' }}>{t('sharing.tempLink')}</h3>
+                  <p className="text-muted" style={{ marginBottom: 'var(--space-4)' }}>{t('sharing.tempLinkDesc')}</p>
+                  {shareLink ? (
+                    <div style={{ background: 'var(--surface-alt)', padding: 'var(--space-4)', borderRadius: 'var(--radius-md)', textAlign: 'center' }}>
+                      <input type="text" className="form-input" value={shareLink} readOnly style={{ marginBottom: 'var(--space-2)', textAlign: 'center' }} />
+                      <button className="btn btn-primary btn-full" onClick={copyShareLink}>
+                        {t('sharing.copyLink')}
+                      </button>
+                      <p className="text-muted" style={{ margin: 'var(--space-2) 0 0 0', fontSize: 'var(--font-size-xs)' }}>{t('sharing.expiresIn')} 14 {t('sharing.days')}</p>
+                    </div>
+                  ) : (
+                    <button className="btn btn-primary btn-full" onClick={handleGenerateShare} disabled={generatingShare}>
+                      {generatingShare ? t('common.loading') : t('sharing.generateLink')}
+                    </button>
+                  )}
+                  <button className="btn btn-ghost btn-full mt-4" onClick={() => { setShowShare(false); setShareLink(''); }}>{t('common.cancel')}</button>
                 </div>
               )}
 
