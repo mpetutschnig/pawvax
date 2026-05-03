@@ -20,7 +20,7 @@ import WelcomePage from './pages/WelcomePage'
 function GlobalBrand() {
   const location = useLocation()
   const { t } = useTranslation()
-  const [settings, setSettings] = useState({ app_name: 'PAW', logo_data: '' })
+  const [settings, setSettings] = useState({ app_name: 'PAW', logo_data: '', theme_color: '' })
   const roleStr = localStorage.getItem('role') || 'user'
   const roles = roleStr.split(',').map(r => r.trim()).filter(Boolean)
   
@@ -38,6 +38,10 @@ function GlobalBrand() {
         document.head.appendChild(link)
       }
       link.href = settings.logo_data
+    }
+    if (settings.theme_color) {
+      const meta = document.querySelector('meta[name="theme-color"]')
+      if (meta) meta.setAttribute('content', settings.theme_color)
     }
   }, [settings])
 
