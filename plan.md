@@ -166,6 +166,7 @@ Andere VET-Plattformen können über einen Token (API-Key), der im Request-Heade
 - Tabelle `api_keys` speichert SHA-256 Hash des Keys.
 - Route `POST /api/v1/animals/:animalId/documents` nimmt `X-Api-Key` entgegen.
 - Dokumente werden sicher mit `added_by_role = 'vet'` und dem entsprechenden `account_id` des verknüpften Tierarztes gespeichert (Besitzer kann diese danach *nicht* mehr löschen).
+- **Key Management:** API-Keys werden für den MVP ausschließlich manuell durch den System-Admin in der Datenbank/im Admin-Panel generiert und an die Partner vergeben (kein Self-Service).
 
 ---
 
@@ -225,6 +226,7 @@ Basierend auf den Anforderungen an ein skalierbares SaaS-Produkt wurden folgende
 ### 8a. Multi-Tenancy (Franchisenehmer)
 - **Entscheidung:** Anstatt einer komplexen logischen Mandantentrennung (via `tenant_id` in der Datenbank) wird auf eine strikte physische Trennung gesetzt.
 - Jeder Franchisenehmer / jede Organisation läuft in einem eigenen Container und nutzt eine eigene, dedizierte Datenbank. Dies garantiert höchste Datensicherheit und Isolation B2B2C.
+- **Routing:** Die Mandanten werden über **Subdomains** angesprochen (z.B. `klinik-wien.paw.oxs.at`). Das Routing zu den jeweiligen Containern übernimmt der Reverse Proxy (z.B. Caddy).
 
 ### 8b. Offline-Fähigkeit (PWA)
 - **Entscheidung:** Für den aktuellen MVP wird *keine* Offline-Fähigkeit via IndexedDB implementiert.
@@ -242,8 +244,10 @@ Basierend auf den Anforderungen an ein skalierbares SaaS-Produkt wurden folgende
 ### 8e. Temporäres Sharing (Time-limited Links)
 - **Entscheidung:** Ein Feature für zeitlich befristete Freigaben wird in die Business-Logik aufgenommen.
 - Use Case: Der Tierbesitzer kann für Dog-Sitter, Tierpensionen etc. einen Link erzeugen, der sich nach z.B. 14 Tagen automatisch deaktiviert, ohne die Daten dauerhaft auf "Public" stellen zu müssen.
+- **UX/Zugriff:** Dies wird als **anonymer Public-Link** (z.B. `/share/abc-123`) implementiert, der ohne Account und ohne Login von den Betreuern aufgerufen werden kann.
 
 ### 8f. Archivierung (Verstorbene Tiere)
 - **Entscheidung:** Eine "In Memoriam" / Archivierungs-Funktion wird in die Tierdetailansicht (AnimalPage) integriert.
 - UI/UX: Verstorbene Tiere erhalten ein Kreuz-Icon (z.B. `✝`) oder ein ähnliches Zeichen. Sie werden in der Übersicht visuell zurückgenommen (ausgegraut) dargestellt.
+- **Read-Only:** Das Tier-Profil wechselt in einen **Read-Only-Status**. Historische Dokumente können weiterhin eingesehen, jedoch keine neuen hinzugefügt oder bestehende bearbeitet werden.
 - Vorteil: Das aktive Dashboard bleibt übersichtlich, aber die wertvollen Erinnerungen und medizinischen Akten bleiben für den Besitzer erhalten, ohne das Tier löschen zu müssen.
