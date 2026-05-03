@@ -1,5 +1,6 @@
 import { createWorker } from 'tesseract.js'
-import { readFileSync } from 'fs'
+import { readFileSync, existsSync } from 'fs'
+import { resolve } from 'path'
 
 const GEMINI_PROMPT = `
 Du bist ein Veterinär-Dokumentenanalyst. Analysiere das folgende Tierdokument (Impfpass, Medikament, etc.)
@@ -50,6 +51,13 @@ Antworte NUR mit dem JSON-Objekt, kein erklärender Text.
 
 export async function analyzeDocument(imagePath, userGeminiKey = null, model = null, onProgress = null, userAnthropicKey = null, claudeModel = null, userOpenAiKey = null, openAiModel = null, priority = ['google', 'anthropic', 'openai']) {
   if (onProgress) onProgress(`Initialisiere OCR-Analyse...`)
+
+  // Check if file exists before attempting analysis
+  const absolutePath = resolve(imagePath)
+  if (!existsSync(absolutePath)) {
+    throw new Error(`Dokumentdatei nicht gefunden: ${imagePath}`)
+  }
+
   try {
     for (const provider of priority) {
       if (provider === 'google' && userGeminiKey) {
