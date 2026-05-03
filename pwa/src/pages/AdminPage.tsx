@@ -44,7 +44,7 @@ interface TestResults {
   tests: {
     numPassedTests: number
     numFailedTests: number
-    testResults: { testResults: TestCase[] }[]
+    testResults: { assertionResults?: TestCase[]; testResults?: TestCase[] }[]
   } | null
 }
 
@@ -521,7 +521,6 @@ export default function AdminPage() {
                     // Flatten test results from all suites
                     if (Array.isArray(testResults.tests.testResults)) {
                       for (const suite of testResults.tests.testResults) {
-                        // assertionResults is the correct Jest field for individual test cases
                         const results = suite.assertionResults || suite.testResults || []
                         if (Array.isArray(results)) {
                           allTests.push(...results)
@@ -530,8 +529,7 @@ export default function AdminPage() {
                     }
 
                     if (allTests.length === 0) {
-                      const debugInfo = testResults.tests.testResults ? `(${testResults.tests.testResults.length} suites found)` : ''
-                      return <div style={{ padding: 'var(--space-4)', textAlign: 'center', color: 'var(--text-tertiary)' }}>{t('admin.noTestResults')} {debugInfo}</div>
+                      return <div style={{ padding: 'var(--space-4)', textAlign: 'center', color: 'var(--text-tertiary)' }}>{t('admin.noTestResults')}</div>
                     }
 
                     // Group by ancestorTitles[1]
