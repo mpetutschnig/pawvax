@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { getMe, patchMe, deleteMe } from '../api/rest'
+import { getMe, patchMe, deleteMe, requestVerification } from '../api/rest'
 import { PageHeader } from '../components/PageHeader'
 import { User, Shield, Stethoscope, Settings, Trash2, CheckCircle, Clock, AlertTriangle, Key, BookOpen, Download } from 'lucide-react'
 
@@ -29,7 +29,6 @@ export default function ProfilePage() {
   const [aiPriority, setAiPriority] = useState<string[]>(['system', 'google', 'anthropic', 'openai'])
   const [modelSaving, setModelSaving] = useState(false)
   const [requestedRole, setRequestedRole] = useState<string>('vet')
-  const [isLocalPending, setIsLocalPending] = useState(false)
 
   useEffect(() => {
     loadProfile()
@@ -263,44 +262,18 @@ export default function ProfilePage() {
 
   const requestVerify = async () => {
     try {
-      const token = localStorage.getItem('token')
-      const baseUrl = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : ''
-      
-      let res = await fetch(`${baseUrl}/api/accounts/request-verification`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ roles: [requestedRole] })
-      })
-      
-      // Fallback, falls das Backend die ursprüngliche Route verwendet
-      if (res.status === 404) {
-        res = await fetch(`${baseUrl}/api/accounts/me/verify-request`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-          body: JSON.stringify({ roles: [requestedRole] })
-        })
-      }
-
-      if (!res.ok) {
-        const err = await res.json()
-        const errMsg = err.error || err.message || t('common.error')
-        if (errMsg.toLowerCase().includes('bereits') || errMsg.toLowerCase().includes('already') || errMsg.toLowerCase().includes('pending')) {
-          setIsLocalPending(true)
-          setSuccess(t('profile.requestVerificationSuccess'))
-          setTimeout(() => setSuccess(null), 3000)
-          return
-        }
-        throw new Error(errMsg)
-      }
-      setIsLocalPending(true)
+      await requestVerification()
+      await loadProfile()
       setSuccess(t('profile.requestVerificationSuccess'))
-      setTimeout(() => {
-        loadProfile()
-        setSuccess(null)
-      }, 2000)
+      setTimeout(() => setSuccess(null), 3000)
     } catch (err: any) {
-      setError(err.message || t('common.error'))
-      console.error(err)
+      if (err?.response?.status === 409) {
+        await loadProfile()
+        setSuccess(t('profile.requestVerificationSuccess'))
+        setTimeout(() => setSuccess(null), 3000)
+      } else {
+        setError(err?.response?.data?.error || err.message || t('common.error'))
+      }
     }
   }
 
@@ -345,7 +318,7 @@ export default function ProfilePage() {
 
   const roles = profile.roles ?? (typeof profile.role === 'string' ? profile.role.split(',').map((r: string) => r.trim()) : [])
   const isVerified = profile.verified === 1 || profile.verified === true
-  const isPending = profile.verification_status === 'pending' || ((roles.includes('vet') || roles.includes('authority')) && !isVerified) || isLocalPending
+  const isPending = profile.verification_status === 'pending' || ((roles.includes('vet') || roles.includes('authority')) && !isVerified)
   
   const isVet = roles.includes('vet') && !isPending
   const isOrg = roles.includes('authority') && !isPending

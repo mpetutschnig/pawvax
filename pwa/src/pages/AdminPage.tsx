@@ -23,7 +23,7 @@ interface AuditEntry {
 }
 
 interface Stats {
-  accounts: number; animals: number; documents: number; auditEntries: number
+  accounts: number; animals: number; documents: number; auditEntries: number; pendingVerifications: number
 }
 
 interface AuditLog {
@@ -194,7 +194,7 @@ export default function AdminPage() {
           { id: 'overview', labelKey: 'admin.statistics', icon: <LayoutDashboard size={18} /> },
           { id: 'accounts', labelKey: 'admin.accounts', icon: <Users size={18} /> },
           { id: 'animals', labelKey: 'admin.animals', icon: <Cat size={18} /> },
-          { id: 'verifications', labelKey: 'admin.verifications', icon: <ShieldCheck size={18} /> },
+          { id: 'verifications', labelKey: 'admin.verifications', icon: <ShieldCheck size={18} />, badge: stats?.pendingVerifications },
           { id: 'audit', labelKey: 'admin.audit', icon: <FileClock size={18} /> },
           { id: 'tests', labelKey: 'admin.tests', icon: <FlaskConical size={18} /> },
           { id: 'settings', labelKey: 'admin.settings', icon: <Settings size={18} /> }
@@ -209,10 +209,15 @@ export default function AdminPage() {
             }}
             className="admin-sidebar-item"
             aria-current={section === item.id ? 'page' : undefined}
-            style={{ cursor: 'pointer' }}
+            style={{ cursor: 'pointer', position: 'relative' }}
           >
             {item.icon}
             <span>{t(item.labelKey as any)}</span>
+            {(item as any).badge > 0 && (
+              <span style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'var(--danger-500)', color: 'white', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700 }}>
+                {(item as any).badge}
+              </span>
+            )}
           </a>
         ))}
       </nav>
@@ -231,17 +236,20 @@ export default function AdminPage() {
                 { label: t('admin.totalAnimals'), value: stats.animals, trend: '+5%', up: true },
                 { label: t('admin.totalDocuments'), value: stats.documents, trend: '+18%', up: true },
                 { label: t('admin.auditEntries'), value: stats.auditEntries, trend: '+2%', up: true },
+                { label: t('admin.pendingVerifications'), value: stats.pendingVerifications, trend: '', up: true, clickable: true, onClick: () => setSection('verifications') },
               ].map(stat => (
-                <div key={stat.label} className="card card-sm" style={{ marginBottom: 0 }}>
-                  <div style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text-primary)', lineHeight: 1 }}>
+                <div key={stat.label} className="card card-sm" style={{ marginBottom: 0, ...(stat.clickable ? { cursor: 'pointer', transition: 'all 0.2s' } : {}) }} onClick={stat.onClick} onMouseEnter={(e) => stat.clickable && (e.currentTarget.style.transform = 'translateY(-4px)')} onMouseLeave={(e) => stat.clickable && (e.currentTarget.style.transform = 'translateY(0)')}>
+                  <div style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', color: stat.value > 0 ? 'var(--danger-500)' : 'var(--text-primary)', lineHeight: 1 }}>
                     {stat.value}
                   </div>
                   <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: 4 }}>
                     {stat.label}
                   </div>
-                  <div style={{ fontSize: 'var(--font-size-xs)', fontWeight: 600, color: stat.up ? 'var(--success-600)' : 'var(--danger-500)', marginTop: 6 }}>
-                    {stat.up ? '↑' : '↓'} {stat.trend}
-                  </div>
+                  {stat.trend && (
+                    <div style={{ fontSize: 'var(--font-size-xs)', fontWeight: 600, color: stat.up ? 'var(--success-600)' : 'var(--danger-500)', marginTop: 6 }}>
+                      {stat.up ? '↑' : '↓'} {stat.trend}
+                    </div>
+                  )}
                 </div>
               ))}
               
@@ -507,45 +515,55 @@ export default function AdminPage() {
                   </div>
                 </div>
                 <div style={{ flex: 1, overflowY: 'auto' }}>
-                  {testResults.tests && testResults.tests.testResults && testResults.tests.testResults.length > 0 ? (
-                    testResults.tests.testResults.map((suite, suiteIdx) =>
-                      suite.testResults && suite.testResults.length > 0 ? (
-                        <div key={suiteIdx}>
-                          {suite.testResults.map((test, testIdx) => (
-                            <div
-                              key={testIdx}
-                              onClick={() => setSelectedTest(test)}
-                              style={{
-                                padding: 'var(--space-3)',
-                                borderBottom: '1px solid var(--border)',
-                                cursor: 'pointer',
-                                background: selectedTest === test ? 'var(--primary-50)' : 'transparent',
-                                transition: 'all 0.2s'
-                              }}
-                            >
-                              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-2)' }}>
-                                <div style={{ marginTop: '2px', flexShrink: 0 }}>
-                                  {test.status === 'passed' ? (
-                                    <CheckCircle size={16} color="var(--success-600)" />
-                                  ) : (
-                                    <XCircle size={16} color="var(--danger-500)" />
-                                  )}
+                  {testResults.tests && testResults.tests.testResults && testResults.tests.testResults.length > 0 ? (() => {
+                    const groups = new Map<string, TestCase[]>()
+                    for (const suite of testResults.tests.testResults) {
+                      for (const test of suite.testResults ?? []) {
+                        const groupName = test.ancestorTitles[1] ?? 'Other'
+                        if (!groups.has(groupName)) groups.set(groupName, [])
+                        groups.get(groupName)!.push(test)
+                      }
+                    }
+                    return Array.from(groups.entries()).map(([groupName, tests]) => (
+                      <div key={groupName}>
+                        <div style={{ padding: 'var(--space-3)', paddingLeft: 'var(--space-4)', background: 'var(--surface)', borderBottom: '1px solid var(--border)', fontSize: 'var(--font-size-xs)', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          {groupName}
+                        </div>
+                        {tests.map((test, testIdx) => (
+                          <div
+                            key={testIdx}
+                            onClick={() => setSelectedTest(test)}
+                            style={{
+                              padding: 'var(--space-3)',
+                              paddingLeft: 'var(--space-6)',
+                              borderBottom: '1px solid var(--border)',
+                              cursor: 'pointer',
+                              background: selectedTest === test ? 'var(--primary-50)' : 'transparent',
+                              transition: 'all 0.2s'
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-2)' }}>
+                              <div style={{ marginTop: '2px', flexShrink: 0 }}>
+                                {test.status === 'passed' ? (
+                                  <CheckCircle size={16} color="var(--success-600)" />
+                                ) : (
+                                  <XCircle size={16} color="var(--danger-500)" />
+                                )}
+                              </div>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 500, lineHeight: 1.4, wordBreak: 'break-word' }}>
+                                  {test.title}
                                 </div>
-                                <div style={{ flex: 1, minWidth: 0 }}>
-                                  <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 500, lineHeight: 1.4, wordBreak: 'break-word' }}>
-                                    {test.title}
-                                  </div>
-                                  <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginTop: '2px' }}>
-                                    {test.duration}ms
-                                  </div>
+                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginTop: '2px' }}>
+                                  {test.duration}ms
                                 </div>
                               </div>
                             </div>
-                          ))}
-                        </div>
-                      ) : null
-                    )
-                  ) : (
+                          </div>
+                        ))}
+                      </div>
+                    ))
+                  })() : (
                     <div style={{ padding: 'var(--space-4)', textAlign: 'center', color: 'var(--text-tertiary)' }}>
                       {t('admin.noTestResults')}
                     </div>

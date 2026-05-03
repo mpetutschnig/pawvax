@@ -151,8 +151,9 @@ export default async function adminRoutes(fastify) {
     const animals = db.prepare('SELECT COUNT(*) as cnt FROM animals').get().cnt
     const documents = db.prepare('SELECT COUNT(*) as cnt FROM documents').get().cnt
     const auditEntries = db.prepare('SELECT COUNT(*) as cnt FROM audit_log').get().cnt
+    const pendingVerifications = db.prepare("SELECT COUNT(*) as cnt FROM accounts WHERE verification_status = 'pending'").get().cnt
 
-    return { accounts, animals, documents, auditEntries }
+    return { accounts, animals, documents, auditEntries, pendingVerifications }
   })
 
   // Test Results

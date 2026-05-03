@@ -321,6 +321,7 @@
   "admin.totalAnimals": "Total Pets",
   "admin.totalDocuments": "Total Documents",
   "admin.auditEntries": "Audit Entries",
+  "admin.pendingVerifications": "Pending Verifications",
   "admin.accountManagement": "Account Management",
   "admin.noAccounts": "No accounts found",
   "admin.name": "Name",

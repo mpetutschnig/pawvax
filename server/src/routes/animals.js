@@ -191,6 +191,7 @@ export default async function animalRoutes(fastify) {
 
     if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden' })
 
+    ensureDefaultSharing(db, animal.id)
     return applySharing(db, animal, 'guest', animal.owner_name, animal.owner_email)
   })
 
