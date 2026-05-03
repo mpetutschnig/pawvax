@@ -402,30 +402,43 @@ export default async function animalRoutes(fastify) {
     return db.prepare('SELECT * FROM animals WHERE id = ?').get(id)
   })
 
-  // Tier archivieren
+  // Tier archivieren / de-archivieren (togglebar)
   fastify.patch('/api/animals/:id/archive', async (req, reply) => {
     const db = getDb()
     const { id } = req.params
     const { accountId, role } = req.user
+    const { is_archived } = req.body || {}
 
-    const animal = db.prepare('SELECT id FROM animals WHERE id = ? AND account_id = ?').get(id, accountId)
+    const animal = db.prepare('SELECT id, is_archived FROM animals WHERE id = ? AND account_id = ?').get(id, accountId)
     if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden oder keine Berechtigung' })
 
-    db.prepare('UPDATE animals SET is_archived = 1 WHERE id = ?').run(id)
+    // Toggle: wenn is_archived undefined, toggle; sonst setze auf den Wert
+    const newState = is_archived !== undefined ? is_archived : !animal.is_archived
+    db.prepare('UPDATE animals SET is_archived = ? WHERE id = ?').run(newState ? 1 : 0, id)
 
-    logAudit(db, { accountId, role, action: 'archive_animal', resource: 'animal', resourceId: id, ip: req.ip })
+    const action = newState ? 'archive_animal' : 'unarchive_animal'
+    logAudit(db, { accountId, role, action, resource: 'animal', resourceId: id, ip: req.ip })
 
     return { success: true }
   })
 
-  // Tier löschen
+  // Tier löschen (mit Sicherheitsbestätigung)
   fastify.delete('/api/animals/:id', async (req, reply) => {
     const db = getDb()
     const { id } = req.params
     const { accountId, role } = req.user
+    const { confirmationText } = req.body || {}
 
     const animal = db.prepare('SELECT * FROM animals WHERE id = ? AND account_id = ?').get(id, accountId)
     if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden' })
+
+    // Sicherheitsabfrage: Namen oder Geburtsdatum muss eingegeben werden
+    const nameMatches = confirmationText && confirmationText.toLowerCase() === animal.name.toLowerCase()
+    const birthdateMatches = confirmationText && confirmationText === animal.birthdate
+
+    if (!nameMatches && !birthdateMatches) {
+      return reply.code(400).send({ error: 'Sicherheitsbestätigung erforderlich: Gib den Namen oder das Geburtsdatum des Tieres ein' })
+    }
 
     db.prepare('DELETE FROM document_pages WHERE document_id IN (SELECT id FROM documents WHERE animal_id = ?)').run(id)
     db.prepare('DELETE FROM documents WHERE animal_id = ?').run(id)
