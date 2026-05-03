@@ -263,7 +263,7 @@ export default function ProfilePage() {
   const requestVerify = async () => {
     try {
       const token = localStorage.getItem('token')
-      const res = await fetch('/api/accounts/me/verify-request', {
+      const res = await fetch('/api/accounts/request-verification', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ roles: requestedRoles })
@@ -286,7 +286,7 @@ export default function ProfilePage() {
   const handleTakeout = async () => {
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch('/api/accounts/me/takeout', {
+      const response = await fetch('/api/accounts/me/export', {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       if (!response.ok) throw new Error('Download failed')

@@ -14,14 +14,17 @@ CREATE TABLE IF NOT EXISTS accounts (
 );
 
 CREATE TABLE IF NOT EXISTS animals (
-  id         TEXT PRIMARY KEY,
-  account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
-  name       TEXT NOT NULL,
-  species    TEXT NOT NULL CHECK(species IN ('dog', 'cat', 'other')),
-  breed      TEXT,
-  birthdate  TEXT,
-  created_at TEXT DEFAULT (datetime('now')),
-  is_archived INTEGER DEFAULT 0 NOT NULL
+  id              TEXT PRIMARY KEY,
+  account_id      TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  name            TEXT NOT NULL,
+  species         TEXT NOT NULL CHECK(species IN ('dog', 'cat', 'other')),
+  breed           TEXT,
+  birthdate       TEXT,
+  address         TEXT,
+  avatar_path     TEXT,
+  dynamic_fields  TEXT,
+  created_at      TEXT DEFAULT (datetime('now')),
+  is_archived     INTEGER DEFAULT 0 NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS animal_tags (
@@ -62,15 +65,17 @@ CREATE TABLE IF NOT EXISTS audit_log (
 );
 
 CREATE TABLE IF NOT EXISTS animal_sharing (
-  id                TEXT PRIMARY KEY,
-  animal_id         TEXT NOT NULL REFERENCES animals(id) ON DELETE CASCADE,
-  role              TEXT NOT NULL CHECK(role IN ('readonly', 'authority', 'vet')),
-  share_vaccination INTEGER NOT NULL DEFAULT 1,
-  share_medication  INTEGER NOT NULL DEFAULT 0,
-  share_other_docs  INTEGER NOT NULL DEFAULT 0,
-  share_contact     INTEGER NOT NULL DEFAULT 0,
-  share_breed       INTEGER NOT NULL DEFAULT 1,
-  share_birthdate   INTEGER NOT NULL DEFAULT 1,
+  id                  TEXT PRIMARY KEY,
+  animal_id           TEXT NOT NULL REFERENCES animals(id) ON DELETE CASCADE,
+  role                TEXT NOT NULL CHECK(role IN ('readonly', 'authority', 'vet')),
+  share_vaccination   INTEGER NOT NULL DEFAULT 1,
+  share_medication    INTEGER NOT NULL DEFAULT 0,
+  share_other_docs    INTEGER NOT NULL DEFAULT 0,
+  share_contact       INTEGER NOT NULL DEFAULT 0,
+  share_breed         INTEGER NOT NULL DEFAULT 1,
+  share_birthdate     INTEGER NOT NULL DEFAULT 1,
+  share_address       INTEGER NOT NULL DEFAULT 0,
+  share_dynamic_fields INTEGER NOT NULL DEFAULT 0,
   UNIQUE(animal_id, role)
 );
 

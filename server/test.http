@@ -1,0 +1,660 @@
+# PAWvax API Test Suite (.http)
+# Nutze diese Datei mit: VSCode REST Client oder Humao (https://humao.rest-client.io)
+# 
+# Anleitung:
+# 1. Datei in VSCode/Humao öffnen
+# 2. "Send Request" Button klicken oder Ctrl+Alt+R drücken
+# 3. Response wird rechts angezeigt
+
+@host = https://paw.oxs.at
+@apiHost = {{host}}/api
+@contentType = application/json
+
+# ════════════════════════════════════════════════════════════════
+# GLOBALE VARIABLEN (Speichern von JWT + IDs zwischen Requests)
+# ════════════════════════════════════════════════════════════════
+
+@testEmail = testuser-001@example.com 
+
+# ════════════════════════════════════════════════════════════════
+# 1. AUTHENTIFIZIERUNG (Auth)
+# ════════════════════════════════════════════════════════════════
+
+### 1a. Register — Neuen Account erstellen
+# @name Register
+POST {{apiHost}}/auth/register
+Content-Type: {{contentType}}
+
+{
+  "name": "Test User {{$randomInt 1000 9999}}",
+  "email": "{{testEmail}}",
+  "password": "SecurePassword123!"
+}
+
+###
+# Expected: 201 Created + JWT token
+# Token wird automatisch in {{Register.response.body.token}} gespeichert
+# UserID in {{Register.response.body.userId}}
+
+### 1b. Login — Mit Credentials anmelden (nutzt @testEmail von Register)
+# @name Login
+POST {{apiHost}}/auth/login
+Content-Type: {{contentType}}
+
+{
+  "email": "{{testEmail}}",
+  "password": "SecurePassword123!"
+}
+
+###
+# Expected: 200 OK + JWT token
+# Token in {{Login.response.body.token}}
+
+### 1c. Get Profile — Eigenes Profil abrufen
+# @name GetProfile
+GET {{apiHost}}/accounts/me
+Authorization: Bearer {{Login.response.body.token}}
+Content-Type: {{contentType}}
+
+###
+# Expected: 200 OK + Account-Daten (id, name, email, roles, verified, verification_status)
+
+### 1d. Patch Profile — Profildaten aktualisieren
+# @name UpdateProfile
+PATCH {{apiHost}}/accounts/me
+Authorization: Bearer {{Login.response.body.token}}
+Content-Type: {{contentType}}
+
+{
+  "name": "Updated Name",
+  "gemini_model": "gemini-2.0-flash"
+}
+
+###
+# Expected: 200 OK
+
+### 1e. Logout — Abmelden (JWT in Blacklist)
+# @name Logout
+POST {{apiHost}}/auth/logout
+Authorization: Bearer {{Login.response.body.token}}
+Content-Type: {{contentType}}
+
+{}
+
+###
+# Expected: 200 OK
+# Token ist jetzt ungültig!
+
+### 1f. Request Verification — Als Tierarzt/Behörde verifizieren
+# @name RequestVerification
+POST {{apiHost}}/accounts/request-verification
+Authorization: Bearer {{Login.response.body.token}}
+Content-Type: {{contentType}}
+
+{
+  "roles": ["vet"]
+}
+
+###
+# Expected: 200 OK + verification_status: "pending"
+
+# ════════════════════════════════════════════════════════════════
+# 2. TIERE (Animals)
+# ════════════════════════════════════════════════════════════════
+
+### 2a. Get All Animals — Alle Tiere des Users abrufen
+# @name GetAllAnimals
+GET {{apiHost}}/animals
+Authorization: Bearer {{Login.response.body.token}}
+Content-Type: {{contentType}}
+
+###
+# Expected: 200 OK + Array von Tieren
+# Speichere erste tierID: @animalId = tiere[0].id
+
+### 2b. Create Animal — Neues Tier hinzufügen
+# @name CreateAnimal
+POST {{apiHost}}/animals
+Authorization: Bearer {{Login.response.body.token}}
+Content-Type: {{contentType}}
+
+{
+  "name": "Fluffy {{$randomInt 1000 9999}}",
+  "species": "cat",
+  "breed": "Britisch Kurzhaar",
+  "birthdate": "2022-03-15"
+}
+
+###
+# Expected: 201 Created + tierID
+# Tier-ID in {{CreateAnimal.response.body.id}}
+
+### 2c. Get Animal Detail — Ein Tier im Detail abrufen
+# @name GetAnimalDetail
+GET {{apiHost}}/animals/{{CreateAnimal.response.body.id}}
+Authorization: Bearer {{Login.response.body.token}}
+Content-Type: {{contentType}}
+
+###
+# Expected: 200 OK + Tier-Details (id, name, species, breed, birthdate, avatar_path, tags, documents)
+
+### 2d. Update Animal — Tier-Daten aktualisieren
+# @name UpdateAnimal
+PATCH {{apiHost}}/animals/{{CreateAnimal.response.body.id}}
+Authorization: Bearer {{Login.response.body.token}}
+Content-Type: {{contentType}}
+
+{
+  "name": "Fluffy Updated",
+  "breed": "Ragdoll"
+}
+
+###
+# Expected: 200 OK
+
+### 2e. Upload Avatar — Tierprofilbild hochladen
+# @name UploadAnimalAvatar
+PATCH {{apiHost}}/animals/{{CreateAnimal.response.body.id}}/avatar
+Authorization: Bearer {{Login.response.body.token}}
+Content-Type: {{contentType}}
+
+{
+  "base64Image": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQH/2wBDAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQH/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAr/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8VAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCwAA8A/9k"
+}
+
+###
+# Expected: 200 OK
+
+### 2f. Archive Animal — Tier archivieren (als verstorben markieren)
+# @name ArchiveAnimal
+PATCH {{apiHost}}/animals/{{CreateAnimal.response.body.id}}/archive
+Authorization: Bearer {{Login.response.body.token}}
+Content-Type: {{contentType}}
+
+{
+  "is_archived": true
+}
+
+###
+# Expected: 200 OK + is_archived: true
+
+### 2g. Delete Animal — Tier löschen
+# @name DeleteAnimal
+DELETE {{apiHost}}/animals/{{CreateAnimal.response.body.id}}
+Authorization: Bearer {{Login.response.body.token}}
+Content-Type: {{contentType}}
+
+###
+# Expected: 200 OK oder 404 wenn bereits gelöscht
+
+# ════════════════════════════════════════════════════════════════
+# 3. TAGS & NFC/Barcode
+# ════════════════════════════════════════════════════════════════
+
+### 3a. Add NFC Tag — NFC/Barcode mit Tier verbinden
+# @name AddNFCTag
+POST {{apiHost}}/animals/{{CreateAnimal.response.body.id}}/tags
+Authorization: Bearer {{Login.response.body.token}}
+Content-Type: {{contentType}}
+
+{
+  "tagId": "NFC-ABC123XYZ",
+  "tagType": "nfc"
+}
+
+###
+# Expected: 201 Created + tagID
+# Tag-ID in {{AddNFCTag.response.body.id}}
+
+### 3b. Get Animal By Tag — Tier über NFC/Barcode abrufen
+# @name GetAnimalByTag
+GET {{apiHost}}/animals/by-tag/NFC-ABC123XYZ
+Authorization: Bearer {{Login.response.body.token}}
+Content-Type: {{contentType}}
+
+###
+# Expected: 200 OK + Tier-Daten (auch von anderen Usern, falls öffentlich)
+
+### 3c. Get Animal Tags — Alle Tags eines Tieres abrufen
+# @name GetAnimalTags
+GET {{apiHost}}/animals/{{CreateAnimal.response.body.id}}/tags
+Authorization: Bearer {{Login.response.body.token}}
+Content-Type: {{contentType}}
+
+###
+# Expected: 200 OK + Array von Tags
+
+### 3d. Deactivate Tag — Tag deaktivieren
+# @name DeactivateTag
+PATCH {{apiHost}}/animal-tags/{{AddNFCTag.response.body.id}}
+Authorization: Bearer {{Login.response.body.token}}
+Content-Type: {{contentType}}
+
+{
+  "active": false
+}
+
+###
+# Expected: 200 OK
+
+# ════════════════════════════════════════════════════════════════
+# 4. DOKUMENTE (Documents) — Impfpässe, Rezepte, etc.
+# ════════════════════════════════════════════════════════════════
+
+### 4a. Get Animal Documents — Alle Dokumente eines Tieres
+# @name GetAnimalDocuments
+GET {{apiHost}}/animals/{{CreateAnimal.response.body.id}}/documents
+Authorization: Bearer {{Login.response.body.token}}
+Content-Type: {{contentType}}
+
+###
+# Expected: 200 OK + Array von Dokumenten
+
+### 4b. Upload Document (Vaccination) — Impfpass hochladen
+# @name UploadDocument
+POST {{apiHost}}/animals/{{CreateAnimal.response.body.id}}/documents
+Authorization: Bearer {{Login.response.body.token}}
+Content-Type: multipart/form-data; boundary=----FormBoundary1234567890
+
+------FormBoundary1234567890
+Content-Disposition: form-data; name="doc_type"
+
+vaccination
+------FormBoundary1234567890
+Content-Disposition: form-data; name="file"; filename="vaccination.jpg"
+Content-Type: image/jpeg
+
+< ./vaccination-sample.jpg
+------FormBoundary1234567890--
+
+###
+# Expected: 202 Accepted + documentID + analysis_status: "pending"
+# Document-ID in {{UploadDocument.response.body.id}}
+
+### 4c. Get Document Detail — Dokument Details mit OCR-Daten
+# @name GetDocumentDetail
+GET {{apiHost}}/documents/{{UploadDocument.response.body.id}}
+Authorization: Bearer {{Login.response.body.token}}
+Content-Type: {{contentType}}
+
+###
+# Expected: 200 OK + extracted_json (vaccine_name, date, valid_until, vet_name, etc.)
+
+### 4d. Patch Document — Dokument-Felder aktualisieren (manuell korrigieren)
+# @name UpdateDocument
+PATCH {{apiHost}}/documents/{{UploadDocument.response.body.id}}
+Authorization: Bearer {{Login.response.body.token}}
+Content-Type: {{contentType}}
+
+{
+  "doc_type": "medication",
+  "extracted_json": {
+    "vaccine_name": "Rabies",
+    "date": "2024-01-15",
+    "valid_until": "2025-01-15",
+    "vet_name": "Dr. Schmidt"
+  }
+}
+
+###
+# Expected: 200 OK
+
+### 4e. Retry OCR Analysis — OCR erneut versuchen
+# @name RetryOCRAnalysis
+POST {{apiHost}}/documents/{{UploadDocument.response.body.id}}/retry-analysis
+Authorization: Bearer {{Login.response.body.token}}
+Content-Type: {{contentType}}
+
+{}
+
+###
+# Expected: 202 Accepted + analysis_status: "pending"
+
+### 4f. Delete Document — Dokument löschen
+# @name DeleteDocument
+DELETE {{apiHost}}/documents/{{UploadDocument.response.body.id}}
+Authorization: Bearer {{Login.response.body.token}}
+Content-Type: {{contentType}}
+
+###
+# Expected: 200 OK
+
+# ════════════════════════════════════════════════════════════════
+# 5. SHARING — Temporäre Freigabe-Links
+# ════════════════════════════════════════════════════════════════
+
+### 5a. Get Sharing Settings — Freigabe-Einstellungen für Tier
+# @name GetSharingSettings
+GET {{apiHost}}/animals/{{CreateAnimal.response.body.id}}/sharing
+Authorization: Bearer {{Login.response.body.token}}
+Content-Type: {{contentType}}
+
+###
+# Expected: 200 OK + sharing_links: []
+
+### 5b. Create Sharing Link — Temporären Link erstellen (z.B. 7 Tage)
+# @name CreateSharingLink
+PUT {{apiHost}}/animals/{{CreateAnimal.response.body.id}}/sharing
+Authorization: Bearer {{Login.response.body.token}}
+Content-Type: {{contentType}}
+
+{
+  "role": "public",
+  "expires_in_days": 7
+}
+
+###
+# Expected: 201 Created + sharing_link (URL zum Teilen)
+# Share-ID in {{CreateSharingLink.response.body.share_id}}
+
+### 5c. Public: Get Shared Animal — Tier über Sharing-Link abrufen (OHNE JWT!)
+# @name GetSharedAnimal
+GET {{apiHost}}/public/share/{{CreateSharingLink.response.body.share_id}}
+Content-Type: {{contentType}}
+
+###
+# Expected: 200 OK + Tier + Dokumente (auch wenn User nicht angemeldet)
+
+### 5d. Delete Sharing Link — Link deaktivieren
+# @name DeleteSharingLink
+DELETE {{apiHost}}/animals/{{CreateAnimal.response.body.id}}/sharing/{{CreateSharingLink.response.body.share_id}}
+Authorization: Bearer {{Login.response.body.token}}
+Content-Type: {{contentType}}
+
+###
+# Expected: 200 OK
+
+# ════════════════════════════════════════════════════════════════
+# 6. ADMIN — Verwaltung (nur für Admins)
+# ════════════════════════════════════════════════════════════════
+
+### 6a. Admin: Get All Accounts — Alle User
+# @name AdminGetAllAccounts
+GET {{apiHost}}/admin/accounts
+Authorization: Bearer {{Login.response.body.token}}
+Content-Type: {{contentType}}
+
+###
+# Expected: 200 OK (wenn Admin) oder 403 Forbidden (wenn nicht Admin)
+
+### 6b. Admin: Get Pending Verifications — Zu verifizierende Tierärzte
+# @name AdminGetPendingVerifications
+GET {{apiHost}}/admin/accounts/pending-verification
+Authorization: Bearer {{Login.response.body.token}}
+Content-Type: {{contentType}}
+
+###
+# Expected: 200 OK + Array von pending Accounts
+
+### 6c. Admin: Verify Account — Tierarzt verifizieren
+# @name AdminVerifyAccount
+POST {{apiHost}}/admin/accounts/{{Register.response.body.userId}}/verify
+Authorization: Bearer {{Login.response.body.token}}
+Content-Type: {{contentType}}
+
+{
+  "approved": true,
+  "note": "Verifiziert durch Admin"
+}
+
+###
+# Expected: 200 OK + verified: true
+
+### 6d. Admin: Get Audit Log — Alle Aktionen loggen
+# @name AdminGetAuditLog
+GET {{apiHost}}/admin/audit?limit=50&offset=0
+Authorization: Bearer {{Login.response.body.token}}
+Content-Type: {{contentType}}
+
+###
+# Expected: 200 OK + Array von Audit-Einträgen
+
+### 6e. Admin: Get Stats — System-Statistiken
+# @name AdminGetStats
+GET {{apiHost}}/admin/stats
+Authorization: Bearer {{Login.response.body.token}}
+Content-Type: {{contentType}}
+
+###
+# Expected: 200 OK + {total_users, total_animals, total_documents, ...}
+
+# ════════════════════════════════════════════════════════════════
+# 7. VET API — Externe Veterinär-API (API Key auth)
+# ════════════════════════════════════════════════════════════════
+
+@vetApiKey = pvx_live_0000000000000000000000000000000000000000000000000000000000000000
+
+### 7a. Admin: Create API Key — API-Schlüssel für Vet generieren
+# @name AdminCreateAPIKey
+POST {{apiHost}}/admin/api-keys
+Authorization: Bearer {{Login.response.body.token}}
+Content-Type: {{contentType}}
+
+{
+  "name": "Test Vet Clinic",
+  "permissions": ["read", "write"]
+}
+
+###
+# Expected: 201 Created + raw_key (NUR EINMAL sichtbar!)
+# API Key in {{AdminCreateAPIKey.response.body.raw_key}}
+
+### 7b. VET API: Get Animal — Tier abrufen (mit API Key)
+# @name VetGetAnimal
+GET {{apiHost}}/v1/animals/{{CreateAnimal.response.body.id}}
+X-Api-Key: {{AdminCreateAPIKey.response.body.raw_key}}
+Content-Type: {{contentType}}
+
+###
+# Expected: 200 OK + animal data (nur wenn Vet verifiziert + Key aktiv)
+
+### 7c. VET API: Get Animal Documents — Dokumente abrufen
+# @name VetGetAnimalDocuments
+GET {{apiHost}}/v1/animals/{{CreateAnimal.response.body.id}}/documents
+X-Api-Key: {{AdminCreateAPIKey.response.body.raw_key}}
+Content-Type: {{contentType}}
+
+###
+# Expected: 200 OK + documents array
+
+### 7d. VET API: Get Animal By Tag — Tier per Tag lookup
+# @name VetGetAnimalByTag
+GET {{apiHost}}/v1/animals/by-tag/NFC-ABC123XYZ
+X-Api-Key: {{AdminCreateAPIKey.response.body.raw_key}}
+Content-Type: {{contentType}}
+
+###
+# Expected: 200 OK + animal data
+
+### 7e. VET API: Upload Document — Dokument via VET API hochladen
+# @name VetUploadDocument
+POST {{apiHost}}/v1/animals/{{CreateAnimal.response.body.id}}/documents
+X-Api-Key: {{AdminCreateAPIKey.response.body.raw_key}}
+Content-Type: multipart/form-data; boundary=----FormBoundary1234567890
+
+------FormBoundary1234567890
+Content-Disposition: form-data; name="doc_type"
+
+vaccination
+------FormBoundary1234567890
+Content-Disposition: form-data; name="file"; filename="vet-vaccination.jpg"
+Content-Type: image/jpeg
+
+< ./vaccination-sample.jpg
+------FormBoundary1234567890--
+
+###
+# Expected: 202 Accepted + documentID + added_by_role: "vet"
+
+### 7f. VET API: Create Vaccination Record — Strukturierte Impfdaten
+# @name VetCreateVaccinationRecord
+POST {{apiHost}}/v1/animals/{{CreateAnimal.response.body.id}}/vaccinations
+X-Api-Key: {{AdminCreateAPIKey.response.body.raw_key}}
+Content-Type: {{contentType}}
+
+{
+  "vaccine_name": "Rabies",
+  "date": "2024-05-03",
+  "valid_until": "2025-05-03",
+  "vet_name": "Dr. Schmidt"
+}
+
+###
+# Expected: 201 Created + documentID + added_by_role: "vet"
+
+### 7g. Admin: Get API Keys — Alle Keys anzeigen
+# @name AdminGetAPIKeys
+GET {{apiHost}}/admin/api-keys
+Authorization: Bearer {{Login.response.body.token}}
+Content-Type: {{contentType}}
+
+###
+# Expected: 200 OK + [{id, key_prefix, name, active, last_used_at, ...}]
+
+### 7h. Admin: Delete API Key — Key deaktivieren
+# @name AdminDeleteAPIKey
+DELETE {{apiHost}}/admin/api-keys/{{AdminCreateAPIKey.response.body.id}}
+Authorization: Bearer {{Login.response.body.token}}
+Content-Type: {{contentType}}
+
+###
+# Expected: 200 OK
+
+# ════════════════════════════════════════════════════════════════
+# 8. DSGVO — Datenschutz
+# ════════════════════════════════════════════════════════════════
+
+### 8a. Export Data (Takeout) — Alle Daten als ZIP exportieren
+# @name ExportData
+GET {{apiHost}}/accounts/me/export
+Authorization: Bearer {{Login.response.body.token}}
+Accept: application/zip
+
+###
+# Expected: 200 OK + ZIP-File (mit account.json + Tiere + Dokumente)
+# Der Download startet automatisch
+
+### 8b. Delete Account — Account + Alle Daten löschen
+# @name DeleteAccount
+DELETE {{apiHost}}/accounts/me
+Authorization: Bearer {{Login.response.body.token}}
+Content-Type: {{contentType}}
+
+{
+  "password": "SecurePassword123!"
+}
+
+###
+# Expected: 200 OK + Account gelöscht (irreversibel!)
+
+# ════════════════════════════════════════════════════════════════
+# 9. PUBLIC ENDPOINTS — Ohne JWT
+# ════════════════════════════════════════════════════════════════
+
+### 9a. Public: Get Shared Animal — Tier über Freigabe-Link
+# @name PublicGetSharedAnimal
+GET {{apiHost}}/public/share/{{CreateSharingLink.response.body.share_id}}
+Content-Type: {{contentType}}
+
+###
+# Expected: 200 OK (wenn Link noch gültig) oder 410 Gone (abgelaufen)
+
+### 9b. Public: Get Animal By Tag — NFC-Scan ohne Login
+# @name PublicGetAnimalByTag
+GET {{apiHost}}/animals/by-tag/NFC-ABC123XYZ
+Content-Type: {{contentType}}
+
+###
+# Expected: 200 OK (wenn Tier öffentlich gemacht wurde) oder 404
+
+### 9c. Health Check — API läuft?
+# @name HealthCheck
+GET {{apiHost}}/health
+
+###
+# Expected: 200 OK + {"status":"ok"}
+
+# ════════════════════════════════════════════════════════════════
+# FEHLERBEHANDLUNG — Was können falsch gehen?
+# ════════════════════════════════════════════════════════════════
+
+### FEHLER 1: Ungültiger JWT Token
+# @name ErrorInvalidToken
+GET {{apiHost}}/animals
+Authorization: Bearer invalid_token_here
+Content-Type: {{contentType}}
+
+###
+# Expected: 401 Unauthorized
+
+### FEHLER 2: Fehlende erforderliche Felder
+# @name ErrorMissingField
+POST {{apiHost}}/animals
+Authorization: Bearer {{Login.response.body.token}}
+Content-Type: {{contentType}}
+
+{
+  "species": "cat"
+  // "name" fehlt — erforderlich!
+}
+
+###
+# Expected: 400 Bad Request oder 422 Unprocessable Entity
+
+### FEHLER 3: Tier existiert nicht
+# @name ErrorNotFound
+GET {{apiHost}}/animals/invalid-id-12345
+Authorization: Bearer {{Login.response.body.token}}
+Content-Type: {{contentType}}
+
+###
+# Expected: 404 Not Found
+
+### FEHLER 4: Keine Berechtigung (Tier gehört anderem User)
+# @name ErrorForbidden
+GET {{apiHost}}/animals/anderer-users-tier-id
+Authorization: Bearer {{Login.response.body.token}}
+Content-Type: {{contentType}}
+
+###
+# Expected: 403 Forbidden
+
+### FEHLER 5: Rate Limit überschritten (VET API: 60 req/min)
+# @name ErrorRateLimit
+GET {{apiHost}}/v1/animals/{{CreateAnimal.response.body.id}}
+X-Api-Key: {{AdminCreateAPIKey.response.body.raw_key}}
+Content-Type: {{contentType}}
+
+###
+# Expected: 429 Too Many Requests (nach 60+ Requests pro Minute)
+
+# ════════════════════════════════════════════════════════════════
+# TIPPS ZUM VERWENDEN DIESER DATEI
+# ════════════════════════════════════════════════════════════════
+#
+# 1. In VSCode REST Client installieren: "Rest Client" Extension (Huachao Mao)
+#    oder mit Humao (https://humao.rest-client.io)
+#
+# 2. Variablen nutzen:
+#    - @token automatisch speichern nach Login
+#    - @animalId automatisch speichern nach Create Animal
+#    - Dann in anderen Requests nutzen: {{apiHost}}/animals/{{animalId}}
+#
+# 3. Request ausführen:
+#    - Button "Send Request" klicken ODER
+#    - Tastenkombination: Ctrl+Alt+R (VS Code)
+#
+# 4. Response anschauen:
+#    - Rechts neben dem Request öffnet sich ein Panel
+#    - Status Code, Header, Body anzeigen
+#
+# 5. Fehler debuggen:
+#    - Status Code prüfen (200, 201, 400, 401, 404, 500)
+#    - Response Body lesen (Error Message)
+#    - Browser DevTools → Network Tab öffnen
+#    - Server Logs: journalctl --user-instance -u paw-api.service -f
+#
+# 6. Multipart-Upload (Dateien):
+#    - Datei-Path z.B.: < ./vaccination-sample.jpg
+#    - Stelle sicher, dass die Datei im selben Verzeichnis existiert
+#    - Oder absoluten Path nutzen
