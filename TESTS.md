@@ -10,6 +10,7 @@ Testet alle API-Endpunkte gegen die Live-API (`https://paw.oxs.at`).
 
 ```bash
 PAW_API_UID=$(id -u paw-api) && XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "
+  cd /tmp && \
   podman run --rm \
     -e API_URL=https://paw.oxs.at/api \
     -e TEST_TIMEOUT=20000 \
@@ -27,11 +28,12 @@ Zeigt detaillierte Ausgabe + Server-Logs parallel.
 ```bash
 # Terminal 1: Server-Logs mitverfolgen
 PAW_API_UID=$(id -u paw-api) && su -s /bin/bash paw-api -c "
-  XDG_RUNTIME_DIR=/run/user/$PAW_API_UID journalctl --user -u paw-api -f --no-pager
+  cd /tmp && XDG_RUNTIME_DIR=/run/user/$PAW_API_UID journalctl --user -u paw-api -f --no-pager
 " &
 
 # Terminal 2: Tests ausführen
 PAW_API_UID=$(id -u paw-api) && XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "
+  cd /tmp && \
   podman run --rm \
     -e API_URL=https://paw.oxs.at/api \
     -e TEST_TIMEOUT=20000 \
@@ -49,6 +51,7 @@ Nur eine bestimmte Gruppe testen (z.B. nur Auth oder nur Animals).
 ```bash
 # Nur Auth-Tests
 PAW_API_UID=$(id -u paw-api) && XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "
+  cd /tmp && \
   podman run --rm \
     -e API_URL=https://paw.oxs.at/api \
     paw-api:latest \
@@ -72,7 +75,7 @@ Verfügbare Test-Suites:
 ```bash
 # Live-Logs des API-Servers
 PAW_API_UID=$(id -u paw-api) && su -s /bin/bash paw-api -c "
-  XDG_RUNTIME_DIR=/run/user/$PAW_API_UID journalctl --user -u paw-api -f --no-pager
+  cd /tmp && XDG_RUNTIME_DIR=/run/user/$PAW_API_UID journalctl --user -u paw-api -f --no-pager
 "
 ```
 
