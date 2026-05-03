@@ -214,6 +214,34 @@ describe('PAWvax API Tests', () => {
       // Speichere für Dokument-Upload Tests
       testState.animalId = data.id
     })
+
+    test('2h. Delete Animal with Cascade — Tier mit Dokumenten/Tags löschen (Cascade)', async () => {
+      // Erstelle ein neues Tier speziell für den Delete-Test
+      const { status: createStatus, data: deleteTestAnimal } = await apiCall('POST', '/animals', {
+        name: 'To-Delete-Animal',
+        species: 'cat',
+        breed: 'Test'
+      })
+
+      expect(createStatus).toBe(201)
+      const deleteAnimalId = deleteTestAnimal.id
+
+      // Füge einen Tag hinzu (erzeugt animal_tags Eintrag)
+      const { status: tagStatus } = await apiCall('POST', `/animals/${deleteAnimalId}/tags`, {
+        tagId: `DELETE-TEST-${Date.now()}`,
+        tagType: 'nfc'
+      })
+      expect(tagStatus).toBe(201)
+
+      // Jetzt lösche das Tier mit Cascade
+      const { status: deleteStatus } = await apiCall('DELETE', `/animals/${deleteAnimalId}`)
+
+      expect(deleteStatus).toBe(204)
+
+      // Verifiziere, dass Tier weg ist
+      const { status: verifyStatus } = await apiCall('GET', `/animals/${deleteAnimalId}`)
+      expect(verifyStatus).toBe(404)
+    })
   })
 
   // ════════════════════════════════════════════════════════════════
