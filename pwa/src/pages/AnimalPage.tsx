@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { getAnimal, getAnimalDocuments, getAnimalTags, updateAnimal, deleteAnimal, uploadAnimalAvatar, deleteDocument, getMe } from '../api/rest'
 import { PageHeader } from '../components/PageHeader' 
-import { PawPrint, Cat, Edit2, Trash2, Lock, Camera, Search, Radio, ShieldAlert, AlertTriangle, RefreshCw, X, Syringe, FileText, CheckCircle, ArrowDownAZ, ArrowUpAZ, SlidersHorizontal, ArrowRightLeft, Share2 } from 'lucide-react'
+import { PawPrint, Cat, Edit2, Trash2, Camera, Search, Radio, ShieldAlert, AlertTriangle, RefreshCw, X, Syringe, FileText, CheckCircle, ArrowDownAZ, ArrowUpAZ, SlidersHorizontal, ArrowRightLeft, Share2 } from 'lucide-react'
 import { AnimalDTO } from '../types/animal'
 interface AnimalTag {
   tag_id: string; tag_type: string; active: number; added_at: string
