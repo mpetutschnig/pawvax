@@ -1,9 +1,9 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useMemo } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { getAnimal, getAnimalDocuments, getAnimalTags, updateAnimal, deleteAnimal, uploadAnimalAvatar, deleteDocument, getMe } from '../api/rest'
 import { PageHeader } from '../components/PageHeader'
-import { PawPrint, Cat, Edit2, Trash2, Lock, Camera, Search, Radio, ShieldAlert, AlertTriangle, RefreshCw, X, Syringe, FileText, CheckCircle } from 'lucide-react'
+import { PawPrint, Cat, Edit2, Trash2, Lock, Camera, Search, Radio, ShieldAlert, AlertTriangle, RefreshCw, X, Syringe, FileText, CheckCircle, ArrowDownAZ, ArrowUpAZ, SlidersHorizontal } from 'lucide-react'
 import { AnimalDTO } from '../types/animal'
 interface AnimalTag {
   tag_id: string; tag_type: string; active: number; added_at: string
@@ -39,6 +39,12 @@ export default function AnimalPage() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [documentTab, setDocumentTab] = useState<'all' | 'pending'>('all')
   const [retrying, setRetrying] = useState<string | null>(null)
+  const [filterType, setFilterType] = useState<'all' | 'vaccination' | 'medication' | 'other'>('all')
+  const [filterTag, setFilterTag] = useState('')
+  const [filterDateFrom, setFilterDateFrom] = useState('')
+  const [filterDateTo, setFilterDateTo] = useState('')
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc')
+  const [showAdvancedFilter, setShowAdvancedFilter] = useState(false)
   const avatarInputRef = useRef<HTMLInputElement>(null)
   
   const [showRetryModal, setShowRetryModal] = useState(false)
@@ -323,6 +329,50 @@ export default function AnimalPage() {
     )
   }
 
+  // All unique tags across documents
+  const allTags = useMemo(() =>
+    Array.from(new Set(
+      documents.flatMap(d => d.extracted_json?.suggested_tags ?? [])
+    )).sort()
+  , [documents])
+
+  // Filtered + sorted flat list
+  const filteredDocs = useMemo(() => {
+    return documents
+      .filter(d => d.analysis_status !== 'pending_analysis')
+      .filter(d => filterType === 'all' || d.doc_type === filterType)
+      .filter(d => !filterTag || (d.extracted_json?.suggested_tags ?? []).includes(filterTag))
+      .filter(d => {
+        if (!filterDateFrom && !filterDateTo) return true
+        const date = d.extracted_json?.document_date || d.created_at.slice(0, 10)
+        if (filterDateFrom && date < filterDateFrom) return false
+        if (filterDateTo && date > filterDateTo) return false
+        return true
+      })
+      .filter(d => !documentSearch ||
+        docTypeLabel(d.doc_type).toLowerCase().includes(documentSearch) ||
+        (d.extracted_json?.title ?? '').toLowerCase().includes(documentSearch) ||
+        (d.extracted_json?.suggested_tags ?? []).some((t: string) => t.toLowerCase().includes(documentSearch)) ||
+        new Date(d.created_at).toLocaleString(i18n.language === 'de' ? 'de-AT' : 'en-GB').includes(documentSearch)
+      )
+      .sort((a, b) => {
+        const da = a.extracted_json?.document_date || a.created_at
+        const db = b.extracted_json?.document_date || b.created_at
+        return sortOrder === 'desc' ? db.localeCompare(da) : da.localeCompare(db)
+      })
+  }, [documents, filterType, filterTag, filterDateFrom, filterDateTo, documentSearch, sortOrder, i18n.language])
+
+  // Grouped: Map<doc_type, Document[]> — only when showing all types
+  const groupedDocs = useMemo(() => {
+    if (filterType !== 'all') return null
+    const map = new Map<string, Document[]>()
+    for (const type of ['vaccination', 'medication', 'other'] as const) {
+      const group = filteredDocs.filter(d => d.doc_type === type)
+      if (group.length > 0) map.set(type, group)
+    }
+    return map
+  }, [filteredDocs, filterType])
+
   return (
     <div className="container page">
       <PageHeader title={animal.name} backTo="/animals" showThemeToggle />
@@ -599,65 +649,163 @@ export default function AnimalPage() {
           {documents.length === 0 && <p className="text-muted text-center" style={{ padding: 'var(--space-4) 0' }}>{t('animal.noDocs')}</p>}
 
           {documents.length > 0 && (
-        <div style={{ position: 'relative', marginBottom: 'var(--space-4)' }}>
-          <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
-          <input
-            className="form-input"
-            style={{ paddingLeft: 38 }}
-            type="text"
-            placeholder={t('animal.searchDocs')}
-            value={documentSearch}
-            onChange={e => setDocumentSearch(e.target.value.toLowerCase())}
-          />
-        </div>
-      )}
+            <>
+              {/* Type filter chips + sort toggle */}
+              <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap', marginBottom: 'var(--space-3)' }}>
+                {(['all', 'vaccination', 'medication', 'other'] as const).map(type => (
+                  <button
+                    key={type}
+                    className={`btn ${filterType === type ? 'btn-primary' : 'btn-outline'}`}
+                    style={{ fontSize: 'var(--font-size-xs)', padding: '4px 12px' }}
+                    onClick={() => setFilterType(type)}
+                  >
+                    {type === 'all' ? t('animal.filterAll') : docTypeLabel(type)}
+                  </button>
+                ))}
+                <button
+                  className="btn btn-ghost"
+                  style={{ marginLeft: 'auto', fontSize: 'var(--font-size-xs)', display: 'flex', alignItems: 'center', gap: '4px' }}
+                  onClick={() => setSortOrder(o => o === 'desc' ? 'asc' : 'desc')}
+                >
+                  {sortOrder === 'desc' ? <ArrowDownAZ size={14} /> : <ArrowUpAZ size={14} />}
+                  {t('animal.sortDate')}
+                </button>
+              </div>
 
-      {documents.length > 0 && (
-        <>
-          {documents
-            .filter(doc => doc.analysis_status !== 'pending_analysis' && (
-              !documentSearch ||
-              docTypeLabel(doc.doc_type).toLowerCase().includes(documentSearch) ||
-              new Date(doc.created_at).toLocaleString(i18n.language === 'de' ? 'de-AT' : 'en-GB').includes(documentSearch)
-            ))
-            .map(doc => (
-              <Link key={doc.id} to={`/animals/${id}/documents/${doc.id}`} style={{ textDecoration: 'none' }}>
-                <div className="card card-sm" style={{
-                  display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-3)',
-                  border: doc.added_by_role === 'vet' ? '1.5px solid var(--success-500)' : undefined,
-                  background: doc.added_by_role === 'vet' ? 'var(--success-50)' : 'var(--bg-elevated)',
-                  boxShadow: doc.added_by_role === 'vet' ? '0 4px 12px rgba(16, 185, 129, 0.1)' : undefined
-                }}>
-                  <div style={{
-                    width: 36, height: 36, borderRadius: 'var(--radius-sm)', flexShrink: 0,
-                    background: doc.added_by_role === 'vet' ? 'var(--success-100)' : 'var(--primary-50)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}>
-                    {doc.doc_type === 'vaccination' ? <Syringe size={16} color={doc.added_by_role === 'vet' ? "var(--success-600)" : "var(--primary-600)"} strokeWidth={2} /> : <FileText size={16} color={doc.added_by_role === 'vet' ? "var(--success-600)" : "var(--primary-600)"} strokeWidth={2} />}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)' }}>{doc.extracted_json?.title || docTypeLabel(doc.doc_type)}</div>
-                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
-                      {new Date(doc.created_at).toLocaleString(i18n.language === 'de' ? 'de-AT' : 'en-GB')}
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', gap: '4px', flexDirection: 'column', alignItems: 'flex-end' }}>
-                    {doc.added_by_role === 'vet' && <span className="badge badge-vet" style={{ display: 'flex', alignItems: 'center', gap: '3px' }}><CheckCircle size={10} /> {t('animal.vet')}</span>}
-                    {doc.added_by_role === 'authority' && <span className="badge badge-authority" style={{ display: 'flex', alignItems: 'center', gap: '3px' }}><ShieldAlert size={10} /> {t('animal.authority')}</span>}
-                    {!['vet', 'authority'].includes(doc.added_by_role ?? '') && <span className="badge" style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: '3px', fontSize: '10px' }}>{t('animal.owner')}</span>}
-                    <span className="text-muted" style={{ fontSize: '10px' }}>{doc.ocr_provider}</span>
-                  </div>
+              {/* Search + filter toggle */}
+              <div style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-2)' }}>
+                <div style={{ position: 'relative', flex: 1 }}>
+                  <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
+                  <input
+                    className="form-input"
+                    style={{ paddingLeft: 38 }}
+                    type="text"
+                    placeholder={t('animal.searchDocs')}
+                    value={documentSearch}
+                    onChange={e => setDocumentSearch(e.target.value.toLowerCase())}
+                  />
                 </div>
-              </Link>
-            ))}
-        </>
-      )}
+                <button
+                  className={`btn ${showAdvancedFilter ? 'btn-primary' : 'btn-outline'}`}
+                  style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: '4px' }}
+                  onClick={() => setShowAdvancedFilter(f => !f)}
+                >
+                  <SlidersHorizontal size={16} />
+                </button>
+              </div>
 
-      {(isOwner || isVet) && (
-        <Link to={`/animals/${id}/scan`} className="btn btn-primary btn-full" style={{ marginBottom: 'var(--space-4)' }}>
-          <Camera size={18} /> {t('animal.addDocument')}
-        </Link>
-      )}
+              {/* Advanced filter panel */}
+              {showAdvancedFilter && (
+                <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-md)', padding: 'var(--space-3)', marginBottom: 'var(--space-3)', display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                  <div style={{ flex: 1, minWidth: 140 }}>
+                    <label className="form-label" style={{ fontSize: 'var(--font-size-xs)', marginBottom: '4px' }}>{t('animal.filterByTag')}</label>
+                    <select className="form-select" value={filterTag} onChange={e => setFilterTag(e.target.value)}>
+                      <option value="">{t('animal.filterAll')}</option>
+                      {allTags.map(tag => <option key={tag} value={tag}>{tag}</option>)}
+                    </select>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 120 }}>
+                    <label className="form-label" style={{ fontSize: 'var(--font-size-xs)', marginBottom: '4px' }}>{t('animal.filterFrom')}</label>
+                    <input type="date" className="form-input" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 120 }}>
+                    <label className="form-label" style={{ fontSize: 'var(--font-size-xs)', marginBottom: '4px' }}>{t('animal.filterTo')}</label>
+                    <input type="date" className="form-input" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} />
+                  </div>
+                  {(filterTag || filterDateFrom || filterDateTo) && (
+                    <button className="btn btn-ghost" style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: 'var(--font-size-xs)' }}
+                      onClick={() => { setFilterTag(''); setFilterDateFrom(''); setFilterDateTo(''); }}>
+                      <X size={14} /> {t('animal.filterReset')}
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Grouped or flat document list */}
+              {groupedDocs ? (
+                Array.from(groupedDocs.entries()).map(([type, docs]) => (
+                  <div key={type} style={{ marginBottom: 'var(--space-4)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-2)', paddingBottom: 'var(--space-1)', borderBottom: '1px solid var(--border-subtle)' }}>
+                      {type === 'vaccination' ? <Syringe size={14} color="var(--primary-600)" /> : <FileText size={14} color="var(--primary-600)" />}
+                      <span style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>{docTypeLabel(type)}</span>
+                      <span className="badge">{docs.length}</span>
+                    </div>
+                    {docs.map(doc => (
+                      <Link key={doc.id} to={`/animals/${id}/documents/${doc.id}`} style={{ textDecoration: 'none' }}>
+                        <div className="card card-sm" style={{
+                          display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-3)',
+                          border: doc.added_by_role === 'vet' ? '1.5px solid var(--success-500)' : undefined,
+                          background: doc.added_by_role === 'vet' ? 'var(--success-50)' : 'var(--bg-elevated)',
+                          boxShadow: doc.added_by_role === 'vet' ? '0 4px 12px rgba(16, 185, 129, 0.1)' : undefined
+                        }}>
+                          <div style={{
+                            width: 36, height: 36, borderRadius: 'var(--radius-sm)', flexShrink: 0,
+                            background: doc.added_by_role === 'vet' ? 'var(--success-100)' : 'var(--primary-50)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          }}>
+                            {doc.doc_type === 'vaccination' ? <Syringe size={16} color={doc.added_by_role === 'vet' ? "var(--success-600)" : "var(--primary-600)"} strokeWidth={2} /> : <FileText size={16} color={doc.added_by_role === 'vet' ? "var(--success-600)" : "var(--primary-600)"} strokeWidth={2} />}
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)' }}>{doc.extracted_json?.title || docTypeLabel(doc.doc_type)}</div>
+                            <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
+                              {new Date(doc.created_at).toLocaleString(i18n.language === 'de' ? 'de-AT' : 'en-GB')}
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', gap: '4px', flexDirection: 'column', alignItems: 'flex-end' }}>
+                            {doc.added_by_role === 'vet' && <span className="badge badge-vet" style={{ display: 'flex', alignItems: 'center', gap: '3px' }}><CheckCircle size={10} /> {t('animal.vet')}</span>}
+                            {doc.added_by_role === 'authority' && <span className="badge badge-authority" style={{ display: 'flex', alignItems: 'center', gap: '3px' }}><ShieldAlert size={10} /> {t('animal.authority')}</span>}
+                            {!['vet', 'authority'].includes(doc.added_by_role ?? '') && <span className="badge" style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: '3px', fontSize: '10px' }}>{t('animal.owner')}</span>}
+                            <span className="text-muted" style={{ fontSize: '10px' }}>{doc.ocr_provider}</span>
+                          </div>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                ))
+              ) : (
+                filteredDocs.map(doc => (
+                  <Link key={doc.id} to={`/animals/${id}/documents/${doc.id}`} style={{ textDecoration: 'none' }}>
+                    <div className="card card-sm" style={{
+                      display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-3)',
+                      border: doc.added_by_role === 'vet' ? '1.5px solid var(--success-500)' : undefined,
+                      background: doc.added_by_role === 'vet' ? 'var(--success-50)' : 'var(--bg-elevated)',
+                      boxShadow: doc.added_by_role === 'vet' ? '0 4px 12px rgba(16, 185, 129, 0.1)' : undefined
+                    }}>
+                      <div style={{
+                        width: 36, height: 36, borderRadius: 'var(--radius-sm)', flexShrink: 0,
+                        background: doc.added_by_role === 'vet' ? 'var(--success-100)' : 'var(--primary-50)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        {doc.doc_type === 'vaccination' ? <Syringe size={16} color={doc.added_by_role === 'vet' ? "var(--success-600)" : "var(--primary-600)"} strokeWidth={2} /> : <FileText size={16} color={doc.added_by_role === 'vet' ? "var(--success-600)" : "var(--primary-600)"} strokeWidth={2} />}
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)' }}>{doc.extracted_json?.title || docTypeLabel(doc.doc_type)}</div>
+                        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
+                          {new Date(doc.created_at).toLocaleString(i18n.language === 'de' ? 'de-AT' : 'en-GB')}
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: '4px', flexDirection: 'column', alignItems: 'flex-end' }}>
+                        {doc.added_by_role === 'vet' && <span className="badge badge-vet" style={{ display: 'flex', alignItems: 'center', gap: '3px' }}><CheckCircle size={10} /> {t('animal.vet')}</span>}
+                        {doc.added_by_role === 'authority' && <span className="badge badge-authority" style={{ display: 'flex', alignItems: 'center', gap: '3px' }}><ShieldAlert size={10} /> {t('animal.authority')}</span>}
+                        {!['vet', 'authority'].includes(doc.added_by_role ?? '') && <span className="badge" style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: '3px', fontSize: '10px' }}>{t('animal.owner')}</span>}
+                        <span className="text-muted" style={{ fontSize: '10px' }}>{doc.ocr_provider}</span>
+                      </div>
+                    </div>
+                  </Link>
+                ))
+              )}
+
+              {filteredDocs.length === 0 && documents.filter(d => d.analysis_status !== 'pending_analysis').length > 0 && (
+                <p className="text-muted text-center" style={{ padding: 'var(--space-4) 0' }}>{t('animal.noDocsFiltered')}</p>
+              )}
+
+              {(isOwner || isVet) && (
+                <Link to={`/animals/${id}/scan`} className="btn btn-primary btn-full" style={{ marginBottom: 'var(--space-4)' }}>
+                  <Camera size={18} /> {t('animal.addDocument')}
+                </Link>
+              )}
+            </>
+          )}
         </>
       )}
 
