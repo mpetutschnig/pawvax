@@ -192,6 +192,15 @@ export default async function animalRoutes(fastify) {
     if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden' })
 
     ensureDefaultSharing(db, animal.id)
+
+    // Verify guest sharing exists, create if missing
+    let guestSharing = db.prepare('SELECT * FROM animal_sharing WHERE animal_id = ? AND role = ?').get(animal.id, 'guest')
+    if (!guestSharing) {
+      db.prepare(`INSERT INTO animal_sharing (id, animal_id, role, share_contact, share_breed, share_birthdate, share_address, share_dynamic_fields)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+        .run(uuid(), animal.id, 'guest', 0, 1, 1, 0, 0)
+    }
+
     return applySharing(db, animal, 'guest', animal.owner_name, animal.owner_email)
   })
 
