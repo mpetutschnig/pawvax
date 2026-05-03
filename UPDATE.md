@@ -10,6 +10,10 @@ Führe diese Befehle auf deinem **lokalen Entwicklungsrechner** aus:
 git add .
 git commit -m "Update"
 git push
+
+ssh hetzner
+git pull
+
 ```
 
 ### Schritt 2: Update-Skript auf dem Server ausführen
