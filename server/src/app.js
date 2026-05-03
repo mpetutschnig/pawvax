@@ -90,8 +90,8 @@ await fastify.register(fastifySwaggerUi, {
 fastify.decorate('authenticate', async function (req, reply) {
   try {
     await req.jwtVerify()
-  } catch {
-    reply.code(401).send({ error: 'Nicht autorisiert' })
+  } catch (err) {
+    return reply.code(401).send({ error: 'Nicht autorisiert' })
   }
 })
 
@@ -123,6 +123,21 @@ fastify.get('/health', async () => ({ status: 'ok' }))
 // Start
 const port = parseInt(process.env.PORT ?? '3000')
 initDb(process.env.DB_PATH ?? './paw.db')
+
+// Auto-Migration: Stelle sicher, dass neuere Spalten existieren
+try {
+  const db = getDb()
+  const aCols = db.prepare('PRAGMA table_info(animals)').all().map(c => c.name)
+  if (!aCols.includes('address')) db.prepare('ALTER TABLE animals ADD COLUMN address TEXT').run()
+  if (!aCols.includes('dynamic_fields')) db.prepare('ALTER TABLE animals ADD COLUMN dynamic_fields TEXT').run()
+  if (!aCols.includes('avatar_path')) db.prepare('ALTER TABLE animals ADD COLUMN avatar_path TEXT').run()
+  
+  const sCols = db.prepare('PRAGMA table_info(animal_sharing)').all().map(c => c.name)
+  if (!sCols.includes('share_address')) db.prepare('ALTER TABLE animal_sharing ADD COLUMN share_address INTEGER NOT NULL DEFAULT 0').run()
+  if (!sCols.includes('share_dynamic_fields')) db.prepare('ALTER TABLE animal_sharing ADD COLUMN share_dynamic_fields INTEGER NOT NULL DEFAULT 0').run()
+} catch (err) {
+  console.warn('Migration warnings:', err.message)
+}
 
 // Bootstrap: ADMIN_EMAIL aus .env als Admin setzen
 if (process.env.ADMIN_EMAIL) {

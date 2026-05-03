@@ -20,6 +20,9 @@ CREATE TABLE IF NOT EXISTS animals (
   species    TEXT NOT NULL CHECK(species IN ('dog', 'cat', 'other')),
   breed      TEXT,
   birthdate  TEXT,
+  address    TEXT,
+  dynamic_fields TEXT,
+  avatar_path TEXT,
   created_at TEXT DEFAULT (datetime('now')),
   is_archived INTEGER DEFAULT 0 NOT NULL
 );
@@ -74,6 +77,8 @@ CREATE TABLE IF NOT EXISTS animal_sharing (
   share_contact     INTEGER NOT NULL DEFAULT 0,
   share_breed       INTEGER NOT NULL DEFAULT 1,
   share_birthdate   INTEGER NOT NULL DEFAULT 1,
+  share_address     INTEGER NOT NULL DEFAULT 0,
+  share_dynamic_fields INTEGER NOT NULL DEFAULT 0,
   UNIQUE(animal_id, role)
 );
 
