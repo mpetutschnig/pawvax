@@ -521,8 +521,8 @@ export default function AdminPage() {
                     // Flatten test results from all suites
                     if (Array.isArray(testResults.tests.testResults)) {
                       for (const suite of testResults.tests.testResults) {
-                        if (suite.testResults && Array.isArray(suite.testResults)) {
-                          allTests.push(...suite.testResults)
+                        if (suite.assertionResults && Array.isArray(suite.assertionResults)) {
+                          allTests.push(...suite.assertionResults)
                         }
                       }
                     }
