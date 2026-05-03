@@ -515,15 +515,30 @@ export default function AdminPage() {
                   </div>
                 </div>
                 <div style={{ flex: 1, overflowY: 'auto' }}>
-                  {testResults.tests && testResults.tests.testResults && testResults.tests.testResults.length > 0 ? (() => {
-                    const groups = new Map<string, TestCase[]>()
-                    for (const suite of testResults.tests.testResults) {
-                      for (const test of suite.testResults ?? []) {
-                        const groupName = test.ancestorTitles[1] ?? 'Other'
-                        if (!groups.has(groupName)) groups.set(groupName, [])
-                        groups.get(groupName)!.push(test)
+                  {testResults?.tests ? (() => {
+                    const allTests: TestCase[] = []
+
+                    // Flatten test results from all suites
+                    if (Array.isArray(testResults.tests.testResults)) {
+                      for (const suite of testResults.tests.testResults) {
+                        if (suite.testResults && Array.isArray(suite.testResults)) {
+                          allTests.push(...suite.testResults)
+                        }
                       }
                     }
+
+                    if (allTests.length === 0) {
+                      return <div style={{ padding: 'var(--space-4)', textAlign: 'center', color: 'var(--text-tertiary)' }}>{t('admin.noTestResults')}</div>
+                    }
+
+                    // Group by ancestorTitles[1]
+                    const groups = new Map<string, TestCase[]>()
+                    for (const test of allTests) {
+                      const groupName = test.ancestorTitles?.[1] ?? 'Other'
+                      if (!groups.has(groupName)) groups.set(groupName, [])
+                      groups.get(groupName)!.push(test)
+                    }
+
                     return Array.from(groups.entries()).map(([groupName, tests]) => (
                       <div key={groupName}>
                         <div style={{ padding: 'var(--space-3)', paddingLeft: 'var(--space-4)', background: 'var(--surface)', borderBottom: '1px solid var(--border)', fontSize: 'var(--font-size-xs)', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
