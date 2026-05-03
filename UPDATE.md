@@ -86,7 +86,7 @@ fi
 TEST_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 JSON_RESULT="{\"status\": \"$TEST_STATUS\", \"date\": \"$TEST_DATE\"}"
 
-su -s /bin/bash paw-api -c "sqlite3 /home/paw-api/data/paw.db \"INSERT OR REPLACE INTO settings (key, value) VALUES ('last_test_run', '$JSON_RESULT');\""
+echo "INSERT OR REPLACE INTO settings (key, value) VALUES ('last_test_run', '$JSON_RESULT');" | su -s /bin/bash paw-api -c "sqlite3 /home/paw-api/data/paw.db"
 
 ```
 
