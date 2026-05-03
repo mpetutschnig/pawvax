@@ -81,6 +81,13 @@ CREATE TABLE IF NOT EXISTS animal_public_shares (
   created_at TEXT DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS animal_transfers (
+  code       TEXT PRIMARY KEY,
+  animal_id  TEXT NOT NULL REFERENCES animals(id) ON DELETE CASCADE,
+  expires_at TEXT NOT NULL,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
 CREATE INDEX IF NOT EXISTS idx_animals_account ON animals(account_id);
 CREATE INDEX IF NOT EXISTS idx_tags_animal ON animal_tags(animal_id);
 CREATE INDEX IF NOT EXISTS idx_tags_active ON animal_tags(tag_id, active);

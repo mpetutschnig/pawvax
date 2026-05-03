@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { getAnimal, getAnimalDocuments, getAnimalTags, updateAnimal, deleteAnimal, uploadAnimalAvatar, deleteDocument, getMe } from '../api/rest'
 import { PageHeader } from '../components/PageHeader' 
-import { PawPrint, Cat, Edit2, Trash2, Lock, Camera, Search, Radio, ShieldAlert, AlertTriangle, RefreshCw, X, Syringe, FileText, CheckCircle, ArrowDownAZ, ArrowUpAZ, SlidersHorizontal } from 'lucide-react'
+import { PawPrint, Cat, Edit2, Trash2, Lock, Camera, Search, Radio, ShieldAlert, AlertTriangle, RefreshCw, X, Syringe, FileText, CheckCircle, ArrowDownAZ, ArrowUpAZ, SlidersHorizontal, ArrowRightLeft } from 'lucide-react'
 import { AnimalDTO } from '../types/animal'
 interface AnimalTag {
   tag_id: string; tag_type: string; active: number; added_at: string
@@ -45,6 +45,8 @@ export default function AnimalPage() {
   const [filterDateTo, setFilterDateTo] = useState('')
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc')
   const [showAdvancedFilter, setShowAdvancedFilter] = useState(false)
+  const [showTransfer, setShowTransfer] = useState(false)
+  const [transferCode, setTransferCode] = useState('')
   const avatarInputRef = useRef<HTMLInputElement>(null)
   
   const [showRetryModal, setShowRetryModal] = useState(false)
@@ -280,6 +282,23 @@ export default function AnimalPage() {
     }
   }
 
+  const handleGenerateTransfer = async () => {
+    try {
+      setSubmitting(true)
+      const token = localStorage.getItem('token')
+      const res = await fetch(`/api/animals/${id}/transfer`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      const data = await res.json()
+      setTransferCode(data.code)
+    } catch (err) {
+      setError(t('common.error'))
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   if (loading) return <div className="container page" style={{ display: 'flex', justifyContent: 'center', paddingTop: '4rem' }}><div className="spinner spinner-lg"></div></div>
   if (!animal) return <div className="container page"><div className="error-card"><p>{error || t('error.notFound')}</p></div></div>
 
@@ -500,8 +519,31 @@ export default function AnimalPage() {
                   <Link to={`/animals/${id}/sharing`} className="btn btn-ghost" style={{ textDecoration: 'none' }}>
                     <Lock size={16} /> {t('animal.sharing')}
                   </Link>
+                  <button className="btn btn-ghost" onClick={() => setShowTransfer(true)}>
+                    <ArrowRightLeft size={16} /> {t('animal.transferBtn')}
+                  </button>
                 </div>
               )}
+
+              {showTransfer && (
+                <div className="card animate-slide-up">
+                  <h3 style={{ marginBottom: 'var(--space-2)' }}>{t('animal.transferTitle')}</h3>
+                  <p className="text-muted" style={{ marginBottom: 'var(--space-4)' }}>{t('animal.transferDesc')}</p>
+                  {transferCode ? (
+                    <div style={{ background: 'var(--surface-alt)', padding: 'var(--space-4)', borderRadius: 'var(--radius-md)', textAlign: 'center' }}>
+                      <p style={{ margin: '0 0 var(--space-2) 0' }}>{t('animal.transferCode')}</p>
+                      <h2 style={{ fontSize: '2rem', letterSpacing: '0.2em', color: 'var(--primary-600)', margin: 0 }}>{transferCode}</h2>
+                      <p className="text-muted" style={{ margin: 'var(--space-2) 0 0 0', fontSize: 'var(--font-size-xs)' }}>{t('animal.transferExpires')}</p>
+                    </div>
+                  ) : (
+                    <button className="btn btn-primary btn-full" onClick={handleGenerateTransfer} disabled={submitting}>
+                      {submitting ? t('common.loading') : t('animal.transferGenerate')}
+                    </button>
+                  )}
+                  <button className="btn btn-ghost btn-full mt-4" onClick={() => { setShowTransfer(false); setTransferCode(''); }}>{t('common.cancel')}</button>
+                </div>
+              )}
+
               {isOwner && animal.is_archived && (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
                   <button className="btn btn-outline" onClick={handleDelete} disabled={submitting} style={{ borderColor: 'var(--danger-500)', color: 'var(--danger-500)' }}>

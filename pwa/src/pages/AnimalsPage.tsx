@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import * as api from '../api/rest'
 import { PetCard } from '../components/PetCard'
 import { PageHeader } from '../components/PageHeader'
-import { Search, Plus, PawPrint } from 'lucide-react'
+import { Search, Plus, PawPrint, ArrowRightLeft } from 'lucide-react'
 import { AnimalListItemDTO } from '../types/animal'
 
 export default function AnimalsPage() {
@@ -11,6 +11,8 @@ export default function AnimalsPage() {
   const [animals, setAnimals] = useState<AnimalListItemDTO[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
+  const [showTransferForm, setShowTransferForm] = useState(false)
+  const [transferCode, setTransferCode] = useState('')
   const [formData, setFormData] = useState({ name: '', species: 'dog', breed: '', birthdate: '' })
   const [submitting, setSubmitting] = useState(false)
   const [, setError] = useState<string | null>(null)
@@ -58,6 +60,32 @@ export default function AnimalsPage() {
     }
   }
 
+  const handleAcceptTransfer = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!transferCode) return
+    try {
+      setSubmitting(true)
+      setError(null)
+      const token = localStorage.getItem('token')
+      const res = await fetch('/api/animals/transfer/accept', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ code: transferCode })
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error)
+      }
+      await loadAnimals()
+      setTransferCode('')
+      setShowTransferForm(false)
+    } catch (err: any) {
+      setError(err.message || t('common.error'))
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   const filteredAnimals = animals.filter(a => a.name.toLowerCase().includes(search.toLowerCase()) || a.breed?.toLowerCase().includes(search.toLowerCase()))
 
   if (loading) {
@@ -83,7 +111,7 @@ export default function AnimalsPage() {
         />
       </div>
 
-      {animals.length === 0 && !showForm && (
+      {animals.length === 0 && !showForm && !showTransferForm && (
         <div className="card text-center" style={{ padding: 'var(--space-8) var(--space-4)' }}>
           <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--primary-50)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto var(--space-4)' }}>
             <PawPrint size={32} color="var(--primary-500)" />
@@ -95,6 +123,10 @@ export default function AnimalsPage() {
           <button className="btn btn-primary" onClick={() => setShowForm(true)}>
             <Plus size={18} />
             {t('animals.add')}
+          </button>
+          <div className="divider" style={{ margin: 'var(--space-4) 0' }}></div>
+          <button className="btn btn-outline" onClick={() => setShowTransferForm(true)}>
+            <ArrowRightLeft size={18} /> {t('animals.acceptTransferBtn')}
           </button>
         </div>
       )}
@@ -166,7 +198,28 @@ export default function AnimalsPage() {
         </div>
       )}
 
-      {!showForm && animals.length > 0 && (
+      {showTransferForm && (
+        <div className="card animate-slide-up" style={{ marginBottom: 'var(--space-4)' }}>
+          <h3 style={{ marginBottom: 'var(--space-4)' }}>{t('animals.acceptTransferTitle')}</h3>
+          <form onSubmit={handleAcceptTransfer}>
+            <div className="form-group">
+              <label className="form-label">{t('animal.transferCode')}</label>
+              <input className="form-input" type="text" value={transferCode} onChange={e => setTransferCode(e.target.value)} placeholder={t('animals.transferCodePlaceholder')} required />
+            </div>
+            {error && <div className="error-card"><p>{error}</p></div>}
+            <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+              <button type="submit" className="btn btn-primary flex-1" disabled={submitting}>
+                {submitting ? t('common.loading') : t('animals.acceptBtn')}
+              </button>
+              <button type="button" className="btn btn-ghost flex-1" onClick={() => setShowTransferForm(false)} disabled={submitting}>
+                {t('common.cancel')}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {!showForm && !showTransferForm && animals.length > 0 && (
         <>
           <div style={{ display: 'grid', gap: 'var(--space-4)' }}>
             {filteredAnimals.map((animal) => (
@@ -187,12 +240,14 @@ export default function AnimalsPage() {
             ))}
           </div>
 
-          <button
-            className="btn btn-primary btn-full mt-4"
-            onClick={() => setShowForm(true)}
-          >
-            <Plus size={18} /> {t('animals.add')}
-          </button>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
+            <button className="btn btn-primary" onClick={() => setShowForm(true)}>
+              <Plus size={18} /> {t('animals.add')}
+            </button>
+            <button className="btn btn-secondary" onClick={() => setShowTransferForm(true)}>
+              <ArrowRightLeft size={18} /> {t('animals.acceptTransferBtn')}
+            </button>
+          </div>
         </>
       )}
     </div>

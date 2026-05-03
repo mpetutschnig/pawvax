@@ -649,6 +649,48 @@ export default async function animalRoutes(fastify) {
     return reply.code(201).send({ shareId })
   })
 
+  // Temporären Transfer-Code erzeugen (Besitzerwechsel)
+  fastify.post('/api/animals/:id/transfer', async (req, reply) => {
+    const db = getDb()
+    const { id } = req.params
+    const { accountId, role } = req.user
+
+    const animal = db.prepare('SELECT id FROM animals WHERE id = ? AND account_id = ?').get(id, accountId)
+    if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden oder keine Berechtigung' })
+
+    db.prepare('DELETE FROM animal_transfers WHERE animal_id = ?').run(id)
+
+    const code = Math.random().toString().substring(2, 8) // 6 Ziffern
+    const expiresAt = new Date()
+    expiresAt.setHours(expiresAt.getHours() + 24) // 24 Stunden gültig
+
+    db.prepare('INSERT INTO animal_transfers (code, animal_id, expires_at) VALUES (?, ?, ?)').run(code, id, expiresAt.toISOString())
+    logAudit(db, { accountId, role, action: 'create_transfer_code', resource: 'animal', resourceId: id, ip: req.ip })
+
+    return reply.code(201).send({ code })
+  })
+
+  // Tier per Transfer-Code übernehmen
+  fastify.post('/api/animals/transfer/accept', {
+    schema: { body: { type: 'object', required: ['code'], properties: { code: { type: 'string' } } } }
+  }, async (req, reply) => {
+    const db = getDb()
+    const { code } = req.body
+    const { accountId, role } = req.user
+
+    const transfer = db.prepare('SELECT * FROM animal_transfers WHERE code = ?').get(code)
+    if (!transfer) return reply.code(404).send({ error: 'Ungültiger oder abgelaufener Code' })
+    if (new Date(transfer.expires_at) < new Date()) {
+      db.prepare('DELETE FROM animal_transfers WHERE code = ?').run(code)
+      return reply.code(400).send({ error: 'Dieser Code ist abgelaufen' })
+    }
+
+    db.prepare('UPDATE animals SET account_id = ? WHERE id = ?').run(accountId, transfer.animal_id)
+    db.prepare('DELETE FROM animal_transfers WHERE animal_id = ?').run(transfer.animal_id)
+    logAudit(db, { accountId, role, action: 'accept_transfer', resource: 'animal', resourceId: transfer.animal_id, ip: req.ip })
+    return { success: true, animalId: transfer.animal_id }
+  })
+
   // Upload animal avatar
   fastify.patch('/api/animals/:id/avatar', { onRequest: [fastify.authenticate] }, async (req, reply) => {
     const db = getDb()
