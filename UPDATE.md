@@ -89,8 +89,16 @@ JSON_RESULT="{\"status\": \"$TEST_STATUS\", \"date\": \"$TEST_DATE\"}"
 echo "INSERT OR REPLACE INTO settings (key, value) VALUES ('last_test_run', '$JSON_RESULT');" | su -s /bin/bash paw-api -c "sqlite3 /home/paw-api/data/paw.db"
 
 if [ -f /tmp/paw-test-results.json ]; then
-  DETAILS=$(cat /tmp/paw-test-results.json | tr '\n' ' ')
-  echo "INSERT OR REPLACE INTO settings (key, value) VALUES ('last_test_run_details', '$DETAILS');" | su -s /bin/bash paw-api -c "sqlite3 /home/paw-api/data/paw.db"
+  # Speichere Test-Details mittels .read-Befehl (sicherer als String-Escape)
+  su -s /bin/bash paw-api -c "
+    cat > /tmp/save_tests.sql <<'EOSQL'
+INSERT OR REPLACE INTO settings (key, value) 
+SELECT 'last_test_run_details', readfile('/tmp/paw-test-results.json')
+WHERE readfile('/tmp/paw-test-results.json') IS NOT NULL;
+EOSQL
+    sqlite3 /home/paw-api/data/paw.db < /tmp/save_tests.sql
+    rm /tmp/save_tests.sql
+  " || true
   echo "Test-Details in DB gespeichert."
 fi
 
