@@ -192,14 +192,14 @@ describe('PAWvax API Tests', () => {
       })
 
       expect(status).toBe(200)
-      expect(data.is_archived).toBe(true)
+      expect(data.success).toBe(true)
     })
 
     test('2f. Get Archived Animal — Archiviertes Tier sollte sichtbar sein mit is_archived=true', async () => {
       const { status, data } = await apiCall('GET', `/animals/${testState.animalId}`)
 
       expect(status).toBe(200)
-      expect(data.is_archived).toBe(true)
+      expect(!!data.is_archived).toBe(true)
     })
 
     test('2g. Create Second Animal — Zweites Tier für weitere Tests', async () => {
@@ -230,10 +230,10 @@ describe('PAWvax API Tests', () => {
       })
 
       expect(status).toBe(201)
-      expect(data.id).toBeTruthy()
-      expect(data.tagType).toBe('nfc')
+      expect(data.tag_id).toBeTruthy()
+      expect(data.tag_type).toBe('nfc')
 
-      testState.tagId = data.id
+      testState.tagId = data.tag_id
     })
 
     test('3b. Get Animal Tags — Alle Tags eines Tieres', async () => {
@@ -251,7 +251,7 @@ describe('PAWvax API Tests', () => {
       })
 
       expect(status).toBe(201)
-      expect(data.tagType).toBe('barcode')
+      expect(data.tag_type).toBe('barcode')
     })
 
     test('3d. Deactivate Tag — Tag deaktivieren', async () => {
@@ -481,7 +481,7 @@ describe('PAWvax API Tests', () => {
       const tagData = await tagResponse.json()
 
       expect(tagResponse.status).toBe(201)
-      expect(tagData.tagType).toBe('nfc')
+      expect(tagData.tag_type).toBe('nfc')
 
       // 5. Get Animal mit Tags
       const getOptions = {

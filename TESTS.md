@@ -23,6 +23,9 @@ PAW_API_UID=$(id -u paw-api) && XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bi
 "
 ```
 
+```result
+```
+
 ---
 
 ## Option B: Tests mit Live-Logs (für Debugging)
