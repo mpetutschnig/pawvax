@@ -88,6 +88,10 @@ JSON_RESULT="{\"status\": \"$TEST_STATUS\", \"date\": \"$TEST_DATE\"}"
 
 echo "INSERT OR REPLACE INTO settings (key, value) VALUES ('last_test_run', '$JSON_RESULT');" | su -s /bin/bash paw-api -c "sqlite3 /home/paw-api/data/paw.db"
 
+echo "13/13: Räume Test-Accounts auf..."
+su -s /bin/bash paw-api -c "sqlite3 /home/paw-api/data/paw.db \"DELETE FROM accounts WHERE email LIKE 'test%@example.com' OR email LIKE 'journey%@test.com';\""
+echo "Aufräumen der Test-Accounts abgeschlossen."
+
 ```
 
 *Tipp: Du kannst dir diesen Block auch direkt auf dem Server in eine Datei (z.B. `update.sh`) speichern und sie in Zukunft einfach mit `bash update.sh` ausführen.*
