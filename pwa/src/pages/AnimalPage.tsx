@@ -339,26 +339,29 @@ export default function AnimalPage() {
   // Filtered + sorted flat list
   const filteredDocs = useMemo(() => {
     return documents
-      .filter(d => d.analysis_status !== 'pending_analysis')
-      .filter(d => filterType === 'all' || d.doc_type === filterType)
+      .filter(d => d && d.analysis_status !== 'pending_analysis')
+      .filter(d => !d.doc_type || filterType === 'all' || d.doc_type === filterType)
       .filter(d => !filterTag || (d.extracted_json?.suggested_tags ?? []).includes(filterTag))
       .filter(d => {
         if (!filterDateFrom && !filterDateTo) return true
-        const date = d.extracted_json?.document_date || d.created_at.slice(0, 10)
+        const docDate = d.extracted_json?.document_date || d.created_at
+        if (!docDate) return true
+        const date = typeof docDate === 'string' ? docDate.slice(0, 10) : docDate
         if (filterDateFrom && date < filterDateFrom) return false
         if (filterDateTo && date > filterDateTo) return false
         return true
       })
       .filter(d => !documentSearch ||
-        docTypeLabel(d.doc_type).toLowerCase().includes(documentSearch) ||
+        (d.doc_type ? docTypeLabel(d.doc_type).toLowerCase().includes(documentSearch) : false) ||
         (d.extracted_json?.title ?? '').toLowerCase().includes(documentSearch) ||
         (d.extracted_json?.suggested_tags ?? []).some((t: string) => t.toLowerCase().includes(documentSearch)) ||
-        new Date(d.created_at).toLocaleString(i18n.language === 'de' ? 'de-AT' : 'en-GB').includes(documentSearch)
+        (d.created_at ? new Date(d.created_at).toLocaleString(i18n.language === 'de' ? 'de-AT' : 'en-GB').includes(documentSearch) : false)
       )
       .sort((a, b) => {
-        const da = a.extracted_json?.document_date || a.created_at
-        const db = b.extracted_json?.document_date || b.created_at
-        return sortOrder === 'desc' ? db.localeCompare(da) : da.localeCompare(db)
+        const da = a.extracted_json?.document_date || a.created_at || ''
+        const db = b.extracted_json?.document_date || b.created_at || ''
+        if (!da || !db) return 0
+        return sortOrder === 'desc' ? String(db).localeCompare(String(da)) : String(da).localeCompare(String(db))
       })
   }, [documents, filterType, filterTag, filterDateFrom, filterDateTo, documentSearch, sortOrder, i18n.language])
 
@@ -746,16 +749,16 @@ export default function AnimalPage() {
                             {doc.doc_type === 'vaccination' ? <Syringe size={16} color={doc.added_by_role === 'vet' ? "var(--success-600)" : "var(--primary-600)"} strokeWidth={2} /> : <FileText size={16} color={doc.added_by_role === 'vet' ? "var(--success-600)" : "var(--primary-600)"} strokeWidth={2} />}
                           </div>
                           <div style={{ flex: 1 }}>
-                            <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)' }}>{doc.extracted_json?.title || docTypeLabel(doc.doc_type)}</div>
+                            <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)' }}>{doc.extracted_json?.title || (doc.doc_type ? docTypeLabel(doc.doc_type) : 'Dokument')}</div>
                             <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
-                              {new Date(doc.created_at).toLocaleString(i18n.language === 'de' ? 'de-AT' : 'en-GB')}
+                              {doc.created_at ? new Date(doc.created_at).toLocaleString(i18n.language === 'de' ? 'de-AT' : 'en-GB') : '—'}
                             </div>
                           </div>
                           <div style={{ display: 'flex', gap: '4px', flexDirection: 'column', alignItems: 'flex-end' }}>
                             {doc.added_by_role === 'vet' && <span className="badge badge-vet" style={{ display: 'flex', alignItems: 'center', gap: '3px' }}><CheckCircle size={10} /> {t('animal.vet')}</span>}
                             {doc.added_by_role === 'authority' && <span className="badge badge-authority" style={{ display: 'flex', alignItems: 'center', gap: '3px' }}><ShieldAlert size={10} /> {t('animal.authority')}</span>}
                             {!['vet', 'authority'].includes(doc.added_by_role ?? '') && <span className="badge" style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: '3px', fontSize: '10px' }}>{t('animal.owner')}</span>}
-                            <span className="text-muted" style={{ fontSize: '10px' }}>{doc.ocr_provider}</span>
+                            <span className="text-muted" style={{ fontSize: '10px' }}>{doc.ocr_provider || '—'}</span>
                           </div>
                         </div>
                       </Link>
@@ -779,16 +782,16 @@ export default function AnimalPage() {
                         {doc.doc_type === 'vaccination' ? <Syringe size={16} color={doc.added_by_role === 'vet' ? "var(--success-600)" : "var(--primary-600)"} strokeWidth={2} /> : <FileText size={16} color={doc.added_by_role === 'vet' ? "var(--success-600)" : "var(--primary-600)"} strokeWidth={2} />}
                       </div>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)' }}>{doc.extracted_json?.title || docTypeLabel(doc.doc_type)}</div>
+                        <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)' }}>{doc.extracted_json?.title || (doc.doc_type ? docTypeLabel(doc.doc_type) : 'Dokument')}</div>
                         <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
-                          {new Date(doc.created_at).toLocaleString(i18n.language === 'de' ? 'de-AT' : 'en-GB')}
+                          {doc.created_at ? new Date(doc.created_at).toLocaleString(i18n.language === 'de' ? 'de-AT' : 'en-GB') : '—'}
                         </div>
                       </div>
                       <div style={{ display: 'flex', gap: '4px', flexDirection: 'column', alignItems: 'flex-end' }}>
                         {doc.added_by_role === 'vet' && <span className="badge badge-vet" style={{ display: 'flex', alignItems: 'center', gap: '3px' }}><CheckCircle size={10} /> {t('animal.vet')}</span>}
                         {doc.added_by_role === 'authority' && <span className="badge badge-authority" style={{ display: 'flex', alignItems: 'center', gap: '3px' }}><ShieldAlert size={10} /> {t('animal.authority')}</span>}
                         {!['vet', 'authority'].includes(doc.added_by_role ?? '') && <span className="badge" style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: '3px', fontSize: '10px' }}>{t('animal.owner')}</span>}
-                        <span className="text-muted" style={{ fontSize: '10px' }}>{doc.ocr_provider}</span>
+                        <span className="text-muted" style={{ fontSize: '10px' }}>{doc.ocr_provider || '—'}</span>
                       </div>
                     </div>
                   </Link>
