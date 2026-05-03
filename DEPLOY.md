@@ -171,7 +171,7 @@ chmod -R a+rX /git/pawvax
 ### 7a. paw-api (Node.js API Server)
 
 ```bash
-PAW_API_UID=$(id -u paw-api) && XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "cd /tmp && podman --cgroup-manager=cgroupfs build -t paw-api:latest -f /git/pawvax/server/Dockerfile /git/pawvax/server"
+PAW_API_UID=$(id -u paw-api) && XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "cd /tmp && podman --cgroup-manager=cgroupfs build --no-cache -t paw-api:latest -f /git/pawvax/server/Dockerfile /git/pawvax/server"
 ```
 
 ### 7b. paw-pwa (React + nginx Frontend)
@@ -191,7 +191,7 @@ chown paw-git:paw-git /git/pawvax/pwa/.env.production.local
 ```
 
 ```bash
-PAW_PWA_UID=$(id -u paw-pwa) && XDG_RUNTIME_DIR=/run/user/$PAW_PWA_UID su -s /bin/bash paw-pwa -c "cd /tmp && podman --cgroup-manager=cgroupfs build -t paw-pwa:latest -f /git/pawvax/pwa/Containerfile /git/pawvax/pwa"
+PAW_PWA_UID=$(id -u paw-pwa) && XDG_RUNTIME_DIR=/run/user/$PAW_PWA_UID su -s /bin/bash paw-pwa -c "cd /tmp && podman --cgroup-manager=cgroupfs build --no-cache -t paw-pwa:latest -f /git/pawvax/pwa/Containerfile /git/pawvax/pwa"
 ```
 
 ---
@@ -641,11 +641,11 @@ chmod -R a+rX /git/pawvax
 ```
 
 ```bash
-PAW_API_UID=$(id -u paw-api) && XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "cd /tmp && podman --cgroup-manager=cgroupfs build -t paw-api:latest -f /git/pawvax/server/Dockerfile /git/pawvax/server"
+PAW_API_UID=$(id -u paw-api) && XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "cd /tmp && podman --cgroup-manager=cgroupfs build --no-cache -t paw-api:latest -f /git/pawvax/server/Dockerfile /git/pawvax/server"
 ```
 
 ```bash
-PAW_PWA_UID=$(id -u paw-pwa) && XDG_RUNTIME_DIR=/run/user/$PAW_PWA_UID su -s /bin/bash paw-pwa -c "cd /tmp && podman --cgroup-manager=cgroupfs build -t paw-pwa:latest -f /git/pawvax/pwa/Containerfile /git/pawvax/pwa"
+PAW_PWA_UID=$(id -u paw-pwa) && XDG_RUNTIME_DIR=/run/user/$PAW_PWA_UID su -s /bin/bash paw-pwa -c "cd /tmp && podman --cgroup-manager=cgroupfs build --no-cache -t paw-pwa:latest -f /git/pawvax/pwa/Containerfile /git/pawvax/pwa"
 ```
 
 ```bash
@@ -688,10 +688,10 @@ su -s /bin/bash paw-git -c "cd /tmp && git -C /git/pawvax pull"
 chmod -R a+rX /git/pawvax
 
 # 3. Build paw-api
-PAW_API_UID=$(id -u paw-api) && XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "cd /tmp && podman --cgroup-manager=cgroupfs build -t paw-api:latest -f /git/pawvax/server/Dockerfile /git/pawvax/server"
+PAW_API_UID=$(id -u paw-api) && XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "cd /tmp && podman --cgroup-manager=cgroupfs build --no-cache -t paw-api:latest -f /git/pawvax/server/Dockerfile /git/pawvax/server"
 
 # 4. Build paw-pwa
-PAW_PWA_UID=$(id -u paw-pwa) && XDG_RUNTIME_DIR=/run/user/$PAW_PWA_UID su -s /bin/bash paw-pwa -c "cd /tmp && podman --cgroup-manager=cgroupfs build -t paw-pwa:latest -f /git/pawvax/pwa/Containerfile /git/pawvax/pwa"
+PAW_PWA_UID=$(id -u paw-pwa) && XDG_RUNTIME_DIR=/run/user/$PAW_PWA_UID su -s /bin/bash paw-pwa -c "cd /tmp && podman --cgroup-manager=cgroupfs build --no-cache -t paw-pwa:latest -f /git/pawvax/pwa/Containerfile /git/pawvax/pwa"
 
 # 5. Restart paw-api
 PAW_API_UID=$(id -u paw-api) && su -s /bin/bash paw-api -c "cd /tmp && XDG_RUNTIME_DIR=/run/user/$PAW_API_UID DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$PAW_API_UID/bus systemctl --user restart paw-api"
