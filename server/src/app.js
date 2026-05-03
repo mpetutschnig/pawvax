@@ -197,14 +197,29 @@ try {
   if (!dCols.includes('added_by_account')) db.prepare('ALTER TABLE documents ADD COLUMN added_by_account TEXT').run()
   if (!dCols.includes('allowed_roles')) db.prepare('ALTER TABLE documents ADD COLUMN allowed_roles TEXT').run()
 
-  // Role rename migration: readonly -> guest.
+  const animalSharingTableSql = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'animal_sharing'").get()?.sql || ''
+  const supportsGuestRole = animalSharingTableSql.includes("'guest'")
+  const publicSharingRole = supportsGuestRole ? 'guest' : 'readonly'
+
   db.prepare(`
     INSERT OR IGNORE INTO animal_sharing (id, animal_id, role, share_contact, share_breed, share_birthdate, share_address, share_dynamic_fields)
-    SELECT id, animal_id, 'guest', share_contact, share_breed, share_birthdate, share_address, share_dynamic_fields
-    FROM animal_sharing
-    WHERE role = 'readonly'
-  `).run()
-  db.prepare("DELETE FROM animal_sharing WHERE role = 'readonly'").run()
+    SELECT lower(hex(randomblob(16))), a.id, ?, 0, 1, 1, 0, 0
+    FROM animals a
+    WHERE NOT EXISTS (
+      SELECT 1 FROM animal_sharing s WHERE s.animal_id = a.id AND s.role = ?
+    )
+  `).run(publicSharingRole, publicSharingRole)
+
+  // Role rename migration: readonly -> guest.
+  if (supportsGuestRole) {
+    db.prepare(`
+      INSERT OR IGNORE INTO animal_sharing (id, animal_id, role, share_contact, share_breed, share_birthdate, share_address, share_dynamic_fields)
+      SELECT id, animal_id, 'guest', share_contact, share_breed, share_birthdate, share_address, share_dynamic_fields
+      FROM animal_sharing
+      WHERE role = 'readonly'
+    `).run()
+    db.prepare("DELETE FROM animal_sharing WHERE role = 'readonly'").run()
+  }
   db.prepare("UPDATE documents SET allowed_roles = REPLACE(allowed_roles, '\"readonly\"', '\"guest\"') WHERE allowed_roles IS NOT NULL").run()
 } catch (err) {
   console.warn('Migration warnings:', err.message)

@@ -43,9 +43,19 @@ function getSharingForRole(db, animalId, requestRole) {
   return sharing
 }
 
+function getPublicSharingRole(db) {
+  try {
+    const animalSharingTableSql = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'animal_sharing'").get()?.sql || ''
+    return animalSharingTableSql.includes("'guest'") ? 'guest' : 'readonly'
+  } catch {
+    return 'guest'
+  }
+}
+
 function ensureDefaultSharing(db, animalId) {
+  const publicRole = getPublicSharingRole(db)
   const defaults = [
-    { role: 'guest', c: 0, b: 1, d: 1, a: 0, df: 0 },
+    { role: publicRole, c: 0, b: 1, d: 1, a: 0, df: 0 },
     { role: 'authority', c: 1, b: 1, d: 1, a: 1, df: 1 },
     { role: 'vet', c: 1, b: 1, d: 1, a: 1, df: 1 },
   ]
@@ -151,15 +161,16 @@ export default async function animalRoutes(fastify) {
     ensureDefaultSharing(db, row.id)
 
     // Metadaten-Freigabe: beste Rolle verwenden (vet/authority sehen mehr), Fallback auf guest
-    let sharing = getSharingForRole(db, row.id, primaryRole) || getSharingForRole(db, row.id, 'guest')
+    const publicRole = getPublicSharingRole(db)
+    let sharing = getSharingForRole(db, row.id, primaryRole) || getSharingForRole(db, row.id, publicRole)
 
     // Wenn immer noch kein sharing existiert, create es jetzt
     if (!sharing) {
       try {
         db.prepare(`INSERT INTO animal_sharing (id, animal_id, role, share_contact, share_breed, share_birthdate, share_address, share_dynamic_fields)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
-          .run(uuid(), row.id, 'guest', 0, 1, 1, 0, 0)
-        sharing = getSharingForRole(db, row.id, 'guest')
+          .run(uuid(), row.id, publicRole, 0, 1, 1, 0, 0)
+        sharing = getSharingForRole(db, row.id, publicRole)
       } catch { /* already exists */ }
     }
 
@@ -218,11 +229,12 @@ export default async function animalRoutes(fastify) {
     ensureDefaultSharing(db, animal.id)
 
     // Verify guest sharing exists, create if missing
-    let guestSharing = db.prepare('SELECT * FROM animal_sharing WHERE animal_id = ? AND role = ?').get(animal.id, 'guest')
+    const publicRole = getPublicSharingRole(db)
+    let guestSharing = db.prepare('SELECT * FROM animal_sharing WHERE animal_id = ? AND role = ?').get(animal.id, publicRole)
     if (!guestSharing) {
       db.prepare(`INSERT INTO animal_sharing (id, animal_id, role, share_contact, share_breed, share_birthdate, share_address, share_dynamic_fields)
                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
-        .run(uuid(), animal.id, 'guest', 0, 1, 1, 0, 0)
+      .run(uuid(), animal.id, publicRole, 0, 1, 1, 0, 0)
     }
 
     // Optional JWT für rollenbasierte Dokumentsichtbarkeit

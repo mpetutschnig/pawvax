@@ -46,16 +46,35 @@ export function initDb(dbPath) {
     try { db.exec(sql) } catch { /* column already exists */ }
   }
 
-  // Role/data migrations for sharing model changes.
+  // Detect whether animal_sharing currently supports guest or readonly as public role.
+  const animalSharingTableSql = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'animal_sharing'").get()?.sql || ''
+  const supportsGuestRole = animalSharingTableSql.includes("'guest'")
+  const publicSharingRole = supportsGuestRole ? 'guest' : 'readonly'
+
+  // Ensure every animal has a public sharing row in the role that the current schema accepts.
   try {
     db.exec(`
       INSERT OR IGNORE INTO animal_sharing (id, animal_id, role, share_contact, share_breed, share_birthdate, share_address, share_dynamic_fields)
-      SELECT id, animal_id, 'guest', share_contact, share_breed, share_birthdate, share_address, share_dynamic_fields
-      FROM animal_sharing
-      WHERE role = 'readonly'
+      SELECT lower(hex(randomblob(16))), a.id, '${publicSharingRole}', 0, 1, 1, 0, 0
+      FROM animals a
+      WHERE NOT EXISTS (
+        SELECT 1 FROM animal_sharing s WHERE s.animal_id = a.id AND s.role = '${publicSharingRole}'
+      )
     `)
-    db.exec("DELETE FROM animal_sharing WHERE role = 'readonly'")
   } catch { /* table may not exist yet */ }
+
+  // Role/data migrations for sharing model changes.
+  if (supportsGuestRole) {
+    try {
+      db.exec(`
+        INSERT OR IGNORE INTO animal_sharing (id, animal_id, role, share_contact, share_breed, share_birthdate, share_address, share_dynamic_fields)
+        SELECT id, animal_id, 'guest', share_contact, share_breed, share_birthdate, share_address, share_dynamic_fields
+        FROM animal_sharing
+        WHERE role = 'readonly'
+      `)
+      db.exec("DELETE FROM animal_sharing WHERE role = 'readonly'")
+    } catch { /* table may not exist yet */ }
+  }
   try {
     db.exec(`
       UPDATE documents
