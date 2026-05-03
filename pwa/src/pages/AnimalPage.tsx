@@ -355,7 +355,7 @@ export default function AnimalPage() {
         (d.doc_type ? docTypeLabel(d.doc_type).toLowerCase().includes(documentSearch) : false) ||
         (d.extracted_json?.title ?? '').toLowerCase().includes(documentSearch) ||
         (d.extracted_json?.suggested_tags ?? []).some((t: string) => t.toLowerCase().includes(documentSearch)) ||
-        (d.created_at ? new Date(d.created_at).toLocaleString(i18n.language === 'de' ? 'de-AT' : 'en-GB').includes(documentSearch) : false)
+        (d.created_at ? new Date(d.created_at).toLocaleString('de-AT').includes(documentSearch) : false)
       )
       .sort((a, b) => {
         const da = a.extracted_json?.document_date || a.created_at || ''
@@ -363,7 +363,7 @@ export default function AnimalPage() {
         if (!da || !db) return 0
         return sortOrder === 'desc' ? String(db).localeCompare(String(da)) : String(da).localeCompare(String(db))
       })
-  }, [documents, filterType, filterTag, filterDateFrom, filterDateTo, documentSearch, sortOrder, i18n.language])
+  }, [documents, filterType, filterTag, filterDateFrom, filterDateTo, documentSearch, sortOrder])
 
   // Grouped: Map<doc_type, Document[]> — only when showing all types
   const groupedDocs = useMemo(() => {
