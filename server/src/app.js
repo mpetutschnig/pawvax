@@ -131,10 +131,16 @@ try {
   if (!aCols.includes('address')) db.prepare('ALTER TABLE animals ADD COLUMN address TEXT').run()
   if (!aCols.includes('dynamic_fields')) db.prepare('ALTER TABLE animals ADD COLUMN dynamic_fields TEXT').run()
   if (!aCols.includes('avatar_path')) db.prepare('ALTER TABLE animals ADD COLUMN avatar_path TEXT').run()
+  if (!aCols.includes('is_archived')) db.prepare('ALTER TABLE animals ADD COLUMN is_archived INTEGER DEFAULT 0 NOT NULL').run()
   
   const sCols = db.prepare('PRAGMA table_info(animal_sharing)').all().map(c => c.name)
   if (!sCols.includes('share_address')) db.prepare('ALTER TABLE animal_sharing ADD COLUMN share_address INTEGER NOT NULL DEFAULT 0').run()
   if (!sCols.includes('share_dynamic_fields')) db.prepare('ALTER TABLE animal_sharing ADD COLUMN share_dynamic_fields INTEGER NOT NULL DEFAULT 0').run()
+
+  const dCols = db.prepare('PRAGMA table_info(documents)').all().map(c => c.name)
+  if (!dCols.includes('added_by_role')) db.prepare('ALTER TABLE documents ADD COLUMN added_by_role TEXT').run()
+  if (!dCols.includes('added_by_account')) db.prepare('ALTER TABLE documents ADD COLUMN added_by_account TEXT').run()
+  if (!dCols.includes('allowed_roles')) db.prepare('ALTER TABLE documents ADD COLUMN allowed_roles TEXT').run()
 } catch (err) {
   console.warn('Migration warnings:', err.message)
 }

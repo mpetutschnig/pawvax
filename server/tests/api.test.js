@@ -281,7 +281,7 @@ describe('PAWvax API Tests', () => {
     })
 
     test('4b. Create Sharing Link — Temporären Link erstellen', async () => {
-      const { status, data } = await apiCall('POST', `/animals/${testState.animalId}/sharing/temporary`)
+      const { status, data } = await apiCall('POST', `/animals/${testState.animalId}/sharing/temporary`, {})
 
       expect(status).toBe(201)
       expect(data.shareId).toBeTruthy()
