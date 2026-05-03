@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { getMe, patchMe, deleteMe, requestVerification } from '../api/rest'
+import { getMe, patchMe, deleteMe } from '../api/rest'
 import { PageHeader } from '../components/PageHeader'
-import { User, Shield, Stethoscope, Settings, Trash2, CheckCircle, Clock, AlertTriangle, Key, BookOpen } from 'lucide-react'
+import { User, Shield, Stethoscope, Settings, Trash2, CheckCircle, Clock, AlertTriangle, Key, BookOpen, Download } from 'lucide-react'
 
 export default function ProfilePage() {
   const navigate = useNavigate()
@@ -28,6 +28,7 @@ export default function ProfilePage() {
   const [openaiModel, setOpenaiModel] = useState('')
   const [aiPriority, setAiPriority] = useState<string[]>(['system', 'google', 'anthropic', 'openai'])
   const [modelSaving, setModelSaving] = useState(false)
+  const [requestedRoles, setRequestedRoles] = useState<string[]>(['vet'])
 
   useEffect(() => {
     loadProfile()
@@ -261,16 +262,45 @@ export default function ProfilePage() {
 
   const requestVerify = async () => {
     try {
-      await requestVerification()
+      const token = localStorage.getItem('token')
+      const res = await fetch('/api/accounts/me/verify-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ roles: requestedRoles })
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || t('common.error'))
+      }
       setSuccess(t('profile.requestVerificationSuccess'))
       setTimeout(() => {
         loadProfile()
         setSuccess(null)
       }, 2000)
     } catch (err: any) {
-      const msg = err?.response?.data?.error ?? t('common.error')
-      setError(msg)
+      setError(err.message || t('common.error'))
       console.error(err)
+    }
+  }
+
+  const handleTakeout = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch('/api/accounts/me/takeout', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      if (!response.ok) throw new Error('Download failed')
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `paw_takeout_${new Date().toISOString().slice(0, 10)}.zip`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (err) {
+      setError(t('profile.takeoutError'))
     }
   }
 
@@ -334,9 +364,26 @@ export default function ProfilePage() {
             ) : verificationStatus === 'pending' ? (
               <p className="text-muted" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', margin: 0 }}><Clock size={18} /> {t('profile.verificationPending')}</p>
             ) : (
-              <button className="btn btn-primary" onClick={requestVerify} style={{ marginTop: 'var(--space-2)' }}>
-                <CheckCircle size={16} /> {t('profile.requestVerification')}
-              </button>
+              <div style={{ background: 'var(--surface)', padding: 'var(--space-4)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
+                <p style={{ margin: '0 0 var(--space-3) 0' }}>{t('profile.selectRoleToVerify', 'Als Partner verifizieren (Tierarzt oder Behörde):')}</p>
+                <div style={{ display: 'flex', gap: 'var(--space-4)', marginBottom: 'var(--space-3)' }}>
+                  <label style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center', cursor: 'pointer' }}>
+                    <input type="checkbox" checked={requestedRoles.includes('vet')}
+                      onChange={e => setRequestedRoles(prev => e.target.checked ? [...prev, 'vet'] : prev.filter(r => r !== 'vet'))} 
+                      style={{ width: 16, height: 16, accentColor: 'var(--primary-500)' }} />
+                    Tierarzt
+                  </label>
+                  <label style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center', cursor: 'pointer' }}>
+                    <input type="checkbox" checked={requestedRoles.includes('authority')}
+                      onChange={e => setRequestedRoles(prev => e.target.checked ? [...prev, 'authority'] : prev.filter(r => r !== 'authority'))} 
+                      style={{ width: 16, height: 16, accentColor: 'var(--primary-500)' }} />
+                    Behörde
+                  </label>
+                </div>
+                <button className="btn btn-primary" onClick={requestVerify} disabled={requestedRoles.length === 0}>
+                  <CheckCircle size={16} /> {t('profile.requestVerification')}
+                </button>
+              </div>
             )}
           </>
         )}
@@ -567,6 +614,16 @@ export default function ProfilePage() {
 
         <hr className="divider" style={{ margin: 'var(--space-6) 0' }} />
 
+        <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+          <Download size={18} color="var(--primary-500)" /> {t('profile.dataExport')}
+        </h3>
+        <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-4)' }}>
+          {t('profile.dataExportDesc')}
+        </p>
+        <button className="btn btn-secondary" onClick={handleTakeout}>
+          {t('profile.dataExportBtn')}
+        </button>
+
         <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--space-3)', color: 'var(--danger-500)' }}>{t('profile.deleteAccount')}</h3>
         <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-4)' }}>
           {t('profile.deleteAccountDesc')}
@@ -587,6 +644,12 @@ export default function ProfilePage() {
             <li>{t('profile.deleteList2')}</li>
             <li>{t('profile.deleteList3')}</li>
           </ul>
+          <div style={{ background: 'var(--surface)', padding: 'var(--space-3)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-4)' }}>
+            <p className="text-muted" style={{ margin: 0, fontSize: 'var(--font-size-sm)' }}>{t('profile.deleteTakeoutHint')}</p>
+            <button className="btn btn-secondary" onClick={handleTakeout} style={{ marginTop: 'var(--space-2)' }}>
+              {t('profile.dataExportBtn')}
+            </button>
+          </div>
           <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
             <button className="btn btn-danger flex-1" onClick={handleDelete}>
               {t('profile.deleteYes')}

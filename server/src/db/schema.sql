@@ -20,7 +20,8 @@ CREATE TABLE IF NOT EXISTS animals (
   species    TEXT NOT NULL CHECK(species IN ('dog', 'cat', 'other')),
   breed      TEXT,
   birthdate  TEXT,
-  created_at TEXT DEFAULT (datetime('now'))
+  created_at TEXT DEFAULT (datetime('now')),
+  is_archived INTEGER DEFAULT 0 NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS animal_tags (
@@ -73,6 +74,13 @@ CREATE TABLE IF NOT EXISTS animal_sharing (
   UNIQUE(animal_id, role)
 );
 
+CREATE TABLE IF NOT EXISTS animal_public_shares (
+  id        TEXT PRIMARY KEY,
+  animal_id TEXT NOT NULL REFERENCES animals(id) ON DELETE CASCADE,
+  expires_at TEXT NOT NULL,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
 CREATE INDEX IF NOT EXISTS idx_animals_account ON animals(account_id);
 CREATE INDEX IF NOT EXISTS idx_tags_animal ON animal_tags(animal_id);
 CREATE INDEX IF NOT EXISTS idx_tags_active ON animal_tags(tag_id, active);
@@ -82,6 +90,7 @@ CREATE INDEX IF NOT EXISTS idx_audit_account ON audit_log(account_id);
 CREATE INDEX IF NOT EXISTS idx_audit_resource ON audit_log(resource, resource_id);
 CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log(created_at);
 CREATE INDEX IF NOT EXISTS idx_sharing_animal ON animal_sharing(animal_id);
+CREATE INDEX IF NOT EXISTS idx_public_shares_animal ON animal_public_shares(animal_id);
 
 CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,

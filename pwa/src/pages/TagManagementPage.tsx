@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { getAnimalTags, addTag, deactivateTag, activateTag } from '../api/rest'
 import { useBarcode } from '../hooks/useBarcode'
@@ -16,6 +16,7 @@ export default function TagManagementPage() {
   const [loading, setLoading] = useState(true)
   const [scanning, setScanning] = useState<'none' | 'barcode' | 'nfc'>('none')
   const [error, setError] = useState<string | null>(null)
+  const [conflictError, setConflictError] = useState<{ animalId: string } | null>(null)
 
   const reload = useCallback(() => {
     if (!id) return
@@ -48,6 +49,7 @@ export default function TagManagementPage() {
     if (!id) return
     setScanning('none')
     setError(null)
+    setConflictError(null)
 
     let tagId = rawTagId.trim()
     try {
@@ -66,8 +68,12 @@ export default function TagManagementPage() {
       await addTag(id, tagId, tagType)
       reload()
     } catch (err: unknown) {
-      const status = (err as { response?: { status?: number } })?.response?.status
-      setError(status === 409 ? t('common.error') : t('chip.addError'))
+      const response = (err as any)?.response
+      if (response?.status === 409 && response?.data?.conflict?.animalId) {
+        setConflictError({ animalId: response.data.conflict.animalId })
+      } else {
+        setError(t('chip.addError'))
+      }
     }
   }, [id, reload, tags, t])
 
@@ -84,6 +90,14 @@ export default function TagManagementPage() {
       <PageHeader title={t('chip.manage')} backTo={`/animals/${id}`} showThemeToggle />
 
       {error && <div className="error-card" style={{ marginBottom: 'var(--space-4)' }}><p>{error}</p></div>}
+      {conflictError && (
+        <div className="error-card" style={{ marginBottom: 'var(--space-4)' }}>
+          <p>{t('chip.tagInUse')}</p>
+          <Link to={`/animals/${conflictError.animalId}`} style={{ color: 'inherit', fontWeight: 600, textDecoration: 'underline', marginTop: 'var(--space-2)', display: 'inline-block' }}>
+            {t('chip.viewProfile')}
+          </Link>
+        </div>
+      )}
 
       {loading ? <div style={{ display: 'flex', justifyContent: 'center', marginTop: 'var(--space-6)' }}><div className="spinner"></div></div> : (
         <div className="animate-fade-in">

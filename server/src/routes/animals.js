@@ -160,6 +160,29 @@ export default async function animalRoutes(fastify) {
     return result
   })
 
+  fastify.get('/api/public/share/:shareId', async (req, reply) => {
+    const db = getDb()
+    const { shareId } = req.params
+
+    const share = db.prepare('SELECT * FROM animal_public_shares WHERE id = ?').get(shareId)
+    if (!share) return reply.code(404).send({ error: 'Freigabe nicht gefunden' })
+
+    if (new Date(share.expires_at) < new Date()) {
+      return reply.code(410).send({ error: 'Diese Freigabe ist abgelaufen' })
+    }
+
+    const animal = db.prepare(`
+      SELECT a.*, ac.name AS owner_name, ac.email AS owner_email
+      FROM animals a
+      JOIN accounts ac ON a.account_id = ac.id
+      WHERE a.id = ?
+    `).get(share.animal_id)
+
+    if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden' })
+
+    return applySharing(db, animal, 'readonly', animal.owner_name, animal.owner_email)
+  })
+
   // ──── Alle weiteren Routen erfordern Auth ─────────────────────────────────
   fastify.addHook('onRequest', async (req, reply) => {
     // Skip public routes
@@ -257,6 +280,13 @@ export default async function animalRoutes(fastify) {
     const { accountId, role } = req.user
     const animalId = uuid()
 
+    if (tagId) {
+      const existingTag = db.prepare('SELECT animal_id FROM animal_tags WHERE tag_id = ?').get(tagId)
+      if (existingTag) {
+        return reply.code(409).send({ error: 'Tag bereits vergeben', conflict: { animalId: existingTag.animal_id } })
+      }
+    }
+
     const insert = db.transaction(() => {
       db.prepare('INSERT INTO animals (id, account_id, name, species, breed, birthdate, address) VALUES (?, ?, ?, ?, ?, ?, ?)')
         .run(animalId, accountId, name, species, breed ?? null, birthdate ?? null, address ?? null)
@@ -331,6 +361,8 @@ export default async function animalRoutes(fastify) {
     const animal = db.prepare('SELECT * FROM animals WHERE id = ? AND account_id = ?').get(id, accountId)
     if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden' })
 
+    if (animal.is_archived) return reply.code(403).send({ error: 'Archivierte Tiere können nicht bearbeitet werden.' })
+
     const updated = { ...animal, ...req.body }
     let avatarPath = animal.avatar_path
 
@@ -347,6 +379,22 @@ export default async function animalRoutes(fastify) {
       details: { before: animal, after: updated }, ip: req.ip })
 
     return db.prepare('SELECT * FROM animals WHERE id = ?').get(id)
+  })
+
+  // Tier archivieren
+  fastify.patch('/api/animals/:id/archive', async (req, reply) => {
+    const db = getDb()
+    const { id } = req.params
+    const { accountId, role } = req.user
+
+    const animal = db.prepare('SELECT id FROM animals WHERE id = ? AND account_id = ?').get(id, accountId)
+    if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden oder keine Berechtigung' })
+
+    db.prepare('UPDATE animals SET is_archived = 1 WHERE id = ?').run(id)
+
+    logAudit(db, { accountId, role, action: 'archive_animal', resource: 'animal', resourceId: id, ip: req.ip })
+
+    return { success: true }
   })
 
   // Tier löschen
@@ -369,7 +417,7 @@ export default async function animalRoutes(fastify) {
   // Alle Tiere des Kontos
   fastify.get('/api/animals', async (req) => {
     const db = getDb()
-    return db.prepare('SELECT * FROM animals WHERE account_id = ? ORDER BY name').all(req.user.accountId)
+    return db.prepare('SELECT * FROM animals WHERE account_id = ? ORDER BY is_archived ASC, name ASC').all(req.user.accountId)
   })
 
   // Dokumentliste eines Tieres (mit Rollenfilter)
@@ -455,14 +503,23 @@ export default async function animalRoutes(fastify) {
     const userRoles = (role || '').split(',').map(r => r.trim())
     const isVet = userRoles.includes('vet')
 
-    const animal = db.prepare('SELECT id, account_id FROM animals WHERE id = ?').get(id)
+    const animal = db.prepare('SELECT id, account_id, is_archived FROM animals WHERE id = ?').get(id)
     if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden' })
-    if (animal.account_id !== accountId && !isVet) {
-      return reply.code(403).send({ error: 'Keine Berechtigung' })
+    if (animal.is_archived) return reply.code(403).send({ error: 'Tags können nicht zu archivierten Tieren hinzugefügt werden.' })
+
+    if (animal.account_id !== accountId) {
+      // Zero-Trust: Live-Check der DB, nicht nur des JWT
+      const liveUser = db.prepare('SELECT role, verified FROM accounts WHERE id = ?').get(accountId)
+      const liveRoles = (liveUser.role || '').split(',').map(r => r.trim())
+      if (!liveRoles.includes('vet') || !liveUser.verified) {
+        return reply.code(403).send({ error: 'Nur verifizierte Tierärzte dürfen Tags zu fremden Tieren hinzufügen.' })
+      }
     }
 
-    const existing = db.prepare('SELECT tag_id FROM animal_tags WHERE tag_id = ?').get(tagId)
-    if (existing) return reply.code(409).send({ error: 'Tag bereits vergeben' })
+    const existing = db.prepare('SELECT animal_id FROM animal_tags WHERE tag_id = ?').get(tagId)
+    if (existing) {
+      return reply.code(409).send({ error: 'Tag bereits vergeben', conflict: { animalId: existing.animal_id } })
+    }
 
     db.prepare('INSERT INTO animal_tags (tag_id, animal_id, tag_type) VALUES (?, ?, ?)')
       .run(tagId, id, tagType)
@@ -571,6 +628,27 @@ export default async function animalRoutes(fastify) {
     return db.prepare('SELECT * FROM animal_sharing WHERE animal_id = ? AND role = ?').get(id, role)
   })
 
+  // Temporären Share-Link erzeugen
+  fastify.post('/api/animals/:id/sharing/temporary', async (req, reply) => {
+    const db = getDb()
+    const { id } = req.params
+    const { accountId, role } = req.user
+
+    const animal = db.prepare('SELECT id FROM animals WHERE id = ? AND account_id = ?').get(id, accountId)
+    if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden oder keine Berechtigung' })
+
+    const shareId = uuid()
+    const expiresAt = new Date()
+    expiresAt.setDate(expiresAt.getDate() + 14) // 14 Tage gültig
+
+    db.prepare('INSERT INTO animal_public_shares (id, animal_id, expires_at) VALUES (?, ?, ?)')
+      .run(shareId, id, expiresAt.toISOString())
+
+    logAudit(db, { accountId, role, action: 'create_temp_share', resource: 'sharing', resourceId: id, ip: req.ip })
+
+    return reply.code(201).send({ shareId })
+  })
+
   // Upload animal avatar
   fastify.patch('/api/animals/:id/avatar', { onRequest: [fastify.authenticate] }, async (req, reply) => {
     const db = getDb()
@@ -581,6 +659,8 @@ export default async function animalRoutes(fastify) {
 
     const animal = db.prepare('SELECT * FROM animals WHERE id = ? AND account_id = ?').get(id, accountId)
     if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden' })
+
+    if (animal.is_archived) return reply.code(403).send({ error: 'Avatar kann für archivierte Tiere nicht geändert werden.' })
 
     if (!imageData) return reply.code(400).send({ error: 'Base64 Image erforderlich' })
 

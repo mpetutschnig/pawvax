@@ -302,6 +302,11 @@
   "profile.deleteError": "Account konnte nicht gelöscht werden",
   "profile.deleteSuccess": "Gemini-Schlüssel gelöscht",
   "profile.requestVerificationSuccess": "Verifikationsantrag eingereicht",
+  "profile.dataExport": "Datenexport (Takeout)",
+  "profile.dataExportDesc": "Lade ein ZIP-Archiv mit all deinen Daten herunter (Tiere, Dokumente, Bilder).",
+  "profile.dataExportBtn": "Datenexport starten",
+  "profile.deleteTakeoutHint": "Möchtest du vorher deine Daten sichern?",
+  "profile.takeoutError": "Fehler beim Erstellen des Datenexports.",
   "admin.title": "Admin-Panel",
   "admin.statistics": "Statistiken",
   "admin.accounts": "Accounts",
@@ -417,5 +422,14 @@
   "docs.dev.h2": "WebSocket Upload (Dokumente)",
   "docs.dev.t2": "Verbindung via `wss://pawapi.oxs.at/ws?token=JWT`. Ablauf:\n1. Text-Frame senden: { type: 'upload_start', ... }\n2. Binary-Frames senden: Bild-Chunks (max 64KB pro Message)\n3. Text-Frame senden: { type: 'upload_end' }",
   "docs.dev.h3": "Multi-AI Provider",
-  "docs.dev.t3": "Das System unterstützt Google Gemini (Standard), Anthropic Claude und OpenAI. User können eigene Keys im Profil hinterlegen. Das Backend iteriert anhand der `ai_provider_priority` durch die Anbieter."
+  "docs.dev.t3": "Das System unterstützt Google Gemini (Standard), Anthropic Claude und OpenAI. User können eigene Keys im Profil hinterlegen. Das Backend iteriert anhand der `ai_provider_priority` durch die Anbieter.",
+  "animal.archived": "Archiviert (In Memoriam)",
+  "animal.archiveAnimal": "Tier archivieren",
+  "animal.archiveConfirm": "Möchtest du dieses Tier archivieren? Es wechselt in einen Read-Only Status.",
+  "sharing.tempLink": "Temporärer Link (Ohne Login)",
+  "sharing.expiresIn": "Läuft ab in",
+  "sharing.days": "Tagen",
+  "sharing.generateLink": "Link generieren",
+  "sharing.copyLink": "Link kopieren",
+  "docDetail.ocrDisclaimer": "Die extrahierten Textdaten dienen nur der Übersicht. Rechtlich bindend ist ausschließlich das angehängte Originaldokument (Foto)."
 }

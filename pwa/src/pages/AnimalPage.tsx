@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { getAnimal, getAnimalDocuments, getAnimalTags, updateAnimal, deleteAnimal, uploadAnimalAvatar, deleteDocument, getMe } from '../api/rest'
-import { PageHeader } from '../components/PageHeader'
+import { PageHeader } from '../components/PageHeader' 
 import { PawPrint, Cat, Edit2, Trash2, Lock, Camera, Search, Radio, ShieldAlert, AlertTriangle, RefreshCw, X, Syringe, FileText, CheckCircle, ArrowDownAZ, ArrowUpAZ, SlidersHorizontal } from 'lucide-react'
 import { AnimalDTO } from '../types/animal'
 interface AnimalTag {
@@ -265,6 +265,21 @@ export default function AnimalPage() {
     }
   }
 
+  const handleArchive = async () => {
+    if (!id || !animal || !isOwner) return
+    if (!window.confirm(t('animal.archiveConfirm'))) return
+    try {
+      setSubmitting(true)
+      const token = localStorage.getItem('token')
+      await fetch(`/api/animals/${id}/archive`, { method: 'PATCH', headers: { 'Authorization': `Bearer ${token}` } })
+      setAnimal(prev => prev ? { ...prev, is_archived: 1 } : null)
+    } catch (err: any) {
+      setError(err.response?.data?.error || t('common.error'))
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   if (loading) return <div className="container page" style={{ display: 'flex', justifyContent: 'center', paddingTop: '4rem' }}><div className="spinner spinner-lg"></div></div>
   if (!animal) return <div className="container page"><div className="error-card"><p>{error || t('error.notFound')}</p></div></div>
 
@@ -377,233 +392,256 @@ export default function AnimalPage() {
 
       {error && <div className="error-card"><p>{error}</p></div>}
 
-      {!isOwner && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', padding: 'var(--space-3)', background: 'var(--info-50)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-4)', border: '1px solid var(--info-200)' }}>
-          <ShieldAlert size={18} color="var(--info-600)" />
-          <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--info-800)' }}>
-            {t('scan.sharedAccess')}: <strong style={{ textTransform: 'capitalize' }}>{animal.request_role === 'vet' ? t('docScan.vet') : animal.request_role === 'authority' ? t('docScan.authority') : t('docScan.readonlyAccess')}</strong>
-          </span>
-        </div>
-      )}
+      <div className="content-grid">
+        <div>
+          {!isOwner && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', padding: 'var(--space-3)', background: 'var(--info-50)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-4)', border: '1px solid var(--info-200)' }}>
+              <ShieldAlert size={18} color="var(--info-600)" />
+              <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--info-800)' }}>
+                {t('scan.sharedAccess')}: <strong style={{ textTransform: 'capitalize' }}>{animal.request_role === 'vet' ? t('docScan.vet') : animal.request_role === 'authority' ? t('docScan.authority') : t('docScan.readonlyAccess')}</strong>
+              </span>
+            </div>
+          )}
 
-      {!editing ? (
-        <>
-          <div style={{
-            borderRadius: 'var(--radius-xl)',
-            background: 'linear-gradient(135deg, var(--primary-500), var(--primary-700))',
-            padding: 'var(--space-5)',
-            marginBottom: 'var(--space-4)',
-            boxShadow: 'var(--shadow-lg)',
-          }}>
-            <div style={{ display: 'flex', gap: 'var(--space-4)', alignItems: 'center', marginBottom: 'var(--space-3)' }}>
-              <div style={{ position: 'relative' }}>
-                <div style={{
-                  width: 56, height: 56, borderRadius: 'var(--radius-lg)',
-                  background: 'oklch(100% 0 0 / 0.18)',
-                  border: '1.5px solid oklch(100% 0 0 / 0.28)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
-                  cursor: isOwner ? 'pointer' : 'default', transition: 'opacity 0.2s'
-                }} onClick={isOwner ? () => avatarInputRef.current?.click() : undefined}>
-                  {animal.avatar_path ? (
-                    <img src={`/uploads/${animal.avatar_path.split('/').pop()}`} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  ) : (
-                    animal.species === 'cat' ? <Cat size={28} color="white" strokeWidth={1.6} /> : <PawPrint size={28} color="white" strokeWidth={1.6} />
+          {animal.is_archived ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', padding: 'var(--space-3)', background: 'var(--surface-alt)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-4)', border: '1px solid var(--border)' }}>
+              <Trash2 size={18} color="var(--text-secondary)" />
+              <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', fontWeight: 600 }}>{t('animal.archived')}</span>
+            </div>
+          ) : null}
+
+          {!editing ? (
+            <>
+              <div style={{
+                borderRadius: 'var(--radius-xl)',
+                background: 'linear-gradient(135deg, var(--primary-500), var(--primary-700))',
+                padding: 'var(--space-5)',
+                marginBottom: 'var(--space-4)',
+                boxShadow: 'var(--shadow-lg)',
+              }}>
+                <div style={{ display: 'flex', gap: 'var(--space-4)', alignItems: 'center', marginBottom: 'var(--space-3)' }}>
+                  <div style={{ position: 'relative' }}>
+                    <div style={{
+                      width: 56, height: 56, borderRadius: 'var(--radius-lg)',
+                      background: 'oklch(100% 0 0 / 0.18)',
+                      border: '1.5px solid oklch(100% 0 0 / 0.28)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+                      cursor: isOwner && !animal.is_archived ? 'pointer' : 'default', transition: 'opacity 0.2s'
+                    }} onClick={isOwner && !animal.is_archived ? () => avatarInputRef.current?.click() : undefined}>
+                      {animal.avatar_path ? (
+                        <img src={`/uploads/${animal.avatar_path.split('/').pop()}`} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        animal.species === 'cat' ? <Cat size={28} color="white" strokeWidth={1.6} /> : <PawPrint size={28} color="white" strokeWidth={1.6} />
+                      )}
+                    </div>
+                    <input
+                      ref={avatarInputRef}
+                      type="file"
+                      accept="image/*"
+                      style={{ display: 'none' }}
+                      onChange={!animal.is_archived ? handleAvatarUpload : undefined}
+                      disabled={uploadingAvatar}
+                    />
+                    {uploadingAvatar && (
+                      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', borderRadius: 'var(--radius-lg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <div className="spinner spinner-sm" style={{ width: 20, height: 20 }}></div>
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <h2 style={{ color: 'white', margin: 0, fontFamily: 'var(--font-display)' }}>{animal.name}</h2>
+                    <p style={{ color: 'oklch(100% 0 0 / 0.70)', margin: 0, fontSize: 'var(--font-size-sm)' }}>
+                      {animal.breed} {animal.birthdate ? `· ${new Date().getFullYear() - new Date(animal.birthdate).getFullYear()} ${t('animal.yearsOld')}` : ''}
+                    </p>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap', marginBottom: animal.dynamic_fields ? 'var(--space-3)' : 0 }}>
+                  {isVetVerified && (
+                    <span style={{ background: 'oklch(100% 0 0 / 0.15)', border: '1px solid oklch(100% 0 0 / 0.22)', borderRadius: 'var(--radius-full)', padding: '3px 10px', fontSize: 11, fontWeight: 600, color: 'white' }}>
+                      {t('animal.vetVerified')}
+                    </span>
+                  )}
+                  {hasNfcTag && (
+                    <span style={{ background: 'oklch(100% 0 0 / 0.15)', border: '1px solid oklch(100% 0 0 / 0.22)', borderRadius: 'var(--radius-full)', padding: '3px 10px', fontSize: 11, fontWeight: 600, color: 'white' }}>
+                      {t('animal.nfcActive')}
+                    </span>
                   )}
                 </div>
-                <input
-                  ref={avatarInputRef}
-                  type="file"
-                  accept="image/*"
-                  style={{ display: 'none' }}
-                  onChange={handleAvatarUpload}
-                  disabled={uploadingAvatar}
-                />
-                {uploadingAvatar && (
-                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', borderRadius: 'var(--radius-lg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <div className="spinner spinner-sm" style={{ width: 20, height: 20 }}></div>
-                  </div>
-                )}
+                
+                {animal.dynamic_fields && (() => {
+                  try {
+                    const df = JSON.parse(animal.dynamic_fields);
+                    return Object.entries(df).map(([k, v]) => (
+                      <div key={k} style={{ color: 'white', fontSize: 'var(--font-size-sm)', marginTop: 'var(--space-1)' }}>
+                        <strong>{k}:</strong> {String(v)}
+                      </div>
+                    ))
+                  } catch { return null; }
+                })()}
               </div>
-              <div>
-                <h2 style={{ color: 'white', margin: 0, fontFamily: 'var(--font-display)' }}>{animal.name}</h2>
-                <p style={{ color: 'oklch(100% 0 0 / 0.70)', margin: 0, fontSize: 'var(--font-size-sm)' }}>
-                  {animal.breed} {animal.birthdate ? `· ${new Date().getFullYear() - new Date(animal.birthdate).getFullYear()} ${t('animal.yearsOld')}` : ''}
-                </p>
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap', marginBottom: animal.dynamic_fields ? 'var(--space-3)' : 0 }}>
-              {isVetVerified && (
-                <span style={{ background: 'oklch(100% 0 0 / 0.15)', border: '1px solid oklch(100% 0 0 / 0.22)', borderRadius: 'var(--radius-full)', padding: '3px 10px', fontSize: 11, fontWeight: 600, color: 'white' }}>
-                  {t('animal.vetVerified')}
-                </span>
-              )}
-              {hasNfcTag && (
-                <span style={{ background: 'oklch(100% 0 0 / 0.15)', border: '1px solid oklch(100% 0 0 / 0.22)', borderRadius: 'var(--radius-full)', padding: '3px 10px', fontSize: 11, fontWeight: 600, color: 'white' }}>
-                  {t('animal.nfcActive')}
-                </span>
-              )}
-            </div>
-            
-            {animal.dynamic_fields && (() => {
-              try {
-                const df = JSON.parse(animal.dynamic_fields);
-                return Object.entries(df).map(([k, v]) => (
-                  <div key={k} style={{ color: 'white', fontSize: 'var(--font-size-sm)', marginTop: 'var(--space-1)' }}>
-                    <strong>{k}:</strong> {String(v)}
-                  </div>
-                ))
-              } catch { return null; }
-            })()}
-          </div>
 
-          {!isOwner && animal.contact && (
-            <div style={{ background: 'var(--surface)', padding: 'var(--space-3)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-4)', border: '1px solid var(--border)' }}>
-              <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>{t('publicScan.contact')}</div>
-              <div style={{ fontWeight: 600 }}>{animal.contact.name}</div>
-            </div>
-          )}
-
-          {isOwner && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
-              <button className="btn btn-secondary" onClick={() => setEditing(true)}><Edit2 size={16} /> {t('animal.edit')}</button>
-              <button className="btn btn-outline" onClick={handleDelete} disabled={submitting} style={{ borderColor: 'var(--danger-500)', color: 'var(--danger-500)' }}><Trash2 size={16} /> {t('animal.delete')}</button>
-              <Link to={`/animals/${id}/tags`} className="btn btn-ghost" style={{ textDecoration: 'none' }}>
-                <Radio size={16} /> {t('animal.chips')}
-              </Link>
-              <Link to={`/animals/${id}/sharing`} className="btn btn-ghost" style={{ textDecoration: 'none' }}>
-                <Lock size={16} /> {t('animal.sharing')}
-              </Link>
-            </div>
-          )}
-
-          {!isOwner && isVet && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
-              <Link to={`/animals/${id}/tags`} className="btn btn-ghost" style={{ textDecoration: 'none', border: '1px solid var(--border)' }}>
-                <Radio size={16} /> {t('animal.chips')}
-              </Link>
-            </div>
-          )}
-        </>
-      ) : (
-        <div className="card animate-slide-up">
-          <h3 style={{ marginBottom: 'var(--space-4)' }}>{t('animalEdit.title')}</h3>
-          <form>
-            <div className="form-group">
-              <label className="form-label">{t('animalEdit.name')}</label>
-              <input
-                className="form-input"
-                type="text"
-                value={editData?.name || ''}
-                onChange={(e) => setEditData({ ...editData!, name: e.target.value })}
-                required
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">{t('animalEdit.species')}</label>
-              <select
-                className="form-select"
-                value={editData?.species || 'dog'}
-                onChange={(e) => setEditData({ ...editData!, species: e.target.value as 'dog' | 'cat' | 'other' })}
-              >
-                <option value="dog">{t('animals.dog')}</option>
-                <option value="cat">{t('animals.cat')}</option>
-                <option value="other">{t('animals.other')}</option>
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">{t('animalEdit.breed')}</label>
-              <input
-                className="form-input"
-                type="text"
-                value={editData?.breed || ''}
-                onChange={(e) => setEditData({ ...editData!, breed: e.target.value })}
-                placeholder={t('animals.breedPlaceholder')}
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">{t('animalEdit.birthdate')}</label>
-              <input
-                type="date"
-                className="form-input"
-                value={editData?.birthdate || ''}
-                onChange={(e) => setEditData({ ...editData!, birthdate: e.target.value })}
-              />
-            </div>
-            
-            <div className="form-group">
-              <label className="form-label">{t('animals.optional')} Avatar</label>
-              <input
-                type="file"
-                accept="image/*"
-                className="form-input"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    const reader = new FileReader();
-                    reader.onload = (ev) => setEditData({ ...editData!, avatar_base64: ev.target?.result as string });
-                    reader.readAsDataURL(file);
-                  }
-                }}
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">{t('animalEdit.dynamicFields')}</label>
-              <textarea
-                className="form-input"
-                rows={3}
-                placeholder={'{"Instagram": "@bella", "Chip": "1234"}'}
-                value={editData?.dynamic_fields || ''}
-                onChange={(e) => setEditData({ ...editData!, dynamic_fields: e.target.value })}
-              />
-              <p className="text-muted" style={{ fontSize: '11px', marginTop: 'var(--space-1)' }}>{t('animalEdit.customFieldsDesc')}</p>
-            </div>
-
-            <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-6)' }}>
-              <button type="button" className="btn btn-primary flex-1" onClick={handleEdit} disabled={submitting}>
-                {submitting ? `${t('animalEdit.saving')}...` : t('animalEdit.save')}
-              </button>
-              <button type="button" className="btn btn-ghost flex-1" onClick={() => { setEditing(false); setEditData(animal) }} disabled={submitting}>
-                {t('animalEdit.cancel')}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {tags.length > 0 && (
-        <div style={{ marginBottom: 'var(--space-6)' }}>
-          <h3 style={{ marginBottom: 'var(--space-3)' }}>{t('animal.chips')} ({tags.length})</h3>
-          {tags.map(tag => (
-            <div key={tag.tag_id} className="card card-sm" style={{ marginBottom: 'var(--space-2)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', justifyContent: 'space-between' }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: '4px' }}>
-                    {tag.tag_type === 'nfc' ? <Radio size={16} color="var(--primary-500)" /> : <Camera size={16} color="var(--primary-500)" />}
-                    <span style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', wordBreak: 'break-all' }}>
-                      {tag.tag_id}
-                    </span>
-                  </div>
-                  <p className="text-muted" style={{ margin: 0, fontSize: '12px' }}>
-                    {tag.tag_type === 'barcode' ? t('chip.barcode') : t('chip.nfc')}
-                  </p>
+              {!isOwner && animal.contact && (
+                <div style={{ background: 'var(--surface)', padding: 'var(--space-3)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-4)', border: '1px solid var(--border)' }}>
+                  <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>{t('publicScan.contact')}</div>
+                  <div style={{ fontWeight: 600 }}>{animal.contact.name}</div>
                 </div>
-                {tag.active === 1 ? (
-                  <span className="badge badge-success"><span className="badge-dot"></span>{t('chip.active')}</span>
-                ) : (
-                  <span className="badge badge-danger">{t('chip.inactive')}</span>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+              )}
 
-      {/* Document Tabs */}
-      <div style={{ display: 'flex', gap: 'var(--space-3)', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border)' }}>
+              {isOwner && !animal.is_archived && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
+                  <button className="btn btn-secondary" onClick={() => setEditing(true)}><Edit2 size={16} /> {t('animal.edit')}</button>
+                  <button className="btn btn-outline" onClick={handleArchive} disabled={submitting} style={{ borderColor: 'var(--text-tertiary)', color: 'var(--text-secondary)' }}>
+                    <Trash2 size={16} /> {t('animal.archiveAnimal')}
+                  </button>
+
+                  <Link to={`/animals/${id}/tags`} className="btn btn-ghost" style={{ textDecoration: 'none', gridColumn: 'span 2' }}>
+                    <Radio size={16} /> {t('animal.chips')}
+                  </Link>
+                  <Link to={`/animals/${id}/sharing`} className="btn btn-ghost" style={{ textDecoration: 'none' }}>
+                    <Lock size={16} /> {t('animal.sharing')}
+                  </Link>
+                </div>
+              )}
+              {isOwner && animal.is_archived && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
+                  <button className="btn btn-outline" onClick={handleDelete} disabled={submitting} style={{ borderColor: 'var(--danger-500)', color: 'var(--danger-500)' }}>
+                    <Trash2 size={16} /> {t('animal.delete')}
+                  </button>
+                </div>
+              )}
+              
+              
+              
+              {!isOwner && isVet && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
+                  <Link to={`/animals/${id}/tags`} className="btn btn-ghost" style={{ textDecoration: 'none', border: '1px solid var(--border)' }}>
+                    <Radio size={16} /> {t('animal.chips')}
+                  </Link>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="card animate-slide-up">
+              <h3 style={{ marginBottom: 'var(--space-4)' }}>{t('animalEdit.title')}</h3>
+              <form>
+                <div className="form-group">
+                  <label className="form-label">{t('animalEdit.name')}</label>
+                  <input
+                    className="form-input"
+                    type="text"
+                    value={editData?.name || ''}
+                    onChange={(e) => setEditData({ ...editData!, name: e.target.value })}
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">{t('animalEdit.species')}</label>
+                  <select
+                    className="form-select"
+                    value={editData?.species || 'dog'}
+                    onChange={(e) => setEditData({ ...editData!, species: e.target.value as 'dog' | 'cat' | 'other' })}
+                  >
+                    <option value="dog">{t('animals.dog')}</option>
+                    <option value="cat">{t('animals.cat')}</option>
+                    <option value="other">{t('animals.other')}</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">{t('animalEdit.breed')}</label>
+                  <input
+                    className="form-input"
+                    type="text"
+                    value={editData?.breed || ''}
+                    onChange={(e) => setEditData({ ...editData!, breed: e.target.value })}
+                    placeholder={t('animals.breedPlaceholder')}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">{t('animalEdit.birthdate')}</label>
+                  <input
+                    type="date"
+                    className="form-input"
+                    value={editData?.birthdate || ''}
+                    onChange={(e) => setEditData({ ...editData!, birthdate: e.target.value })}
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label className="form-label">{t('animals.optional')} Avatar</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="form-input"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (ev) => setEditData({ ...editData!, avatar_base64: ev.target?.result as string });
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">{t('animalEdit.dynamicFields')}</label>
+                  <textarea
+                    className="form-input"
+                    rows={3}
+                    placeholder={'{"Instagram": "@bella", "Chip": "1234"}'}
+                    value={editData?.dynamic_fields || ''}
+                    onChange={(e) => setEditData({ ...editData!, dynamic_fields: e.target.value })}
+                  />
+                  <p className="text-muted" style={{ fontSize: '11px', marginTop: 'var(--space-1)' }}>{t('animalEdit.customFieldsDesc')}</p>
+                </div>
+
+                <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-6)' }}>
+                  <button type="button" className="btn btn-primary flex-1" onClick={handleEdit} disabled={submitting}>
+                    {submitting ? `${t('animalEdit.saving')}...` : t('animalEdit.save')}
+                  </button>
+                  <button type="button" className="btn btn-ghost flex-1" onClick={() => { setEditing(false); setEditData(animal) }} disabled={submitting}>
+                    {t('animalEdit.cancel')}
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {tags.length > 0 && (
+            <div style={{ marginBottom: 'var(--space-6)' }}>
+              <h3 style={{ marginBottom: 'var(--space-3)' }}>{t('animal.chips')} ({tags.length})</h3>
+              {tags.map(tag => (
+                <div key={tag.tag_id} className="card card-sm" style={{ marginBottom: 'var(--space-2)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', justifyContent: 'space-between' }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: '4px' }}>
+                        {tag.tag_type === 'nfc' ? <Radio size={16} color="var(--primary-500)" /> : <Camera size={16} color="var(--primary-500)" />}
+                        <span style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', wordBreak: 'break-all' }}>
+                          {tag.tag_id}
+                        </span>
+                      </div>
+                      <p className="text-muted" style={{ margin: 0, fontSize: '12px' }}>
+                        {tag.tag_type === 'barcode' ? t('chip.barcode') : t('chip.nfc')}
+                      </p>
+                    </div>
+                    {tag.active === 1 ? (
+                      <span className="badge badge-success"><span className="badge-dot"></span>{t('chip.active')}</span>
+                    ) : (
+                      <span className="badge badge-danger">{t('chip.inactive')}</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div>
+          {/* Document Tabs */}
+          <div style={{ display: 'flex', gap: 'var(--space-3)', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border)' }}>
         <button
           onClick={() => setDocumentTab('all')}
           style={{
@@ -797,11 +835,14 @@ export default function AnimalPage() {
                 <p className="text-muted text-center" style={{ padding: 'var(--space-4) 0' }}>{t('animal.noDocsFiltered')}</p>
               )}
 
-              {(isOwner || isVet) && (
+              {(isOwner || isVet) && !animal.is_archived && (
                 <Link to={`/animals/${id}/scan`} className="btn btn-primary btn-full" style={{ marginBottom: 'var(--space-4)' }}>
                   <Camera size={18} /> {t('animal.addDocument')}
                 </Link>
               )}
+              <p className="text-muted" style={{ fontSize: '11px', textAlign: 'center', marginTop: 'var(--space-2)', paddingBottom: 'var(--space-4)' }}>
+                {t('docDetail.ocrDisclaimer')}
+              </p>
             </>
           )}
         </>
@@ -880,6 +921,8 @@ export default function AnimalPage() {
           ))}
         </>
       )}
+        </div>
+      </div>
     </div>
   )
 }

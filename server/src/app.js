@@ -130,6 +130,19 @@ if (process.env.ADMIN_EMAIL) {
   console.log(`✓ Admin-Rolle für ${process.env.ADMIN_EMAIL} gesetzt`)
 }
 
+// 90-Tage Audit-Log Retention Policy (täglicher Cleanup)
+setInterval(() => {
+  try {
+    const db = getDb()
+    const result = db.prepare("DELETE FROM audit_log WHERE created_at < datetime('now', '-90 days')").run()
+    if (result.changes > 0) {
+      fastify.log.info(`Retention: ${result.changes} alte Audit-Logs gelöscht (> 90 Tage)`)
+    }
+  } catch (err) {
+    fastify.log.error({ err }, 'Fehler beim Cleanup der Audit-Logs')
+  }
+}, 1000 * 60 * 60 * 24)
+
 try {
   await fastify.listen({ port, host: '0.0.0.0' })
   console.log(`Server läuft auf http://0.0.0.0:${port}`)

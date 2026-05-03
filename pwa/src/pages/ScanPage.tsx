@@ -80,8 +80,14 @@ export default function ScanPage() {
         tagType: unknownTag.type
       })
       navigate(`/animals/${res.data.id}`)
-    } catch {
-      setError(t('animals.createError'))
+    } catch (err: any) {
+      if (err.response?.status === 409 && err.response?.data?.conflict?.animalId) {
+        const conflictId = err.response.data.conflict.animalId
+        // Tag is already assigned, navigate to the existing animal's page instead of showing an error.
+        navigate(`/animals/${conflictId}`)
+      } else {
+        setError(t('animals.createError'))
+      }
     } finally {
       setLoading(false)
     }

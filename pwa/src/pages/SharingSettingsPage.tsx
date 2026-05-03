@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { getSharing, updateSharing } from '../api/rest'
+import { getSharing, updateSharing, createTempShare } from '../api/rest'
 import { PageHeader } from '../components/PageHeader'
 import { Eye, Landmark, Stethoscope, Syringe, Pill, FileText, User, PawPrint, Cake } from 'lucide-react'
 
@@ -23,6 +23,8 @@ export default function SharingSettingsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [tempLink, setTempLink] = useState('')
+  const [generatingLink, setGeneratingLink] = useState(false)
 
   const roleConfig: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
     readonly: { label: t('docScan.readonlyAccess'), icon: <Eye size={18} />, color: 'var(--primary-600)' },
@@ -51,6 +53,23 @@ export default function SharingSettingsPage() {
     }
   }
 
+  async function handleGenerateLink() {
+    if (!id) return
+    setGeneratingLink(true)
+    try {
+      const res = await createTempShare(id)
+      setTempLink(`${window.location.origin}/share/${res.data.shareId}`)
+    } catch {
+      setError(t('common.error'))
+    } finally {
+      setGeneratingLink(false)
+    }
+  }
+
+  function copyLink() {
+    navigator.clipboard.writeText(tempLink)
+  }
+
   if (loading) return <div className="container page" style={{ display: 'flex', justifyContent: 'center', paddingTop: '4rem' }}><div className="spinner spinner-lg"></div></div>
   if (error) return <div className="container page"><div className="error-card"><p>{error}</p></div></div>
 
@@ -63,6 +82,30 @@ export default function SharingSettingsPage() {
           {t('sharing.desc')}
         </p>
       </div>
+
+      <div className="card animate-fade-in" style={{ animationDelay: '100ms' }}>
+        <h3 style={{ marginBottom: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+          {t('sharing.tempLink')}
+        </h3>
+        {!tempLink ? (
+          <button className="btn btn-secondary" onClick={handleGenerateLink} disabled={generatingLink}>
+            {generatingLink ? t('common.loading') : t('sharing.generateLink')}
+          </button>
+        ) : (
+          <div>
+            <p className="text-muted" style={{ margin: 0, fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-2)' }}>
+              {t('sharing.expiresIn')} 14 {t('sharing.days')}.
+            </p>
+            <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+              <input type="text" className="form-input" value={tempLink} readOnly />
+              <button className="btn btn-primary" onClick={copyLink}>
+                {t('sharing.copyLink')}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
 
       <div className="animate-fade-in" style={{ display: 'grid', gap: 'var(--space-4)' }}>
         {sharing.map(row => {

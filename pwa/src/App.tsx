@@ -17,6 +17,7 @@ import DocumentDetailPage from './pages/DocumentDetailPage'
 import PublicScanPage from './pages/PublicScanPage'
 import DocumentationPage from './pages/DocumentationPage'
 import WelcomePage from './pages/WelcomePage'
+import PublicSharePage from './pages/PublicSharePage'
 
 function GlobalBrand() {
   const location = useLocation()
@@ -46,7 +47,7 @@ function GlobalBrand() {
     }
   }, [settings])
 
-  const hideOn = ['/login', '/welcome', '/admin', '/public-scan']
+  const hideOn = ['/login', '/welcome', '/admin', '/public-scan', '/share']
   if (hideOn.some(path => location.pathname.startsWith(path))) return null
   if (!settings.logo_data && (!settings.app_name || settings.app_name === 'PAW')) return null
 
@@ -131,6 +132,7 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/welcome" element={<WelcomePage />} />
         <Route path="/public-scan" element={<PublicScanPage />} />
+        <Route path="/share/:shareId" element={<PublicSharePage />} />
         <Route path="/" element={<Navigate to="/animals" replace />} />
         <Route path="/animals" element={<RequireAuth><AnimalsPage /></RequireAuth>} />
         <Route path="/animals/:id" element={<RequireAuth><AnimalPage /></RequireAuth>} />

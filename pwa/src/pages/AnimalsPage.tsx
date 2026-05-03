@@ -168,20 +168,24 @@ export default function AnimalsPage() {
 
       {!showForm && animals.length > 0 && (
         <>
-          {filteredAnimals.map((animal) => (
-            <PetCard
-              key={animal.id}
-              id={animal.id}
-              name={animal.name}
-              species={animal.species}
-              breed={animal.breed}
-              age={animal.birthdate ? new Date().getFullYear() - new Date(animal.birthdate).getFullYear() + ' ' + t('animal.years') : undefined}
-              vaccinationStatus="current" // Placeholder, should come from API eventually
-              hasNfcTag={false} // Placeholder
-              isVetVerified={false} // Placeholder
-              avatarPath={animal.avatar_path}
-            />
-          ))}
+          <div style={{ display: 'grid', gap: 'var(--space-4)' }}>
+            {filteredAnimals.map((animal) => (
+              <div key={animal.id} style={{ opacity: animal.is_archived ? 0.6 : 1, transition: 'opacity 0.3s' }}>
+                <PetCard
+                  id={animal.id}
+                  name={animal.name}
+                  species={animal.species}
+                  breed={animal.breed}
+                  age={animal.birthdate ? new Date().getFullYear() - new Date(animal.birthdate).getFullYear() + ' ' + t('animal.years') : undefined}
+                  vaccinationStatus="current" // Placeholder, should come from API eventually
+                  hasNfcTag={false} // Placeholder
+                  isVetVerified={false} // Placeholder
+                  avatarPath={animal.avatar_path}
+                  isArchived={!!animal.is_archived}
+                />
+              </div>
+            ))}
+          </div>
 
           <button
             className="btn btn-primary btn-full mt-4"
