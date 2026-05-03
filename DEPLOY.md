@@ -622,6 +622,11 @@ Sollte die OCR fehlschlagen, findest du im Server-Log (`journalctl --user -u paw
 
 ## Anhang: Update-Workflow
 
+```bash
+git push
+ssh hetzner
+```
+
 **Wichtig:** Wenn die Shells auf `/sbin/nologin` gesetzt sind (siehe "Optional" unten), müssen sie erst auf `/bin/bash` gewechselt werden:
 
 ```bash

@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useLocation, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { PawPrint, ScanLine, User, Settings } from 'lucide-react'
 import { useGlobalNfc } from './hooks/useGlobalNfc'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import LoginPage from './pages/LoginPage'
 import AnimalsPage from './pages/AnimalsPage'
 import ScanPage from './pages/ScanPage'
@@ -124,7 +125,7 @@ export default function App() {
   useGlobalNfc()
 
   return (
-    <>
+    <ErrorBoundary>
       <GlobalBrand />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
@@ -144,6 +145,6 @@ export default function App() {
         <Route path="*" element={<Navigate to="/animals" replace />} />
       </Routes>
       <BottomNav />
-    </>
+    </ErrorBoundary>
   )
 }
