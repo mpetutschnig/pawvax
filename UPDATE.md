@@ -4,7 +4,8 @@ Kopiere den gesamten unteren Code-Block und füge ihn als `root` in dein Server-
 
 ```bash
 #!/bin/bash
-
+git add .
+git commit -m "Update vor dem Deployment Hetzner"
 git push
 
 ssh hetzner
