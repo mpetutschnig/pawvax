@@ -215,3 +215,35 @@ Das Dokument weist Claude explizit an:
 - Es darf nichts dem Zufall überlassen werden: Alle Komponenten, Spacings, Schatten und Breakpoints müssen bis ins kleinste Detail definiert und als CSS-Variablen (HEX oder OKLCH) übergeben werden.
 - **Franchise-Farbgebung (Admin-Page):** Detaillierte Spezifikation, wie die Primärfarbe für das Admin-Panel dynamisch von Franchisenehmern angepasst werden kann (CSS-Variablen `--admin-sidebar-bg`, `--primary-*`).
 - **Komponenten-Liste:** Vollständige Spezifikation aller UI-Elemente (`SideNav`, `AdminTable`, `FilterChips`, `PetCard`, Forms, Badges).
+
+---
+
+## 8. Architekturentscheidungen (SaaS & Enterprise Roadmap)
+
+Basierend auf den Anforderungen an ein skalierbares SaaS-Produkt wurden folgende Richtungsentscheidungen für den MVP/PoC getroffen:
+
+### 8a. Multi-Tenancy (Franchisenehmer)
+- **Entscheidung:** Anstatt einer komplexen logischen Mandantentrennung (via `tenant_id` in der Datenbank) wird auf eine strikte physische Trennung gesetzt.
+- Jeder Franchisenehmer / jede Organisation läuft in einem eigenen Container und nutzt eine eigene, dedizierte Datenbank. Dies garantiert höchste Datensicherheit und Isolation B2B2C.
+
+### 8b. Offline-Fähigkeit (PWA)
+- **Entscheidung:** Für den aktuellen MVP wird *keine* Offline-Fähigkeit via IndexedDB implementiert.
+- Die Code-Basis wird jedoch im Hinterkopf behalten, um später (Roadmap) für Tierärzte (Stallbesuche in ländlichen Gebieten ohne Netz) ein Service Worker Caching für API-Daten nachrüsten zu können.
+
+### 8c. KI / OCR Daten-Governance
+- **Entscheidung:** Es wird *keine* manuelle Editierfunktion (UI) für die erkannten Key-Value-Paare im `extracted_json` vorgesehen.
+- Begründung: Die App fungiert primär als intelligente Lesehilfe. Das rechtlich bindende Originalfoto ist ohnehin stets prominent sichtbar. 
+- Ein deutlicher visueller Disclaimer weist den User darauf hin, dass die KI-Erkennung Fehler enthalten kann (z.B. Lese- oder Datumsfehler).
+
+### 8d. NFC-Cloning & Fälschungssicherheit
+- **Entscheidung:** Für den MVP-Status und PoC ist der einfache NFC-Scan (ohne kryptografische Challenge-Response-Validierung der Tags) vollkommen ausreichend.
+- Da das Tier immer fest dem Account des Besitzers zugeordnet ist, ist digitaler "Diebstahl" ausgeschlossen. Der NFC-Chip fungiert lediglich als bequemer Hyperlink zum Profil. Echte Identifikation erfolgt im Ernstfall über die hochgeladenen Papiere.
+
+### 8e. Temporäres Sharing (Time-limited Links)
+- **Entscheidung:** Ein Feature für zeitlich befristete Freigaben wird in die Business-Logik aufgenommen.
+- Use Case: Der Tierbesitzer kann für Dog-Sitter, Tierpensionen etc. einen Link erzeugen, der sich nach z.B. 14 Tagen automatisch deaktiviert, ohne die Daten dauerhaft auf "Public" stellen zu müssen.
+
+### 8f. Archivierung (Verstorbene Tiere)
+- **Entscheidung:** Eine "In Memoriam" / Archivierungs-Funktion wird in die Tierdetailansicht (AnimalPage) integriert.
+- UI/UX: Verstorbene Tiere erhalten ein Kreuz-Icon (z.B. `✝`) oder ein ähnliches Zeichen. Sie werden in der Übersicht visuell zurückgenommen (ausgegraut) dargestellt.
+- Vorteil: Das aktive Dashboard bleibt übersichtlich, aber die wertvollen Erinnerungen und medizinischen Akten bleiben für den Besitzer erhalten, ohne das Tier löschen zu müssen.
