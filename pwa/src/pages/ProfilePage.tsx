@@ -263,14 +263,26 @@ export default function ProfilePage() {
   const requestVerify = async () => {
     try {
       const token = localStorage.getItem('token')
-      const res = await fetch('/api/accounts/request-verification', {
+      const baseUrl = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : ''
+      
+      let res = await fetch(`${baseUrl}/api/accounts/request-verification`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ roles: requestedRoles })
       })
+      
+      // Fallback, falls das Backend die ursprüngliche Route verwendet
+      if (res.status === 404) {
+        res = await fetch(`${baseUrl}/api/accounts/me/verify-request`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ roles: requestedRoles })
+        })
+      }
+
       if (!res.ok) {
         const err = await res.json()
-        throw new Error(err.error || t('common.error'))
+        throw new Error(err.error || err.message || t('common.error'))
       }
       setSuccess(t('profile.requestVerificationSuccess'))
       setTimeout(() => {

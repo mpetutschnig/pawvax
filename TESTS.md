@@ -9,10 +9,9 @@ Bevor du die Tests auf dem Server ausführen kannst, musst du sicherstellen, das
 git add .
 git commit -m "Update tests"
 git push
-```
 
-**Auf dem Hetzner-Server (als root):**
-```bash
+ssh hetzner
+
 su -s /bin/bash paw-git -c "cd /tmp && git -C /git/pawvax pull"
 ```
 
@@ -66,7 +65,7 @@ PAW_API_UID=$(id -u paw-api) && XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bi
     -e API_URL=https://paw.oxs.at/api \
     -e NODE_OPTIONS=--experimental-vm-modules \
     -e TEST_TIMEOUT=20000 \
-    paw-api:latest \
+    localhost/paw-api:latest \
     npx jest --passWithNoTests --forceExit --verbose
 "
 ```
