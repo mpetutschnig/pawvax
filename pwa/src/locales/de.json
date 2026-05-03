@@ -270,7 +270,7 @@
   "profile.languageDesc": "Wähle die Sprache der App",
   "profile.german": "Deutsch",
   "profile.english": "English",
-  "profile.gemini": "Gemini 3.1 Flash-Lite API",
+  "profile.gemini": "Google Gemini API",
   "profile.geminiDesc": "Gib deinen persönlichen Gemini API-Schlüssel ein, um Dokumente mit deinem eigenen Kontingent zu analysieren. Ohne Schlüssel nutzen wir Tesseract (kostenloses OCR auf unserem Server).",
   "profile.geminiCreateKey": "API-Schlüssel in Google AI Studio erstellen →",
   "profile.geminiSaved": "Gemini-Schlüssel gespeichert",

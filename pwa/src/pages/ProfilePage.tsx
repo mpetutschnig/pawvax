@@ -334,11 +334,13 @@ export default function ProfilePage() {
 
   if (!profile) return <div className="container page"><div className="error-card"><p>{t('profile.loadError')}</p></div></div>
 
-  const roles = profile.roles ?? []
-  const isVet = roles.includes('vet')
-  const isOrg = roles.includes('authority')
+  const roles = profile.roles ?? (typeof profile.role === 'string' ? profile.role.split(',').map((r: string) => r.trim()) : [])
+  const isVerified = profile.verified === 1 || profile.verified === true
+  const isPending = profile.verification_status === 'pending' || ((roles.includes('vet') || roles.includes('authority')) && !isVerified)
+  
+  const isVet = roles.includes('vet') && !isPending
+  const isOrg = roles.includes('authority') && !isPending
   const isAdmin = roles.includes('admin')
-  const verificationStatus = profile.verification_status
 
   return (
     <div className="container page">
@@ -374,7 +376,7 @@ export default function ProfilePage() {
               <p style={{ color: 'var(--success-600)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', margin: 0, fontWeight: 500 }}><CheckCircle size={18} /> {t('profile.verifiedVet')} (Zugriff aktiv)</p>
             ) : isOrg ? (
               <p style={{ color: 'var(--info-600)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', margin: 0, fontWeight: 500 }}><CheckCircle size={18} /> {t('profile.verifiedOrg')} (Zugriff aktiv)</p>
-            ) : verificationStatus === 'pending' ? (
+            ) : isPending ? (
               <p className="text-muted" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', margin: 0 }}><Clock size={18} /> {t('profile.verificationPending')}</p>
             ) : (
               <div style={{ background: 'var(--surface)', padding: 'var(--space-4)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
