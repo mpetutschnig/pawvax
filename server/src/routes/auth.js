@@ -137,10 +137,11 @@ export default async function authRoutes(fastify) {
   // Eigenes Profil ändern
   fastify.patch('/api/accounts/me', { onRequest: [fastify.authenticate] }, async (req, reply) => {
     const db = getDb()
-    const { name, gemini_token, gemini_model, anthropic_token, claude_model } = req.body
+    const { name, gemini_token, gemini_model, anthropic_token, claude_model, openai_token, openai_model, ai_provider_priority } = req.body
     const accountId = req.user.accountId
     const ALLOWED_GEMINI_MODELS = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-3.1-flash-lite-preview', 'gemini-1.5-pro']
     const ALLOWED_CLAUDE_MODELS = ['claude-haiku-4-5-20251001', 'claude-sonnet-4-6', 'claude-opus-4-7']
+    const ALLOWED_OPENAI_MODELS = ['gpt-4.1-mini', 'gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo']
     const updates = []
     const vals = []
     if (name !== undefined) { updates.push('name = ?'); vals.push(name) }
@@ -165,6 +166,21 @@ export default async function authRoutes(fastify) {
       }
       updates.push('claude_model = ?')
       vals.push(claude_model)
+    }
+    if (openai_token !== undefined) {
+      updates.push('openai_token = ?')
+      vals.push(openai_token ? encrypt(openai_token) : null)
+    }
+    if (openai_model !== undefined) {
+      if (!ALLOWED_OPENAI_MODELS.includes(openai_model)) {
+        return reply.code(400).send({ error: 'Ungültiges OpenAI-Modell' })
+      }
+      updates.push('openai_model = ?')
+      vals.push(openai_model)
+    }
+    if (ai_provider_priority !== undefined) {
+      updates.push('ai_provider_priority = ?')
+      vals.push(typeof ai_provider_priority === 'string' ? ai_provider_priority : JSON.stringify(ai_provider_priority))
     }
     if (!updates.length) return reply.code(400).send({ error: 'Keine Änderungen' })
     vals.push(accountId)
