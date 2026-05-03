@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { getSharing, updateSharing, createTempShare } from '../api/rest'
+import { getSharing, updateSharing } from '../api/rest'
 import { PageHeader } from '../components/PageHeader'
 import { Eye, Landmark, Stethoscope, Syringe, Pill, FileText, User, PawPrint, Cake } from 'lucide-react'
 
@@ -57,8 +57,14 @@ export default function SharingSettingsPage() {
     if (!id) return
     setGeneratingLink(true)
     try {
-      const res = await createTempShare(id)
-      setTempLink(`${window.location.origin}/share/${res.data.shareId}`)
+      const token = localStorage.getItem('token')
+      const res = await fetch(`/api/animals/${id}/sharing/temporary`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      if (!res.ok) throw new Error('Error')
+      const data = await res.json()
+      setTempLink(`${window.location.origin}/share/${data.shareId}`)
     } catch {
       setError(t('common.error'))
     } finally {

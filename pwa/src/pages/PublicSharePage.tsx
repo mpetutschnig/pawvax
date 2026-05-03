@@ -1,134 +1,114 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { PawPrint, Cat, Shield, Pill, FileText, AlertTriangle, Clock } from 'lucide-react'
-
-interface SharedAnimal {
-  id: string
-  name: string
-  species: string
-  breed?: string
-  birthdate?: string
-  avatar_path?: string
-  contact?: { name: string; email?: string }
-  documents?: SharedDocument[]
-}
-
-interface SharedDocument {
-  id: string
-  doc_type: string
-  created_at: string
-  extracted_json: any
-  image_path?: string
-  pages?: string[]
-}
+import { PawPrint, Calendar, User, MapPin } from 'lucide-react'
 
 export default function PublicSharePage() {
   const { shareId } = useParams<{ shareId: string }>()
   const { t, i18n } = useTranslation()
-  const [animal, setAnimal] = useState<SharedAnimal | null>(null)
+  const [animal, setAnimal] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  import { PawPrint, Cat, Syringe, Pill, FileText, AlertTriangle, Clock, ChevronDown, ChevronUp } from 'lucide-react'
 
-  import axios from 'axios'
+  useEffect(() => {
+    if (!shareId) return
+    fetch(`/api/public/share/${shareId}`)
+      .then(async res => {
+        if (!res.ok) {
+          const err = await res.json()
+          throw new Error(err.error || t('common.error'))
+        }
+        return res.json()
+      })
+      .then(data => {
+        setAnimal(data)
+        setError(null)
+      })
+      .catch(err => setError(err.message))
+      .finally(() => setLoading(false))
+  }, [shareId, t])
+
+  if (loading) {
+    return (
+      <div className="container page" style={{ display: 'flex', justifyContent: 'center', paddingTop: '4rem' }}>
+        <div className="spinner spinner-lg"></div>
       </div>
-    const { shareId } = useParams()
-    const { t, i18n } = useTranslation()
-    const [animal, setAnimal] = useState<any>(null)
-    const [loading, setLoading] = useState(true)
-    const [error, setError] = useState<string | null>(null)
-    const [expired, setExpired] = useState(false)
-    const [expandedDocId, setExpandedDocId] = useState<string | null>(null)
-        <Clock size={48} color="var(--warning-500)" />
-        <h2 style={{ marginTop: 'var(--space-4)' }}>{t('sharing.expired')}</h2>
-        <p className="text-muted">{t('sharing.expiredDescription')}</p>
-      axios.get(`/api/public/share/${shareId}`)
-      axios.get(`/api/public/share/${shareId}`)
-        .then(res => setAnimal(res.data))
-        .catch(err => {
-          const status = err.response?.status
-          if (status === 410) setExpired(true)
-          else setError(status === 404 ? t('scan.notFound') : t('common.error'))
-        })
-        .finally(() => setLoading(false))
-    switch (type) {
-      case 'vaccination': return <Shield size={16} color="var(--success-500)" />
-      case 'medication': return <Pill size={16} color="var(--primary-500)" />
-      default: return <FileText size={16} color="var(--text-tertiary)" />
-    }
+    )
   }
 
-  const SpeciesIcon = animal.species === 'cat' ? Cat : PawPrint
-
-  return (
-    <div className="page container">
-      {/* Animal Header */}
-      <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)', marginBottom: 'var(--space-5)' }}>
-        {animal.avatar_path ? (
-          <img
-            src={`/uploads/${animal.avatar_path}`}
-            alt={animal.name}
-            style={{ width: 64, height: 64, borderRadius: 'var(--radius-full)', objectFit: 'cover' }}
-          />
-        ) : (
-          <div style={{ width: 64, height: 64, borderRadius: 'var(--radius-full)', background: 'var(--primary-50)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <SpeciesIcon size={28} color="var(--primary-500)" />
-          </div>
-        )}
-        <div>
-          <h2 style={{ margin: 0 }}>{animal.name}</h2>
-          <p className="text-muted" style={{ margin: 0 }}>
-            {animal.breed && `${animal.breed} · `}
-            {animal.birthdate && new Date(animal.birthdate).toLocaleDateString(i18n.language === 'de' ? 'de-AT' : 'en-GB')}
-          </p>
-          {animal.contact && (
-            <p className="text-muted" style={{ margin: 0, fontSize: 'var(--font-size-xs)' }}>
-              {t('sharing.owner')}: {animal.contact.name}
-            </p>
-          )}
+  if (error || !animal) {
+    return (
+      <div className="container page" style={{ paddingTop: '2rem' }}>
+        <div className="error-card text-center" style={{ padding: 'var(--space-6)' }}>
+          <h2 style={{ color: 'inherit' }}>{error || t('error.notFound')}</h2>
+          <p style={{ color: 'inherit' }}>Die Freigabe existiert nicht oder ist abgelaufen.</p>
+          <Link to="/login" className="btn btn-primary mt-4">Zur Anmeldung</Link>
         </div>
       </div>
+    )
+  }
 
-      {/* Shared badge */}
-      <div style={{ marginBottom: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-        <span className="badge badge-info">{t('sharing.tempLink')}</span>
+  return (
+    <div className="container page" style={{ paddingTop: '2rem' }}>
+      <div className="card text-center animate-slide-up" style={{ marginBottom: 'var(--space-4)' }}>
+        <div style={{
+          width: 80, height: 80, borderRadius: 'var(--radius-full)',
+          background: 'var(--primary-50)', margin: '0 auto var(--space-4)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden'
+        }}>
+          {animal.avatar_path ? (
+            <img src={`/uploads/${animal.avatar_path.split('/').pop()}`} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          ) : (
+            <PawPrint size={40} color="var(--primary-500)" />
+          )}
+        </div>
+        <h1 style={{ marginBottom: 'var(--space-1)' }}>{animal.name}</h1>
+        <p className="text-muted" style={{ margin: 0, textTransform: 'capitalize' }}>
+          {animal.species === 'dog' ? t('animals.dog') : animal.species === 'cat' ? t('animals.cat') : t('animals.other')}
+          {animal.breed ? ` • ${animal.breed}` : ''}
+        </p>
       </div>
 
-      {/* Documents */}
-      {animal.documents && animal.documents.length > 0 ? (
-        <>
-          <h3 style={{ marginBottom: 'var(--space-3)' }}>{t('sharing.sharedDocuments')} ({animal.documents.length})</h3>
-          {animal.documents.map(doc => (
-            <div key={doc.id} className="card card-sm" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-3)' }}>
-              <div style={{ width: 36, height: 36, borderRadius: 'var(--radius-sm)', background: 'var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                {docTypeIcon(doc.doc_type)}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)' }}>
-                  {doc.extracted_json?.vaccine_name || doc.extracted_json?.medication_name || doc.extracted_json?.title || t(`animal.docType${doc.doc_type.charAt(0).toUpperCase() + doc.doc_type.slice(1)}`)}
-                </div>
-                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
-                  {new Date(doc.created_at).toLocaleDateString(i18n.language === 'de' ? 'de-AT' : 'en-GB')}
-                  {doc.extracted_json?.date && ` · ${doc.extracted_json.date}`}
+      {(animal.contact || animal.address || animal.birthdate) && (
+        <div className="card animate-fade-in" style={{ animationDelay: '100ms' }}>
+          <h3 style={{ marginBottom: 'var(--space-3)' }}>{t('animal.details')}</h3>
+          <div style={{ display: 'grid', gap: 'var(--space-3)' }}>
+            {animal.birthdate && (
+              <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
+                <Calendar size={18} className="text-tertiary" />
+                <div>
+                  <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>{t('animal.birthdate')}</div>
+                  <div style={{ fontWeight: 500 }}>{new Date(animal.birthdate).toLocaleDateString(i18n.language === 'de' ? 'de-AT' : 'en-GB')}</div>
                 </div>
               </div>
-              {doc.image_path && (
-                <a href={`/uploads/${doc.image_path}`} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-ghost">
-                  <FileText size={14} />
-                </a>
-              )}
-            </div>
-          ))}
-          <p className="text-muted" style={{ fontSize: '11px', textAlign: 'center', marginTop: 'var(--space-4)' }}>
-            {t('docDetail.ocrDisclaimer')}
-          </p>
-        </>
-      ) : (
-        <p className="text-muted text-center" style={{ paddingTop: 'var(--space-6)' }}>
-          {t('sharing.noDocuments')}
-        </p>
+            )}
+            {animal.contact && (
+              <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
+                <User size={18} className="text-tertiary" />
+                <div>
+                  <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>{t('publicScan.contact')}</div>
+                  <div style={{ fontWeight: 500 }}>{animal.contact.name} {animal.contact.email ? `(${animal.contact.email})` : ''}</div>
+                </div>
+              </div>
+            )}
+            {animal.address && (
+              <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
+                <MapPin size={18} className="text-tertiary" />
+                <div>
+                  <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>{t('publicScan.address')}</div>
+                  <div style={{ fontWeight: 500 }}>{animal.address}</div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       )}
+
+      <div className="animate-fade-in" style={{ animationDelay: '200ms', textAlign: 'center', marginTop: 'var(--space-8)' }}>
+        <Link to="/login" className="btn btn-secondary">
+          In eigener PAW App öffnen
+        </Link>
+      </div>
     </div>
   )
 }

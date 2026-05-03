@@ -26,14 +26,14 @@ export default function AnimalPage() {
     return labels[type] || type
   }
 
-  const [animal, setAnimal] = useState<AnimalDTO | null>(null)
+  const [animal, setAnimal] = useState<(AnimalDTO & { is_archived?: number }) | null>(null)
   const [tags, setTags] = useState<AnimalTag[]>([])
   const [documents, setDocuments] = useState<Document[]>([])
   const [pendingDocuments, setPendingDocuments] = useState<Document[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
-  const [editData, setEditData] = useState<AnimalDTO | null>(null)
+  const [editData, setEditData] = useState<(AnimalDTO & { is_archived?: number }) | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [documentSearch, setDocumentSearch] = useState('')
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
@@ -154,8 +154,8 @@ export default function AnimalPage() {
     if (!id) return
     Promise.all([getAnimal(id), getAnimalDocuments(id), getAnimalTags(id)])
       .then(([a, d, t]) => {
-        setAnimal(a.data)
-        setEditData(a.data)
+        setAnimal(a.data as any)
+        setEditData(a.data as any)
         setDocuments(Array.isArray(d.data) ? d.data : [])
         setTags(Array.isArray(t.data) ? t.data : [])
         // Load pending documents with JWT token
@@ -257,7 +257,7 @@ export default function AnimalPage() {
       const compressed = await compressImage(file)
       await uploadAnimalAvatar(id, compressed)
       const res = await getAnimal(id)
-      setAnimal(res.data)
+      setAnimal(res.data as any)
       setError(null)
     } catch (err: any) {
       setError(err.response?.data?.error || err.message || t('animal.avatarUploadError'))

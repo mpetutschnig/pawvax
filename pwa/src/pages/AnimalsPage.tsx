@@ -8,14 +8,14 @@ import { AnimalListItemDTO } from '../types/animal'
 
 export default function AnimalsPage() {
   const { t } = useTranslation()
-  const [animals, setAnimals] = useState<AnimalListItemDTO[]>([])
+  const [animals, setAnimals] = useState<(AnimalListItemDTO & { is_archived?: number })[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [showTransferForm, setShowTransferForm] = useState(false)
   const [transferCode, setTransferCode] = useState('')
   const [formData, setFormData] = useState({ name: '', species: 'dog', breed: '', birthdate: '' })
   const [submitting, setSubmitting] = useState(false)
-  const [, setError] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
 
   useEffect(() => {
@@ -26,7 +26,7 @@ export default function AnimalsPage() {
     try {
       setLoading(true)
       const { data } = await api.getAnimals()
-      setAnimals(data)
+      setAnimals(data as any)
     } catch (err: any) {
       setError(err.response?.data?.error || t('animals.loadError'))
     } finally {
@@ -223,7 +223,7 @@ export default function AnimalsPage() {
         <>
           <div style={{ display: 'grid', gap: 'var(--space-4)' }}>
             {filteredAnimals.map((animal) => (
-              <div key={animal.id}>
+              <div key={animal.id} style={{ opacity: animal.is_archived ? 0.6 : 1, transition: 'opacity 0.3s' }}>
                 <PetCard
                   id={animal.id}
                   name={animal.name}
