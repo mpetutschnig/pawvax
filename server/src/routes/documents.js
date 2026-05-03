@@ -35,8 +35,9 @@ export default async function documentRoutes(fastify) {
     const { accountId, role } = req.user
 
     const doc = db.prepare(`
-      SELECT d.*, a.account_id AS owner_id FROM documents d
+      SELECT d.*, a.account_id AS owner_id, uploader.name AS added_by_name, uploader.verified AS added_by_verified FROM documents d
       JOIN animals a ON a.id = d.animal_id
+      LEFT JOIN accounts uploader ON uploader.id = d.added_by_account
       WHERE d.id = ?
     `).get(req.params.id)
 
@@ -77,8 +78,9 @@ export default async function documentRoutes(fastify) {
     const { allowed_roles, extracted_json, doc_type } = req.body
 
     const doc = db.prepare(`
-      SELECT d.*, a.account_id AS owner_id FROM documents d
+      SELECT d.*, a.account_id AS owner_id, uploader.name AS added_by_name, uploader.verified AS added_by_verified FROM documents d
       JOIN animals a ON a.id = d.animal_id
+      LEFT JOIN accounts uploader ON uploader.id = d.added_by_account
       WHERE d.id = ?
     `).get(req.params.id)
 
@@ -128,8 +130,9 @@ export default async function documentRoutes(fastify) {
     const { accountId, role } = req.user
 
     const doc = db.prepare(`
-      SELECT d.*, a.account_id AS owner_id FROM documents d
+      SELECT d.*, a.account_id AS owner_id, uploader.name AS added_by_name, uploader.verified AS added_by_verified FROM documents d
       JOIN animals a ON a.id = d.animal_id
+      LEFT JOIN accounts uploader ON uploader.id = d.added_by_account
       WHERE d.id = ?
     `).get(req.params.id)
 
@@ -208,8 +211,9 @@ export default async function documentRoutes(fastify) {
     const { provider: requestedProvider, model: requestedModel } = req.body || {}
 
     const doc = db.prepare(`
-      SELECT d.*, a.account_id AS owner_id FROM documents d
+      SELECT d.*, a.account_id AS owner_id, uploader.name AS added_by_name, uploader.verified AS added_by_verified FROM documents d
       JOIN animals a ON a.id = d.animal_id
+      LEFT JOIN accounts uploader ON uploader.id = d.added_by_account
       WHERE d.id = ?
     `).get(docId)
 

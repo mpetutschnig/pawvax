@@ -323,10 +323,10 @@ export default function DocumentDetailPage() {
             </div>
             <div>
               <div style={{ fontWeight: 600, color: 'var(--success-800)', fontSize: 'var(--font-size-sm)' }}>
-                {t('docDetail.vetVerified')}
+                {t('docDetail.vetVerified')} {doc.added_by_verified ? '✓' : ''}
               </div>
               <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--success-700)' }}>
-                {t('docDetail.vetVerifiedDesc')}
+                {doc.added_by_name || t('common.unknown')}
               </div>
             </div>
           </div>
@@ -338,7 +338,7 @@ export default function DocumentDetailPage() {
           </span>
           {doc.added_by_role === 'vet' && (
             <span className="badge badge-success" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <PawPrint size={12} /> {t('animal.vet')}
+              <PawPrint size={12} /> {doc.added_by_name || t('animal.vet')}
             </span>
           )}
           {doc.added_by_role === 'authority' && (
