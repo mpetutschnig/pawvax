@@ -50,6 +50,8 @@ export default function AnimalPage() {
   const [showShare, setShowShare] = useState(false)
   const [shareLink, setShareLink] = useState('')
   const [generatingShare, setGeneratingShare] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
   const avatarInputRef = useRef<HTMLInputElement>(null)
   
   const [showRetryModal, setShowRetryModal] = useState(false)
@@ -200,10 +202,10 @@ export default function AnimalPage() {
   }
 
   const handleDelete = async () => {
-    if (!id || !window.confirm(t('animal.deleteConfirm'))) return
+    if (!id || !animal) return
     try {
       setSubmitting(true)
-      await deleteAnimal(id)
+      await deleteAnimal(id, deleteConfirmText)
       navigate('/animals')
     } catch (err: any) {
       setError(err.response?.data?.error || t('common.deleteError'))
@@ -592,9 +594,38 @@ export default function AnimalPage() {
 
               {isOwner && animal.is_archived && (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
-                  <button className="btn btn-outline" onClick={handleDelete} disabled={submitting} style={{ borderColor: 'var(--danger-500)', color: 'var(--danger-500)' }}>
-                    <Trash2 size={16} /> {t('animal.delete')}
-                  </button>
+                  {!showDeleteConfirm ? (
+                    <button className="btn btn-outline" onClick={() => { setShowDeleteConfirm(true); setDeleteConfirmText('') }} disabled={submitting} style={{ borderColor: 'var(--danger-500)', color: 'var(--danger-500)' }}>
+                      <Trash2 size={16} /> {t('animal.delete')}
+                    </button>
+                  ) : (
+                    <div className="card" style={{ border: '1px solid var(--danger-500)', padding: 'var(--space-4)' }}>
+                      <p style={{ margin: '0 0 var(--space-2) 0', fontWeight: 600, color: 'var(--danger-600)' }}>{t('animal.deleteConfirmTitle')}</p>
+                      <p className="text-muted" style={{ margin: '0 0 var(--space-3) 0', fontSize: 'var(--font-size-sm)' }}>
+                        {t('animal.deleteConfirmPrompt')} <strong>{animal.name}</strong> {t('animal.deleteConfirmPromptSuffix')}
+                      </p>
+                      <input
+                        className="form-input"
+                        style={{ marginBottom: 'var(--space-3)' }}
+                        placeholder={t('animal.deleteConfirmPlaceholder')}
+                        value={deleteConfirmText}
+                        onChange={e => setDeleteConfirmText(e.target.value)}
+                        autoFocus
+                      />
+                      <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                        <button
+                          className="btn btn-danger flex-1"
+                          onClick={handleDelete}
+                          disabled={submitting || (deleteConfirmText.toLowerCase() !== animal.name?.toLowerCase() && deleteConfirmText !== animal.birthdate)}
+                        >
+                          <Trash2 size={16} /> {t('animal.deleteConfirmButton')}
+                        </button>
+                        <button className="btn btn-ghost" onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmText('') }} disabled={submitting}>
+                          {t('common.cancel')}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
               

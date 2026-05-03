@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { PawPrint, Calendar, User, MapPin, Syringe, Pill, FileText, ChevronUp, ChevronDown } from 'lucide-react'
+import { api } from '../api/rest'
 
 export default function PublicSharePage() {
   const { shareId } = useParams<{ shareId: string }>()
@@ -13,19 +14,15 @@ export default function PublicSharePage() {
 
   useEffect(() => {
     if (!shareId) return
-    fetch(`/api/public/share/${shareId}`)
-      .then(async res => {
-        if (!res.ok) {
-          const err = await res.json()
-          throw new Error(err.error || t('common.error'))
-        }
-        return res.json()
-      })
-      .then(data => {
-        setAnimal(data)
+    api.get(`/public/share/${shareId}`)
+      .then(res => {
+        setAnimal(res.data)
         setError(null)
       })
-      .catch(err => setError(err.message))
+      .catch(async (err: any) => {
+        const message = err.response?.data?.error || t('common.error')
+        setError(message)
+      })
       .finally(() => setLoading(false))
   }, [shareId, t])
 

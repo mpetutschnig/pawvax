@@ -58,7 +58,7 @@ function ensureDefaultSharing(db, animalId) {
   }
 }
 
-function applySharing(db, animal, requestRole, ownerName, ownerEmail) {
+function applySharing(db, animal, requestRole, ownerName, ownerEmail, effectiveRoles = null) {
   const sharing = getSharingForRole(db, animal.id, requestRole)
   if (!sharing) return null
 
@@ -75,7 +75,8 @@ function applySharing(db, animal, requestRole, ownerName, ownerEmail) {
     ORDER BY created_at DESC
   `).all(animal.id)
 
-  result.documents = docs.filter(d => canRoleSeeDocument(d.allowed_roles, requestRole))
+  const docRoles = effectiveRoles || [requestRole]
+  result.documents = docs.filter(d => docRoles.some(r => canRoleSeeDocument(d.allowed_roles, r)))
 
   for (const d of result.documents) {
     try { d.extracted_json = JSON.parse(d.extracted_json) } catch { d.extracted_json = {} }
@@ -84,6 +85,24 @@ function applySharing(db, animal, requestRole, ownerName, ownerEmail) {
   }
 
   return result
+}
+
+function tryDecodeJwt(fastify, req) {
+  try {
+    const authHeader = req.headers.authorization
+    if (!authHeader || !authHeader.startsWith('Bearer ')) return null
+    return fastify.jwt.verify(authHeader.slice(7))
+  } catch {
+    return null
+  }
+}
+
+function getEffectiveRoles(decoded) {
+  if (!decoded) return ['guest']
+  const userRoles = (decoded.role || '').split(',').map(r => r.trim())
+  if (userRoles.includes('vet')) return ['guest', 'vet']
+  if (userRoles.includes('authority')) return ['guest', 'authority']
+  return ['guest']
 }
 
 export default async function animalRoutes(fastify) {
@@ -123,11 +142,16 @@ export default async function animalRoutes(fastify) {
 
     if (!row) return reply.code(404).send({ error: 'Tag nicht gefunden' })
 
+    // Optional JWT für rollenbasierte Dokumentsichtbarkeit
+    const decoded = tryDecodeJwt(fastify, req)
+    const effectiveRoles = getEffectiveRoles(decoded)
+    const primaryRole = effectiveRoles.includes('vet') ? 'vet' : effectiveRoles.includes('authority') ? 'authority' : 'guest'
+
     // Stelle sicher, dass default sharing existiert (für alte Tiere ohne Sharing-Zeile)
     ensureDefaultSharing(db, row.id)
 
-    // Nur guest-freigegebene Felder zurückgeben
-    let sharing = getSharingForRole(db, row.id, 'guest')
+    // Metadaten-Freigabe: beste Rolle verwenden (vet/authority sehen mehr), Fallback auf guest
+    let sharing = getSharingForRole(db, row.id, primaryRole) || getSharingForRole(db, row.id, 'guest')
 
     // Wenn immer noch kein sharing existiert, create es jetzt
     if (!sharing) {
@@ -160,7 +184,7 @@ export default async function animalRoutes(fastify) {
       ORDER BY created_at DESC
     `).all(row.id)
 
-    result.documents = docs.filter(d => canRoleSeeDocument(d.allowed_roles, 'guest'))
+    result.documents = docs.filter(d => effectiveRoles.some(r => canRoleSeeDocument(d.allowed_roles, r)))
 
     for (const d of result.documents) {
       try { d.extracted_json = JSON.parse(d.extracted_json) } catch { d.extracted_json = {} }
@@ -201,7 +225,12 @@ export default async function animalRoutes(fastify) {
         .run(uuid(), animal.id, 'guest', 0, 1, 1, 0, 0)
     }
 
-    return applySharing(db, animal, 'guest', animal.owner_name, animal.owner_email)
+    // Optional JWT für rollenbasierte Dokumentsichtbarkeit
+    const decoded = tryDecodeJwt(fastify, req)
+    const effectiveRoles = getEffectiveRoles(decoded)
+    const primaryRole = effectiveRoles.includes('vet') ? 'vet' : effectiveRoles.includes('authority') ? 'authority' : 'guest'
+
+    return applySharing(db, animal, primaryRole, animal.owner_name, animal.owner_email, effectiveRoles)
   })
 
   // ──── Alle weiteren Routen erfordern Auth ─────────────────────────────────

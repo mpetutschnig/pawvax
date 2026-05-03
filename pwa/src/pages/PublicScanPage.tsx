@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useBarcode } from '../hooks/useBarcode'
 import { useNfc } from '../hooks/useNfc'
 import { PawPrint, Camera, LogIn, ShieldCheck, Syringe, Pill, FileText, Radio, ChevronDown, ChevronUp } from 'lucide-react'
-import axios from 'axios'
+import { api } from '../api/rest'
 
 type Phase = 'scan' | 'result' | 'notfound'
 
@@ -35,7 +35,7 @@ export default function PublicScanPage() {
     }
 
     try {
-      const res = await axios.get(`/api/public/tag/${encodeURIComponent(tagId)}`)
+      const res = await api.get(`/public/tag/${encodeURIComponent(tagId)}`)
       setAnimal(res.data)
       setPhase('result')
       stopBarcode()
