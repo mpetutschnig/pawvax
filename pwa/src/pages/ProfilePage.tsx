@@ -371,12 +371,12 @@ export default function ProfilePage() {
               <span style={{ flex: 1 }}>
                 {provider === 'system' ? t('profile.systemAi') : provider === 'google' ? 'Google Gemini' : provider === 'anthropic' ? 'Anthropic Claude' : 'OpenAI'}
               </span>
-              <button className="btn-ghost" style={{ padding: '4px' }} disabled={index === 0} onClick={() => {
+              <button className="btn btn-ghost" style={{ padding: '4px' }} disabled={index === 0} onClick={() => {
                 const newPrio = [...aiPriority]
                 ;[newPrio[index - 1], newPrio[index]] = [newPrio[index], newPrio[index - 1]]
                 updatePriority(newPrio)
               }}>↑</button>
-              <button className="btn-ghost" style={{ padding: '4px' }} disabled={index === aiPriority.length - 1} onClick={() => {
+              <button className="btn btn-ghost" style={{ padding: '4px' }} disabled={index === aiPriority.length - 1} onClick={() => {
                 const newPrio = [...aiPriority]
                 ;[newPrio[index + 1], newPrio[index]] = [newPrio[index], newPrio[index + 1]]
                 updatePriority(newPrio)

@@ -248,7 +248,7 @@ export default function DocumentDetailPage() {
     return (
       <div className="container page">
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-6)', marginTop: 'var(--space-2)' }}>
-          <button className="btn-ghost" style={{ padding: '8px', margin: '-8px' }} onClick={() => { setShowRetryModal(false); setError(null); }}>
+          <button className="btn btn-ghost" style={{ padding: '8px', margin: '-8px' }} onClick={() => { setShowRetryModal(false); setError(null); }}>
             <X size={24} />
           </button>
           <h1 style={{ margin: 0, fontSize: 'var(--font-size-xl)' }}>{t('docDetail.aiAnalysis')}</h1>
@@ -308,7 +308,7 @@ export default function DocumentDetailPage() {
 
   return (
     <div className="container page">
-      <PageHeader title={config.label} backTo={`/animals/${animalId}`} showThemeToggle />
+      <PageHeader title={doc.extracted_json?.title || config.label} backTo={`/animals/${animalId}`} showThemeToggle />
       {error && <div className="error-card" style={{ marginBottom: 'var(--space-4)' }}><p>{error}</p></div>}
 
       <div className="card animate-slide-up">
@@ -374,7 +374,7 @@ export default function DocumentDetailPage() {
             <Tag size={18} /> {t('docDetail.sharedWith')}
           </h3>
           {!editMode && (canEditTags || canEditVisibility) && (
-            <button className="btn-ghost" style={{ padding: '4px 8px', fontSize: '12px' }} onClick={() => setEditMode(true)}>
+            <button className="btn btn-ghost" style={{ padding: '4px 8px', fontSize: '12px' }} onClick={() => setEditMode(true)}>
               <Edit2 size={14} /> {t('docDetail.edit')}
             </button>
           )}
