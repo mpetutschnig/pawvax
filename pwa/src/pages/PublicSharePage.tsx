@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { PawPrint, Calendar, User, MapPin } from 'lucide-react'
+import { PawPrint, Calendar, User, MapPin, Syringe, Pill, FileText, ChevronUp, ChevronDown } from 'lucide-react'
 
 export default function PublicSharePage() {
   const { shareId } = useParams<{ shareId: string }>()
@@ -9,6 +9,7 @@ export default function PublicSharePage() {
   const [animal, setAnimal] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [expandedDocId, setExpandedDocId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!shareId) return
@@ -102,6 +103,76 @@ export default function PublicSharePage() {
             )}
           </div>
         </div>
+      )}
+
+      {animal.documents && animal.documents.length > 0 ? (() => {
+        const groups: Record<string, { icon: React.ReactNode; label: string; docs: any[] }> = {
+          vaccination: { icon: <Syringe size={18} />, label: t('animal.vaccinations'), docs: [] },
+          medication:  { icon: <Pill size={18} />,    label: t('animal.medications'),  docs: [] },
+          other:       { icon: <FileText size={18} />, label: t('animal.documents'),   docs: [] },
+        }
+        for (const doc of animal.documents) {
+          if (groups[doc.doc_type]) groups[doc.doc_type].docs.push(doc)
+          else groups.other.docs.push(doc)
+        }
+        return (
+          <div className="animate-fade-in" style={{ animationDelay: '150ms' }}>
+            {Object.entries(groups).map(([type, { icon, label, docs }]) =>
+              docs.length > 0 && (
+                <div key={type} style={{ marginBottom: 'var(--space-4)' }}>
+                  <h3 style={{ fontSize: 'var(--font-size-base)', marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                    {icon} {label} ({docs.length})
+                  </h3>
+                  {docs.map((doc: any) => {
+                    const isExpanded = expandedDocId === doc.id;
+                    return (
+                      <div key={doc.id} className="card card-sm" style={{ marginBottom: 'var(--space-2)', cursor: 'pointer', transition: 'all 0.2s' }} onClick={() => setExpandedDocId(isExpanded ? null : doc.id)}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                            <span style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>
+                              {doc.extracted_json?.title || (type === 'vaccination' ? t('animal.docTypeVaccination') : type === 'medication' ? t('animal.docTypeMedication') : t('animal.docTypeOther'))}
+                            </span>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                            <span className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>
+                              {new Date(doc.created_at).toLocaleDateString(i18n.language === 'de' ? 'de-AT' : 'en-GB')}
+                            </span>
+                            {isExpanded ? <ChevronUp size={16} className="text-muted" /> : <ChevronDown size={16} className="text-muted" />}
+                          </div>
+                        </div>
+
+                        {isExpanded && (
+                          <div className="animate-slide-up" style={{ marginTop: 'var(--space-3)', paddingTop: 'var(--space-3)', borderTop: '1px solid var(--border)' }}>
+                            {doc.extracted_json?.summary && (
+                              <div style={{ background: 'var(--primary-50)', padding: 'var(--space-3)', borderRadius: 'var(--radius-sm)', marginBottom: 'var(--space-3)', borderLeft: '3px solid var(--primary-500)' }}>
+                                <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', color: 'var(--primary-900)' }}>{doc.extracted_json.summary}</p>
+                              </div>
+                            )}
+                            {[doc.image_path, ...(doc.pages || [])].filter(Boolean).map((imgPath: string, idx: number) => (
+                              <img key={idx} src={`/uploads/${imgPath.split('/').pop()}`} alt={`Page ${idx + 1}`} style={{ width: '100%', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-2)', display: 'block' }} />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )
+            )}
+          </div>
+        )
+      })() : (
+        animal.documents && animal.documents.length === 0 && (
+          <div style={{
+            padding: 'var(--space-4)', background: 'var(--surface)',
+            borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-4)',
+            textAlign: 'center'
+          }}>
+            <p className="text-muted" style={{ margin: 0, fontSize: 'var(--font-size-sm)' }}>
+              {t('publicScan.noDocuments')}
+            </p>
+          </div>
+        )
       )}
 
       <div className="animate-fade-in" style={{ animationDelay: '200ms', textAlign: 'center', marginTop: 'var(--space-8)' }}>
