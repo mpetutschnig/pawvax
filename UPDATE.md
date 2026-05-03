@@ -5,6 +5,11 @@ Kopiere den gesamten unteren Code-Block und füge ihn als `root` in dein Server-
 ```bash
 #!/bin/bash
 
+git push
+
+ssh hetzner
+
+
 echo "1/11: Schalte Shells temporär auf /bin/bash (für rootless podman)..."
 usermod -s /bin/bash paw-git
 usermod -s /bin/bash paw-api

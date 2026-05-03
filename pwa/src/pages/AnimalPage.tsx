@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useMemo } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { getAnimal, getAnimalDocuments, getAnimalTags, updateAnimal, deleteAnimal, uploadAnimalAvatar, deleteDocument, getMe } from '../api/rest'
@@ -330,51 +330,46 @@ export default function AnimalPage() {
   }
 
   // All unique tags across documents
-  const allTags = useMemo(() =>
-    Array.from(new Set(
-      documents.flatMap(d => d.extracted_json?.suggested_tags ?? [])
-    )).sort()
-  , [documents])
+  const allTags = Array.from(new Set(
+    documents.flatMap(d => d.extracted_json?.suggested_tags ?? [])
+  )).sort()
 
   // Filtered + sorted flat list
-  const filteredDocs = useMemo(() => {
-    return documents
-      .filter(d => d && d.analysis_status !== 'pending_analysis')
-      .filter(d => !d.doc_type || filterType === 'all' || d.doc_type === filterType)
-      .filter(d => !filterTag || (d.extracted_json?.suggested_tags ?? []).includes(filterTag))
-      .filter(d => {
-        if (!filterDateFrom && !filterDateTo) return true
-        const docDate = d.extracted_json?.document_date || d.created_at
-        if (!docDate) return true
-        const date = typeof docDate === 'string' ? docDate.slice(0, 10) : docDate
-        if (filterDateFrom && date < filterDateFrom) return false
-        if (filterDateTo && date > filterDateTo) return false
-        return true
-      })
-      .filter(d => !documentSearch ||
-        (d.doc_type ? docTypeLabel(d.doc_type).toLowerCase().includes(documentSearch) : false) ||
-        (d.extracted_json?.title ?? '').toLowerCase().includes(documentSearch) ||
-        (d.extracted_json?.suggested_tags ?? []).some((t: string) => t.toLowerCase().includes(documentSearch)) ||
-        (d.created_at ? new Date(d.created_at).toLocaleString('de-AT').includes(documentSearch) : false)
-      )
-      .sort((a, b) => {
-        const da = a.extracted_json?.document_date || a.created_at || ''
-        const db = b.extracted_json?.document_date || b.created_at || ''
-        if (!da || !db) return 0
-        return sortOrder === 'desc' ? String(db).localeCompare(String(da)) : String(da).localeCompare(String(db))
-      })
-  }, [documents, filterType, filterTag, filterDateFrom, filterDateTo, documentSearch, sortOrder])
+  const filteredDocs = documents
+    .filter(d => d && d.analysis_status !== 'pending_analysis')
+    .filter(d => !d.doc_type || filterType === 'all' || d.doc_type === filterType)
+    .filter(d => !filterTag || (d.extracted_json?.suggested_tags ?? []).includes(filterTag))
+    .filter(d => {
+      if (!filterDateFrom && !filterDateTo) return true
+      const docDate = d.extracted_json?.document_date || d.created_at
+      if (!docDate) return true
+      const date = typeof docDate === 'string' ? docDate.slice(0, 10) : docDate
+      if (filterDateFrom && date < filterDateFrom) return false
+      if (filterDateTo && date > filterDateTo) return false
+      return true
+    })
+    .filter(d => !documentSearch ||
+      (d.doc_type ? docTypeLabel(d.doc_type).toLowerCase().includes(documentSearch) : false) ||
+      (d.extracted_json?.title ?? '').toLowerCase().includes(documentSearch) ||
+      (d.extracted_json?.suggested_tags ?? []).some((t: string) => t.toLowerCase().includes(documentSearch)) ||
+      (d.created_at ? new Date(d.created_at).toLocaleString('de-AT').includes(documentSearch) : false)
+    )
+    .sort((a, b) => {
+      const da = a.extracted_json?.document_date || a.created_at || ''
+      const db = b.extracted_json?.document_date || b.created_at || ''
+      if (!da || !db) return 0
+      return sortOrder === 'desc' ? String(db).localeCompare(String(da)) : String(da).localeCompare(String(db))
+    })
 
   // Grouped: Map<doc_type, Document[]> — only when showing all types
-  const groupedDocs = useMemo(() => {
-    if (filterType !== 'all') return null
+  const groupedDocs = filterType === 'all' ? (() => {
     const map = new Map<string, Document[]>()
     for (const type of ['vaccination', 'medication', 'other'] as const) {
       const group = filteredDocs.filter(d => d.doc_type === type)
       if (group.length > 0) map.set(type, group)
     }
     return map
-  }, [filteredDocs, filterType])
+  })() : null
 
   return (
     <div className="container page">
