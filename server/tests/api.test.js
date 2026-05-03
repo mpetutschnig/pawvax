@@ -212,9 +212,7 @@ describe('PAWvax API Tests', () => {
 
       expect(status).toBe(201)
       // Speichere für Dokument-Upload Tests
-      if (!testState.animalId || testState.animalId === data.id) {
-        testState.animalId = data.id
-      }
+      testState.animalId = data.id
     })
   })
 

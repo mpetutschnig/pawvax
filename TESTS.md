@@ -1,5 +1,23 @@
 # PAW - API Tests auf Hetzner ausführen
 
+## 0. Code vor dem Testen aktualisieren
+
+Bevor du die Tests auf dem Server ausführen kannst, musst du sicherstellen, dass der neueste Code auf dem Server liegt.
+
+**Auf deinem lokalen Entwicklungsrechner:**
+```bash
+git add .
+git commit -m "Update tests"
+git push
+```
+
+**Auf dem Hetzner-Server (als root):**
+```bash
+su -s /bin/bash paw-git -c "cd /tmp && git -C /git/pawvax pull"
+```
+
+---
+
 Kopiere den gewünschten Code-Block und füge ihn als `root` in dein Server-Terminal ein.
 
 ---
