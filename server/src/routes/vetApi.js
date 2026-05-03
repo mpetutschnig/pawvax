@@ -52,7 +52,7 @@ export default async function vetApiRoutes(fastify) {
     const { doc_type, extracted_json, image_path, ocr_provider } = req.body
 
     db.prepare('INSERT INTO documents (id, animal_id, doc_type, image_path, extracted_json, ocr_provider, added_by_role, added_by_account, allowed_roles) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
-      .run(docId, animalId, doc_type, image_path || 'vet_api_import', JSON.stringify(extracted_json), ocr_provider || 'VET-API REST', 'vet', accountId, JSON.stringify(['readonly', 'vet', 'authority']))
+      .run(docId, animalId, doc_type, image_path || 'vet_api_import', JSON.stringify(extracted_json), ocr_provider || 'VET-API REST', 'vet', accountId, JSON.stringify(['guest', 'vet', 'authority']))
 
     logAudit(db, { accountId, role: 'vet', action: 'vet_api_upload', resource: 'document', resourceId: docId, ip: req.ip })
 

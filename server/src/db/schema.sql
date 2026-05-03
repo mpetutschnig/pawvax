@@ -70,10 +70,7 @@ CREATE TABLE IF NOT EXISTS audit_log (
 CREATE TABLE IF NOT EXISTS animal_sharing (
   id                TEXT PRIMARY KEY,
   animal_id         TEXT NOT NULL REFERENCES animals(id) ON DELETE CASCADE,
-  role              TEXT NOT NULL CHECK(role IN ('readonly', 'authority', 'vet')),
-  share_vaccination INTEGER NOT NULL DEFAULT 1,
-  share_medication  INTEGER NOT NULL DEFAULT 0,
-  share_other_docs  INTEGER NOT NULL DEFAULT 0,
+  role              TEXT NOT NULL CHECK(role IN ('guest', 'authority', 'vet')),
   share_contact     INTEGER NOT NULL DEFAULT 0,
   share_breed       INTEGER NOT NULL DEFAULT 1,
   share_birthdate   INTEGER NOT NULL DEFAULT 1,

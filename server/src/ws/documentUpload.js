@@ -5,6 +5,17 @@ import { saveImageChunks } from '../services/storage.js'
 import { decrypt } from '../utils/crypto.js'
 import { logAudit } from '../services/audit.js'
 
+function normalizeRole(role) {
+  return role === 'readonly' ? 'guest' : role
+}
+
+function normalizeAllowedRoles(allowedRoles) {
+  if (!Array.isArray(allowedRoles) || allowedRoles.length === 0) {
+    return ['vet', 'authority', 'guest']
+  }
+  return [...new Set(allowedRoles.map(normalizeRole))]
+}
+
 export default async function wsDocumentUpload(fastify) {
   fastify.get('/ws', { websocket: true }, async (socket, req) => {
     let accountId, userRole, userGeminiKey = null, userGeminiModel = null, userAnthropicKey = null, userClaudeModel = null
@@ -98,6 +109,7 @@ export default async function wsDocumentUpload(fastify) {
         case 'upload_start': {
           const { animalId, filename, mimeType, allowedRoles, pageNumber, documentId } = msg
           const pageNum = pageNumber ?? 1
+          const normalizedAllowedRoles = normalizeAllowedRoles(allowedRoles)
           console.log(`[WS] Upload start: ${filename} für Tier ${animalId} (page ${pageNum})`)
 
           // Insert stub document so document_pages FK is satisfied
@@ -108,7 +120,7 @@ export default async function wsDocumentUpload(fastify) {
             db.prepare(`
               INSERT INTO documents (id, animal_id, doc_type, image_path, extracted_json, ocr_provider, added_by_account, added_by_role, allowed_roles)
               VALUES (?, ?, 'other', '', '{}', 'pending', ?, ?, ?)
-            `).run(docId, animalId, accountId, userRole, JSON.stringify(allowedRoles ?? ['vet', 'authority', 'readonly']))
+            `).run(docId, animalId, accountId, userRole, JSON.stringify(normalizedAllowedRoles))
           }
 
           // sicherstellen, dass das Tier dem Account gehört
@@ -125,7 +137,7 @@ export default async function wsDocumentUpload(fastify) {
           uploadState = {
             animalId,
             mimeType,
-            allowedRoles: allowedRoles ?? ['vet', 'authority', 'readonly'],
+            allowedRoles: normalizedAllowedRoles,
             filename: safeFilename,
             pageNumber: pageNum,
             documentId: docId,

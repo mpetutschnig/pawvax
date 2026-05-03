@@ -442,7 +442,7 @@ export default function AnimalPage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', padding: 'var(--space-3)', background: 'var(--info-50)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-4)', border: '1px solid var(--info-200)' }}>
               <ShieldAlert size={18} color="var(--info-600)" />
               <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--info-800)' }}>
-                {t('scan.sharedAccess')}: <strong style={{ textTransform: 'capitalize' }}>{animal.request_role === 'vet' ? t('docScan.vet') : animal.request_role === 'authority' ? t('docScan.authority') : t('docScan.readonlyAccess')}</strong>
+                {t('scan.sharedAccess')}: <strong style={{ textTransform: 'capitalize' }}>{animal.request_role === 'vet' ? t('docScan.vet') : animal.request_role === 'authority' ? t('docScan.authority') : t('docScan.guestAccess')}</strong>
               </span>
             </div>
           )}

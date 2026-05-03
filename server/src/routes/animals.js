@@ -3,23 +3,63 @@ import { getDb } from '../db/index.js'
 import { logAudit } from '../services/audit.js'
 import { saveBase64Image, saveAvatarImage } from '../services/storage.js'
 
+function normalizeRole(role) {
+  return role === 'readonly' ? 'guest' : role
+}
+
+function parseAllowedRoles(rawRoles) {
+  if (!rawRoles) return null
+  try {
+    const parsed = JSON.parse(rawRoles)
+    if (!Array.isArray(parsed)) return null
+    return parsed.map(normalizeRole)
+  } catch {
+    return null
+  }
+}
+
+function canRoleSeeDocument(rawRoles, requestRole) {
+  const roles = parseAllowedRoles(rawRoles)
+  if (!roles) return true
+
+  const normalizedRequestRole = normalizeRole(requestRole)
+  if (roles.includes(normalizedRequestRole)) return true
+
+  // Backward compatibility for not-yet-migrated rows.
+  if (normalizedRequestRole === 'guest' && roles.includes('readonly')) return true
+
+  return false
+}
+
+function getSharingForRole(db, animalId, requestRole) {
+  const normalizedRequestRole = normalizeRole(requestRole)
+  let sharing = db.prepare('SELECT * FROM animal_sharing WHERE animal_id = ? AND role = ?').get(animalId, normalizedRequestRole)
+
+  // Backward compatibility for not-yet-migrated rows.
+  if (!sharing && normalizedRequestRole === 'guest') {
+    sharing = db.prepare('SELECT * FROM animal_sharing WHERE animal_id = ? AND role = ?').get(animalId, 'readonly')
+  }
+
+  return sharing
+}
+
 function ensureDefaultSharing(db, animalId) {
   const defaults = [
-    { role: 'readonly',  v: 1, m: 0, o: 0, c: 0, b: 1, d: 1, a: 0, df: 0 },
-    { role: 'authority', v: 1, m: 1, o: 0, c: 1, b: 1, d: 1, a: 1, df: 1 },
-    { role: 'vet',       v: 1, m: 1, o: 1, c: 1, b: 1, d: 1, a: 1, df: 1 },
+    { role: 'guest', c: 0, b: 1, d: 1, a: 0, df: 0 },
+    { role: 'authority', c: 1, b: 1, d: 1, a: 1, df: 1 },
+    { role: 'vet', c: 1, b: 1, d: 1, a: 1, df: 1 },
   ]
   for (const d of defaults) {
     try {
-      db.prepare(`INSERT INTO animal_sharing (id, animal_id, role, share_vaccination, share_medication, share_other_docs, share_contact, share_breed, share_birthdate, share_address, share_dynamic_fields)
-                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-        .run(uuid(), animalId, d.role, d.v, d.m, d.o, d.c, d.b, d.d, d.a, d.df)
+      db.prepare(`INSERT INTO animal_sharing (id, animal_id, role, share_contact, share_breed, share_birthdate, share_address, share_dynamic_fields)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+        .run(uuid(), animalId, d.role, d.c, d.b, d.d, d.a, d.df)
     } catch { /* already exists */ }
   }
 }
 
 function applySharing(db, animal, requestRole, ownerName, ownerEmail) {
-  const sharing = db.prepare('SELECT * FROM animal_sharing WHERE animal_id = ? AND role = ?').get(animal.id, requestRole)
+  const sharing = getSharingForRole(db, animal.id, requestRole)
   if (!sharing) return null
 
   const result = { id: animal.id, name: animal.name, species: animal.species, avatar_path: animal.avatar_path, account_id: animal.account_id }
@@ -29,35 +69,18 @@ function applySharing(db, animal, requestRole, ownerName, ownerEmail) {
   if (sharing.share_address) result.address = animal.address
   if (sharing.share_dynamic_fields) result.dynamic_fields = animal.dynamic_fields
 
-  // Dokumente anfügen
-  const allowedTypes = []
-  if (sharing.share_vaccination) allowedTypes.push('vaccination')
-  if (sharing.share_medication)  allowedTypes.push('medication')
-  if (sharing.share_other_docs)  allowedTypes.push('other')
+  const docs = db.prepare(`
+    SELECT * FROM documents
+    WHERE animal_id = ?
+    ORDER BY created_at DESC
+  `).all(animal.id)
 
-  if (allowedTypes.length > 0) {
-    const placeholders = allowedTypes.map(() => '?').join(', ')
-    const docs = db.prepare(`
-      SELECT * FROM documents
-      WHERE animal_id = ? AND doc_type IN (${placeholders})
-      ORDER BY created_at DESC
-    `).all(animal.id, ...allowedTypes)
+  result.documents = docs.filter(d => canRoleSeeDocument(d.allowed_roles, requestRole))
 
-    result.documents = docs.filter(d => {
-      if (!d.allowed_roles) return true
-      try {
-        const roles = JSON.parse(d.allowed_roles)
-        return roles.includes(requestRole) || roles.includes('readonly')
-      } catch { return true }
-    })
-
-    for (const d of result.documents) {
-      try { d.extracted_json = JSON.parse(d.extracted_json) } catch { d.extracted_json = {} }
-      const pages = db.prepare('SELECT image_path FROM document_pages WHERE document_id = ? ORDER BY id ASC').all(d.id)
-      d.pages = pages.map(p => p.image_path)
-    }
-  } else {
-    result.documents = []
+  for (const d of result.documents) {
+    try { d.extracted_json = JSON.parse(d.extracted_json) } catch { d.extracted_json = {} }
+    const pages = db.prepare('SELECT image_path FROM document_pages WHERE document_id = ? ORDER BY id ASC').all(d.id)
+    d.pages = pages.map(p => p.image_path)
   }
 
   return result
@@ -103,18 +126,16 @@ export default async function animalRoutes(fastify) {
     // Stelle sicher, dass default sharing existiert (für alte Tiere ohne Sharing-Zeile)
     ensureDefaultSharing(db, row.id)
 
-    // Nur readonly-freigegebene Felder zurückgeben
-    let sharing = db.prepare('SELECT * FROM animal_sharing WHERE animal_id = ? AND role = ?')
-      .get(row.id, 'readonly')
+    // Nur guest-freigegebene Felder zurückgeben
+    let sharing = getSharingForRole(db, row.id, 'guest')
 
     // Wenn immer noch kein sharing existiert, create es jetzt
     if (!sharing) {
       try {
-        db.prepare(`INSERT INTO animal_sharing (id, animal_id, role, share_vaccination, share_medication, share_other_docs, share_contact, share_breed, share_birthdate, share_address, share_dynamic_fields)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-          .run(uuid(), row.id, 'readonly', 1, 0, 0, 0, 1, 1, 0, 0)
-        sharing = db.prepare('SELECT * FROM animal_sharing WHERE animal_id = ? AND role = ?')
-          .get(row.id, 'readonly')
+        db.prepare(`INSERT INTO animal_sharing (id, animal_id, role, share_contact, share_breed, share_birthdate, share_address, share_dynamic_fields)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+          .run(uuid(), row.id, 'guest', 0, 1, 1, 0, 0)
+        sharing = getSharingForRole(db, row.id, 'guest')
       } catch { /* already exists */ }
     }
 
@@ -133,28 +154,18 @@ export default async function animalRoutes(fastify) {
     if (sharing.share_contact) result.contact = { name: row.owner_name }
     if (sharing.share_address) result.address = row.address
 
-    // Öffentliche Dokumente – alle freigegebenen Typen, nur für 'readonly' sichtbare
-    const allowedTypes = []
-    if (sharing.share_vaccination) allowedTypes.push('vaccination')
-    if (sharing.share_medication)  allowedTypes.push('medication')
-    if (sharing.share_other_docs)  allowedTypes.push('other')
+    const docs = db.prepare(`
+      SELECT * FROM documents
+      WHERE animal_id = ?
+      ORDER BY created_at DESC
+    `).all(row.id)
 
-    if (allowedTypes.length > 0) {
-      const placeholders = allowedTypes.map(() => '?').join(', ')
-      const docs = db.prepare(`
-        SELECT * FROM documents
-        WHERE animal_id = ?
-          AND doc_type IN (${placeholders})
-          AND (instr(allowed_roles, '"readonly"') > 0 OR allowed_roles IS NULL)
-        ORDER BY created_at DESC
-      `).all(row.id, ...allowedTypes)
+    result.documents = docs.filter(d => canRoleSeeDocument(d.allowed_roles, 'guest'))
 
-      for (const d of docs) {
-        try { d.extracted_json = JSON.parse(d.extracted_json) } catch { d.extracted_json = {} }
-        const pages = db.prepare('SELECT image_path FROM document_pages WHERE document_id = ? ORDER BY id ASC').all(d.id)
-        d.pages = pages.map(p => p.image_path)
-      }
-      result.documents = docs
+    for (const d of result.documents) {
+      try { d.extracted_json = JSON.parse(d.extracted_json) } catch { d.extracted_json = {} }
+      const pages = db.prepare('SELECT image_path FROM document_pages WHERE document_id = ? ORDER BY id ASC').all(d.id)
+      d.pages = pages.map(p => p.image_path)
     }
 
     return result
@@ -180,7 +191,7 @@ export default async function animalRoutes(fastify) {
 
     if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden' })
 
-    return applySharing(db, animal, 'readonly', animal.owner_name, animal.owner_email)
+    return applySharing(db, animal, 'guest', animal.owner_name, animal.owner_email)
   })
 
   // ──── Alle weiteren Routen erfordern Auth ─────────────────────────────────
@@ -220,7 +231,7 @@ export default async function animalRoutes(fastify) {
 
     // Fremdes Tier — prüfe Rolle
     const userRoles = (role || '').split(',').map(r => r.trim())
-    const requestRole = userRoles.includes('vet') ? 'vet' : userRoles.includes('authority') ? 'authority' : 'readonly'
+    const requestRole = userRoles.includes('vet') ? 'vet' : userRoles.includes('authority') ? 'authority' : 'guest'
 
     let row = db.prepare(`
       SELECT a.*, ac.name AS owner_name, ac.email AS owner_email
@@ -245,9 +256,9 @@ export default async function animalRoutes(fastify) {
 
     let filtered = applySharing(db, row, requestRole, row.owner_name, row.owner_email)
     
-    // Fallback auf public (readonly) falls vet/authority keine speziellen Freigaben haben
-    if (!filtered && requestRole !== 'readonly') {
-      filtered = applySharing(db, row, 'readonly', row.owner_name, row.owner_email)
+    // Fallback auf public (guest) falls vet/authority keine speziellen Freigaben haben
+    if (!filtered && requestRole !== 'guest') {
+      filtered = applySharing(db, row, 'guest', row.owner_name, row.owner_email)
     }
 
     if (!filtered) return reply.code(403).send({ error: 'Kein Zugriff auf diese Tierdaten' })
@@ -327,9 +338,9 @@ export default async function animalRoutes(fastify) {
     }
 
     const userRoles = (role || '').split(',').map(r => r.trim())
-    const requestRole = userRoles.includes('vet') ? 'vet' : userRoles.includes('authority') ? 'authority' : 'readonly'
+    const requestRole = userRoles.includes('vet') ? 'vet' : userRoles.includes('authority') ? 'authority' : 'guest'
     let filtered = applySharing(db, animal, requestRole, animal.owner_name, animal.owner_email)
-    if (!filtered && requestRole !== 'readonly') filtered = applySharing(db, animal, 'readonly', animal.owner_name, animal.owner_email)
+    if (!filtered && requestRole !== 'guest') filtered = applySharing(db, animal, 'guest', animal.owner_name, animal.owner_email)
     if (!filtered) return reply.code(403).send({ error: 'Kein Zugriff auf diese Tierdaten' })
     filtered.is_owner = false
     filtered.request_role = requestRole
@@ -441,33 +452,17 @@ export default async function animalRoutes(fastify) {
 
     // Rollenbasiert für Vet/Behörde
     const userRoles = (role || '').split(',').map(r => r.trim())
-    const requestRole = userRoles.includes('vet') ? 'vet' : userRoles.includes('authority') ? 'authority' : null
+    const requestRole = userRoles.includes('vet') ? 'vet' : userRoles.includes('authority') ? 'authority' : 'guest'
 
-    let sharing = null
-    if (requestRole) sharing = db.prepare('SELECT * FROM animal_sharing WHERE animal_id = ? AND role = ?').get(id, requestRole)
-    if (!sharing) sharing = db.prepare('SELECT * FROM animal_sharing WHERE animal_id = ? AND role = ?').get(id, 'readonly')
+    let sharing = getSharingForRole(db, id, requestRole)
+    if (!sharing && requestRole !== 'guest') sharing = getSharingForRole(db, id, 'guest')
 
     if (!sharing) return []
 
-    const allowed = []
-    if (sharing.share_vaccination) allowed.push('vaccination')
-    if (sharing.share_medication) allowed.push('medication')
-    if (sharing.share_other_docs) allowed.push('other')
-
-    if (allowed.length === 0) return []
-
-    const ph = allowed.map(() => '?').join(',')
-    const docs = db.prepare(`SELECT * FROM documents WHERE animal_id = ? AND doc_type IN (${ph}) ORDER BY created_at DESC`)
-      .all(id, ...allowed)
+    const docs = db.prepare('SELECT * FROM documents WHERE animal_id = ? ORDER BY created_at DESC').all(id)
 
     return parseDocs(docs.filter(d => {
-      if (!d.allowed_roles) return true
-      try {
-        const roles = JSON.parse(d.allowed_roles)
-        return roles.includes(requestRole) || roles.includes('readonly')
-      } catch {
-        return true
-      }
+      return canRoleSeeDocument(d.allowed_roles, requestRole)
     }))
   })
 
@@ -566,7 +561,8 @@ export default async function animalRoutes(fastify) {
     if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden' })
 
     ensureDefaultSharing(db, req.params.id)
-    return db.prepare('SELECT * FROM animal_sharing WHERE animal_id = ? ORDER BY role').all(req.params.id)
+    const sharingRows = db.prepare('SELECT * FROM animal_sharing WHERE animal_id = ? ORDER BY role').all(req.params.id)
+    return sharingRows.map(row => ({ ...row, role: normalizeRole(row.role) }))
   })
 
   // Freigabe-Einstellungen setzen (UPSERT per Rolle)
@@ -576,10 +572,7 @@ export default async function animalRoutes(fastify) {
         type: 'object',
         required: ['role'],
         properties: {
-          role: { type: 'string', enum: ['readonly', 'authority', 'vet'] },
-          share_vaccination: { type: 'integer' },
-          share_medication: { type: 'integer' },
-          share_other_docs: { type: 'integer' },
+          role: { type: 'string', enum: ['guest', 'readonly', 'authority', 'vet'] },
           share_contact: { type: 'integer' },
           share_breed: { type: 'integer' },
           share_birthdate: { type: 'integer' },
@@ -596,36 +589,34 @@ export default async function animalRoutes(fastify) {
     const animal = db.prepare('SELECT id FROM animals WHERE id = ? AND account_id = ?').get(id, accountId)
     if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden' })
 
-    const { role, share_vaccination, share_medication, share_other_docs, share_contact, share_breed, share_birthdate, share_address, share_dynamic_fields } = req.body
+    const { role, share_contact, share_breed, share_birthdate, share_address, share_dynamic_fields } = req.body
+    const targetRole = normalizeRole(role)
 
-    const existing = db.prepare('SELECT * FROM animal_sharing WHERE animal_id = ? AND role = ?').get(id, role)
+    const existing = db.prepare('SELECT * FROM animal_sharing WHERE animal_id = ? AND role = ?').get(id, targetRole)
 
     if (existing) {
       const merged = {
-        v: share_vaccination ?? existing.share_vaccination,
-        m: share_medication ?? existing.share_medication,
-        o: share_other_docs ?? existing.share_other_docs,
         c: share_contact ?? existing.share_contact,
         b: share_breed ?? existing.share_breed,
         d: share_birthdate ?? existing.share_birthdate,
         a: share_address ?? existing.share_address,
         df: share_dynamic_fields ?? existing.share_dynamic_fields,
       }
-      db.prepare(`UPDATE animal_sharing SET share_vaccination=?, share_medication=?, share_other_docs=?, share_contact=?, share_breed=?, share_birthdate=?, share_address=?, share_dynamic_fields=?
+      db.prepare(`UPDATE animal_sharing SET share_contact=?, share_breed=?, share_birthdate=?, share_address=?, share_dynamic_fields=?
                   WHERE animal_id=? AND role=?`)
-        .run(merged.v, merged.m, merged.o, merged.c, merged.b, merged.d, merged.a, merged.df, id, role)
+        .run(merged.c, merged.b, merged.d, merged.a, merged.df, id, targetRole)
     } else {
-      db.prepare(`INSERT INTO animal_sharing (id, animal_id, role, share_vaccination, share_medication, share_other_docs, share_contact, share_breed, share_birthdate, share_address, share_dynamic_fields)
-                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-        .run(uuid(), id, role,
-          share_vaccination ?? 1, share_medication ?? 0, share_other_docs ?? 0,
+      db.prepare(`INSERT INTO animal_sharing (id, animal_id, role, share_contact, share_breed, share_birthdate, share_address, share_dynamic_fields)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+        .run(uuid(), id, targetRole,
           share_contact ?? 0, share_breed ?? 1, share_birthdate ?? 1, share_address ?? 0, share_dynamic_fields ?? 0)
     }
 
     logAudit(db, { accountId, role: userRole, action: 'update_sharing', resource: 'sharing', resourceId: id,
       details: req.body, ip: req.ip })
 
-    return db.prepare('SELECT * FROM animal_sharing WHERE animal_id = ? AND role = ?').get(id, role)
+    const updatedRow = db.prepare('SELECT * FROM animal_sharing WHERE animal_id = ? AND role = ?').get(id, targetRole)
+    return updatedRow ? { ...updatedRow, role: normalizeRole(updatedRow.role) } : updatedRow
   })
 
   // Temporären Share-Link erzeugen

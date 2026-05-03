@@ -154,31 +154,28 @@ export default async function vetApiRoutes(fastify) {
     const animal = db.prepare('SELECT id FROM animals WHERE id = ?').get(req.params.animalId)
     if (!animal) return reply.code(404).send({ error: 'Animal not found' })
 
-    // Vets see all documents shared with vet role
-    const sharing = db.prepare('SELECT * FROM animal_sharing WHERE animal_id = ? AND role = ?')
-      .get(animal.id, 'vet')
-
-    const allowedTypes = []
-    if (sharing?.share_vaccination) allowedTypes.push('vaccination')
-    if (sharing?.share_medication) allowedTypes.push('medication')
-    if (sharing?.share_other_docs) allowedTypes.push('other')
-
-    if (allowedTypes.length === 0) {
-      return reply.send([])
-    }
-
-    const placeholders = allowedTypes.map(() => '?').join(', ')
     const docs = db.prepare(`
-      SELECT id, doc_type, created_at, ocr_provider, added_by_role, analysis_status, extracted_json
+      SELECT id, doc_type, created_at, ocr_provider, added_by_role, analysis_status, extracted_json, allowed_roles
       FROM documents
-      WHERE animal_id = ? AND doc_type IN (${placeholders}) AND analysis_status = 'completed'
+      WHERE animal_id = ? AND analysis_status = 'completed'
       ORDER BY created_at DESC
-    `).all(animal.id, ...allowedTypes)
+    `).all(animal.id)
 
-    const result = docs.map(d => ({
-      ...d,
-      extracted_json: (() => { try { return JSON.parse(d.extracted_json) } catch { return {} } })()
-    }))
+    const result = docs
+      .filter(d => {
+        if (!d.allowed_roles) return true
+        try {
+          const roles = JSON.parse(d.allowed_roles)
+          if (!Array.isArray(roles)) return true
+          return roles.includes('vet')
+        } catch {
+          return true
+        }
+      })
+      .map(d => ({
+        ...d,
+        extracted_json: (() => { try { return JSON.parse(d.extracted_json) } catch { return {} } })()
+      }))
 
     logAudit(db, {
       accountId: req.apiKeyAccount.accountId,
@@ -282,7 +279,7 @@ export default async function vetApiRoutes(fastify) {
       docId, animal.id, docType, filename,
       JSON.stringify({}), // placeholder until OCR completes
       req.apiKeyAccount.accountId, 'vet',
-      JSON.stringify(['vet', 'authority', 'readonly']),
+      JSON.stringify(['vet', 'authority', 'guest']),
       'pending_analysis'
     )
 
@@ -399,7 +396,7 @@ export default async function vetApiRoutes(fastify) {
       docId, animal.id, 'vaccination', '',
       JSON.stringify(extractedJson), 'vet_api',
       req.apiKeyAccount.accountId, 'vet',
-      JSON.stringify(['vet', 'authority', 'readonly']),
+      JSON.stringify(['vet', 'authority', 'guest']),
       'completed'
     )
 

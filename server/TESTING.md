@@ -1,370 +1,211 @@
-# 🧪 PAWvax API Testing Anleitung
+# PAWvax API Testing Guide
 
-## Überblick
+## Overview
 
-Zwei Möglichkeiten zum Testen:
+You have two ways to test:
 
-### 1. **Manuell** mit `.http` Datei (VSCode REST Client)
-→ Für interaktives Debugging und schnelle Checks
+1. Manual testing with `test.http` (VS Code REST Client)
+2. Automated testing with Jest (`tests/api.test.js`)
 
-### 2. **Automatisiert** mit Jest Test-Suite
-→ Für CI/CD, Regression-Tests, Full-Coverage
+Use manual tests for fast debugging and API flow checks.
+Use Jest for regression safety before deployment.
 
 ---
 
-## Option 1: Manuelles Testen mit `.http` Datei
+## Option 1: Manual testing with test.http
 
-### Installation: VSCode REST Client Extension
+### Install REST Client extension
 
-1. VSCode öffnen
-2. Extensions → Suche: "REST Client" 
-3. Installiere: *REST Client* von *Huachao Mao*
-4. Oder verwende Humao: https://humao.rest-client.io
+1. Open VS Code
+2. Open Extensions
+3. Search for `REST Client`
+4. Install `REST Client` by Huachao Mao
 
-### Datei öffnen
+### Open and run
 
 ```bash
-cd server/
+cd server
 code test.http
 ```
 
-### Requests ausführen
+Run requests with:
+- `Send Request` above each request
+- or `Ctrl+Alt+R`
 
-1. Klick auf **"Send Request"** Button (oben rechts im Editor)
-   - Oder: **Tastenkombination: Ctrl+Alt+R** (VS Code)
+### Important: variable handling in this file
 
-2. Response wird rechts im Panel angezeigt
+This project uses response-based chaining (not manual token copy):
 
-3. **Variablen nutzen:**
-   ```
-   @token = eyJhbGc...  # Nach Login gespeichert
-   @animalId = uuid...  # Nach Create Animal gespeichert
-   
-   # In anderen Requests nutzen:
-   GET @apiHost/animals/@animalId
-   ```
+```http
+# @name Login
+POST {{apiHost}}/auth/login
+...
 
-### Beispiel: Kompletter Ablauf
+GET {{apiHost}}/accounts/me
+Authorization: Bearer {{Login.response.body.token}}
+```
 
-1. **Request ausführen:** `1a. Register`
-   - Kopiere den `token` aus der Response
-
-2. **Variable setzen:**
-   - Klick auf den Token in der Response
-   - "Set @token" auswählen
-
-3. **Request ausführen:** `1b. Login`
-   - Verwendet automatisch `@token`
-
-4. **Request ausführen:** `1c. Get Profile`
-   - Zeigt dein Profil mit dem Token
+The current `test.http` flow already chains IDs and tokens, for example:
+- `{{Login.response.body.token}}`
+- `{{CreateAnimal.response.body.id}}`
+- `{{UploadDocument.response.body.id}}`
+- `{{CreateSharingLink.response.body.share_id}}`
 
 ---
 
-## Option 2: Automatisierte Tests mit Jest
+## Visibility model to test (important)
 
-### Installation
+The sharing model changed:
+
+1. Role `readonly` was renamed to `guest`.
+2. Document visibility is now controlled only per document via `allowed_roles`.
+3. Global document toggles in sharing settings are no longer the source of truth.
+4. If a document should be public, it must include `guest` in `allowed_roles`.
+
+### Practical checks
+
+1. Upload/scan a document with role `guest` selected.
+2. Call public endpoint (`/api/public/tag/:tagId` or `/api/public/share/:shareId`).
+3. Confirm document is visible.
+4. Remove `guest` in document detail (or PATCH document).
+5. Confirm document is no longer visible publicly.
+
+---
+
+## Option 2: Automated tests with Jest
+
+### Install dependencies
 
 ```bash
-cd server/
-npm install  # Jest + @types/jest installieren
+cd server
+npm install
 ```
 
-### Tests ausführen
+### Run tests
 
-**Alle Tests starten:**
+Run all tests:
+
 ```bash
 npm test
 ```
 
-**Nur eine Test-Suite:**
+Run one suite/group:
+
 ```bash
-npm test -- --testNamePattern="1. Authentication"
+npm test -- --testNamePattern="Authentication"
 ```
 
-**Mit Coverage Report:**
+Run with coverage:
+
 ```bash
 npm test:coverage
 ```
 
-**Im Watch-Mode (automatisch bei Datei-Änderungen):**
+Watch mode:
+
 ```bash
 npm test:watch
 ```
 
-### Test-Suite Struktur
-
-```
-tests/
-├── setup.js          # Setup vor allen Tests
-└── api.test.js       # Haupttest-Suite (70+ Tests)
-```
-
-**Test-Kategorien:**
-
-1. **Authentication (6 Tests)**
-   - Register, Login, Logout
-   - Profile abrufen/aktualisieren
-   - Verification beantragen
-
-2. **Animals (7 Tests)**
-   - Create, Read, Update, Delete
-   - Archive, Get All
-
-3. **Tags & NFC (4 Tests)**
-   - NFC-Tags, Barcode
-   - Tag-Verwaltung
-
-4. **Sharing (4 Tests)**
-   - Sharing-Links erstellen
-   - Öffentliche Links
-
-5. **Admin (2 Tests)**
-   - Stats, Audit-Log
-
-6. **DSGVO (1 Test)**
-   - Daten-Export
-
-7. **Error Handling (5 Tests)**
-   - 401 Unauthorized
-   - 404 Not Found
-   - 400 Bad Request
-   - Validierungsfehler
-
-8. **Integration (1 Test)**
-   - Full User Journey
-
 ---
 
-## API Server starten
-
-### Lokal für Tests
-
-```bash
-# Terminal 1: Server starten
-cd server/
-npm start
-
-# Terminal 2: Tests ausführen
-npm test
-```
-
-**oder mit Node Watch-Mode:**
+## Run server for local tests
 
 ```bash
 # Terminal 1
+cd server
 npm run dev
 
 # Terminal 2
-npm test:watch
-```
-
-### Auf Production testen
-
-```bash
-# .env.test ändern zu:
-API_URL=https://paw.oxs.at/api
-
-# Tests ausführen
+cd server
 npm test
 ```
 
 ---
 
-## Test-Environment-Variablen
+## Test environment
 
-**Datei: `.env.test`**
+File: `.env.test`
 
 ```env
-# Lokal
 API_URL=http://localhost:3000/api
-
-# Oder Production
-API_URL=https://paw.oxs.at/api
-
 TEST_TIMEOUT=15000
 NODE_ENV=test
 ```
 
+For production API checks:
+
+```env
+API_URL=https://paw.oxs.at/api
+```
+
 ---
 
-## Debugging von Fehlern
+## Debug failing tests
 
-### Test schlägt fehl — Was tun?
+Verbose output:
 
-**1. Logs anschauen:**
 ```bash
 npm test -- --verbose
 ```
 
-**2. Bestimmten Test debuggen:**
+Run a specific test case:
+
 ```bash
-npm test -- --testNamePattern="2a. Create Animal"
+npm test -- --testNamePattern="Create Animal"
 ```
 
-**3. Server-Logs prüfen:**
+Server logs (Hetzner):
+
 ```bash
-# Im anderen Terminal
 journalctl --user-instance -u paw-api.service -f
 ```
 
-**4. Browser DevTools für .http Requests:**
-- Öffne VSCode Output Panel (Ctrl+Shift+U)
-- "REST Client" Tab anschauen
-
 ---
 
-## Beispiel Test-Output
+## Recommended smoke-test order
 
-```
-PASS  tests/api.test.js (12.5s)
-  PAWvax API Tests
-    1. Authentication (Auth)
-      ✓ 1a. Register — Neuen Account erstellen (234ms)
-      ✓ 1b. Get Profile — Eigenes Profil abrufen (145ms)
-      ✓ 1c. Patch Profile — Profildaten aktualisieren (189ms)
-      ✓ 1d. Login — Mit Credentials anmelden (156ms)
-      ✓ 1e. Request Verification — Als Tierarzt anmelden (112ms)
-      ✓ 1f. Logout — Abmelden (201ms)
-    2. Animals
-      ✓ 2a. Create Animal — Neues Tier hinzufügen (198ms)
-      ✓ 2b. Get All Animals — Alle Tiere abrufen (87ms)
-      ✓ 2c. Get Animal Detail — Tier im Detail abrufen (92ms)
-      ✓ 2d. Update Animal — Tier aktualisieren (156ms)
-      ✓ 2e. Archive Animal — Tier archivieren (143ms)
-      ✓ 2f. Get Archived Animal — (124ms)
-      ✓ 2g. Create Second Animal — (167ms)
-    [... mehr Tests ...]
+In `test.http`, run in sequence:
 
-Test Suites: 1 passed, 1 total
-Tests:       72 passed, 72 total
-Duration:    12.8s
-```
+1. Register
+2. Login
+3. Get Profile
+4. Create Animal
+5. Get All Animals
+6. Upload Document
+7. Create Sharing Link
+8. Public Share/Public Tag checks
 
----
+Then test visibility change:
 
-## CI/CD Integration
-
-### GitHub Actions Example
-
-```yaml
-name: API Tests
-
-on: [push, pull_request]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    
-    services:
-      sqlite:
-        image: nats
-        
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-      
-      - run: cd server && npm install
-      - run: cd server && npm test
-        env:
-          API_URL: http://localhost:3000/api
-          NODE_ENV: test
-```
-
----
-
-## Tipps & Tricks
-
-### 1. Nur bestimmte Tests ausführen
-
-```bash
-# Nur Authentifizierung
-npm test -- --testNamePattern="Authentication"
-
-# Nur Error Handling
-npm test -- --testNamePattern="Error Handling"
-
-# Nur Tier-Tests
-npm test -- --testNamePattern="Animals"
-```
-
-### 2. Test-Timeout erhöhen (langsamer Server)
-
-In `jest.config.js`:
-```js
-testTimeout: 30000  // 30 Sekunden statt 10
-```
-
-### 3. Bestimmten Test debuggen
-
-```bash
-node --inspect-brk node_modules/jest/bin/jest.js --runInBand --testNamePattern="2a. Create Animal"
-```
-
-Dann in VSCode debuggen (Debug Tab öffnen).
-
-### 4. Coverage Report anschauen
-
-```bash
-npm test:coverage
-
-# HTML Report öffnen
-open coverage/index.html
-```
-
-### 5. .http Requests mit Dateien
-
-```http
-### Upload Datei
-POST @apiHost/animals/@animalId/documents
-Authorization: Bearer @token
-Content-Type: multipart/form-data; boundary=----Boundary
-
-------Boundary
-Content-Disposition: form-data; name="doc_type"
-
-vaccination
-------Boundary
-Content-Disposition: form-data; name="file"; filename="test.jpg"
-Content-Type: image/jpeg
-
-< ./path/to/test.jpg
-------Boundary--
-```
+1. Ensure uploaded document includes `guest`
+2. Verify public endpoint returns document
+3. Remove `guest` from document visibility
+4. Verify public endpoint no longer returns that document
 
 ---
 
 ## Troubleshooting
 
-| Problem | Lösung |
+| Problem | Fix |
 |---|---|
-| **ECONNREFUSED** (Server nicht erreichbar) | `npm start` in anderem Terminal ausführen |
-| **401 Unauthorized** | Token ist abgelaufen, neu anmelden mit Login-Request |
-| **404 Not Found** | API_URL in `.env.test` prüfen (lokal vs. prod) |
-| **Jest: ESM Module Error** | Node-Version ≥ 18 notwendig, `node --version` prüfen |
-| **Timeout bei Tests** | `testTimeout` in `jest.config.js` erhöhen |
+| `ECONNREFUSED` | Start server in a second terminal |
+| `401 Unauthorized` | Login again and retry flow |
+| `404 Not Found` | Verify `API_URL` (`local` vs `production`) |
+| Jest ESM/module issues | Use Node 18+ |
+| Timeouts | Increase Jest timeout in config |
 
 ---
 
-## Best Practices
+## Best practices
 
-✅ **DO:**
-- Tests nach jeder Feature-Änderung ausführen
-- `.http` für Quick-Checks nutzen
-- Jest für Regression-Tests vor Deployment
-- Logs parallel mit Server laufen lassen
-- Test-Output in CI/CD speichern
+Do:
+- Run manual flow after every API change
+- Run Jest before deployment
+- Keep logs open during debugging
+- Validate guest/public document visibility explicitly
 
-❌ **DON'T:**
-- Tests in Production mit echten Daten ausführen
-- Hardcoded Credentials in Test-Dateien
-- Zu viele gleichzeitige Test-Instanzen (Race Conditions)
-- Alte Test-Daten in DB lassen (cleanup!
-
-)
-
----
-
-**Viel Erfolg beim Testen! 🚀**
+Do not:
+- Test on production with real personal data
+- Store secrets in test files
+- Leave stale test data in shared environments

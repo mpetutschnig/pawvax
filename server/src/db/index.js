@@ -31,7 +31,7 @@ export function initDb(dbPath) {
     `ALTER TABLE animals ADD COLUMN avatar_path TEXT`,
     `ALTER TABLE animals ADD COLUMN dynamic_fields TEXT DEFAULT '{}'`,
     `ALTER TABLE animals ADD COLUMN address TEXT`,
-    `ALTER TABLE documents ADD COLUMN allowed_roles TEXT DEFAULT '["vet", "authority", "readonly"]'`,
+    `ALTER TABLE documents ADD COLUMN allowed_roles TEXT DEFAULT '["vet", "authority", "guest"]'`,
     `ALTER TABLE documents ADD COLUMN analysis_status TEXT DEFAULT 'pending_analysis'`,
     `ALTER TABLE animal_sharing ADD COLUMN share_dynamic_fields INTEGER NOT NULL DEFAULT 0`,
     `ALTER TABLE animal_sharing ADD COLUMN share_address INTEGER NOT NULL DEFAULT 0`,
@@ -45,6 +45,24 @@ export function initDb(dbPath) {
   for (const sql of migrations) {
     try { db.exec(sql) } catch { /* column already exists */ }
   }
+
+  // Role/data migrations for sharing model changes.
+  try {
+    db.exec(`
+      INSERT OR IGNORE INTO animal_sharing (id, animal_id, role, share_contact, share_breed, share_birthdate, share_address, share_dynamic_fields)
+      SELECT id, animal_id, 'guest', share_contact, share_breed, share_birthdate, share_address, share_dynamic_fields
+      FROM animal_sharing
+      WHERE role = 'readonly'
+    `)
+    db.exec("DELETE FROM animal_sharing WHERE role = 'readonly'")
+  } catch { /* table may not exist yet */ }
+  try {
+    db.exec(`
+      UPDATE documents
+      SET allowed_roles = REPLACE(allowed_roles, '"readonly"', '"guest"')
+      WHERE allowed_roles IS NOT NULL
+    `)
+  } catch { /* column may not exist yet */ }
 
   // JWT Blacklist table for logout functionality
   try {

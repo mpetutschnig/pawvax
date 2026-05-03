@@ -141,6 +141,16 @@ try {
   if (!dCols.includes('added_by_role')) db.prepare('ALTER TABLE documents ADD COLUMN added_by_role TEXT').run()
   if (!dCols.includes('added_by_account')) db.prepare('ALTER TABLE documents ADD COLUMN added_by_account TEXT').run()
   if (!dCols.includes('allowed_roles')) db.prepare('ALTER TABLE documents ADD COLUMN allowed_roles TEXT').run()
+
+  // Role rename migration: readonly -> guest.
+  db.prepare(`
+    INSERT OR IGNORE INTO animal_sharing (id, animal_id, role, share_contact, share_breed, share_birthdate, share_address, share_dynamic_fields)
+    SELECT id, animal_id, 'guest', share_contact, share_breed, share_birthdate, share_address, share_dynamic_fields
+    FROM animal_sharing
+    WHERE role = 'readonly'
+  `).run()
+  db.prepare("DELETE FROM animal_sharing WHERE role = 'readonly'").run()
+  db.prepare("UPDATE documents SET allowed_roles = REPLACE(allowed_roles, '\"readonly\"', '\"guest\"') WHERE allowed_roles IS NOT NULL").run()
 } catch (err) {
   console.warn('Migration warnings:', err.message)
 }

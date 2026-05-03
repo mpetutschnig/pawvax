@@ -5,6 +5,27 @@ import { decrypt } from '../utils/crypto.js'
 import { unlink } from 'fs/promises'
 import { resolve } from 'path'
 
+function normalizeRole(role) {
+  return role === 'readonly' ? 'guest' : role
+}
+
+function canRoleSeeDocument(rawRoles, requestRole) {
+  if (!rawRoles) return true
+  let parsedRoles
+  try {
+    parsedRoles = JSON.parse(rawRoles)
+  } catch {
+    return true
+  }
+  if (!Array.isArray(parsedRoles)) return true
+
+  const normalizedRoles = parsedRoles.map(normalizeRole)
+  const normalizedRequestRole = normalizeRole(requestRole)
+  if (normalizedRoles.includes(normalizedRequestRole)) return true
+  if (normalizedRequestRole === 'guest' && normalizedRoles.includes('readonly')) return true
+  return false
+}
+
 export default async function documentRoutes(fastify) {
   fastify.addHook('onRequest', fastify.authenticate)
 
@@ -29,21 +50,7 @@ export default async function documentRoutes(fastify) {
       const requestRole = userRoles.includes('vet') ? 'vet' : userRoles.includes('authority') ? 'authority' : null
       
       if (requestRole) {
-        const sharing = db.prepare('SELECT * FROM animal_sharing WHERE animal_id = ? AND role = ?').get(doc.animal_id, requestRole)
-        if (sharing) {
-          const typeAllowed = (doc.doc_type === 'vaccination' && sharing.share_vaccination) ||
-                              (doc.doc_type === 'medication' && sharing.share_medication) ||
-                              (doc.doc_type === 'other' && sharing.share_other_docs)
-          
-          let roleAllowed = true
-          if (doc.allowed_roles) {
-            try {
-              const parsedRoles = JSON.parse(doc.allowed_roles)
-              roleAllowed = parsedRoles.includes(requestRole) || parsedRoles.includes('readonly')
-            } catch {}
-          }
-          hasAccess = typeAllowed && roleAllowed
-        }
+        hasAccess = canRoleSeeDocument(doc.allowed_roles, requestRole)
       }
     }
 
@@ -86,10 +93,13 @@ export default async function documentRoutes(fastify) {
 
     if (allowed_roles !== undefined) {
       if (!isOwner) return reply.code(403).send({ error: 'Nur der Besitzer kann die Sichtbarkeit ändern' })
+      const normalizedRoles = Array.isArray(allowed_roles)
+        ? [...new Set(allowed_roles.map(normalizeRole))]
+        : []
       db.prepare('UPDATE documents SET allowed_roles = ? WHERE id = ?')
-        .run(JSON.stringify(allowed_roles), doc.id)
+        .run(JSON.stringify(normalizedRoles), doc.id)
       logAudit(db, { accountId, role, action: 'update_document_sharing', resource: 'document', resourceId: doc.id,
-        details: { allowed_roles }, ip: req.ip })
+        details: { allowed_roles: normalizedRoles }, ip: req.ip })
     }
 
     if (extracted_json !== undefined) {

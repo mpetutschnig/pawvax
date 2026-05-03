@@ -13,11 +13,11 @@ export default function DocumentScanPage() {
   const navigate = useNavigate()
   const { t } = useTranslation()
 
-  // Readonly-User dürfen keine Dokumente hochladen
+  // Guest-User dürfen keine Dokumente hochladen
   const roleStr = localStorage.getItem('role') || ''
   const myRoles = roleStr.split(',').map(r => r.trim()).filter(Boolean)
-  const isReadOnly = myRoles.length > 0 && myRoles.every(r => r === 'readonly')
-  if (isReadOnly) {
+  const isGuest = myRoles.length > 0 && myRoles.every(r => r === 'guest')
+  if (isGuest) {
     return (
       <div className="container page">
         <div className="error-card" style={{ textAlign: 'center', padding: 'var(--space-8)' }}>
@@ -41,7 +41,7 @@ export default function DocumentScanPage() {
   const [ocrProvider, setOcrProvider] = useState<string | null>(null)
   const [currentStatusMsg, setCurrentStatusMsg] = useState<string | null>(null)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
-  const [allowedRoles, setAllowedRoles] = useState<string[]>(['vet', 'authority', 'readonly'])
+  const [allowedRoles, setAllowedRoles] = useState<string[]>(['vet', 'authority', 'guest'])
   const [suggestedType, setSuggestedType] = useState<string | null>(null)
   const [documentId, setDocumentId] = useState<string | null>(null)
   const [savingDocType, setSavingDocType] = useState(false)
@@ -464,7 +464,7 @@ export default function DocumentScanPage() {
               <div style={{ marginBottom: 'var(--space-4)', textAlign: 'left' }}>
                 <label className="form-label">{t('docScan.whoCanSee')}</label>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-                  {[{ id: 'vet', label: t('docScan.vet') }, { id: 'authority', label: t('docScan.authority') }, { id: 'readonly', label: t('docScan.readonlyAccess') }].map(r => (
+                  {[{ id: 'vet', label: t('docScan.vet') }, { id: 'authority', label: t('docScan.authority') }, { id: 'guest', label: t('docScan.guestAccess') }].map(r => (
                     <label key={r.id} style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
                       <input 
                         type="checkbox" 

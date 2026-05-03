@@ -60,7 +60,7 @@ function GlobalBrand() {
       <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', gap: '4px', flexWrap: 'wrap' }}>
         {roles.map((r: string) => (
           <span key={r} className={`badge ${r === 'vet' ? 'badge-success' : 'badge-info'}`} style={{ fontSize: '10px', padding: '2px 6px', textTransform: 'capitalize' }}>
-            {r === 'vet' ? t('docScan.vet') : r === 'authority' ? t('docScan.authority') : r === 'admin' ? 'Admin' : r === 'readonly' ? t('docScan.readonlyAccess') : 'User'}
+            {r === 'vet' ? t('docScan.vet') : r === 'authority' ? t('docScan.authority') : r === 'admin' ? 'Admin' : r === 'guest' ? t('docScan.guestAccess') : 'User'}
           </span>
         ))}
       </div>
@@ -89,7 +89,7 @@ function BottomNav() {
 
   return (
     <nav className="bottom-nav">
-      {!(roles.length > 0 && roles.every((r: string) => r === 'readonly')) && (
+      {!(roles.length > 0 && roles.every((r: string) => r === 'guest')) && (
         <Link to="/scan" className={location.pathname.startsWith('/scan') ? 'active' : ''}>
           <div className="nav-icon-wrap">
             <ScanLine size={22} strokeWidth={1.8} />

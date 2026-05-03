@@ -11,7 +11,7 @@ export function SideNav() {
 
   if (!token || location.pathname === '/login') return null
 
-  const isReadonly = roles.length > 0 && roles.every(r => r === 'readonly')
+  const isGuest = roles.length > 0 && roles.every(r => r === 'guest')
 
   return (
     <nav className="side-nav">
@@ -20,7 +20,7 @@ export function SideNav() {
         <span>PAW</span>
       </div>
       <div className="side-nav-links">
-        {!isReadonly && (
+        {!isGuest && (
           <Link to="/scan" className={`side-nav-item ${location.pathname.startsWith('/scan') ? 'active' : ''}`}>
             <ScanLine size={20} strokeWidth={1.8} />
             <span>{t('nav.find')}</span>

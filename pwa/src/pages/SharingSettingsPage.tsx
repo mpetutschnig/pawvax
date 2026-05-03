@@ -3,14 +3,11 @@ import { useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { getSharing, updateSharing } from '../api/rest'
 import { PageHeader } from '../components/PageHeader'
-import { Eye, Landmark, Stethoscope, Syringe, Pill, FileText, User, PawPrint, Cake } from 'lucide-react'
+import { Eye, Landmark, Stethoscope, User, PawPrint, Cake } from 'lucide-react'
 
 interface SharingRow {
   id: string
   role: string
-  share_vaccination: number
-  share_medication: number
-  share_other_docs: number
   share_contact: number
   share_breed: number
   share_birthdate: number
@@ -27,7 +24,7 @@ export default function SharingSettingsPage() {
   const [generatingLink, setGeneratingLink] = useState(false)
 
   const roleConfig: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
-    readonly: { label: t('docScan.readonlyAccess'), icon: <Eye size={18} />, color: 'var(--primary-600)' },
+    guest: { label: t('docScan.guestAccess'), icon: <Eye size={18} />, color: 'var(--primary-600)' },
     authority: { label: t('docScan.authority'), icon: <Landmark size={18} />, color: 'var(--info-600)' },
     vet: { label: t('docScan.vet'), icon: <Stethoscope size={18} />, color: 'var(--success-600)' },
   }
@@ -123,41 +120,6 @@ export default function SharingSettingsPage() {
               </h3>
 
               <div style={{ display: 'grid', gap: 'var(--space-3)' }}>
-                <label style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center', cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={!!row.share_vaccination}
-                    onChange={e => handleSave(row.role, { share_vaccination: e.target.checked ? 1 : 0 })}
-                    disabled={saving}
-                    style={{ width: 18, height: 18, accentColor: 'var(--primary-500)' }}
-                  />
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}><Syringe size={16} className="text-tertiary" /> {t('sharing.vaccination')}</span>
-                </label>
-
-                <label style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center', cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={!!row.share_medication}
-                    onChange={e => handleSave(row.role, { share_medication: e.target.checked ? 1 : 0 })}
-                    disabled={saving}
-                    style={{ width: 18, height: 18, accentColor: 'var(--primary-500)' }}
-                  />
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}><Pill size={16} className="text-tertiary" /> {t('sharing.medication')}</span>
-                </label>
-
-                <label style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center', cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={!!row.share_other_docs}
-                    onChange={e => handleSave(row.role, { share_other_docs: e.target.checked ? 1 : 0 })}
-                    disabled={saving}
-                    style={{ width: 18, height: 18, accentColor: 'var(--primary-500)' }}
-                  />
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}><FileText size={16} className="text-tertiary" /> {t('sharing.otherDocs')}</span>
-                </label>
-
-                <hr className="divider" style={{ margin: 'var(--space-2) 0' }} />
-
                 <label style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center', cursor: 'pointer' }}>
                   <input
                     type="checkbox"

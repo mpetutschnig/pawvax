@@ -406,7 +406,7 @@ export default function DocumentDetailPage() {
               <div className="form-group" style={{ marginTop: 'var(--space-4)' }}>
                 <label className="form-label">{t('docScan.whoCanSee')}</label>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-                  {[{ id: 'vet', label: t('docScan.vet') }, { id: 'authority', label: t('docScan.authority') }, { id: 'readonly', label: t('docScan.readonlyAccess') }].map(r => (
+                  {[{ id: 'vet', label: t('docScan.vet') }, { id: 'authority', label: t('docScan.authority') }, { id: 'guest', label: t('docScan.guestAccess') }].map(r => (
                     <label key={r.id} style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
                       <input 
                         type="checkbox" 
@@ -448,7 +448,7 @@ export default function DocumentDetailPage() {
                 <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
                   {visibility.map(r => (
                     <span key={r} className="badge" style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}>
-                      {r === 'vet' ? t('docDetail.vetDoc') : r === 'authority' ? t('docDetail.authorityDoc') : t('docDetail.readonlyDoc')}
+                      {r === 'vet' ? t('docDetail.vetDoc') : r === 'authority' ? t('docDetail.authorityDoc') : t('docDetail.guestDoc')}
                     </span>
                   ))}
                 </div>
