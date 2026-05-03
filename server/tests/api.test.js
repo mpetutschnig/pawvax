@@ -16,7 +16,6 @@
 import fetch from 'node-fetch'
 
 const API_URL = process.env.API_URL || 'http://localhost:3000/api'
-const TEST_TIMEOUT = 15000
 
 // State zwischen Tests
 let testState = {
@@ -51,8 +50,6 @@ async function apiCall(method, endpoint, body = null, headers = {}) {
 }
 
 describe('PAWvax API Tests', () => {
-  jest.setTimeout(TEST_TIMEOUT)
-
   // ════════════════════════════════════════════════════════════════
   // 1. AUTHENTIFIZIERUNG
   // ════════════════════════════════════════════════════════════════

@@ -13,8 +13,10 @@ PAW_API_UID=$(id -u paw-api) && XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bi
   cd /tmp && \
   podman run --rm \
     --cgroup-manager=cgroupfs \
-    -v /git/pawvax/server/tests:/app/tests:z \
+    --security-opt label=disable \
+    -v /git/pawvax/server/tests:/app/tests \
     -e API_URL=https://paw.oxs.at/api \
+    -e NODE_OPTIONS=--experimental-vm-modules \
     -e TEST_TIMEOUT=20000 \
     paw-api:latest \
     npx jest --passWithNoTests --forceExit
@@ -38,8 +40,10 @@ PAW_API_UID=$(id -u paw-api) && XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bi
   cd /tmp && \
   podman run --rm \
     --cgroup-manager=cgroupfs \
-    -v /git/pawvax/server/tests:/app/tests:z \
+    --security-opt label=disable \
+    -v /git/pawvax/server/tests:/app/tests \
     -e API_URL=https://paw.oxs.at/api \
+    -e NODE_OPTIONS=--experimental-vm-modules \
     -e TEST_TIMEOUT=20000 \
     paw-api:latest \
     npx jest --passWithNoTests --forceExit --verbose
@@ -58,11 +62,12 @@ PAW_API_UID=$(id -u paw-api) && XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bi
   cd /tmp && \
   podman run --rm \
     --cgroup-manager=cgroupfs \
-    -v /git/pawvax/server/tests:/app/tests:z \
+    --security-opt label=disable \
+    -v /git/pawvax/server/tests:/app/tests \
     -e API_URL=https://paw.oxs.at/api \
-    paw-api:latest \
+    -e NODE_OPTIONS=--experimental-vm-modules \
+    localhost/paw-api:latest \
     npx jest --testNamePattern='Auth' --passWithNoTests --forceExit
-"
 ```
 
 Verfügbare Test-Suites:
