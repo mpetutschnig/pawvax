@@ -64,6 +64,15 @@ export function initDb(dbPath) {
     `)
   } catch { /* column may not exist yet */ }
 
+  // Migrate animal_public_shares expires_at from TEXT to INTEGER (Unix timestamp)
+  try {
+    db.exec(`
+      UPDATE animal_public_shares
+      SET expires_at = CAST(strftime('%s', expires_at) AS INTEGER)
+      WHERE typeof(expires_at) = 'text'
+    `)
+  } catch { /* table may not exist yet or already migrated */ }
+
   // JWT Blacklist table for logout functionality
   try {
     db.exec(`

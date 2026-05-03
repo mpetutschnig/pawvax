@@ -178,7 +178,7 @@ export default async function animalRoutes(fastify) {
     const share = db.prepare('SELECT * FROM animal_public_shares WHERE id = ?').get(shareId)
     if (!share) return reply.code(404).send({ error: 'Freigabe nicht gefunden' })
 
-    if (new Date(share.expires_at) < new Date()) {
+    if (share.expires_at < Math.floor(Date.now() / 1000)) {
       return reply.code(410).send({ error: 'Diese Freigabe ist abgelaufen' })
     }
 
@@ -633,7 +633,7 @@ export default async function animalRoutes(fastify) {
     expiresAt.setDate(expiresAt.getDate() + 14) // 14 Tage gültig
 
     db.prepare('INSERT INTO animal_public_shares (id, animal_id, expires_at) VALUES (?, ?, ?)')
-      .run(shareId, id, expiresAt.toISOString())
+      .run(shareId, id, Math.floor(expiresAt.getTime() / 1000))
 
     logAudit(db, { accountId, role, action: 'create_temp_share', resource: 'sharing', resourceId: id, ip: req.ip })
 
