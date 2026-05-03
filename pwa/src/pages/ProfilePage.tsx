@@ -28,7 +28,7 @@ export default function ProfilePage() {
   const [openaiModel, setOpenaiModel] = useState('')
   const [aiPriority, setAiPriority] = useState<string[]>(['system', 'google', 'anthropic', 'openai'])
   const [modelSaving, setModelSaving] = useState(false)
-  const [requestedRoles, setRequestedRoles] = useState<string[]>(['vet'])
+  const [requestedRole, setRequestedRole] = useState<string>('vet')
 
   useEffect(() => {
     loadProfile()
@@ -268,7 +268,7 @@ export default function ProfilePage() {
       let res = await fetch(`${baseUrl}/api/accounts/request-verification`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ roles: requestedRoles })
+        body: JSON.stringify({ roles: [requestedRole] })
       })
       
       // Fallback, falls das Backend die ursprüngliche Route verwendet
@@ -276,7 +276,7 @@ export default function ProfilePage() {
         res = await fetch(`${baseUrl}/api/accounts/me/verify-request`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-          body: JSON.stringify({ roles: requestedRoles })
+          body: JSON.stringify({ roles: [requestedRole] })
         })
       }
 
@@ -337,6 +337,7 @@ export default function ProfilePage() {
   const roles = profile.roles ?? []
   const isVet = roles.includes('vet')
   const isOrg = roles.includes('authority')
+  const isAdmin = roles.includes('admin')
   const verificationStatus = profile.verification_status
 
   return (
@@ -366,7 +367,7 @@ export default function ProfilePage() {
           )}
         </div>
 
-        {(isVet || isOrg || verificationStatus === 'pending' || !isVet) && (
+        {!isAdmin && (
           <>
             <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginTop: 'var(--space-6)', marginBottom: 'var(--space-3)' }}>{t('profile.verification')}</h3>
             {isVet ? (
@@ -380,19 +381,19 @@ export default function ProfilePage() {
                 <p style={{ margin: '0 0 var(--space-3) 0' }}>{t('profile.selectRoleToVerify', 'Als Partner verifizieren (Tierarzt oder Behörde):')}</p>
                 <div style={{ display: 'flex', gap: 'var(--space-4)', marginBottom: 'var(--space-3)' }}>
                   <label style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center', cursor: 'pointer' }}>
-                    <input type="checkbox" checked={requestedRoles.includes('vet')}
-                      onChange={e => setRequestedRoles(prev => e.target.checked ? [...prev, 'vet'] : prev.filter(r => r !== 'vet'))} 
+                    <input type="radio" name="requestRole" checked={requestedRole === 'vet'}
+                      onChange={() => setRequestedRole('vet')} 
                       style={{ width: 16, height: 16, accentColor: 'var(--primary-500)' }} />
                     Tierarzt
                   </label>
                   <label style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center', cursor: 'pointer' }}>
-                    <input type="checkbox" checked={requestedRoles.includes('authority')}
-                      onChange={e => setRequestedRoles(prev => e.target.checked ? [...prev, 'authority'] : prev.filter(r => r !== 'authority'))} 
+                    <input type="radio" name="requestRole" checked={requestedRole === 'authority'}
+                      onChange={() => setRequestedRole('authority')} 
                       style={{ width: 16, height: 16, accentColor: 'var(--primary-500)' }} />
                     Behörde
                   </label>
                 </div>
-                <button className="btn btn-primary" onClick={requestVerify} disabled={requestedRoles.length === 0}>
+                <button className="btn btn-primary" onClick={requestVerify}>
                   <CheckCircle size={16} /> {t('profile.requestVerification')}
                 </button>
               </div>
