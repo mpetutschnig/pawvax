@@ -12,7 +12,7 @@ git commit -m "Update"
 git push
 
 ssh hetzner
-git pull
+su -s /bin/bash paw-git -c "cd /tmp && git -C /git/pawvax pull"
 
 ```
 
