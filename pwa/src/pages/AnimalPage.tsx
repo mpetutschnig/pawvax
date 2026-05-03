@@ -922,17 +922,17 @@ export default function AnimalPage() {
               {filteredDocs.length === 0 && documents.filter(d => d.analysis_status !== 'pending_analysis').length > 0 && (
                 <p className="text-muted text-center" style={{ padding: 'var(--space-4) 0' }}>{t('animal.noDocsFiltered')}</p>
               )}
-
-              {(isOwner || isVet) && !animal.is_archived && (
-                <Link to={`/animals/${id}/scan`} className="btn btn-primary btn-full" style={{ marginBottom: 'var(--space-4)' }}>
-                  <Camera size={18} /> {t('animal.addDocument')}
-                </Link>
-              )}
-              <p className="text-muted" style={{ fontSize: '11px', textAlign: 'center', marginTop: 'var(--space-2)', paddingBottom: 'var(--space-4)' }}>
-                {t('docDetail.ocrDisclaimer')}
-              </p>
             </>
           )}
+
+          {(isOwner || isVet) && !animal.is_archived && (
+            <Link to={`/animals/${id}/scan`} className="btn btn-primary btn-full" style={{ marginBottom: 'var(--space-4)', marginTop: documents.length === 0 ? 'var(--space-4)' : 0 }}>
+              <Camera size={18} /> {t('animal.addDocument')}
+            </Link>
+          )}
+          <p className="text-muted" style={{ fontSize: '11px', textAlign: 'center', marginTop: 'var(--space-2)', paddingBottom: 'var(--space-4)' }}>
+            {t('docDetail.ocrDisclaimer')}
+          </p>
         </>
       )}
 
