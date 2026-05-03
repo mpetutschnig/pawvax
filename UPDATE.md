@@ -1,16 +1,22 @@
 # PAW - Automatisches Update-Skript
 
-Kopiere den gesamten unteren Code-Block und füge ihn als `root` in dein Server-Terminal ein. Das Skript führt alle notwendigen Update-Schritte aus und pausiert nach jedem Kommando für 3 Sekunden, damit du die Ausgabe auf eventuelle Fehler prüfen kannst.
+Dieses Dokument beschreibt den Update-Prozess.
+
+### Schritt 1: Code lokal hochladen
+
+Führe diese Befehle auf deinem **lokalen Entwicklungsrechner** aus:
 
 ```bash
-#!/bin/bash
 git add .
-git commit -m "Update vor dem Deployment Hetzner"
+git commit -m "Update"
 git push
+```
 
-ssh hetzner
+### Schritt 2: Update-Skript auf dem Server ausführen
 
+Kopiere den gesamten unteren Code-Block und füge ihn als `root` in dein **Hetzner Server-Terminal** ein. Das Skript führt alle notwendigen Update-Schritte aus und pausiert nach jedem Kommando für 3 Sekunden, damit du die Ausgabe auf eventuelle Fehler prüfen kannst.
 
+```bash
 echo "1/11: Schalte Shells temporär auf /bin/bash (für rootless podman)..."
 usermod -s /bin/bash paw-git
 usermod -s /bin/bash paw-api
