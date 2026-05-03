@@ -33,7 +33,7 @@ export default async function aiRoutes(fastify) {
             .map(m => ({ id: m.name.replace('models/', ''), name: m.displayName }))
         }
       }
-    } catch (e) { console.error('Gemini models fetch error:', e.message) }
+    } catch (e) { req.log.error({ err: e }, 'Gemini models fetch error') }
 
     try {
       let key = null; try { key = acc?.openai_token ? decrypt(acc.openai_token) : null } catch {}
@@ -48,7 +48,7 @@ export default async function aiRoutes(fastify) {
             .map(m => ({ id: m.id, name: m.id }))
         }
       }
-    } catch (e) { console.error('OpenAI models fetch error:', e.message) }
+    } catch (e) { req.log.error({ err: e }, 'OpenAI models fetch error') }
 
     return {
       google: geminiModels.length > 0 ? geminiModels : null,

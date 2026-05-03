@@ -12,9 +12,10 @@ interface PetCardProps {
   hasNfcTag?: boolean;
   isVetVerified?: boolean;
   avatarPath?: string;
+  isArchived?: boolean;
 }
 
-export function PetCard({ id, name, species, breed, age, vaccinationStatus, hasNfcTag, isVetVerified, avatarPath }: PetCardProps) {
+export function PetCard({ id, name, species, breed, age, vaccinationStatus, hasNfcTag, isVetVerified, avatarPath, isArchived }: PetCardProps) {
   const { t } = useTranslation();
   const statusBadge = {
     current:   { className: 'badge badge-success', label: t('petCard.upToDate') },
@@ -23,7 +24,7 @@ export function PetCard({ id, name, species, breed, age, vaccinationStatus, hasN
   }[vaccinationStatus] || { className: 'badge badge-info', label: t('common.loading') };
 
   return (
-    <Link to={`/animals/${id}`} className="card card-sm" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)', textDecoration: 'none', marginBottom: 'var(--space-3)', cursor: 'pointer' }}>
+    <Link to={`/animals/${id}`} className="card card-sm" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)', textDecoration: 'none', marginBottom: 'var(--space-3)', cursor: 'pointer', opacity: isArchived ? 0.6 : 1, filter: isArchived ? 'grayscale(0.4)' : 'none' }}>
       {/* Avatar */}
       <div style={{
         width: 44, height: 44, borderRadius: 'var(--radius-md)', flexShrink: 0,
@@ -39,7 +40,10 @@ export function PetCard({ id, name, species, breed, age, vaccinationStatus, hasN
 
       {/* Info */}
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'var(--font-size-base)', color: 'var(--text-primary)' }}>{name}</div>
+        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'var(--font-size-base)', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+          {isArchived && <span style={{ fontSize: '0.85em', color: 'var(--text-secondary)' }}>✝</span>}
+          {name}
+        </div>
         <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-tertiary)', marginBottom: 'var(--space-2)' }}>{breed}{age ? ` · ${age}` : ''}</div>
         <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
           <span className={statusBadge.className}>

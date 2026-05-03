@@ -420,5 +420,29 @@
   "docs.dev.t3": "The system supports Google Gemini (default), Anthropic Claude, and OpenAI. Users can store their own keys in the profile. The backend iterates through the providers based on `ai_provider_priority`.",
   "landing": {
     "description": "Seamless access via NFC/Barcode. The interface adapts to your role. Own animals display full profiles; third-party tags show shared documents only."
-  }
+  },
+  "animal.archiveAnimal": "Archive animal",
+  "animal.archiveConfirm": "Do you want to archive this animal? It will switch to read-only status.",
+  "animal.archived": "Archived (In Memoriam)",
+  "animal.transferBtn": "Transfer ownership",
+  "animal.transferCode": "Transfer code: ",
+  "animal.transferDesc": "Generate a 6-digit code to permanently transfer this animal to another account.",
+  "animal.transferExpires": "Expires in 24 hours.",
+  "animal.transferGenerate": "Generate code",
+  "animal.transferTitle": "Transfer animal",
+  "animals.acceptBtn": "Accept",
+  "animals.acceptTransferBtn": "Accept with code",
+  "animals.acceptTransferTitle": "Accept animal",
+  "animals.transferCodePlaceholder": "6-digit code",
+  "docDetail.ocrDisclaimer": "The extracted text data is for overview purposes only. Legally binding is exclusively the attached original document (photo).",
+  "profile.dataExport": "Data export (Takeout)",
+  "profile.dataExportBtn": "Start data export",
+  "profile.dataExportDesc": "Download a ZIP archive with all your data (animals, documents, images).",
+  "profile.deleteTakeoutHint": "Would you like to back up your data first?",
+  "profile.takeoutError": "Error creating data export.",
+  "sharing.copyLink": "Copy link",
+  "sharing.days": "days",
+  "sharing.expiresIn": "Expires in",
+  "sharing.generateLink": "Generate link",
+  "sharing.tempLink": "Temporary link (no login required)"
 }

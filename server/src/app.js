@@ -19,6 +19,7 @@ import organizationRoutes from './routes/organizations.js'
 import wsDocumentUpload from './ws/documentUpload.js'
 import settingsRoutes from './routes/settings.js'
 import aiRoutes from './routes/ai.js'
+import vetApiRoutes from './routes/vet-api.js'
 
 const __dir = dirname(fileURLToPath(import.meta.url))
 
@@ -74,7 +75,8 @@ await fastify.register(fastifySwagger, {
     ],
     components: {
       securitySchemes: {
-        bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' }
+        bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
+        apiKeyAuth: { type: 'apiKey', in: 'header', name: 'X-Api-Key', description: 'VET API Key (pvx_live_...)' }
       }
     },
     security: [{ bearerAuth: [] }]
@@ -114,9 +116,30 @@ await fastify.register(organizationRoutes)
 await fastify.register(wsDocumentUpload)
 await fastify.register(settingsRoutes)
 await fastify.register(aiRoutes)
+await fastify.register(vetApiRoutes)
 
 // Healthcheck
 fastify.get('/health', async () => ({ status: 'ok' }))
+
+// Client-side event tracking (no auth required, rate-limited by global limiter)
+fastify.post('/api/events', {
+  config: { rateLimit: { max: 30, timeWindow: '1 minute' } }
+}, async (req, reply) => {
+  const { event, properties } = req.body || {}
+  if (!event || typeof event !== 'string' || event.length > 100) {
+    return reply.code(400).send({ error: 'Invalid event' })
+  }
+  // Log as structured data — no DB storage needed, captured in server logs
+  req.log.info({ event, properties: properties || {}, source: 'client_event' }, 'Client event')
+  return reply.code(204).send()
+})
+
+// Global error handler
+fastify.setErrorHandler((err, req, reply) => {
+  req.log.error({ err, url: req.url, method: req.method }, 'Unhandled error')
+  const status = err.statusCode || 500
+  reply.code(status).send({ error: status === 500 ? 'Internal Server Error' : err.message })
+})
 
 // Start
 const port = parseInt(process.env.PORT ?? '3000')

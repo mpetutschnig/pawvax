@@ -276,7 +276,7 @@ export default async function documentRoutes(fastify) {
         provider
       })
     } catch (err) {
-      console.error('Retry analysis error:', err)
+      req.log.error({ err, docId }, 'Retry analysis failed')
       // Reset status back to pending_analysis on error
       db.prepare('UPDATE documents SET analysis_status = ? WHERE id = ?').run('pending_analysis', docId)
 

@@ -719,7 +719,7 @@ export default async function animalRoutes(fastify) {
 
       return { avatar_path: filepath }
     } catch (err) {
-      console.error('Avatar upload error:', err)
+      req.log.error({ err }, 'Avatar upload failed')
       return reply.code(500).send({ error: 'Fehler beim Speichern des Avatars' })
     }
   })
