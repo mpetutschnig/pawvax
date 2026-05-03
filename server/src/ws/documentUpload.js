@@ -39,7 +39,7 @@ export default async function wsDocumentUpload(fastify) {
           }
 
           uploadState.writer.write(raw)
-          console.log(`[WS] Chunk: ${raw.length} bytes (total: ${uploadState.bytesReceived})`)
+          fastify.log.debug({ bytes: raw.length, total: uploadState.bytesReceived }, 'WS: chunk received')
         }
         return
       }
@@ -47,7 +47,7 @@ export default async function wsDocumentUpload(fastify) {
       let msg
       try {
         msg = JSON.parse(raw.toString())
-        console.log(`[WS] Message: ${msg.type}`)
+        fastify.log.debug({ type: msg.type }, 'WS: message received')
       } catch (err) {
         fastify.log.error({ err }, '[WS] Parse error')
         send(socket, { type: 'error', message: 'Ungültige Nachricht' })
@@ -76,20 +76,20 @@ export default async function wsDocumentUpload(fastify) {
           try {
             userGeminiKey = acc?.gemini_token ? decrypt(acc.gemini_token) : null
           } catch (decryptErr) {
-            console.warn(`[WS] Could not decrypt user gemini_token: ${decryptErr.message}.`)
+            fastify.log.warn({ err: decryptErr.message }, 'WS: could not decrypt gemini_token')
             userGeminiKey = null
           }
           try {
             userAnthropicKey = acc?.anthropic_token ? decrypt(acc.anthropic_token) : null
           } catch (decryptErr) {
-            console.warn(`[WS] Could not decrypt user anthropic_token: ${decryptErr.message}.`)
+            fastify.log.warn({ err: decryptErr.message }, 'WS: could not decrypt anthropic_token')
             userAnthropicKey = null
           }
           userGeminiModel = acc?.gemini_model || 'gemini-3.1-flash-lite-preview'
           userClaudeModel = acc?.claude_model || 'claude-haiku-4-5-20251001'
 
           authenticated = true
-          console.log(`[WS] Client authenticated: ${accountId} (${userRole}, has_gemini_key: ${!!userGeminiKey}, has_anthropic_key: ${!!userAnthropicKey})`)
+          fastify.log.info({ accountId, role: userRole, hasGemini: !!userGeminiKey, hasAnthropic: !!userAnthropicKey }, 'WS: client authenticated')
           send(socket, { type: 'auth_ok' })
         } catch (err) {
           fastify.log.error({ err }, '[WS] Auth error')
@@ -110,7 +110,7 @@ export default async function wsDocumentUpload(fastify) {
           const { animalId, filename, mimeType, allowedRoles, pageNumber, documentId } = msg
           const pageNum = pageNumber ?? 1
           const normalizedAllowedRoles = normalizeAllowedRoles(allowedRoles)
-          console.log(`[WS] Upload start: ${filename} für Tier ${animalId} (page ${pageNum})`)
+          fastify.log.debug({ docId, animalId: msg.animalId, filename: msg.filename, page: pageNum }, 'WS: upload start')
 
           // Insert stub document so document_pages FK is satisfied
           const docId = documentId || uuid()
@@ -145,7 +145,7 @@ export default async function wsDocumentUpload(fastify) {
             isMultiPage: pageNumber !== undefined && pageNumber > 1
           }
 
-          console.log(`[WS] Ready to receive (doc: ${docId})`)
+          fastify.log.debug({ docId }, 'WS: ready to receive')
           send(socket, { type: 'ready', documentId: docId })
           break
         }

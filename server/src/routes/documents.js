@@ -161,7 +161,7 @@ export default async function documentRoutes(fastify) {
     // Delete all image files (non-blocking, don't block response on file deletion failure)
     if (doc.image_path) {
       unlink(resolve(process.env.UPLOADS_DIR || './uploads', doc.image_path)).catch(err => {
-        console.warn(`[DELETE] Could not delete image file ${doc.image_path}:`, err.message)
+        req.log.warn({ path: doc.image_path, err: err.message }, 'Could not delete image file')
       })
     }
 
@@ -169,7 +169,7 @@ export default async function documentRoutes(fastify) {
     pages.forEach(page => {
       if (page.image_path) {
         unlink(resolve(process.env.UPLOADS_DIR || './uploads', page.image_path)).catch(err => {
-          console.warn(`[DELETE] Could not delete page image ${page.image_path}:`, err.message)
+          req.log.warn({ path: page.image_path, err: err.message }, 'Could not delete page image')
         })
       }
     })

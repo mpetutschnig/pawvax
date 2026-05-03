@@ -2,6 +2,15 @@ import { createWorker } from 'tesseract.js'
 import { readFileSync, existsSync } from 'fs'
 import { resolve } from 'path'
 
+// Module-level logger — replaced by setOcrLogger() on startup
+let _log = {
+  debug: () => {},
+  info: () => {},
+  warn: (data, msg) => process.stderr.write(JSON.stringify({ level: 'warn', name: 'ocr', ...data, msg }) + '\n'),
+  error: (data, msg) => process.stderr.write(JSON.stringify({ level: 'error', name: 'ocr', ...data, msg }) + '\n'),
+}
+export function setOcrLogger(log) { _log = log }
+
 const GEMINI_PROMPT = `
 Du bist ein Veterinär-Dokumentenanalyst. Analysiere das folgende Tierdokument (Impfpass, Medikament, etc.)
 und gib die Daten strukturiert als JSON zurück.
@@ -62,17 +71,17 @@ export async function analyzeDocument(imagePath, userGeminiKey = null, model = n
     for (const provider of priority) {
       if (provider === 'google' && userGeminiKey) {
         const effectiveModel = model || 'gemini-1.5-flash'
-        console.log(`[OCR] Versuche Gemini-Analyse mit Key: ${userGeminiKey.substring(0, 10)}... (model: ${effectiveModel})`)
+        _log.info({ provider: 'gemini', model: effectiveModel }, 'OCR analysis starting')
         return await analyzeWithGemini(imagePath, userGeminiKey, effectiveModel, onProgress)
       }
       if (provider === 'anthropic' && userAnthropicKey) {
         const effectiveModel = claudeModel || 'claude-3-5-sonnet-20241022'
-        console.log(`[OCR] Versuche Claude-Analyse mit Key: ${userAnthropicKey.substring(0, 10)}... (model: ${effectiveModel})`)
+        _log.info({ provider: 'claude', model: effectiveModel }, 'OCR analysis starting')
         return await analyzeWithClaude(imagePath, userAnthropicKey, effectiveModel, onProgress)
       }
       if (provider === 'openai' && userOpenAiKey) {
         const effectiveModel = openAiModel || 'gpt-4o-mini'
-        console.log(`[OCR] Versuche OpenAI-Analyse mit Key: ${userOpenAiKey.substring(0, 10)}... (model: ${effectiveModel})`)
+        _log.info({ provider: 'openai', model: effectiveModel }, 'OCR analysis starting')
         return await analyzeWithOpenAI(imagePath, userOpenAiKey, effectiveModel, onProgress)
       }
     }
@@ -84,7 +93,7 @@ export async function analyzeDocument(imagePath, userGeminiKey = null, model = n
 
     throw new Error('Analyse nicht möglich. Keine Tokens hinterlegt.')
   } catch (err) {
-    console.error('OCR fehlgeschlagen:', err.message, err.stack)
+    _log.error({ err: { message: err.message, stack: err.stack } }, 'OCR fehlgeschlagen')
     throw err // Throw error to be handled by caller (will trigger pending_analysis status)
   }
 }
@@ -102,7 +111,6 @@ async function analyzeWithClaude(imagePath, anthropicKey, model, onProgress) {
 
   if (onProgress) onProgress(`Sende POST Request an Claude ${model} API...`)
   const url = 'https://api.anthropic.com/v1/messages'
-  console.log(`[OCR] Claude API URL: ${url}`)
 
   const response = await fetch(url, {
     method: 'POST',
@@ -136,7 +144,7 @@ async function analyzeWithClaude(imagePath, anthropicKey, model, onProgress) {
 
   if (!response.ok) {
     const errorText = await response.text()
-    console.error(`[OCR] Claude API Error (${response.status}):`, errorText)
+    _log.error({ provider: 'claude', statusCode: response.status, err: errorText }, 'Claude API error')
     throw new Error(`Claude API Fehler (${response.status}): ${errorText}`)
   }
 
@@ -161,8 +169,8 @@ async function analyzeWithGemini(imagePath, geminiKey, model, onProgress) {
   else if (base64.startsWith('UklGRg')) mimeType = 'image/webp'
 
   if (onProgress) onProgress(`Sende POST Request an ${model} API...`)
+  // Note: URL intentionally not logged to avoid exposing API key
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`
-  console.log(`[OCR] Gemini URL: ${url.substring(0, 80)}...`)
   const response = await fetch(url, {
     method: 'POST',
     headers: {
@@ -185,7 +193,7 @@ async function analyzeWithGemini(imagePath, geminiKey, model, onProgress) {
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error(`[OCR] Gemini API Error (${response.status}):`, errorText);
+    _log.error({ provider: 'gemini', statusCode: response.status, err: errorText }, 'Gemini API error')
 
     if (response.status === 429) {
       throw new Error('Gemini API Quota überschritten - bitte später erneut versuchen')
@@ -280,7 +288,7 @@ async function analyzeWithOpenAI(imagePath, openAiKey, model, onProgress) {
 
   if (!response.ok) {
     const errorText = await response.text()
-    console.error(`[OCR] OpenAI API Error (${response.status}):`, errorText)
+    _log.error({ provider: 'openai', statusCode: response.status, err: errorText }, 'OpenAI API error')
     throw new Error(`OpenAI API Fehler (${response.status}): ${errorText}`)
   }
 

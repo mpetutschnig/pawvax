@@ -20,20 +20,27 @@ import wsDocumentUpload from './ws/documentUpload.js'
 import settingsRoutes from './routes/settings.js'
 import aiRoutes from './routes/ai.js'
 import vetApiRoutes from './routes/vetApi.js'
+import { setOcrLogger } from './services/ocr.js'
 
 const __dir = dirname(fileURLToPath(import.meta.url))
 
 const fastify = Fastify({
-  logger: true,
+  logger: {
+    level: process.env.LOG_LEVEL || 'info'
+  },
+  disableRequestLogging: true,
   trustProxy: true,
   bodyLimit: 10 * 1024 * 1024 // 10MB für Bild-Uploads
 })
+
+// Inject structured logger into OCR service
+setOcrLogger(fastify.log.child({ name: 'ocr' }))
 
 // JWT Secret Guard
 const jwtSecret = process.env.JWT_SECRET
 const INSECURE_DEFAULTS = ['changeme', 'change-this-in-production', '']
 if (!jwtSecret || INSECURE_DEFAULTS.includes(jwtSecret)) {
-  console.error('FATAL: JWT_SECRET env var missing or insecure. Server will not start.')
+  fastify.log.error('FATAL: JWT_SECRET env var missing or insecure. Server will not start.')
   process.exit(1)
 }
 
@@ -106,6 +113,54 @@ fastify.addHook('preHandler', async (req, reply) => {
   }
 })
 
+// Capture error body for structured logging
+fastify.addHook('onSend', async (req, reply, payload) => {
+  if (reply.statusCode >= 400) {
+    try {
+      const body = typeof payload === 'string' ? JSON.parse(payload) : payload
+      req.errorMessage = body?.error ?? null
+    } catch { /* non-JSON payload */ }
+  }
+  return payload
+})
+
+// Structured request/response logging for every REST call
+fastify.addHook('onResponse', (req, reply, done) => {
+  const statusCode = reply.statusCode
+  // Skip health checks and static assets to reduce noise
+  if (req.url === '/health' || req.url.startsWith('/uploads/') || req.url.startsWith('/documentation')) {
+    done()
+    return
+  }
+  const level = statusCode >= 500 ? 'error' : statusCode >= 400 ? 'warn' : 'info'
+  const entry = {
+    method: req.method,
+    url: req.url,
+    statusCode,
+    responseTime: Math.round(reply.getResponseTime()),
+    ip: req.ip,
+    userId: req.user?.accountId ?? null,
+    role: req.user?.role ?? null,
+  }
+  if (statusCode >= 400 && req.errorMessage) entry.errorMessage = req.errorMessage
+  req.log[level](entry, 'request')
+  done()
+})
+
+// Global handler for unhandled 500 errors
+fastify.setErrorHandler((error, req, reply) => {
+  req.log.error({
+    method: req.method,
+    url: req.url,
+    statusCode: 500,
+    ip: req.ip,
+    userId: req.user?.accountId ?? null,
+    role: req.user?.role ?? null,
+    err: { message: error.message, code: error.code },
+  }, 'unhandled server error')
+  reply.code(500).send({ error: 'Interner Serverfehler' })
+})
+
 // Routen
 await fastify.register(authRoutes)
 await fastify.register(animalRoutes)
@@ -160,7 +215,7 @@ if (process.env.ADMIN_EMAIL) {
   const db = getDb()
   db.prepare('UPDATE accounts SET role = ?, verified = 1 WHERE email = ?')
     .run('admin', process.env.ADMIN_EMAIL)
-  console.log(`✓ Admin-Rolle für ${process.env.ADMIN_EMAIL} gesetzt`)
+  fastify.log.info({ email: process.env.ADMIN_EMAIL }, 'Admin-Rolle gesetzt')
 }
 
 // 90-Tage Audit-Log Retention Policy (täglicher Cleanup)
@@ -178,7 +233,7 @@ setInterval(() => {
 
 try {
   await fastify.listen({ port, host: '0.0.0.0' })
-  console.log(`Server läuft auf http://0.0.0.0:${port}`)
+  fastify.log.info({ port }, 'Server gestartet')
 } catch (err) {
   fastify.log.error(err)
   process.exit(1)
