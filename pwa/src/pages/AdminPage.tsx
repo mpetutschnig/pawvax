@@ -521,14 +521,17 @@ export default function AdminPage() {
                     // Flatten test results from all suites
                     if (Array.isArray(testResults.tests.testResults)) {
                       for (const suite of testResults.tests.testResults) {
-                        if (suite.assertionResults && Array.isArray(suite.assertionResults)) {
-                          allTests.push(...suite.assertionResults)
+                        // assertionResults is the correct Jest field for individual test cases
+                        const results = suite.assertionResults || suite.testResults || []
+                        if (Array.isArray(results)) {
+                          allTests.push(...results)
                         }
                       }
                     }
 
                     if (allTests.length === 0) {
-                      return <div style={{ padding: 'var(--space-4)', textAlign: 'center', color: 'var(--text-tertiary)' }}>{t('admin.noTestResults')}</div>
+                      const debugInfo = testResults.tests.testResults ? `(${testResults.tests.testResults.length} suites found)` : ''
+                      return <div style={{ padding: 'var(--space-4)', textAlign: 'center', color: 'var(--text-tertiary)' }}>{t('admin.noTestResults')} {debugInfo}</div>
                     }
 
                     // Group by ancestorTitles[1]

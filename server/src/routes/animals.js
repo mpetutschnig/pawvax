@@ -418,6 +418,11 @@ export default async function animalRoutes(fastify) {
     const animal = db.prepare('SELECT * FROM animals WHERE id = ? AND account_id = ?').get(id, accountId)
     if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden' })
 
+    db.prepare('DELETE FROM document_pages WHERE document_id IN (SELECT id FROM documents WHERE animal_id = ?)').run(id)
+    db.prepare('DELETE FROM documents WHERE animal_id = ?').run(id)
+    db.prepare('DELETE FROM animal_tags WHERE animal_id = ?').run(id)
+    db.prepare('DELETE FROM animal_sharing WHERE animal_id = ?').run(id)
+    db.prepare('DELETE FROM animal_public_shares WHERE animal_id = ?').run(id)
     db.prepare('DELETE FROM animals WHERE id = ?').run(id)
 
     logAudit(db, { accountId, role, action: 'delete_animal', resource: 'animal', resourceId: id,
