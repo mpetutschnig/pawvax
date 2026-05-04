@@ -520,7 +520,7 @@ export default function DocumentDetailPage() {
                 )}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-                {visibleRecords.map((record: any, idx: number) => {
+                {visibleRecords.map((record: any) => {
                   const recordKey = `vax-${allRecords.indexOf(record)}`
                   const vaccineName = record.vaccine_name || record.vaccine || '–'
                   const targetDisease = record.target_disease || record.group || ''
