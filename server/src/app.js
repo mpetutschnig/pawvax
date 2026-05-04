@@ -21,6 +21,7 @@ import settingsRoutes from './routes/settings.js'
 import aiRoutes from './routes/ai.js'
 import vetApiRoutes from './routes/vetApi.js'
 import { setOcrLogger } from './services/ocr.js'
+import { logAudit } from './services/audit.js'
 
 const __dir = dirname(fileURLToPath(import.meta.url))
 
@@ -149,7 +150,6 @@ fastify.addHook('onResponse', (req, reply, done) => {
   if (statusCode >= 400 && req.user?.accountId) {
     try {
       const db = getDb()
-      const { logAudit } = await import('./services/audit.js')
       logAudit(db, {
         accountId: req.user.accountId,
         role: req.user.role ?? null,
