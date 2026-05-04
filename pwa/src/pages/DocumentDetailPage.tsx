@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { getDocument, deleteDocument, patchDocument, getAnimalDocuments, getMe, createReminder } from '../api/rest'
 import { generateICS, downloadBlob } from '../utils/ics'
 import { PageHeader } from '../components/PageHeader'
-import { Shield, Pill, FileText, PawPrint, Landmark, Calendar, Download, Mail, Tag, Save, X, Edit2, Trash2, CheckCircle, Award, GraduationCap, ChevronLeft, ChevronRight, Bell } from 'lucide-react'
+import { Shield, Pill, FileText, PawPrint, Landmark, Calendar, Download, Mail, Tag, Save, X, Edit2, Trash2, CheckCircle, Award, GraduationCap, ChevronLeft, ChevronRight, Bell, AlertTriangle } from 'lucide-react'
 import { TagCombobox } from '../components/TagCombobox'
 
 export default function DocumentDetailPage() {
@@ -21,6 +21,7 @@ export default function DocumentDetailPage() {
   const [reminderNotes, setReminderNotes] = useState('')
   const [savedReminders, setSavedReminders] = useState<Set<string>>(new Set())
   const [savingReminder, setSavingReminder] = useState<string | null>(null)
+  const [hideDuplicates, setHideDuplicates] = useState(true)
   
   const [tags, setTags] = useState<string[]>([])
   const [allExistingTags, setAllExistingTags] = useState<string[]>([])
@@ -479,17 +480,48 @@ export default function DocumentDetailPage() {
           </div>
         )}
 
+        {/* Singleton duplicate warning */}
+        {doc.doc_type !== 'vaccination' && doc.doc_type !== 'treatment' && (() => {
+          const dupeDocId = extracted.page_results?.find((p: any) => p._duplicate)?._source_document_id
+          if (!dupeDocId) return null
+          return (
+            <div style={{ background: 'var(--warning-50)', border: '1px solid var(--warning-200)', borderRadius: 'var(--radius-md)', padding: 'var(--space-3)', marginBottom: 'var(--space-4)', display: 'flex', alignItems: 'flex-start', gap: 'var(--space-3)' }}>
+              <AlertTriangle size={18} color="var(--warning-600)" style={{ flexShrink: 0, marginTop: 2 }} />
+              <div style={{ fontSize: 'var(--font-size-sm)' }}>
+                <strong style={{ color: 'var(--warning-800)' }}>{t('docDetail.duplicateWarning')}</strong>
+                <br />
+                <span style={{ color: 'var(--warning-700)' }}>{t('docDetail.duplicateHint')} </span>
+                <a href={`/animals/${animalId}/documents/${dupeDocId}`} style={{ color: 'var(--primary-600)', textDecoration: 'underline' }}>{t('docDetail.duplicateViewOriginal')}</a>
+              </div>
+            </div>
+          )
+        })()}
+
         {doc.doc_type === 'vaccination' && (() => {
-          const records: any[] = extracted.payload?.vaccinations || extracted.vaccinations || []
-          if (records.length === 0) return null
+          const allRecords: any[] = extracted.payload?.vaccinations || extracted.vaccinations || []
+          if (allRecords.length === 0) return null
+          const duplicateCount = allRecords.filter((r: any) => r._duplicate).length
+          const visibleRecords = hideDuplicates ? allRecords.filter((r: any) => !r._duplicate) : allRecords
           return (
             <div style={{ marginBottom: 'var(--space-6)' }}>
-              <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Shield size={18} /> {t('animal.vaccinations')}
-              </h3>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-3)' }}>
+                <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Shield size={18} /> {t('animal.vaccinations')}
+                </h3>
+                {duplicateCount > 0 && (
+                  <button
+                    className="btn btn-ghost"
+                    style={{ fontSize: 'var(--font-size-xs)', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                    onClick={() => setHideDuplicates(h => !h)}
+                  >
+                    <AlertTriangle size={12} color="var(--warning-600)" />
+                    {hideDuplicates ? t('docDetail.showDuplicates', { count: duplicateCount }) : t('docDetail.hideDuplicates')}
+                  </button>
+                )}
+              </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-                {records.map((record: any, idx: number) => {
-                  const recordKey = `vax-${idx}`
+                {visibleRecords.map((record: any, idx: number) => {
+                  const recordKey = `vax-${allRecords.indexOf(record)}`
                   const vaccineName = record.vaccine_name || record.vaccine || '–'
                   const targetDisease = record.target_disease || record.group || ''
                   const validUntil = record.valid_until || record.nextDue || ''
@@ -499,10 +531,18 @@ export default function DocumentDetailPage() {
                   const diffDays = dueDate ? Math.round((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) : null
                   const dateColor = diffDays === null ? 'var(--text-secondary)' : diffDays < 0 ? 'var(--error-600)' : diffDays <= 30 ? 'var(--warning-600)' : 'var(--text-secondary)'
                   const isSaved = savedReminders.has(recordKey)
-                  const canSetReminder = !!(animalId && validUntil && /^\d{4}-\d{2}-\d{2}/.test(validUntil))
+                  const canSetReminder = !!(animalId && validUntil && /^\d{4}-\d{2}-\d{2}/.test(validUntil) && !record._duplicate)
                   return (
-                    <div key={recordKey} className="card" style={{ padding: 'var(--space-4)', borderLeft: '4px solid var(--primary-200)' }}>
-                      <p style={{ margin: '0 0 4px 0', fontWeight: 700, fontSize: 'var(--font-size-base)' }}>{vaccineName}</p>
+                    <div key={recordKey} className="card" style={{ padding: 'var(--space-4)', borderLeft: `4px solid ${record._duplicate ? 'var(--warning-300)' : 'var(--primary-200)'}`, opacity: record._duplicate ? 0.75 : 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 'var(--space-2)', marginBottom: '4px' }}>
+                        <p style={{ margin: 0, fontWeight: 700, fontSize: 'var(--font-size-base)' }}>{vaccineName}</p>
+                        {record._duplicate && (
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: 'var(--font-size-xs)', color: 'var(--warning-700)', background: 'var(--warning-50)', border: '1px solid var(--warning-200)', borderRadius: 'var(--radius-sm)', padding: '2px 6px', flexShrink: 0 }}>
+                            <AlertTriangle size={11} /> {t('docDetail.duplicate')}
+                            {record._source_document_id && <a href={`/animals/${animalId}/documents/${record._source_document_id}`} style={{ color: 'var(--primary-600)', marginLeft: 4 }}>{t('docDetail.duplicateViewOriginal')}</a>}
+                          </span>
+                        )}
+                      </div>
                       {targetDisease && <p style={{ margin: '0 0 var(--space-3) 0', fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>{targetDisease}</p>}
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)', fontSize: 'var(--font-size-xs)', marginBottom: 'var(--space-3)' }}>
                         {record.administration_date && <div><span style={{ color: 'var(--text-tertiary)' }}>Verabreicht</span><br /><strong>{record.administration_date}</strong></div>}
@@ -526,6 +566,11 @@ export default function DocumentDetailPage() {
                               : <><Bell size={14} /> Erinnerung setzen</>
                           }
                         </button>
+                      )}
+                      {record._duplicate && (
+                        <p style={{ margin: '8px 0 0 0', fontSize: 'var(--font-size-xs)', color: 'var(--warning-700)', fontStyle: 'italic' }}>
+                          {t('docDetail.duplicateNoReminder')}
+                        </p>
                       )}
                     </div>
                   )

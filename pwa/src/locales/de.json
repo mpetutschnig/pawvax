@@ -584,5 +584,12 @@
   "reminders.due": "Fällig",
   "reminders.dismiss": "Erledigt",
   "reminders.continue": "Weiter zu meinen Tieren",
-  "reminders.empty": "Keine offenen Erinnerungen"
+  "reminders.empty": "Keine offenen Erinnerungen",
+  "docDetail.duplicate": "Duplikat",
+  "docDetail.duplicateWarning": "Dieses Dokument scheint bereits vorhanden zu sein.",
+  "docDetail.duplicateHint": "Ein inhaltsgleiches Dokument wurde früher hochgeladen.",
+  "docDetail.duplicateViewOriginal": "Original ansehen",
+  "docDetail.duplicateNoReminder": "Für Duplikate wird keine Erinnerung gesetzt.",
+  "docDetail.showDuplicates": "{{count}} Duplikat(e) anzeigen",
+  "docDetail.hideDuplicates": "Duplikate ausblenden"
 }

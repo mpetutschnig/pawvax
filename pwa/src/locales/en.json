@@ -549,5 +549,12 @@
   "reminders.due": "Due",
   "reminders.dismiss": "Done",
   "reminders.continue": "Continue to my pets",
-  "reminders.empty": "No open reminders"
+  "reminders.empty": "No open reminders",
+  "docDetail.duplicate": "Duplicate",
+  "docDetail.duplicateWarning": "This document appears to already exist.",
+  "docDetail.duplicateHint": "A document with identical content was uploaded earlier.",
+  "docDetail.duplicateViewOriginal": "View original",
+  "docDetail.duplicateNoReminder": "No reminder will be set for duplicates.",
+  "docDetail.showDuplicates": "Show {{count}} duplicate(s)",
+  "docDetail.hideDuplicates": "Hide duplicates"
 }
