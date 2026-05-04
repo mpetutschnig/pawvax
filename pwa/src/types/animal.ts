@@ -1,5 +1,6 @@
 export interface AnimalDTO {
   id: string
+  unique_id?: string
   name: string
   species: 'dog' | 'cat' | 'other'
   breed?: string

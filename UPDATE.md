@@ -36,11 +36,40 @@ chmod -R a+rX /git/pawvax
 sleep 3
 
 echo "4/11: Baue neues Container-Image für paw-api (Backend)..."
-PAW_API_UID=$(id -u paw-api) && XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "cd /tmp && podman --cgroup-manager=cgroupfs build -t paw-api:latest -f /git/pawvax/server/Dockerfile /git/pawvax/server"
+PAW_API_UID=$(id -u paw-api)
+set +e
+XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "cd /tmp && podman --cgroup-manager=cgroupfs build --progress=plain -t paw-api:latest -f /git/pawvax/server/Dockerfile /git/pawvax/server" 2>&1 | tee /tmp/paw-api-build.log
+BUILD_API_EXIT=${PIPESTATUS[0]}
+set -e
+if [ $BUILD_API_EXIT -ne 0 ]; then
+  echo "❌ Build paw-api fehlgeschlagen! Letzte 40 Zeilen des Build-Logs:"
+  tail -40 /tmp/paw-api-build.log
+  echo "--- Vollständiges Log: /tmp/paw-api-build.log ---"
+  echo "10/11: Schalte Shells aus Sicherheitsgründen wieder auf /sbin/nologin..."
+  usermod -s /sbin/nologin paw-git
+  usermod -s /sbin/nologin paw-api
+  usermod -s /sbin/nologin paw-pwa
+  exit 1
+fi
 sleep 3
 
 echo "5/11: Baue neues Container-Image für paw-pwa (Frontend)..."
-PAW_PWA_UID=$(id -u paw-pwa) && XDG_RUNTIME_DIR=/run/user/$PAW_PWA_UID su -s /bin/bash paw-pwa -c "cd /tmp && podman --cgroup-manager=cgroupfs build -t paw-pwa:latest -f /git/pawvax/pwa/Containerfile /git/pawvax/pwa"
+PAW_PWA_UID=$(id -u paw-pwa)
+set +e
+XDG_RUNTIME_DIR=/run/user/$PAW_PWA_UID su -s /bin/bash paw-pwa -c "cd /tmp && podman --cgroup-manager=cgroupfs build --progress=plain -t paw-pwa:latest -f /git/pawvax/pwa/Containerfile /git/pawvax/pwa" 2>&1 | tee /tmp/paw-pwa-build.log
+BUILD_PWA_EXIT=${PIPESTATUS[0]}
+set -e
+if [ $BUILD_PWA_EXIT -ne 0 ]; then
+  echo "❌ Build paw-pwa fehlgeschlagen! Letzte 40 Zeilen des Build-Logs:"
+  tail -40 /tmp/paw-pwa-build.log
+  echo "--- Vollständiges Log: /tmp/paw-pwa-build.log ---"
+  echo "Tipp: TypeScript-Fehler erscheinen im Log bei 'RUN npm run build'."
+  echo "10/11: Schalte Shells aus Sicherheitsgründen wieder auf /sbin/nologin..."
+  usermod -s /sbin/nologin paw-git
+  usermod -s /sbin/nologin paw-api
+  usermod -s /sbin/nologin paw-pwa
+  exit 1
+fi
 sleep 3
 
 echo "6/11: Starte paw-api Service neu..."
