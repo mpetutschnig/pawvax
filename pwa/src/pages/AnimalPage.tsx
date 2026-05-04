@@ -65,6 +65,8 @@ export default function AnimalPage() {
   const [hasAnthropic, setHasAnthropic] = useState(false)
   const [hasOpenai, setHasOpenai] = useState(false)
   const [hasSystemAi, setHasSystemAi] = useState(true)
+  const [showArchiveDialog, setShowArchiveDialog] = useState(false)
+  const [archiveReason, setArchiveReason] = useState<'verstorben' | 'verloren' | 'verkauft' | 'abgegeben' | 'sonstiges' | ''>('')
   const hasAnyKey = hasGemini || hasAnthropic || hasOpenai || hasSystemAi
   const [availableModels, setAvailableModels] = useState<any>({
     google: [
@@ -277,14 +279,34 @@ export default function AnimalPage() {
 
   const handleArchive = async () => {
     if (!id || !animal || !isOwner) return
-    if (!window.confirm(t('animal.archiveConfirm'))) return
+    setShowArchiveDialog(true)
+  }
+
+  const handleArchiveConfirm = async () => {
+    if (!id || !animal || !isOwner || !archiveReason) {
+      setError(t('animal.archiveRequired'))
+      return
+    }
     try {
       setSubmitting(true)
       const token = localStorage.getItem('token')
-      await fetch(`/api/animals/${id}/archive`, { method: 'PATCH', headers: { 'Authorization': `Bearer ${token}` } })
-      setAnimal(prev => prev ? { ...prev, is_archived: 1 } : null)
+      const res = await fetch(`/api/animals/${id}/archive`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ is_archived: true, archive_reason: archiveReason })
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Archive failed')
+      }
+      setAnimal(prev => prev ? { ...prev, is_archived: 1, archive_reason: archiveReason } : null)
+      setShowArchiveDialog(false)
+      setArchiveReason('')
     } catch (err: any) {
-      setError(err.response?.data?.error || t('common.error'))
+      setError(err.message || t('common.error'))
     } finally {
       setSubmitting(false)
     }

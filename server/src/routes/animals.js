@@ -469,24 +469,59 @@ export default async function animalRoutes(fastify) {
     return db.prepare('SELECT * FROM animals WHERE id = ?').get(id)
   })
 
-  // Tier archivieren / de-archivieren (togglebar)
-  fastify.patch('/api/animals/:id/archive', async (req, reply) => {
+  // Tier archivieren / de-archivieren (mit optionalem Grund)
+  fastify.patch('/api/animals/:id/archive', {
+    schema: {
+      body: {
+        type: 'object',
+        properties: {
+          is_archived: { type: 'boolean' },
+          archive_reason: {
+            type: 'string',
+            enum: ['verstorben', 'verloren', 'verkauft', 'abgegeben', 'sonstiges']
+          }
+        }
+      }
+    }
+  }, async (req, reply) => {
     const db = getDb()
     const { id } = req.params
     const { accountId, role } = req.user
-    const { is_archived } = req.body || {}
+    const { is_archived, archive_reason } = req.body || {}
 
     const animal = db.prepare('SELECT id, is_archived FROM animals WHERE id = ? AND account_id = ?').get(id, accountId)
     if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden oder keine Berechtigung' })
 
-    // Toggle: wenn is_archived undefined, toggle; sonst setze auf den Wert
+    // Determine new state: toggle if is_archived undefined, otherwise use provided value
     const newState = is_archived !== undefined ? is_archived : !animal.is_archived
-    db.prepare('UPDATE animals SET is_archived = ? WHERE id = ?').run(newState ? 1 : 0, id)
+
+    // When archiving, archive_reason is required
+    if (newState && !archive_reason) {
+      return reply.code(400).send({ error: 'Archivierungsgrund erforderlich' })
+    }
+
+    // Valid archive reasons (enforced by schema CHECK constraint)
+    const validReasons = ['verstorben', 'verloren', 'verkauft', 'abgegeben', 'sonstiges']
+    if (newState && archive_reason && !validReasons.includes(archive_reason)) {
+      return reply.code(400).send({ error: `Ungültiger Archivierungsgrund: ${archive_reason}` })
+    }
+
+    const now = new Date().toISOString()
+    db.prepare('UPDATE animals SET is_archived = ?, archive_reason = ?, archived_at = ? WHERE id = ?')
+      .run(newState ? 1 : 0, newState ? archive_reason : null, newState ? now : null, id)
 
     const action = newState ? 'archive_animal' : 'unarchive_animal'
-    logAudit(db, { accountId, role, action, resource: 'animal', resourceId: id, ip: req.ip })
+    logAudit(db, {
+      accountId,
+      role,
+      action,
+      resource: 'animal',
+      resourceId: id,
+      details: { archive_reason: newState ? archive_reason : null },
+      ip: req.ip
+    })
 
-    return { success: true }
+    return { success: true, is_archived: newState, archive_reason: newState ? archive_reason : null }
   })
 
   // Tier löschen (mit Sicherheitsbestätigung)

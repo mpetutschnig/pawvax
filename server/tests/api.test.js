@@ -278,11 +278,13 @@ describe('PAWvax API Tests', () => {
 
     test('2e. Archive Animal — Tier archivieren', async () => {
       const { status, data } = await apiCall('PATCH', `/animals/${testState.animalId}/archive`, {
-        is_archived: true
+        is_archived: true,
+        archive_reason: 'verstorben'
       })
 
       expect(status).toBe(200)
       expect(data.success).toBe(true)
+      expect(data.archive_reason).toBe('verstorben')
     })
 
     test('2f. Get Archived Animal — Archiviertes Tier sollte sichtbar sein mit is_archived=true', async () => {
