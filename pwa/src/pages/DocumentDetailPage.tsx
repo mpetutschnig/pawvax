@@ -63,6 +63,7 @@ export default function DocumentDetailPage() {
     pedigree: { label: t('animal.docTypePedigree'), icon: <Award size={20} /> },
     dog_certificate: { label: t('animal.docTypeDogCertificate'), icon: <GraduationCap size={20} /> },
     medical_product: { label: t('animal.docTypeMedicalProduct'), icon: <Pill size={20} /> },
+    treatment: { label: t('animal.docTypeTreatment'), icon: <Pill size={20} /> },
     general: { label: t('animal.docTypeGeneral'), icon: <FileText size={20} /> },
     // Legacy fallbacks
     medication: { label: t('animal.docTypeMedicalProduct'), icon: <Pill size={20} /> },
@@ -552,6 +553,86 @@ export default function DocumentDetailPage() {
                         {record.manufacturer && <div><span style={{ color: 'var(--text-tertiary)' }}>Hersteller</span><br /><strong>{record.manufacturer}</strong></div>}
                         {record.vet_name && <div><span style={{ color: 'var(--text-tertiary)' }}>Tierarzt</span><br /><strong>{record.vet_name}</strong></div>}
                       </div>
+                      {canSetReminder && (
+                        <button
+                          className={`btn ${isSaved ? 'btn-ghost' : 'btn-secondary'} btn-full`}
+                          style={{ fontSize: 'var(--font-size-sm)', padding: '8px' }}
+                          onClick={() => handleCreateInAppReminder(record, recordKey)}
+                          disabled={isSaved || savingReminder === recordKey}
+                        >
+                          {savingReminder === recordKey
+                            ? <div className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />
+                            : isSaved
+                              ? <><CheckCircle size={14} /> Erinnerung gesetzt</>
+                              : <><Bell size={14} /> Erinnerung setzen</>
+                          }
+                        </button>
+                      )}
+                      {record._duplicate && (
+                        <p style={{ margin: '8px 0 0 0', fontSize: 'var(--font-size-xs)', color: 'var(--warning-700)', fontStyle: 'italic' }}>
+                          {t('docDetail.duplicateNoReminder')}
+                        </p>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })()}
+
+        {doc.doc_type === 'treatment' && (() => {
+          const allRecords: any[] = extracted.payload?.treatments || extracted.treatments || []
+          if (allRecords.length === 0) return null
+          const duplicateCount = allRecords.filter((r: any) => r._duplicate).length
+          const visibleRecords = hideDuplicates ? allRecords.filter((r: any) => !r._duplicate) : allRecords
+          return (
+            <div style={{ marginBottom: 'var(--space-6)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-3)' }}>
+                <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Pill size={18} /> {t('animal.treatments')}
+                </h3>
+                {duplicateCount > 0 && (
+                  <button
+                    className="btn btn-ghost"
+                    style={{ fontSize: 'var(--font-size-xs)', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                    onClick={() => setHideDuplicates(h => !h)}
+                  >
+                    <AlertTriangle size={12} color="var(--warning-600)" />
+                    {hideDuplicates ? t('docDetail.showDuplicates', { count: duplicateCount }) : t('docDetail.hideDuplicates')}
+                  </button>
+                )}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                {visibleRecords.map((record: any) => {
+                  const recordKey = `treatment-${allRecords.indexOf(record)}`
+                  const substance = record.substance || '–'
+                  const nextDue = record.next_due || ''
+                  const today = new Date()
+                  today.setHours(0, 0, 0, 0)
+                  const dueDate = nextDue ? new Date(nextDue) : null
+                  const diffDays = dueDate ? Math.round((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) : null
+                  const dateColor = diffDays === null ? 'var(--text-secondary)' : diffDays < 0 ? 'var(--error-600)' : diffDays <= 30 ? 'var(--warning-600)' : 'var(--text-secondary)'
+                  const canSetReminder = !!(animalId && nextDue && /^\d{4}-\d{2}-\d{2}/.test(nextDue) && !record._duplicate)
+                  const isSaved = savedReminders.has(recordKey)
+                  return (
+                    <div key={recordKey} className="card" style={{ padding: 'var(--space-4)', borderLeft: `4px solid ${record._duplicate ? 'var(--warning-300)' : 'var(--primary-200)'}`, opacity: record._duplicate ? 0.75 : 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 'var(--space-2)', marginBottom: '4px' }}>
+                        <p style={{ margin: 0, fontWeight: 700, fontSize: 'var(--font-size-base)' }}>{substance}</p>
+                        {record._duplicate && (
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: 'var(--font-size-xs)', color: 'var(--warning-700)', background: 'var(--warning-50)', border: '1px solid var(--warning-200)', borderRadius: 'var(--radius-sm)', padding: '2px 6px', flexShrink: 0 }}>
+                            <AlertTriangle size={11} /> {t('docDetail.duplicate')}
+                            {record._source_document_id && <a href={`/animals/${animalId}/documents/${record._source_document_id}`} style={{ color: 'var(--primary-600)', marginLeft: 4 }}>{t('docDetail.duplicateViewOriginal')}</a>}
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)', fontSize: 'var(--font-size-xs)', marginBottom: 'var(--space-3)' }}>
+                        {record.administered_at && <div><span style={{ color: 'var(--text-tertiary)' }}>Verabreicht</span><br /><strong>{record.administered_at}</strong></div>}
+                        {record.dosage && <div><span style={{ color: 'var(--text-tertiary)' }}>Dosierung</span><br /><strong>{record.dosage}</strong></div>}
+                        {record.vet_name && <div><span style={{ color: 'var(--text-tertiary)' }}>Tierarzt</span><br /><strong>{record.vet_name}</strong></div>}
+                        {nextDue && <div><span style={{ color: 'var(--text-tertiary)' }}>Nächste Behandlung</span><br /><strong style={{ color: dateColor }}>{nextDue}</strong></div>}
+                      </div>
+                      {record.notes && <p style={{ margin: '0 0 var(--space-2) 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}><strong>Notizen:</strong> {record.notes}</p>}
                       {canSetReminder && (
                         <button
                           className={`btn ${isSaved ? 'btn-ghost' : 'btn-secondary'} btn-full`}

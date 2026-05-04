@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS animal_tags (
 CREATE TABLE IF NOT EXISTS documents (
   id             TEXT PRIMARY KEY,
   animal_id      TEXT NOT NULL REFERENCES animals(id) ON DELETE CASCADE,
-  doc_type       TEXT NOT NULL DEFAULT 'general' CHECK(doc_type IN ('vaccination', 'pedigree', 'dog_certificate', 'medical_product', 'general')),
+  doc_type       TEXT NOT NULL DEFAULT 'general' CHECK(doc_type IN ('vaccination', 'pedigree', 'dog_certificate', 'medical_product', 'treatment', 'general')),
   image_path     TEXT NOT NULL,
   extracted_json TEXT NOT NULL,
   ocr_provider   TEXT,
@@ -55,6 +55,15 @@ CREATE TABLE IF NOT EXISTS document_pages (
   document_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
   image_path  TEXT NOT NULL,
   page_number INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE TABLE IF NOT EXISTS analysis_history (
+  id             TEXT PRIMARY KEY,
+  document_id    TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+  extracted_json TEXT NOT NULL,
+  version        INTEGER NOT NULL DEFAULT 1,
+  ocr_provider   TEXT,
+  created_at     TEXT DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS audit_log (
@@ -109,6 +118,7 @@ CREATE INDEX IF NOT EXISTS idx_tags_animal ON animal_tags(animal_id);
 CREATE INDEX IF NOT EXISTS idx_tags_active ON animal_tags(tag_id, active);
 CREATE INDEX IF NOT EXISTS idx_documents_animal ON documents(animal_id);
 CREATE INDEX IF NOT EXISTS idx_document_pages_doc ON document_pages(document_id);
+CREATE INDEX IF NOT EXISTS idx_analysis_history_doc ON analysis_history(document_id);
 CREATE INDEX IF NOT EXISTS idx_audit_account ON audit_log(account_id);
 CREATE INDEX IF NOT EXISTS idx_audit_resource ON audit_log(resource, resource_id);
 CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log(created_at);

@@ -17,9 +17,11 @@ Du bist ein Veterinär-Dokumentenanalyst. Analysiere das folgende Tierdokument u
 
 DOKUMENTTYPEN (exakte Beschreibung):
 
-1. "vaccination" — Impfpass, Impfbescheinigung, Impfprotokoll
-   - Zeigt: Tierart, Name, Geburtsdatum, Impfstoff(e), Impfdatum(e), nächste Auffrischung, Unterschrift Tierarzt
-   - NICHT: allgemeine Gesundheitsberichte, Medikamentenrechnungen, Behandlungsberichte ohne Impfinformationen
+1. "vaccination" — Impfpass, Impfbescheinigung, Impfprotokoll, Impftabellen
+   - Zeigt: Tierart, Name, Geburtsdatum, Impfstoff(e), Impfdatum(e), Chargennummer, Gültig bis Datum, Unterschrift Tierarzt
+   - Erkennungsmerkmale: Tabellenformat mit Spalten wie "Impfstoff", "Datum", "Chargennummer", "Gültig bis", "Stempel/Unterschrift"
+   - Auch: "Impfpass", "Sonstige Impfungen", "Nachimpfungen", "Tollwut", "Staupe", "Parvo", "Leptospirose" in Tabellen
+   - NICHT: allgemeine Gesundheitsberichte, Medikamentenrechnungen, Behandlungsberichte ohne strukturierte Impfeinträge
 
 2. "pedigree" — Stammbaum, Urkunde, Zuchtdokument, Registrierung
    - Zeigt: Zuchtverband-Logo, Pedigree-/Stammbaum-Grafik, Eltern/Vorfahren, Registrierungsnummer, Zuchtqualifikationen
@@ -42,27 +44,126 @@ Antworte NUR mit dem Dokumenttyp (z.B. "vaccination"), KEINE anderen Worte.
 // Type-specific extraction prompts
 const PROMPTS_BY_TYPE = {
   vaccination: `
-Du bist ein Veterinär-Dokumentenanalyst. Analysiere diesen Impfpass und gib strukturierte JSON-Daten zurück.
+Du bist ein Veterinär-Dokumentenanalyst. Analysiere diesen Impfpass gründlich und extrahiere JEDEN Impfeintrag einzeln.
 
-WICHTIGE REGELN:
-1. Lies ALLE Impfeinträge sorgfältig aus (Impfstoff, Datum, nächste Auffrischung, Unterschrift Tierarzt).
-2. Extrahiere Tierdaten: Name, Rasse, Geburtsdatum, Chipnummer (falls vorhanden).
-3. "document_date": Hauptimpfdatum oder Ausstellungsdatum im Format YYYY-MM-DD.
-4. "title": z.B. "Tollwut Impfung 2024" oder "Impfpass komplett".
-5. Generiere Tags für jede Impfung: ["Tollwut", "Staupe", "Leptospirose", etc.].
+KRITISCHE REGELN:
+1. EINE TABELLENZEILE = EIN OBJEKT in vaccinations[]
+2. Wenn 5 Impfungen auf der Seite stehen, dann 5 separate Objekte (nicht 1 pro Seite!)
+3. ALLE Datumsangaben MÜSSEN YYYY-MM-DD Format sein (z.B. "06.09.2021" → "2021-09-06", "09. NOV. 2021" → "2021-11-09")
+4. Extrahiere für JEDEN Eintrag:
+   - vaccine_name (Impfstoff-Name, z.B. "Tollwut", "DHLPPi", "Staupe+Parvo")
+   - administration_date (Impfdatum, YYYY-MM-DD)
+   - valid_until (Gültig bis / Gültigkeitsdauer, YYYY-MM-DD) — oder null wenn nicht lesbar
+   - batch_number (Chargennummer / LOT)
+   - manufacturer (Hersteller, z.B. "MSD", "Boehringer", "Virbac")
+   - active_substances (Array: ["Staupevirus", "Parvovirus", ...]) — oder Wirkstoffgruppe falls einzeln nicht lesbar
+   - vet_name (Name des Tierarztes vom Stempel/Unterschrift)
+   - target_disease (Zielkrankheit, z.B. "Staupe, Parvo, Leptospirose")
+5. Tierinfos: name, species (dog/cat/other), breed, birthdate (YYYY-MM-DD)
+6. document_date = frühestes oder Hauptimpfdatum
+7. Tags basierend auf Impfstoffen: ["Tollwut", "DHLPPi", "Staupe", "Parvo", "Leptospirose", "Zwingerhusten"]
 
-Gib EXAKT diese JSON-Struktur zurück (nur valide JSON, kein Text davor/danach):
+DATEN-NORMALISIERUNG:
+- Alle Daten müssen YYYY-MM-DD sein
+- Beispiel: "06. 09. 2021" → "2021-09-06", "Sept. 25, 2023" → "2023-09-25"
+- Unlesbare/fehlende Daten → null (NICHT "n.a." oder "")
+
+BEISPIEL STRUKTUR:
 {
   "type": "vaccination",
-  "title": "...",
-  "document_date": "YYYY-MM-DD",
-  "summary": "...",
-  "animal": { "name": "...", "species": "...", "breed": "...", "birthdate": "YYYY-MM-DD" },
+  "title": "Impfpass - Max (DHLPPi + Tollwut)",
+  "document_date": "2021-09-06",
+  "summary": "Kompletter Impfpass mit 5 Einträgen",
+  "animal": { 
+    "name": "Max", 
+    "species": "dog", 
+    "breed": "Labrador Retriever", 
+    "birthdate": "2019-03-15" 
+  },
   "vaccinations": [
-    { "vaccine": "Impfstoff-Name", "date": "YYYY-MM-DD", "nextDue": "YYYY-MM-DD", "vet": "Veterinär" }
+    {
+      "vaccine_name": "DHLPPi (Hexadog)",
+      "administration_date": "2021-09-06",
+      "valid_until": "2024-09-06",
+      "batch_number": "ABC12345",
+      "manufacturer": "Boehringer Ingelheim",
+      "active_substances": ["Canine Distemper", "Canine Adenovirus", "Canine Parvovirus"],
+      "vet_name": "Dr. Schmidt",
+      "target_disease": "Staupe, Hepatitis, Leptospirose, Parvovirose, Parainfluenza"
+    },
+    {
+      "vaccine_name": "Tollwut",
+      "administration_date": "2021-09-06",
+      "valid_until": "2024-09-06",
+      "batch_number": "XYZ99999",
+      "manufacturer": "MSD",
+      "active_substances": ["Tollwutvirus"],
+      "vet_name": "Dr. Schmidt",
+      "target_disease": "Tollwut"
+    }
   ],
-  "suggested_tags": ["tag1", "tag2"]
+  "suggested_tags": ["DHLPPi", "Tollwut", "Boehringer", "2021-09-06"]
 }
+
+Gib NUR gültiges JSON aus (keine Erklärungen, keine Markdown-Code-Blöcke).
+`.trim(),
+
+  treatment: `
+Du bist ein Veterinär-Dokumentenanalyst. Analysiere dieses Behandlungsdokument und extrahiere JEDE Behandlung einzeln.
+
+KRITISCHE REGELN:
+1. EINE BEHANDLUNG = EIN OBJEKT in treatments[]
+2. Wenn 3 Behandlungen dokumentiert sind, dann 3 separate Objekte
+3. ALLE Datumsangaben MÜSSEN YYYY-MM-DD Format sein
+4. Extrahiere für JEDEN Eintrag:
+   - substance (Wirkstoff/Medikament, z.B. "Entwurmung", "Milbemax", "Droncit", "Antiparasitär")
+   - administered_at (Behandlungsdatum, YYYY-MM-DD)
+   - dosage (Dosierung, z.B. "1 Tablette", "0.5 ml/kg", "eine Spritze")
+   - vet_name (Name des Tierarztes)
+   - next_due (Nächste Behandlung fällig, YYYY-MM-DD, oder null)
+   - notes (optionale Notizen, z.B. "Prophylaxe", "Allergie dokumentiert")
+5. Tierinfos: name, species, breed, birthdate (YYYY-MM-DD)
+6. document_date = frühestes oder Hauptbehandlungsdatum
+7. Tags basierend auf Substanzen: ["Entwurmung", "Antiparasitär", "Milbemax", etc.]
+
+DATEN-NORMALISIERUNG:
+- Alle Daten müssen YYYY-MM-DD sein
+- Unlesbare/fehlende Daten → null
+
+BEISPIEL STRUKTUR:
+{
+  "type": "treatment",
+  "title": "Behandlungsprotokoll - Entwurmung & Antiparasitär",
+  "document_date": "2024-03-15",
+  "summary": "2 Behandlungseinträge dokumentiert",
+  "animal": { 
+    "name": "Max", 
+    "species": "dog", 
+    "breed": "Labrador", 
+    "birthdate": "2019-03-15" 
+  },
+  "treatments": [
+    {
+      "substance": "Milbemax (Entwurmung)",
+      "administered_at": "2024-03-15",
+      "dosage": "1 Tablette",
+      "vet_name": "Dr. Schmidt",
+      "next_due": "2024-06-15",
+      "notes": "Prophylaxe gegen Rund- und Bandwürmer"
+    },
+    {
+      "substance": "Prazitel (Antiparasitär)",
+      "administered_at": "2024-03-15",
+      "dosage": "per Schleimhaut",
+      "vet_name": "Dr. Schmidt",
+      "next_due": null,
+      "notes": "Zusätzliche Maßnahme gegen Parasiten"
+    }
+  ],
+  "suggested_tags": ["Entwurmung", "Milbemax", "Prophylaxe"]
+}
+
+Gib NUR gültiges JSON aus (keine Erklärungen).
 `.trim(),
 
   pedigree: `
@@ -166,6 +267,99 @@ function getPromptForDocumentType(documentType) {
   return PROMPTS_BY_TYPE[normalizeDocumentType(documentType)] || PROMPTS_BY_TYPE.general
 }
 
+// Helper: Parse and normalize date to YYYY-MM-DD
+function normalizeDate(dateStr) {
+  if (!dateStr || typeof dateStr !== 'string') return null
+  
+  const trimmed = dateStr.trim()
+  if (!trimmed) return null
+  
+  // Already in YYYY-MM-DD format
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed
+  
+  // Try parsing German/Austrian formats: dd.mm.yyyy, dd. MMM. yyyy, etc.
+  const germanMonths = {
+    'januar': '01', 'jan': '01', 'january': '01',
+    'februar': '02', 'feb': '02', 'february': '02',
+    'märz': '03', 'mär': '03', 'maerz': '03', 'march': '03',
+    'april': '04', 'apr': '04',
+    'mai': '05', 'may': '05',
+    'juni': '06', 'jun': '06', 'june': '06',
+    'juli': '07', 'jul': '07', 'july': '07',
+    'august': '08', 'aug': '08',
+    'september': '09', 'sep': '09', 'sept': '09',
+    'oktober': '10', 'okt': '10', 'october': '10',
+    'november': '11', 'nov': '11',
+    'dezember': '12', 'dez': '12', 'december': '12'
+  }
+  
+  // dd.mm.yyyy
+  const match1 = trimmed.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/)
+  if (match1) {
+    const [, day, month, year] = match1
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+  }
+  
+  // dd. MMM. yyyy (e.g., "06. SEP. 2021", "09. NOV. 2021")
+  const match2 = trimmed.match(/^(\d{1,2})\.\s*([a-zA-Z]+)\.\s*(\d{4})$/)
+  if (match2) {
+    const [, day, monthStr, year] = match2
+    const monthNum = germanMonths[monthStr.toLowerCase()]
+    if (monthNum) {
+      return `${year}-${monthNum}-${String(day).padStart(2, '0')}`
+    }
+  }
+  
+  // mm/yyyy or mm-yyyy (Month/Year)
+  const match3 = trimmed.match(/^(\d{1,2})[\/\-](\d{4})$/)
+  if (match3) {
+    const [, month, year] = match3
+    return `${year}-${String(month).padStart(2, '0')}-01`
+  }
+  
+  // mm/dd/yyyy (US format, less common but possible)
+  const match4 = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+  if (match4) {
+    const [, month, day, year] = match4
+    // Heuristic: if month > 12, assume European dd/mm/yyyy
+    const m = parseInt(month)
+    const d = parseInt(day)
+    if (m > 12 && d <= 12) {
+      return `${year}-${String(d).padStart(2, '0')}-${String(m).padStart(2, '0')}`
+    }
+    return `${year}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+  }
+  
+  return null
+}
+
+// Post-process extracted JSON to normalize all date fields
+function normalizeDateFields(obj) {
+  if (!obj || typeof obj !== 'object') return obj
+  
+  if (Array.isArray(obj)) {
+    return obj.map(item => normalizeDateFields(item))
+  }
+  
+  const dateFieldNames = [
+    'date', 'administration_date', 'administered_at', 'valid_until', 'gueltig_bis',
+    'document_date', 'birthdate', 'nextDue', 'next_due', 'expires_at', 'expiry_date',
+    'next_due_at'
+  ]
+  
+  const normalized = { ...obj }
+  
+  for (const key in normalized) {
+    if (dateFieldNames.includes(key) && typeof normalized[key] === 'string') {
+      normalized[key] = normalizeDate(normalized[key])
+    } else if (typeof normalized[key] === 'object' && normalized[key] !== null) {
+      normalized[key] = normalizeDateFields(normalized[key])
+    }
+  }
+  
+  return normalized
+}
+
 export async function analyzeDocument(imagePath, userGeminiKey = null, model = null, onProgress = null, userAnthropicKey = null, claudeModel = null, userOpenAiKey = null, openAiModel = null, priority = ['google', 'anthropic', 'openai']) {
   if (onProgress) onProgress(`Initialisiere OCR-Analyse...`)
 
@@ -266,7 +460,8 @@ async function analyzeWithClaude(imagePath, anthropicKey, model, onProgress, pro
   const jsonMatch = text.match(/\{[\s\S]*\}/)
   if (!jsonMatch) throw new Error('Kein JSON in Claude-Antwort')
 
-  return { provider: 'claude', data: { type: normalizeDocumentType(documentType), ...JSON.parse(jsonMatch[0]) } }
+  const parsed = { type: normalizeDocumentType(documentType), ...JSON.parse(jsonMatch[0]) }
+  return { provider: 'claude', data: normalizeDateFields(parsed) }
 }
 
 async function analyzeWithGemini(imagePath, geminiKey, model, onProgress, prompt = GEMINI_PROMPT, documentType = 'general') {
@@ -320,7 +515,8 @@ async function analyzeWithGemini(imagePath, geminiKey, model, onProgress, prompt
   const jsonMatch = text.match(/\{[\s\S]*\}/)
   if (!jsonMatch) throw new Error('Kein JSON in Gemini-Antwort')
 
-  return { provider: 'gemini', data: { type: normalizeDocumentType(documentType), ...JSON.parse(jsonMatch[0]) } }
+  const parsed = { type: normalizeDocumentType(documentType), ...JSON.parse(jsonMatch[0]) }
+  return { provider: 'gemini', data: normalizeDateFields(parsed) }
 }
 
 async function analyzeWithTesseract(imagePath, onProgress) {
@@ -363,6 +559,12 @@ export function normalizeDocumentType(typeInput) {
     'medication': 'medical_product',
     'medikament': 'medical_product',
     'product': 'medical_product',
+    'treatment': 'treatment',
+    'behandlung': 'treatment',
+    'entwurmung': 'treatment',
+    'wurmkur': 'treatment',
+    'antiparasitär': 'treatment',
+    'antiparasitaer': 'treatment',
     'vet_report': 'general',
     'report': 'general',
     'microchip': 'general',
@@ -505,6 +707,7 @@ function parseTesseractText(text) {
     (lower.includes('stammbaum') || lower.includes('pedigree') || lower.includes('zucht')) ? 'pedigree' :
     (lower.includes('hundeführerschein') || lower.includes('sachkundenachweis')) ? 'dog_certificate' :
     (lower.includes('medikament') || lower.includes('tablette') || lower.includes('dosierung')) ? 'medical_product' :
+    (lower.includes('entwurmung') || lower.includes('wurmkur') || lower.includes('antiparasitär') || lower.includes('antiparasitaer') || lower.includes('behandlung') && lower.includes('tierarzt')) ? 'treatment' :
     'general'
   )
   return { type: classified, rawText: text }
@@ -566,5 +769,6 @@ async function analyzeWithOpenAI(imagePath, openAiKey, model, onProgress, prompt
   const jsonMatch = text.match(/\{[\s\S]*\}/)
   if (!jsonMatch) throw new Error('Kein JSON in OpenAI-Antwort')
 
-  return { provider: 'openai', data: { type: normalizeDocumentType(documentType), ...JSON.parse(jsonMatch[0]) } }
+  const parsed = { type: normalizeDocumentType(documentType), ...JSON.parse(jsonMatch[0]) }
+  return { provider: 'openai', data: normalizeDateFields(parsed) }
 }

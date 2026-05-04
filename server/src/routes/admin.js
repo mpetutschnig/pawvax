@@ -350,12 +350,26 @@ export default async function adminRoutes(fastify) {
       WHERE id = ?
     `).run(id)
 
-    // Update accounts table for backward compatibility
+    // Assign role based on verification type
+    const roleMap = {
+      'vet': 'veterinarian',
+      'authority': 'authority'
+    }
+    const roleToAdd = roleMap[vr.type] || vr.type
+    
+    // Get current roles and add new one (if not already present)
+    const currentRoles = (account.role || 'user').split(',').map(r => r.trim()).filter(r => r)
+    if (!currentRoles.includes(roleToAdd)) {
+      currentRoles.push(roleToAdd)
+    }
+    const updatedRoles = currentRoles.join(',')
+
+    // Update accounts table with new roles
     db.prepare(`
       UPDATE accounts 
-      SET verified = 1, verification_status = 'approved'
+      SET verified = 1, verification_status = 'approved', role = ?
       WHERE id = ?
-    `).run(vr.account_id)
+    `).run(updatedRoles, vr.account_id)
 
     logAudit(db, {
       accountId: adminId,

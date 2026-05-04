@@ -349,7 +349,8 @@ export default function ProfilePage() {
   const isVerified = profile.verified === 1 || profile.verified === true
   const isPending = profile.verification_status === 'pending' || ((roles.includes('vet') || roles.includes('authority')) && !isVerified)
   
-  const isVet = roles.includes('vet') && !isPending
+  const hasVerifiedRole = roles.includes('vet') || roles.includes('authority') || roles.includes('veterinarian')
+  const isVet = roles.includes('veterinarian') && !isPending
   const isOrg = roles.includes('authority') && !isPending
   const isAdmin = roles.includes('admin')
 
@@ -429,7 +430,7 @@ export default function ProfilePage() {
             </div>
 
             {/* Verification Request Form */}
-            {!isVet && !isOrg && !isPending && (
+            {!hasVerifiedRole && !isPending && (
               <div style={{ marginTop: 'var(--space-4)' }}>
                 {!showVerificationForm ? (
                   <button className="btn btn-primary" onClick={() => setShowVerificationForm(true)}>
