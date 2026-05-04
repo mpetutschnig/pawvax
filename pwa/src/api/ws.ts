@@ -11,7 +11,7 @@ export interface UploadCallbacks {
   onProgress?: (percent: number) => void
   onResult: (data: WsMessage & { type: 'result' }) => void
   onError: (msg: string) => void
-  metadata?: { allowedRoles?: string[] }
+  metadata?: { allowedRoles?: string[]; language?: string }
 }
 
 // Upload single or multiple pages as one document
@@ -120,7 +120,8 @@ export function uploadMultiPageDocument(
         mimeType: file.type,
         pageNumber: pageIndex + 1,
         documentId,
-        allowedRoles: callbacks.metadata?.allowedRoles
+        allowedRoles: callbacks.metadata?.allowedRoles,
+        language: callbacks.metadata?.language || 'de'
       }))
     }
 

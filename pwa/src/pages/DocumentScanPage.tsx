@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import i18next from 'i18next'
 import { CheckCircle, AlertCircle, Syringe, FileText, BookOpen, Camera, RefreshCw, Plus, X } from 'lucide-react'
 import { PageHeader } from '../components/PageHeader'
 import { uploadMultiPageDocument } from '../api/ws'
@@ -262,7 +263,8 @@ export default function DocumentScanPage() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         },
-        body: JSON.stringify({ provider: retryProvider, model: retryModel })
+        body: JSON.stringify({ provider: retryProvider, model: retryModel, language: i18next.language || 'de' })
+      })
       })
       const data = await res.json().catch(() => ({}))
       setShowModelSelection(false)
@@ -328,7 +330,10 @@ export default function DocumentScanPage() {
           setErrorMsg(msg)
           setPhase('error')
         },
-        metadata: { allowedRoles }
+        metadata: { 
+          allowedRoles,
+          language: i18next.language || 'de'
+        }
       })
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Unbekannter Fehler')

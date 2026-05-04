@@ -126,7 +126,7 @@ export default async function wsDocumentUpload(fastify) {
 
       switch (msg.type) {
         case 'upload_start': {
-          const { animalId, filename, mimeType, allowedRoles, pageNumber, documentId } = msg
+          const { animalId, filename, mimeType, allowedRoles, pageNumber, documentId, language = 'de' } = msg
           const pageNum = pageNumber ?? 1
           const normalizedAllowedRoles = normalizeAllowedRoles(allowedRoles)
 
@@ -157,6 +157,7 @@ export default async function wsDocumentUpload(fastify) {
             filename: safeFilename,
             pageNumber: pageNum,
             documentId: docId,
+            language,
             writer: saveImageChunks(safeFilename),
             isMultiPage: pageNumber !== undefined && pageNumber > 1
           }
@@ -217,7 +218,7 @@ export default async function wsDocumentUpload(fastify) {
                 const pageStartTime = Date.now()
                 const result = await analyzeDocument(page.image_path, userGeminiKey, userGeminiModel, (progressMsg) => {
                   send(socket, { type: 'status', message: `Seite ${page.page_number}: ${progressMsg}` })
-                }, userAnthropicKey, userClaudeModel)
+                }, userAnthropicKey, userClaudeModel, null, null, null, uploadState.language)
                 const pageElapsed = Date.now() - pageStartTime
                 fastify.log.debug({ pageNumber: page.page_number, elapsedMs: pageElapsed, provider: result.provider }, 'WS: Page analysis completed')
                 pageResults.push(result.data)
