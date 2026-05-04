@@ -115,11 +115,11 @@ echo "🚀 PAW Update erfolgreich abgeschlossen!"
 
 ---
 
-## Schritt 3: API-Tests ausführen und Ergebnis speichern
+## Schritt 3: Isolierte API-Tests ausführen und Ergebnis speichern
 
 ```bash
 PAW_API_UID=$(id -u paw-api)
-XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "cd /tmp && podman run --rm --network=host --cgroup-manager=cgroupfs --security-opt label=disable -v /git/pawvax/server/tests:/app/tests -v /tmp:/tmp -e API_URL=http://127.0.0.1:3000/api -e NODE_OPTIONS=--experimental-vm-modules localhost/paw-api:latest npx jest --passWithNoTests --forceExit --testTimeout=20000 --json --outputFile=/tmp/paw-test-results.json"
+XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "cd /tmp && podman run --rm --cgroup-manager=cgroupfs --security-opt label=disable -v /git/pawvax/server:/app -v /tmp:/tmp -w /app docker.io/node:22-alpine sh -lc 'apk add --no-cache python3 make g++ cairo-dev jpeg-dev pango-dev giflib-dev && npm ci && npm test -- --json --outputFile=/tmp/paw-test-results.json'"
 ```
 
 Test-Details in DB speichern:
