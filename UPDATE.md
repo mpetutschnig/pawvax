@@ -10,7 +10,7 @@ Führe diese Befehle auf deinem **lokalen Entwicklungsrechner** aus:
 
 ```bash
 git add .
-git commit -m "Update"
+git commit -m "Deployment Bug Fix"
 git push
 ```
 
@@ -54,12 +54,12 @@ chmod -R a+rX /git/pawvax
 
 ```bash
 PAW_API_UID=$(id -u paw-api)
-XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "cd /tmp && podman container prune -f && podman image prune -af && podman builder prune -af"
+XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "cd /tmp && podman --cgroup-manager=cgroupfs container prune -f && podman --cgroup-manager=cgroupfs image prune -af && podman --cgroup-manager=cgroupfs builder prune -af"
 ```
 
 ```bash
 PAW_PWA_UID=$(id -u paw-pwa)
-XDG_RUNTIME_DIR=/run/user/$PAW_PWA_UID su -s /bin/bash paw-pwa -c "cd /tmp && podman container prune -f && podman image prune -af && podman builder prune -af"
+XDG_RUNTIME_DIR=/run/user/$PAW_PWA_UID su -s /bin/bash paw-pwa -c "cd /tmp && podman --cgroup-manager=cgroupfs container prune -f && podman --cgroup-manager=cgroupfs image prune -af && podman --cgroup-manager=cgroupfs builder prune -af"
 ```
 
 ### 5 — Backend-Image bauen (paw-api)
