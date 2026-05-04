@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { PawPrint, Calendar, User, MapPin, Syringe, Pill, FileText, ChevronUp, ChevronDown } from 'lucide-react'
 import { api } from '../api/rest'
+import { addRecentlyViewedAnimal } from '../hooks/useRecentlyViewed'
 
 export default function PublicSharePage() {
   const { shareId } = useParams<{ shareId: string }>()
@@ -16,6 +17,15 @@ export default function PublicSharePage() {
     if (!shareId) return
     api.get(`/public/share/${shareId}`)
       .then(res => {
+        if (localStorage.getItem('token') && res.data?.id) {
+          addRecentlyViewedAnimal({
+            id: res.data.id,
+            name: res.data.name || 'Unknown',
+            species: res.data.species,
+            breed: res.data.breed,
+            source: 'share'
+          })
+        }
         setAnimal(res.data)
         setError(null)
       })

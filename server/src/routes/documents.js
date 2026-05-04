@@ -15,9 +15,9 @@ function canRoleSeeDocument(rawRoles, requestRole) {
   try {
     parsedRoles = JSON.parse(rawRoles)
   } catch {
-    return true
+    return false
   }
-  if (!Array.isArray(parsedRoles)) return true
+  if (!Array.isArray(parsedRoles)) return false
 
   const normalizedRoles = parsedRoles.map(normalizeRole)
   const normalizedRequestRole = normalizeRole(requestRole)
@@ -55,7 +55,7 @@ export default async function documentRoutes(fastify) {
       }
     }
 
-    if (!hasAccess) return reply.code(403).send({ error: 'Kein Zugriff auf dieses Dokument' })
+    if (!hasAccess) return reply.code(401).send({ error: 'Kein Zugriff auf dieses Dokument' })
 
     const isUploader = doc.added_by_account === accountId
 
@@ -90,11 +90,11 @@ export default async function documentRoutes(fastify) {
     const isUploader = doc.added_by_account === accountId
 
     if (!isOwner && !isUploader) {
-      return reply.code(403).send({ error: 'Keine Berechtigung dieses Dokument zu bearbeiten' })
+      return reply.code(401).send({ error: 'Keine Berechtigung dieses Dokument zu bearbeiten' })
     }
 
     if (allowed_roles !== undefined) {
-      if (!isOwner) return reply.code(403).send({ error: 'Nur der Besitzer kann die Sichtbarkeit ändern' })
+      if (!isOwner) return reply.code(401).send({ error: 'Nur der Besitzer kann die Sichtbarkeit ändern' })
       const normalizedRoles = Array.isArray(allowed_roles)
         ? [...new Set(allowed_roles.map(normalizeRole))]
         : []
@@ -106,7 +106,7 @@ export default async function documentRoutes(fastify) {
 
     if (extracted_json !== undefined) {
       if (doc.added_by_role === 'vet' && !isUploader) {
-        return reply.code(403).send({ error: 'Dieses verifizierte Dokument kann nur vom Tierarzt geändert werden' })
+        return reply.code(401).send({ error: 'Dieses verifizierte Dokument kann nur vom Tierarzt geändert werden' })
       }
       db.prepare('UPDATE documents SET extracted_json = ? WHERE id = ?')
         .run(JSON.stringify(extracted_json), doc.id)
@@ -142,11 +142,11 @@ export default async function documentRoutes(fastify) {
     const isUploader = doc.added_by_account === accountId
 
     if (doc.added_by_role === 'vet' && !isUploader) {
-      return reply.code(403).send({ error: 'Dieses verifizierte Dokument kann nur vom Tierarzt gelöscht werden' })
+      return reply.code(401).send({ error: 'Dieses verifizierte Dokument kann nur vom Tierarzt gelöscht werden' })
     }
 
     if (!isOwner && !isUploader) {
-      return reply.code(403).send({ error: 'Keine Berechtigung dieses Dokument zu löschen' })
+      return reply.code(401).send({ error: 'Keine Berechtigung dieses Dokument zu löschen' })
     }
 
     // Get all page image paths before deletion
@@ -219,7 +219,7 @@ export default async function documentRoutes(fastify) {
 
     if (!doc) return reply.code(404).send({ error: 'Dokument nicht gefunden' })
     if (doc.owner_id !== accountId && doc.added_by_account !== accountId) {
-      return reply.code(403).send({ error: 'Keine Berechtigung' })
+      return reply.code(401).send({ error: 'Keine Berechtigung' })
     }
 
     if (doc.analysis_status !== 'pending_analysis') {

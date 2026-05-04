@@ -56,8 +56,12 @@
 
   /* ── Semantic Colors ─────────────────────────────────────────── */
   --success-50:   oklch(95%   0.06  145);
+  --success-100:  oklch(85%   0.08  145);
+  --success-200:  oklch(75%   0.10  145);
   --success-500:  oklch(52%   0.18  145);
   --success-600:  oklch(43%   0.16  145);
+  --success-700:  oklch(32%   0.14  145);
+  --success-800:  oklch(22%   0.10  145);
   --warning-50:   oklch(96%   0.06   80);
   --warning-500:  oklch(68%   0.20   80);
   --warning-600:  oklch(57%   0.18   80);

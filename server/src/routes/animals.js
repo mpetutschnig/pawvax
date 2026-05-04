@@ -19,8 +19,9 @@ function parseAllowedRoles(rawRoles) {
 }
 
 function canRoleSeeDocument(rawRoles, requestRole) {
+  if (!rawRoles) return true
   const roles = parseAllowedRoles(rawRoles)
-  if (!roles) return true
+  if (!roles) return false
 
   const normalizedRequestRole = normalizeRole(requestRole)
   if (roles.includes(normalizedRequestRole)) return true
@@ -709,7 +710,58 @@ export default async function animalRoutes(fastify) {
     return reply.code(201).send({ shareId })
   })
 
-  // Temporären Transfer-Code erzeugen (Besitzerwechsel)
+  // Liste aktive Sharing-Links für ein Tier
+  fastify.get('/api/animals/:id/shares', async (req, reply) => {
+    const db = getDb()
+    const { id } = req.params
+    const { accountId } = req.user
+
+    // Verify ownership
+    const animal = db.prepare('SELECT id FROM animals WHERE id = ? AND account_id = ?').get(id, accountId)
+    if (!animal) return reply.code(403).send({ error: 'Keine Berechtigung' })
+
+    const now = Math.floor(Date.now() / 1000)
+    const shares = db.prepare(`
+      SELECT id, created_at, expires_at, (expires_at - ?) as seconds_remaining
+      FROM animal_public_shares
+      WHERE animal_id = ? AND expires_at > ?
+      ORDER BY created_at DESC
+    `).all(now, id, now)
+
+    return reply.code(200).send(shares.map(s => ({
+      id: s.id,
+      createdAt: new Date(s.created_at * 1000).toISOString(),
+      expiresAt: new Date(s.expires_at * 1000).toISOString(),
+      secondsRemaining: s.seconds_remaining,
+      isExpiringSoon: s.seconds_remaining < 3600 // Less than 1 hour
+    })))
+  })
+
+  // Sharing-Link widerrufen (sofort)
+  fastify.delete('/api/animals/:id/shares/:shareId', async (req, reply) => {
+    const db = getDb()
+    const { id, shareId } = req.params
+    const { accountId, role } = req.user
+
+    // Verify ownership
+    const animal = db.prepare('SELECT id FROM animals WHERE id = ? AND account_id = ?').get(id, accountId)
+    if (!animal) return reply.code(403).send({ error: 'Keine Berechtigung' })
+
+    // Verify share belongs to this animal
+    const share = db.prepare('SELECT id FROM animal_public_shares WHERE id = ? AND animal_id = ?').get(shareId, id)
+    if (!share) return reply.code(404).send({ error: 'Sharing-Link nicht gefunden' })
+
+    // Soft delete: set expires_at to now
+    const now = Math.floor(Date.now() / 1000)
+    db.prepare('UPDATE animal_public_shares SET expires_at = ? WHERE id = ?').run(now, shareId)
+
+    logAudit(db, { accountId, role, action: 'revoke_share', resource: 'sharing', resourceId: shareId,
+      details: { animal_id: id },
+      ip: req.ip })
+
+    return reply.code(200).send({ success: true })
+  })
+
   fastify.post('/api/animals/:id/transfer', async (req, reply) => {
     const db = getDb()
     const { id } = req.params

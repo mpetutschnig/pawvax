@@ -16,6 +16,23 @@ function normalizeAllowedRoles(allowedRoles) {
   return [...new Set(allowedRoles.map(normalizeRole))]
 }
 
+function canAccessAnimalForUpload(db, animalId, accountId, userRole) {
+  // Owner can always access their own animals
+  if (db.prepare('SELECT 1 FROM animals WHERE id = ? AND account_id = ?').get(animalId, accountId)) {
+    return true
+  }
+  
+  // Vet/Authority can access animals if sharing is configured
+  if (userRole === 'vet' || userRole === 'authority') {
+    const sharing = db.prepare('SELECT 1 FROM animal_sharing WHERE animal_id = ? AND role = ?')
+      .get(animalId, userRole)
+    return !!sharing
+  }
+  
+  // Guests cannot upload
+  return false
+}
+
 export default async function wsDocumentUpload(fastify) {
   fastify.get('/ws', { websocket: true }, async (socket, req) => {
     let accountId, userRole, userGeminiKey = null, userGeminiModel = null, userAnthropicKey = null, userClaudeModel = null
@@ -123,13 +140,11 @@ export default async function wsDocumentUpload(fastify) {
             `).run(docId, animalId, accountId, userRole, JSON.stringify(normalizedAllowedRoles))
           }
 
-          // sicherstellen, dass das Tier dem Account gehört
-          const animal = db.prepare('SELECT id FROM animals WHERE id = ? AND account_id = ?')
-            .get(animalId, accountId)
-
-          if (!animal) {
-            fastify.log.error({ animalId }, '[WS] Animal not found')
-            send(socket, { type: 'error', message: 'Tier nicht gefunden' })
+          // sicherstellen, dass der Benutzer (Owner, Vet oder Authority) das Tier uploaden darf
+          const db = getDb()
+          if (!canAccessAnimalForUpload(db, animalId, accountId, userRole)) {
+            fastify.log.error({ animalId, accountId, userRole }, '[WS] Access denied')
+            send(socket, { type: 'error', message: 'Zugriff verweigert' })
             return
           }
 
@@ -196,9 +211,12 @@ export default async function wsDocumentUpload(fastify) {
             let analysisError = null
             for (const page of pages) {
               try {
+                const pageStartTime = Date.now()
                 const result = await analyzeDocument(page.image_path, userGeminiKey, userGeminiModel, (progressMsg) => {
                   send(socket, { type: 'status', message: `Seite ${page.page_number}: ${progressMsg}` })
                 }, userAnthropicKey, userClaudeModel)
+                const pageElapsed = Date.now() - pageStartTime
+                fastify.log.debug({ pageNumber: page.page_number, elapsedMs: pageElapsed, provider: result.provider }, 'WS: Page analysis completed')
                 combinedText += (combinedText ? '\n---\n' : '') + (result.data.text || '')
                 lastProvider = result.provider
               } catch (err) {

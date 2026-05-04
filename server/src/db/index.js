@@ -7,6 +7,16 @@ const __dir = dirname(fileURLToPath(import.meta.url))
 
 let db
 
+// Generate human-readable unique ID: 8-char alphanumeric (uppercase + digits)
+function generateUniqueId() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+  let id = ''
+  for (let i = 0; i < 8; i++) {
+    id += chars.charAt(Math.floor(Math.random() * chars.length))
+  }
+  return id
+}
+
 export function getDb() {
   return db
 }
@@ -41,10 +51,34 @@ export function initDb(dbPath) {
     `ALTER TABLE accounts ADD COLUMN openai_token TEXT`,
     `ALTER TABLE accounts ADD COLUMN openai_model TEXT DEFAULT 'gpt-4.1-mini'`,
     `ALTER TABLE accounts ADD COLUMN ai_provider_priority TEXT DEFAULT '["google", "anthropic", "openai"]'`,
+    `ALTER TABLE animals ADD COLUMN unique_id TEXT UNIQUE`,
   ]
   for (const sql of migrations) {
     try { db.exec(sql) } catch { /* column already exists */ }
   }
+
+  // Backfill unique_id for existing animals
+  try {
+    const animalsWithoutId = db.prepare('SELECT id FROM animals WHERE unique_id IS NULL').all()
+    for (const animal of animalsWithoutId) {
+      let uniqueId = generateUniqueId()
+      // Retry if collision (extremely unlikely, but be safe)
+      let attempts = 0
+      while (attempts < 10) {
+        try {
+          db.prepare('UPDATE animals SET unique_id = ? WHERE id = ?').run(uniqueId, animal.id)
+          break
+        } catch (err) {
+          if (err.message.includes('UNIQUE constraint failed')) {
+            uniqueId = generateUniqueId()
+            attempts++
+          } else {
+            throw err
+          }
+        }
+      }
+    }
+  } catch { /* table or column may not exist yet */ }
 
   // Detect whether animal_sharing currently supports guest or readonly as public role.
   const animalSharingTableSql = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'animal_sharing'").get()?.sql || ''

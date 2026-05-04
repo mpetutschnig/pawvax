@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import * as api from '../api/rest'
 import { PetCard } from '../components/PetCard'
 import { PageHeader } from '../components/PageHeader'
 import { Search, Plus, PawPrint, ArrowRightLeft } from 'lucide-react'
 import { AnimalListItemDTO } from '../types/animal'
+import { getRecentlyViewedAnimals, RecentlyViewedAnimal } from '../hooks/useRecentlyViewed'
 
 export default function AnimalsPage() {
   const { t } = useTranslation()
@@ -17,9 +19,11 @@ export default function AnimalsPage() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  const [recentlyViewed, setRecentlyViewed] = useState<RecentlyViewedAnimal[]>([])
 
   useEffect(() => {
     loadAnimals()
+    setRecentlyViewed(getRecentlyViewedAnimals())
   }, [])
 
   const loadAnimals = async () => {
@@ -99,6 +103,41 @@ export default function AnimalsPage() {
   return (
     <div className="container page">
       <PageHeader title={`${t('animals.myAnimals')} (${animals.length})`} showThemeToggle />
+
+      {recentlyViewed.length > 0 && (
+        <div className="card" style={{ marginBottom: 'var(--space-4)' }}>
+          <h3 style={{ marginBottom: 'var(--space-3)' }}>{t('recent.title')}</h3>
+          <div style={{ display: 'grid', gap: 'var(--space-2)' }}>
+            {recentlyViewed.map((item) => (
+              <Link
+                key={item.id}
+                to={`/animals/${item.id}`}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: 'var(--space-2) var(--space-3)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: 'var(--radius-sm)',
+                  textDecoration: 'none',
+                  color: 'inherit',
+                  background: 'var(--surface)'
+                }}
+              >
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>{item.name}</div>
+                  <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>
+                    {item.species || ''}{item.breed ? ` · ${item.breed}` : ''}
+                  </div>
+                </div>
+                <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>
+                  {item.source === 'scan' ? t('recent.sourceScan') : t('recent.sourceShare')} · {new Date(item.viewedAt).toLocaleTimeString()}
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div style={{ position: 'relative', marginBottom: 'var(--space-4)' }}>
         <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />

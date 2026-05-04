@@ -22,7 +22,8 @@ function GlobalBrand() {
   const location = useLocation()
   const { t } = useTranslation()
   const [settings, setSettings] = useState({ app_name: 'PAW', logo_data: '', theme_color: '' })
-  const roleStr = localStorage.getItem('role') || 'user'
+  const token = localStorage.getItem('token')
+  const roleStr = token ? (localStorage.getItem('role') || 'user') : ''
   const roles = roleStr.split(',').map(r => r.trim()).filter(Boolean)
   
   useEffect(() => {

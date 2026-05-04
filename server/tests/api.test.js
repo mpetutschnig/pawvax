@@ -14,6 +14,8 @@
  */
 
 import fetch from 'node-fetch'
+import { getDb } from '../src/db/index.js'
+import { v4 as uuid } from 'uuid'
 
 const API_URL = process.env.API_URL || 'http://localhost:3000/api'
 
@@ -35,6 +37,26 @@ async function apiCall(method, endpoint, body = null, headers = {}) {
     headers: {
       'Content-Type': 'application/json',
       ...(testState.token && { 'Authorization': `Bearer ${testState.token}` }),
+      ...headers
+    }
+  }
+
+  if (body) {
+    options.body = JSON.stringify(body)
+  }
+
+  const response = await fetch(`${API_URL}${endpoint}`, options)
+  const data = await response.json().catch(() => ({}))
+
+  return { status: response.status, data, headers: response.headers }
+}
+
+async function apiCallWithToken(token, method, endpoint, body = null, headers = {}) {
+  const options = {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token && { 'Authorization': `Bearer ${token}` }),
       ...headers
     }
   }
@@ -295,18 +317,115 @@ describe('PAWvax API Tests', () => {
   })
 
   // ════════════════════════════════════════════════════════════════
-  // 4. SHARING — Temporäre Links
+  // 4. DOKUMENTE — Zugriff/Statuscodes
   // ════════════════════════════════════════════════════════════════
 
-  describe('4. Sharing', () => {
-    test('4a. Get Sharing Settings — Freigabe-Settings abrufen', async () => {
+  describe('4. Documents Authorization', () => {
+    let ownerToken
+    let ownerAnimalId
+    let foreignToken
+    let documentId
+
+    beforeAll(async () => {
+      const ownerEmail = `doc-owner-${Date.now()}@example.com`
+      const foreignEmail = `doc-foreign-${Date.now()}@example.com`
+
+      const ownerReg = await apiCallWithToken(null, 'POST', '/auth/register', {
+        name: 'Doc Owner',
+        email: ownerEmail,
+        password: 'SecurePassword123!'
+      })
+      expect(ownerReg.status).toBe(201)
+      ownerToken = ownerReg.data.token
+
+      const foreignReg = await apiCallWithToken(null, 'POST', '/auth/register', {
+        name: 'Doc Foreign',
+        email: foreignEmail,
+        password: 'SecurePassword123!'
+      })
+      expect(foreignReg.status).toBe(201)
+      foreignToken = foreignReg.data.token
+
+      const ownerAnimal = await apiCallWithToken(ownerToken, 'POST', '/animals', {
+        name: 'Doc Animal',
+        species: 'dog'
+      })
+      expect(ownerAnimal.status).toBe(201)
+      ownerAnimalId = ownerAnimal.data.id
+
+      documentId = uuid()
+      const db = getDb()
+      db.prepare(`
+        INSERT INTO documents (id, animal_id, doc_type, image_path, extracted_json, ocr_provider, added_by_account, added_by_role, allowed_roles, analysis_status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        documentId,
+        ownerAnimalId,
+        'other',
+        'test-doc.jpg',
+        JSON.stringify({ text: 'test' }),
+        'pending',
+        ownerReg.data.userId || ownerReg.data.id || null,
+        'user',
+        JSON.stringify(['guest']),
+        'completed'
+      )
+    })
+
+    test('4a. Existing document without access returns 401 on GET', async () => {
+      const { status } = await apiCallWithToken(foreignToken, 'GET', `/documents/${documentId}`)
+      expect(status).toBe(401)
+    })
+
+    test('4b. Existing document without access returns 401 on PATCH', async () => {
+      const { status } = await apiCallWithToken(foreignToken, 'PATCH', `/documents/${documentId}`, {
+        doc_type: 'vaccination'
+      })
+      expect(status).toBe(401)
+    })
+
+    test('4c. Existing document without access returns 401 on DELETE', async () => {
+      const anotherDocId = uuid()
+      const db = getDb()
+      db.prepare(`
+        INSERT INTO documents (id, animal_id, doc_type, image_path, extracted_json, ocr_provider, added_by_account, added_by_role, allowed_roles, analysis_status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        anotherDocId,
+        ownerAnimalId,
+        'other',
+        'test-doc-delete.jpg',
+        JSON.stringify({ text: 'delete-test' }),
+        'pending',
+        null,
+        'user',
+        JSON.stringify(['guest']),
+        'completed'
+      )
+
+      const { status } = await apiCallWithToken(foreignToken, 'DELETE', `/documents/${anotherDocId}`)
+      expect(status).toBe(401)
+    })
+
+    test('4d. Missing document still returns 404', async () => {
+      const { status } = await apiCallWithToken(ownerToken, 'GET', `/documents/${uuid()}`)
+      expect(status).toBe(404)
+    })
+  })
+
+  // ════════════════════════════════════════════════════════════════
+  // 5. SHARING — Temporäre Links
+  // ════════════════════════════════════════════════════════════════
+
+  describe('5. Sharing', () => {
+    test('5a. Get Sharing Settings — Freigabe-Settings abrufen', async () => {
       const { status, data } = await apiCall('GET', `/animals/${testState.animalId}/sharing`)
 
       expect(status).toBe(200)
       expect(Array.isArray(data) || typeof data === 'object').toBe(true)
     })
 
-    test('4b. Create Sharing Link — Temporären Link erstellen', async () => {
+    test('5b. Create Sharing Link — Temporären Link erstellen', async () => {
       const { status, data } = await apiCall('POST', `/animals/${testState.animalId}/sharing/temporary`, {})
 
       expect(status).toBe(201)
@@ -315,7 +434,7 @@ describe('PAWvax API Tests', () => {
       testState.shareId = data.shareId
     })
 
-    test('4c. Public: Get Shared Animal — Tier über Link abrufen (OHNE JWT)', async () => {
+    test('5c. Public: Get Shared Animal — Tier über Link abrufen (OHNE JWT)', async () => {
       if (!testState.shareId) {
         return
       }
@@ -333,19 +452,19 @@ describe('PAWvax API Tests', () => {
       expect(data.id).toBeTruthy()
     })
 
-    test('4d. Delete Sharing Link — Link löschen', async () => {
+    test('5d. Delete Sharing Link — Link löschen', async () => {
       if (!testState.shareId) {
         return
       }
 
-      const { status } = await apiCall('DELETE', `/animals/${testState.animalId}/sharing/${testState.shareId}`)
+      const { status } = await apiCall('DELETE', `/animals/${testState.animalId}/shares/${testState.shareId}`)
 
       expect([200, 204, 404]).toContain(status)
     })
   })
 
   // ════════════════════════════════════════════════════════════════
-  // 5. ADMIN — Nur für Admin-Tests
+  // 6. ADMIN — Nur für Admin-Tests
   // ════════════════════════════════════════════════════════════════
 
   describe('5. Admin (Nur wenn Admin)', () => {

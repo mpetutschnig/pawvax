@@ -144,6 +144,23 @@ fastify.addHook('onResponse', (req, reply, done) => {
   }
   if (statusCode >= 400 && req.errorMessage) entry.errorMessage = req.errorMessage
   req.log[level](entry, 'request')
+
+  // Log significant HTTP errors to audit log for debugging
+  if (statusCode >= 400 && req.user?.accountId) {
+    try {
+      const db = getDb()
+      const { logAudit } = await import('./services/audit.js')
+      logAudit(db, {
+        accountId: req.user.accountId,
+        role: req.user.role ?? null,
+        action: 'http_error',
+        resource: req.method + ' ' + req.url.split('?')[0],
+        resourceId: req.url,
+        details: { statusCode, errorMessage: req.errorMessage, method: req.method },
+        ip: req.ip
+      })
+    } catch { /* audit logging failed, continue */ }
+  }
   done()
 })
 

@@ -5,6 +5,7 @@ import { useBarcode } from '../hooks/useBarcode'
 import { useNfc } from '../hooks/useNfc'
 import { PawPrint, Camera, LogIn, ShieldCheck, Syringe, Pill, FileText, Radio, ChevronDown, ChevronUp } from 'lucide-react'
 import { api } from '../api/rest'
+import { addRecentlyViewedAnimal } from '../hooks/useRecentlyViewed'
 
 type Phase = 'scan' | 'result' | 'notfound'
 
@@ -36,6 +37,15 @@ export default function PublicScanPage() {
 
     try {
       const res = await api.get(`/public/tag/${encodeURIComponent(tagId)}`)
+      if (localStorage.getItem('token') && res.data?.id) {
+        addRecentlyViewedAnimal({
+          id: res.data.id,
+          name: res.data.name || 'Unknown',
+          species: res.data.species,
+          breed: res.data.breed,
+          source: 'scan'
+        })
+      }
       setAnimal(res.data)
       setPhase('result')
       stopBarcode()

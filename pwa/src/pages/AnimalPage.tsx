@@ -50,6 +50,9 @@ export default function AnimalPage() {
   const [showShare, setShowShare] = useState(false)
   const [shareLink, setShareLink] = useState('')
   const [generatingShare, setGeneratingShare] = useState(false)
+  const [activeShares, setActiveShares] = useState<any[]>([])
+  const [loadingShares, setLoadingShares] = useState(false)
+  const [revokingShare, setRevokingShare] = useState<string | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deleteConfirmText, setDeleteConfirmText] = useState('')
   const avatarInputRef = useRef<HTMLInputElement>(null)
@@ -326,6 +329,47 @@ export default function AnimalPage() {
     navigator.clipboard.writeText(shareLink)
   }
 
+  const loadActiveShares = async () => {
+    try {
+      setLoadingShares(true)
+      const token = localStorage.getItem('token')
+      const res = await fetch(`/api/animals/${id}/shares`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      if (!res.ok) throw new Error('Failed to load shares')
+      const shares = await res.json()
+      setActiveShares(shares)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoadingShares(false)
+    }
+  }
+
+  const handleRevokeShare = async (shareId: string) => {
+    if (!confirm(t('sharing.confirmRevoke'))) return
+    try {
+      setRevokingShare(shareId)
+      const token = localStorage.getItem('token')
+      const res = await fetch(`/api/animals/${id}/shares/${shareId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      if (!res.ok) throw new Error('Failed to revoke share')
+      await loadActiveShares()
+    } catch (err) {
+      setError(t('common.error'))
+    } finally {
+      setRevokingShare(null)
+    }
+  }
+
+  const handleOpenShare = () => {
+    setShowShare(true)
+    setShareLink('')
+    loadActiveShares()
+  }
+
   if (loading) return <div className="container page" style={{ display: 'flex', justifyContent: 'center', paddingTop: '4rem' }}><div className="spinner spinner-lg"></div></div>
   if (!animal) return <div className="container page"><div className="error-card"><p>{error || t('error.notFound')}</p></div></div>
 
@@ -499,16 +543,24 @@ export default function AnimalPage() {
                     <p style={{ color: 'oklch(100% 0 0 / 0.70)', margin: 0, fontSize: 'var(--font-size-sm)' }}>
                       {animal.breed} {animal.birthdate ? `· ${new Date().getFullYear() - new Date(animal.birthdate).getFullYear()} ${t('animal.yearsOld')}` : ''}
                     </p>
+                    {animal.unique_id && (
+                      <p style={{ color: 'oklch(100% 0 0 / 0.60)', margin: 0, fontSize: 'var(--font-size-xs)', marginTop: 'var(--space-1)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', cursor: 'pointer' }} onClick={() => {
+                        navigator.clipboard.writeText(animal.unique_id || '');
+                        alert(t('common.copied'));
+                      }}>
+                        <span>ID: <code style={{ background: 'oklch(100% 0 0 / 0.12)', padding: '2px 6px', borderRadius: 'var(--radius-xs)', fontFamily: 'var(--font-mono)' }}>{animal.unique_id}</code></span>
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap', marginBottom: animal.dynamic_fields ? 'var(--space-3)' : 0 }}>
                   {isVetVerified && (
-                    <span style={{ background: 'oklch(100% 0 0 / 0.15)', border: '1px solid oklch(100% 0 0 / 0.22)', borderRadius: 'var(--radius-full)', padding: '3px 10px', fontSize: 11, fontWeight: 600, color: 'white' }}>
+                    <span style={{ background: 'var(--primary-100)', border: '1px solid var(--primary-200)', borderRadius: 'var(--radius-full)', padding: '3px 10px', fontSize: 11, fontWeight: 600, color: 'var(--primary-700)' }}>
                       {t('animal.vetVerified')}
                     </span>
                   )}
                   {hasNfcTag && (
-                    <span style={{ background: 'oklch(100% 0 0 / 0.15)', border: '1px solid oklch(100% 0 0 / 0.22)', borderRadius: 'var(--radius-full)', padding: '3px 10px', fontSize: 11, fontWeight: 600, color: 'white' }}>
+                    <span style={{ background: 'var(--primary-100)', border: '1px solid var(--primary-200)', borderRadius: 'var(--radius-full)', padding: '3px 10px', fontSize: 11, fontWeight: 600, color: 'var(--primary-700)' }}>
                       {t('animal.nfcActive')}
                     </span>
                   )}
@@ -518,7 +570,7 @@ export default function AnimalPage() {
                   try {
                     const df = JSON.parse(animal.dynamic_fields);
                     return Object.entries(df).map(([k, v]) => (
-                      <div key={k} style={{ color: 'white', fontSize: 'var(--font-size-sm)', marginTop: 'var(--space-1)' }}>
+                      <div key={k} style={{ color: 'var(--text-primary)', fontSize: 'var(--font-size-sm)', marginTop: 'var(--space-1)' }}>
                         <strong>{k}:</strong> {String(v)}
                       </div>
                     ))
@@ -543,7 +595,7 @@ export default function AnimalPage() {
                   <Link to={`/animals/${id}/tags`} className="btn btn-ghost" style={{ textDecoration: 'none', gridColumn: 'span 2' }}>
                     <Radio size={16} /> {t('animal.chips')}
                   </Link>
-                  <button className="btn btn-ghost" onClick={() => setShowShare(true)}>
+                  <button className="btn btn-ghost" onClick={handleOpenShare}>
                     <Share2 size={16} /> {t('animal.sharing')}
                   </button>
                   <button className="btn btn-ghost" onClick={() => setShowTransfer(true)}>
@@ -575,8 +627,9 @@ export default function AnimalPage() {
                 <div className="card animate-slide-up">
                   <h3 style={{ marginBottom: 'var(--space-2)' }}>{t('sharing.tempLink')}</h3>
                   <p className="text-muted" style={{ marginBottom: 'var(--space-4)' }}>{t('sharing.tempLinkDesc')}</p>
+                  
                   {shareLink ? (
-                    <div style={{ background: 'var(--surface-alt)', padding: 'var(--space-4)', borderRadius: 'var(--radius-md)', textAlign: 'center' }}>
+                    <div style={{ background: 'var(--surface-alt)', padding: 'var(--space-4)', borderRadius: 'var(--radius-md)', textAlign: 'center', marginBottom: 'var(--space-4)' }}>
                       <input type="text" className="form-input" value={shareLink} readOnly style={{ marginBottom: 'var(--space-2)', textAlign: 'center' }} />
                       <button className="btn btn-primary btn-full" onClick={copyShareLink}>
                         {t('sharing.copyLink')}
@@ -584,11 +637,53 @@ export default function AnimalPage() {
                       <p className="text-muted" style={{ margin: 'var(--space-2) 0 0 0', fontSize: 'var(--font-size-xs)' }}>{t('sharing.expiresIn')} 14 {t('sharing.days')}</p>
                     </div>
                   ) : (
-                    <button className="btn btn-primary btn-full" onClick={handleGenerateShare} disabled={generatingShare}>
+                    <button className="btn btn-primary btn-full" onClick={handleGenerateShare} disabled={generatingShare} style={{ marginBottom: 'var(--space-4)' }}>
                       {generatingShare ? t('common.loading') : t('sharing.generateLink')}
                     </button>
                   )}
-                  <button className="btn btn-ghost btn-full mt-4" onClick={() => { setShowShare(false); setShareLink(''); }}>{t('common.cancel')}</button>
+
+                  {/* Active Shares List */}
+                  <div style={{ marginBottom: 'var(--space-4)' }}>
+                    <h4 style={{ marginBottom: 'var(--space-2)', fontSize: 'var(--font-size-sm)', fontWeight: 600 }}>{t('sharing.activeLinks')}</h4>
+                    {loadingShares ? (
+                      <div className="spinner" style={{ margin: 'var(--space-2) auto' }}></div>
+                    ) : activeShares.length === 0 ? (
+                      <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', margin: 0 }}>{t('sharing.noActiveLinks')}</p>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                        {activeShares.map(share => (
+                          <div key={share.id} style={{
+                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                            padding: 'var(--space-2)', background: 'var(--surface)', borderRadius: 'var(--radius-sm)',
+                            border: '1px solid var(--border-subtle)', fontSize: 'var(--font-size-xs)'
+                          }}>
+                            <div style={{ flex: 1 }}>
+                              <div className="text-muted">{new Date(share.createdAt).toLocaleDateString()}</div>
+                              <div style={{
+                                color: share.isExpiringSoon ? 'var(--warning-500)' : 'var(--text-secondary)',
+                                fontWeight: share.isExpiringSoon ? 600 : 400
+                              }}>
+                                {t('sharing.expiresIn')} {Math.ceil(share.secondsRemaining / 3600)}h
+                              </div>
+                            </div>
+                            <button
+                              className="btn btn-outline btn-sm"
+                              onClick={() => handleRevokeShare(share.id)}
+                              disabled={revokingShare === share.id}
+                              style={{
+                                borderColor: 'var(--danger-500)', color: 'var(--danger-500)',
+                                opacity: revokingShare === share.id ? 0.5 : 1
+                              }}
+                            >
+                              {revokingShare === share.id ? t('common.loading') : t('sharing.revoke')}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <button className="btn btn-ghost btn-full" onClick={() => { setShowShare(false); setShareLink(''); }}>{t('common.cancel')}</button>
                 </div>
               )}
 
@@ -731,7 +826,7 @@ export default function AnimalPage() {
 
           {tags.length > 0 && (
             <div style={{ marginBottom: 'var(--space-6)' }}>
-              <h3 style={{ marginBottom: 'var(--space-3)' }}>{t('animal.chips')} ({tags.length})</h3>
+              <h3 style={{ marginBottom: 'var(--space-3)' }}>{t('animal.chips')}</h3>
               {tags.map(tag => (
                 <div key={tag.tag_id} className="card card-sm" style={{ marginBottom: 'var(--space-2)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', justifyContent: 'space-between' }}>

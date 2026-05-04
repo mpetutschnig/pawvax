@@ -41,6 +41,7 @@ export default function DocumentScanPage() {
   const [ocrProvider, setOcrProvider] = useState<string | null>(null)
   const [currentStatusMsg, setCurrentStatusMsg] = useState<string | null>(null)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [autoSavedAt, setAutoSavedAt] = useState<Date | null>(null)
   const [allowedRoles, setAllowedRoles] = useState<string[]>(['vet', 'authority', 'guest'])
   const [suggestedType, setSuggestedType] = useState<string | null>(null)
   const [documentId, setDocumentId] = useState<string | null>(null)
@@ -305,6 +306,7 @@ export default function DocumentScanPage() {
           setSuggestedType(data.data.type || data.data.suggestedType || 'other')
           setDocumentId(data.data.documentId)
           setOcrProvider(data.data.ocrProvider || 'unknown')
+          setAutoSavedAt(new Date())
 
           // If analysis failed (pending_analysis), show error instead of done
           if (data.data.analysisStatus === 'pending_analysis') {
@@ -658,7 +660,17 @@ export default function DocumentScanPage() {
               <div style={{ color: 'var(--success-500)', marginBottom: 'var(--space-3)', display: 'flex', justifyContent: 'center' }}>
                 <CheckCircle size={48} strokeWidth={1.5} />
               </div>
-              <h3 style={{ marginBottom: 'var(--space-4)' }}>{t('docScan.analyzeComplete')}</h3>
+              <h3 style={{ marginBottom: 'var(--space-2)' }}>{t('docScan.analyzeComplete')}</h3>
+              
+              {autoSavedAt && (
+                <div style={{ background: 'var(--success-50)', borderRadius: 'var(--radius-md)', padding: 'var(--space-3)', marginBottom: 'var(--space-4)', border: '1px solid var(--success-200)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                  <CheckCircle size={20} color="var(--success-600)" />
+                  <div style={{ textAlign: 'left' }}>
+                    <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', color: 'var(--success-800)' }}>{t('docScan.documentSaved')}</div>
+                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--success-700)' }}>{autoSavedAt.toLocaleTimeString()}</div>
+                  </div>
+                </div>
+              )}
 
               {(ocrProvider || currentStatusMsg) && (
                 <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-md)', padding: 'var(--space-4)', marginBottom: 'var(--space-6)', borderLeft: ocrProvider?.includes('Quota') ? '4px solid var(--danger-500)' : '4px solid var(--success-500)' }}>
