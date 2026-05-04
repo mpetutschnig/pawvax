@@ -141,7 +141,6 @@ export default async function wsDocumentUpload(fastify) {
           }
 
           // sicherstellen, dass der Benutzer (Owner, Vet oder Authority) das Tier uploaden darf
-          const db = getDb()
           if (!canAccessAnimalForUpload(db, animalId, accountId, userRole)) {
             fastify.log.error({ animalId, accountId, userRole }, '[WS] Access denied')
             send(socket, { type: 'error', message: 'Zugriff verweigert' })

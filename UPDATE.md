@@ -50,49 +50,61 @@ su -s /bin/bash paw-git -c "cd /tmp && git -C /git/pawvax pull"
 chmod -R a+rX /git/pawvax
 ```
 
-### 4 — Backend-Image bauen (paw-api)
+### 4 — Vor dem Build bereinigen
 
 ```bash
 PAW_API_UID=$(id -u paw-api)
-XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "cd /tmp && podman --cgroup-manager=cgroupfs build --progress=plain -t paw-api:latest -f /git/pawvax/server/Dockerfile /git/pawvax/server"
+XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "cd /tmp && podman container prune -f && podman image prune -af && podman builder prune -af"
 ```
-
-### 5 — Frontend-Image bauen (paw-pwa)
 
 ```bash
 PAW_PWA_UID=$(id -u paw-pwa)
-XDG_RUNTIME_DIR=/run/user/$PAW_PWA_UID su -s /bin/bash paw-pwa -c "cd /tmp && podman --cgroup-manager=cgroupfs build --progress=plain -t paw-pwa:latest -f /git/pawvax/pwa/Containerfile /git/pawvax/pwa"
+XDG_RUNTIME_DIR=/run/user/$PAW_PWA_UID su -s /bin/bash paw-pwa -c "cd /tmp && podman container prune -f && podman image prune -af && podman builder prune -af"
 ```
 
-### 6 — paw-api Service neu starten
+### 5 — Backend-Image bauen (paw-api)
+
+```bash
+PAW_API_UID=$(id -u paw-api)
+XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "cd /tmp && podman --cgroup-manager=cgroupfs build --no-cache --progress=plain -t paw-api:latest -f /git/pawvax/server/Dockerfile /git/pawvax/server"
+```
+
+### 6 — Frontend-Image bauen (paw-pwa)
+
+```bash
+PAW_PWA_UID=$(id -u paw-pwa)
+XDG_RUNTIME_DIR=/run/user/$PAW_PWA_UID su -s /bin/bash paw-pwa -c "cd /tmp && podman --cgroup-manager=cgroupfs build --no-cache --progress=plain -t paw-pwa:latest -f /git/pawvax/pwa/Containerfile /git/pawvax/pwa"
+```
+
+### 7 — paw-api Service neu starten
 
 ```bash
 PAW_API_UID=$(id -u paw-api)
 su -s /bin/bash paw-api -c "cd /tmp && XDG_RUNTIME_DIR=/run/user/$PAW_API_UID DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$PAW_API_UID/bus systemctl --user restart paw-api"
 ```
 
-### 7 — paw-pwa Service neu starten
+### 8 — paw-pwa Service neu starten
 
 ```bash
 PAW_PWA_UID=$(id -u paw-pwa)
 su -s /bin/bash paw-pwa -c "cd /tmp && XDG_RUNTIME_DIR=/run/user/$PAW_PWA_UID DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$PAW_PWA_UID/bus systemctl --user restart paw-pwa"
 ```
 
-### 8 — Status paw-api prüfen
+### 9 — Status paw-api prüfen
 
 ```bash
 PAW_API_UID=$(id -u paw-api)
 su -s /bin/bash paw-api -c "cd /tmp && XDG_RUNTIME_DIR=/run/user/$PAW_API_UID systemctl --user status paw-api --no-pager"
 ```
 
-### 9 — Status paw-pwa prüfen
+### 10 — Status paw-pwa prüfen
 
 ```bash
 PAW_PWA_UID=$(id -u paw-pwa)
 su -s /bin/bash paw-pwa -c "cd /tmp && XDG_RUNTIME_DIR=/run/user/$PAW_PWA_UID systemctl --user status paw-pwa --no-pager"
 ```
 
-### 10 — Shells wieder auf /sbin/nologin setzen
+### 11 — Shells wieder auf /sbin/nologin setzen
 
 ```bash
 usermod -s /sbin/nologin paw-git
