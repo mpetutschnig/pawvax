@@ -1,15 +1,16 @@
 import { useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { getDocument, deleteDocument, patchDocument, getAnimalDocuments, getMe } from '../api/rest'
 import { generateICS, downloadBlob } from '../utils/ics'
 import { PageHeader } from '../components/PageHeader'
-import { Shield, Pill, FileText, PawPrint, Landmark, Calendar, Download, Mail, Tag, Save, X, Edit2, Trash2, CheckCircle, Award, GraduationCap } from 'lucide-react'
+import { Shield, Pill, FileText, PawPrint, Landmark, Calendar, Download, Mail, Tag, Save, X, Edit2, Trash2, CheckCircle, Award, GraduationCap, ChevronLeft, ChevronRight } from 'lucide-react'
 import { TagCombobox } from '../components/TagCombobox'
 
 export default function DocumentDetailPage() {
   const { id: animalId, docId } = useParams<{ id: string; docId: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
   const { t, i18n } = useTranslation()
   const [doc, setDoc] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -30,6 +31,7 @@ export default function DocumentDetailPage() {
   const [showRetryModal, setShowRetryModal] = useState(false)
   const [retryProvider, setRetryProvider] = useState('google')
   const [retryModel, setRetryModel] = useState('gemini-3.1-flash-lite-preview')
+  const [currentImageIndex, setCurrentImageIndex] = useState(0)
 
   const [hasGemini, setHasGemini] = useState(false)
   const [hasAnthropic, setHasAnthropic] = useState(false)
@@ -67,6 +69,18 @@ export default function DocumentDetailPage() {
   useEffect(() => {
     if (docId) loadDocument()
   }, [docId])
+
+  useEffect(() => {
+    setCurrentImageIndex(0)
+  }, [docId, doc?.id])
+
+  useEffect(() => {
+    const redirectedError = (location.state as { analysisError?: string } | null)?.analysisError
+    if (redirectedError) {
+      setError(redirectedError)
+      navigate(location.pathname, { replace: true, state: null })
+    }
+  }, [location.pathname, location.state, navigate])
 
   useEffect(() => {
     getMe().then(res => {
@@ -246,6 +260,8 @@ export default function DocumentDetailPage() {
   const extracted = doc.extracted_json || {}
   const rawText = extracted.rawText || extracted.raw_text || ''
   const config = docTypeConfig[doc.doc_type] || docTypeConfig.other
+  const documentImages = Array.from(new Set([doc.image_path, ...(doc.pages || [])].filter(Boolean)))
+  const currentImage = documentImages[currentImageIndex] || null
 
   const canEditTags = doc.isUploader || doc.added_by_role !== 'vet'
   const canEditVisibility = doc.isOwner
@@ -359,13 +375,57 @@ export default function DocumentDetailPage() {
           {t('docDetail.addedAt')} {new Date(doc.created_at).toLocaleString(i18n.language === 'de' ? 'de-AT' : 'en-GB')}
         </p>
 
-        {doc.image_path && (
-          <div style={{ borderRadius: 'var(--radius-lg)', overflow: 'hidden', marginBottom: 'var(--space-6)', border: '1px solid var(--border)' }}>
-            <img
-              src={`/uploads/${doc.image_path.split('/').pop()}`}
-              alt="Dokument"
-              style={{ width: '100%', display: 'block' }}
-            />
+        {currentImage && (
+          <div style={{ marginBottom: 'var(--space-6)' }}>
+            <div style={{ position: 'relative', borderRadius: 'var(--radius-lg)', overflow: 'hidden', border: '1px solid var(--border)', background: 'var(--surface)' }}>
+              <img
+                src={`/uploads/${currentImage.split('/').pop()}`}
+                alt={`Dokumentseite ${currentImageIndex + 1}`}
+                style={{ width: '100%', display: 'block', maxHeight: '540px', objectFit: 'contain', background: 'var(--surface)' }}
+              />
+
+              {documentImages.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => setCurrentImageIndex(index => (index === 0 ? documentImages.length - 1 : index - 1))}
+                    style={{ position: 'absolute', left: 'var(--space-3)', top: '50%', transform: 'translateY(-50%)', borderRadius: '999px', padding: '10px', minWidth: 0 }}
+                    aria-label="Previous page"
+                  >
+                    <ChevronLeft size={18} />
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => setCurrentImageIndex(index => (index === documentImages.length - 1 ? 0 : index + 1))}
+                    style={{ position: 'absolute', right: 'var(--space-3)', top: '50%', transform: 'translateY(-50%)', borderRadius: '999px', padding: '10px', minWidth: 0 }}
+                    aria-label="Next page"
+                  >
+                    <ChevronRight size={18} />
+                  </button>
+                  <div style={{ position: 'absolute', right: 'var(--space-3)', bottom: 'var(--space-3)', background: 'rgba(15, 23, 42, 0.72)', color: 'white', borderRadius: '999px', padding: '4px 10px', fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>
+                    {currentImageIndex + 1} / {documentImages.length}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {documentImages.length > 1 && (
+              <div style={{ display: 'flex', gap: 'var(--space-2)', overflowX: 'auto', paddingTop: 'var(--space-3)' }}>
+                {documentImages.map((imagePath, index) => (
+                  <button
+                    key={imagePath}
+                    type="button"
+                    onClick={() => setCurrentImageIndex(index)}
+                    style={{ border: index === currentImageIndex ? '2px solid var(--primary-500)' : '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: 0, overflow: 'hidden', background: 'var(--surface)', cursor: 'pointer', flex: '0 0 72px', opacity: index === currentImageIndex ? 1 : 0.7 }}
+                    aria-label={`Page ${index + 1}`}
+                  >
+                    <img src={`/uploads/${imagePath.split('/').pop()}`} alt={`Seite ${index + 1}`} style={{ width: '72px', height: '72px', objectFit: 'cover', display: 'block' }} />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

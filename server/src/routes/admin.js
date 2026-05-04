@@ -294,6 +294,129 @@ export default async function adminRoutes(fastify) {
     return db.prepare('SELECT id, name, email, role, verified, verification_status FROM accounts WHERE id = ?').get(id)
   })
 
+  // Get all verification requests (admin)
+  fastify.get('/api/admin/verifications', async (req, reply) => {
+    const db = getDb()
+    try { await req.jwtVerify() } catch { return reply.code(401).send({ error: 'Nicht autorisiert' }) }
+    
+    const adminRole = req.user?.role || 'user'
+    if (adminRole !== 'admin') return reply.code(403).send({ error: 'Admin-Zugriff erforderlich' })
+
+    const verifications = db.prepare(`
+      SELECT 
+        vr.id,
+        vr.account_id,
+        vr.type,
+        vr.status,
+        vr.notes,
+        vr.document_path,
+        vr.rejection_reason,
+        vr.created_at,
+        vr.updated_at,
+        a.name,
+        a.email
+      FROM verification_requests vr
+      JOIN accounts a ON a.id = vr.account_id
+      ORDER BY 
+        CASE WHEN vr.status = 'pending' THEN 0 ELSE 1 END,
+        vr.created_at DESC
+    `).all()
+
+    return { verifications }
+  })
+
+  // Approve verification request
+  fastify.post('/api/admin/verifications/:id/approve', async (req, reply) => {
+    const db = getDb()
+    try { await req.jwtVerify() } catch { return reply.code(401).send({ error: 'Nicht autorisiert' }) }
+    
+    const adminRole = req.user?.role || 'user'
+    if (adminRole !== 'admin') return reply.code(403).send({ error: 'Admin-Zugriff erforderlich' })
+
+    const { id } = req.params
+    const { accountId: adminId } = req.user
+
+    const vr = db.prepare('SELECT * FROM verification_requests WHERE id = ?').get(id)
+    if (!vr) return reply.code(404).send({ error: 'Verifikationsantrag nicht gefunden' })
+    if (vr.status !== 'pending') return reply.code(409).send({ error: 'Antrag ist nicht mehr ausstehend' })
+
+    const account = db.prepare('SELECT * FROM accounts WHERE id = ?').get(vr.account_id)
+    if (!account) return reply.code(404).send({ error: 'Account nicht gefunden' })
+
+    // Update verification request status
+    db.prepare(`
+      UPDATE verification_requests 
+      SET status = 'approved', updated_at = datetime('now')
+      WHERE id = ?
+    `).run(id)
+
+    // Update accounts table for backward compatibility
+    db.prepare(`
+      UPDATE accounts 
+      SET verified = 1, verification_status = 'approved'
+      WHERE id = ?
+    `).run(vr.account_id)
+
+    logAudit(db, {
+      accountId: adminId,
+      role: 'admin',
+      action: 'verify_approved',
+      resource: 'verification_request',
+      resourceId: id,
+      details: { user_account_id: vr.account_id },
+      ip: req.ip
+    })
+
+    return { message: 'Verifikation genehmigt' }
+  })
+
+  // Reject verification request
+  fastify.post('/api/admin/verifications/:id/reject', async (req, reply) => {
+    const db = getDb()
+    try { await req.jwtVerify() } catch { return reply.code(401).send({ error: 'Nicht autorisiert' }) }
+    
+    const adminRole = req.user?.role || 'user'
+    if (adminRole !== 'admin') return reply.code(403).send({ error: 'Admin-Zugriff erforderlich' })
+
+    const { id } = req.params
+    const { reason } = req.body
+    const { accountId: adminId } = req.user
+
+    if (!reason || reason.trim().length === 0) {
+      return reply.code(400).send({ error: 'Ablehnungsgrund erforderlich' })
+    }
+
+    const vr = db.prepare('SELECT * FROM verification_requests WHERE id = ?').get(id)
+    if (!vr) return reply.code(404).send({ error: 'Verifikationsantrag nicht gefunden' })
+    if (vr.status !== 'pending') return reply.code(409).send({ error: 'Antrag ist nicht mehr ausstehend' })
+
+    // Update verification request status
+    db.prepare(`
+      UPDATE verification_requests 
+      SET status = 'rejected', rejection_reason = ?, updated_at = datetime('now')
+      WHERE id = ?
+    `).run(reason, id)
+
+    // Update accounts table for backward compatibility
+    db.prepare(`
+      UPDATE accounts 
+      SET verification_status = 'rejected', verification_note = ?
+      WHERE id = ?
+    `).run(reason, vr.account_id)
+
+    logAudit(db, {
+      accountId: adminId,
+      role: 'admin',
+      action: 'verify_rejected',
+      resource: 'verification_request',
+      resourceId: id,
+      details: { user_account_id: vr.account_id, reason },
+      ip: req.ip
+    })
+
+    return { message: 'Verifikation abgelehnt' }
+  })
+
   // Audit-Log (paginiert) with account details
   fastify.get('/api/admin/audit', async (req) => {
     const db = getDb()

@@ -68,7 +68,27 @@ export const revokeAnimalShare = (animalId: string, shareId: string) =>
   api.delete(`/animals/${animalId}/shares/${shareId}`)
 
 // Vet verification
-export const requestVerification = () => api.post('/accounts/request-verification')
+export const requestVerification = (type?: 'vet' | 'authority', notes?: string, document?: File) => {
+  // If no type provided, use simple POST for backward compatibility
+  if (!type) {
+    return api.post('/accounts/request-verification')
+  }
+  
+  const formData = new FormData()
+  formData.append('type', type)
+  if (notes) formData.append('notes', notes)
+  if (document) formData.append('document', document)
+  return api.post('/accounts/request-verification', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
+}
+
+export const getMyVerifications = () => api.get('/accounts/verifications')
+
+// Animal scans
+export const trackAnimalScan = (animalId: string) => api.post(`/animals/${animalId}/track-scan`)
+export const getRecentScans = (animalId: string) => api.get(`/animals/${animalId}/recent-scans`)
+export const getRecentlyScannedAnimals = () => api.get('/animals/recently-scanned')
 
 // Account / Profil
 export const getMe = () => api.get('/accounts/me')
@@ -81,6 +101,10 @@ export const adminGetAnimals = () => api.get('/admin/animals')
 export const adminGetPendingVerifications = () => api.get('/admin/accounts/pending-verification')
 export const adminVerifyAccount = (id: string, approved: boolean, note?: string) =>
   api.post(`/admin/accounts/${id}/verify`, { approved, note })
+export const adminGetVerifications = () => api.get('/admin/verifications')
+export const adminApproveVerification = (id: string) => api.post(`/admin/verifications/${id}/approve`)
+export const adminRejectVerification = (id: string, reason: string) => 
+  api.post(`/admin/verifications/${id}/reject`, { reason })
 export const adminPatchAccount = (id: string, data: object) => api.patch(`/admin/accounts/${id}`, data)
 export const adminGetAuditLog = (params?: object) => api.get('/admin/audit', { params })
 export const adminGetStats = () => api.get('/admin/stats')

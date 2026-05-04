@@ -2,9 +2,10 @@ import bcrypt from 'bcrypt'
 import { v4 as uuid } from 'uuid'
 import crypto from 'crypto'
 import { createReadStream, existsSync } from 'fs'
-import { resolve } from 'path'
+import { resolve, dirname, join } from 'path'
 import { getDb } from '../db/index.js'
 import { logAudit } from '../services/audit.js'
+import { saveImageChunks, getUploadPath } from '../services/storage.js'
 import { encrypt, decrypt } from '../utils/crypto.js'
 
 const UPLOADS_DIR = process.env.UPLOADS_DIR
@@ -103,7 +104,7 @@ export default async function authRoutes(fastify) {
     return reply.code(204).send()
   })
 
-  // Tierarzt beantragt Verifikation
+  // Tierarzt/Behörde beantragt Verifikation mit optionalem Dokument
   fastify.post('/api/accounts/request-verification', async (req, reply) => {
     try { await req.jwtVerify() } catch { return reply.code(401).send({ error: 'Nicht autorisiert' }) }
 
@@ -112,13 +113,104 @@ export default async function authRoutes(fastify) {
 
     const account = db.prepare('SELECT * FROM accounts WHERE id = ?').get(accountId)
     if (!account) return reply.code(404).send({ error: 'Account nicht gefunden' })
-    if (account.verification_status === 'pending') return reply.code(409).send({ error: 'Verifikation bereits beantragt' })
-    if (account.verified) return reply.code(409).send({ error: 'Bereits verifiziert' })
 
+    // Check for existing pending/approved requests
+    const existingRequest = db.prepare(`
+      SELECT id, status FROM verification_requests 
+      WHERE account_id = ? AND status IN ('pending', 'approved')
+    `).get(accountId)
+    if (existingRequest) {
+      return reply.code(409).send({ 
+        error: existingRequest.status === 'pending' 
+          ? 'Verifikation bereits beantragt' 
+          : 'Bereits verifiziert' 
+      })
+    }
+
+    let documentPath = null
+    let verType = 'vet'
+    let notes = null
+
+    // Try to parse multipart data if content-type is multipart
+    if (req.headers['content-type'] && req.headers['content-type'].includes('multipart')) {
+      try {
+        const data = await req.file()
+        if (data) {
+          for await (const part of data) {
+            if (part.type === 'field') {
+              if (part.fieldname === 'type') verType = part.value || 'vet'
+              if (part.fieldname === 'notes') notes = part.value || null
+            } else if (part.type === 'file' && part.fieldname === 'document') {
+              // Save verification document (PDF or image)
+              const ext = part.filename.split('.').pop() || 'pdf'
+              const docFilename = `verifications/${accountId}-${Date.now()}.${ext}`
+              const chunks = []
+              
+              for await (const chunk of part.file) {
+                chunks.push(chunk)
+              }
+              
+              const buffer = Buffer.concat(chunks)
+              // Basic file type validation (just check size)
+              if (buffer.length > 10 * 1024 * 1024) { // 10MB limit
+                return reply.code(413).send({ error: 'Datei zu groß (max 10MB)' })
+              }
+              
+              const filepath = getUploadPath(docFilename)
+              const dirPath = dirname(filepath)
+              require('fs').mkdirSync(dirPath, { recursive: true })
+              require('fs').writeFileSync(filepath, buffer)
+              documentPath = docFilename
+            }
+          }
+        }
+      } catch (err) {
+        // Multipart parsing failed, fall back to JSON body
+      }
+    }
+
+    // Fallback: try to read from JSON body (for backward compatibility)
+    if (!verType && req.body) {
+      verType = req.body.type || 'vet'
+      notes = req.body.notes || null
+    }
+
+    const verificationId = uuid()
+
+    // Create verification request
+    db.prepare(`
+      INSERT INTO verification_requests (id, account_id, type, status, notes, document_path, created_at, updated_at)
+      VALUES (?, ?, ?, 'pending', ?, ?, datetime('now'), datetime('now'))
+    `).run(verificationId, accountId, verType, notes, documentPath)
+
+    // Also update old accounts table for backward compatibility
     db.prepare(`UPDATE accounts SET verification_status = 'pending' WHERE id = ?`).run(accountId)
-    logAudit(db, { accountId, role, action: 'request_verification', resource: 'account', resourceId: accountId, ip: req.ip })
 
-    return { message: 'Verifikationsantrag eingereicht' }
+    logAudit(db, { 
+      accountId, 
+      role, 
+      action: 'request_verification', 
+      resource: 'verification_request', 
+      resourceId: verificationId, 
+      ip: req.ip 
+    })
+
+    return { message: 'Verifikationsantrag eingereicht', requestId: verificationId }
+  })
+
+  // User abrufen eigene Verifikations-Anfragen
+  fastify.get('/api/accounts/verifications', { onRequest: [fastify.authenticate] }, async (req) => {
+    const db = getDb()
+    const { accountId } = req.user
+
+    const requests = db.prepare(`
+      SELECT id, type, status, notes, document_path, rejection_reason, created_at, updated_at
+      FROM verification_requests
+      WHERE account_id = ?
+      ORDER BY created_at DESC
+    `).all(accountId)
+
+    return { requests }
   })
 
   // Eigenes Profil lesen

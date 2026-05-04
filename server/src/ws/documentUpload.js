@@ -303,6 +303,18 @@ export default async function wsDocumentUpload(fastify) {
               ip: req.ip
             })
 
+            // Track animal scan for vets/authorities
+            if ((userRole === 'vet' || userRole === 'authority') && uploadState.animalId) {
+              try {
+                db.prepare(`
+                  INSERT INTO animal_scans (id, animal_id, account_id, scanned_at)
+                  VALUES (?, ?, ?, datetime('now'))
+                `).run(uuid(), uploadState.animalId, accountId)
+              } catch (err) {
+                fastify.log.warn({ err }, 'WS: Failed to track animal scan')
+              }
+            }
+
             send(socket, {
               type: 'result',
               data: { documentId: docId, docType: suggestedType, pages: pages.length, suggestedType, ocrProvider: lastProvider, analysisStatus }

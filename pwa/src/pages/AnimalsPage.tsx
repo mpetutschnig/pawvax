@@ -4,13 +4,14 @@ import { useTranslation } from 'react-i18next'
 import * as api from '../api/rest'
 import { PetCard } from '../components/PetCard'
 import { PageHeader } from '../components/PageHeader'
-import { Search, Plus, PawPrint, ArrowRightLeft } from 'lucide-react'
+import { Search, Plus, PawPrint, ArrowRightLeft, Clock } from 'lucide-react'
 import { AnimalListItemDTO } from '../types/animal'
 import { getRecentlyViewedAnimals, RecentlyViewedAnimal } from '../hooks/useRecentlyViewed'
 
 export default function AnimalsPage() {
   const { t } = useTranslation()
   const [animals, setAnimals] = useState<(AnimalListItemDTO & { is_archived?: number })[]>([])
+  const [recentlyScanned, setRecentlyScanned] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [showTransferForm, setShowTransferForm] = useState(false)
@@ -29,8 +30,12 @@ export default function AnimalsPage() {
   const loadAnimals = async () => {
     try {
       setLoading(true)
-      const { data } = await api.getAnimals()
-      setAnimals(data as any)
+      const [animalsRes, scannedRes] = await Promise.all([
+        api.getAnimals(),
+        api.getRecentlyScannedAnimals()
+      ])
+      setAnimals(animalsRes.data as any)
+      setRecentlyScanned(scannedRes.data.scans || [])
     } catch (err: any) {
       setError(err.response?.data?.error || t('animals.loadError'))
     } finally {
@@ -132,6 +137,44 @@ export default function AnimalsPage() {
                 </div>
                 <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>
                   {item.source === 'scan' ? t('recent.sourceScan') : t('recent.sourceShare')} · {new Date(item.viewedAt).toLocaleTimeString()}
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {recentlyScanned.length > 0 && (
+        <div className="card" style={{ marginBottom: 'var(--space-4)', borderLeft: '4px solid var(--warning-500)', background: 'var(--warning-50)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
+            <Clock size={18} color="var(--warning-600)" />
+            <h3 style={{ margin: 0 }}>{t('profile.scannedHistory')}</h3>
+          </div>
+          <div style={{ display: 'grid', gap: 'var(--space-2)' }}>
+            {recentlyScanned.map((animal, idx) => (
+              <Link
+                key={`${animal.id}-${idx}`}
+                to={`/animals/${animal.id}`}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: 'var(--space-2) var(--space-3)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: 'var(--radius-sm)',
+                  textDecoration: 'none',
+                  color: 'inherit',
+                  background: 'white'
+                }}
+              >
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>{animal.name}</div>
+                  <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>
+                    {animal.species || ''}{animal.breed ? ` · ${animal.breed}` : ''}
+                  </div>
+                </div>
+                <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>
+                  {new Date(animal.scanned_at).toLocaleString()}
                 </div>
               </Link>
             ))}

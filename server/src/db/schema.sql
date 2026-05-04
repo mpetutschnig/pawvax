@@ -152,3 +152,28 @@ CREATE INDEX IF NOT EXISTS idx_medical_admin_document ON medical_administrations
 CREATE INDEX IF NOT EXISTS idx_medical_admin_next_due ON medical_administrations(next_due_at);
 CREATE INDEX IF NOT EXISTS idx_test_results_timestamp ON test_results(test_timestamp DESC);
 CREATE INDEX IF NOT EXISTS idx_test_results_created ON test_results(created_at DESC);
+
+CREATE TABLE IF NOT EXISTS verification_requests (
+  id            TEXT PRIMARY KEY,
+  account_id    TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  type          TEXT NOT NULL CHECK(type IN ('vet', 'authority')),
+  status        TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'approved', 'rejected')),
+  notes         TEXT,
+  document_path TEXT,
+  rejection_reason TEXT,
+  created_at    TEXT DEFAULT (datetime('now')),
+  updated_at    TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS animal_scans (
+  id        TEXT PRIMARY KEY,
+  animal_id TEXT NOT NULL REFERENCES animals(id) ON DELETE CASCADE,
+  account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  scanned_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_verification_requests_account ON verification_requests(account_id);
+CREATE INDEX IF NOT EXISTS idx_verification_requests_status ON verification_requests(status);
+CREATE INDEX IF NOT EXISTS idx_animal_scans_animal ON animal_scans(animal_id);
+CREATE INDEX IF NOT EXISTS idx_animal_scans_account ON animal_scans(account_id);
+CREATE INDEX IF NOT EXISTS idx_animal_scans_time ON animal_scans(scanned_at);

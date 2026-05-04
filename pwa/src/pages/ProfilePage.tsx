@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { getMe, patchMe, deleteMe, requestVerification } from '../api/rest'
+import { getMe, patchMe, deleteMe, requestVerification, getMyVerifications } from '../api/rest'
 import { PageHeader } from '../components/PageHeader'
-import { User, Shield, Stethoscope, Settings, Trash2, CheckCircle, Clock, AlertTriangle, Key, BookOpen, Download } from 'lucide-react'
+import { User, Shield, Stethoscope, Settings, Trash2, CheckCircle, Clock, AlertTriangle, Key, BookOpen, Download, Upload, X } from 'lucide-react'
 
 export default function ProfilePage() {
   const navigate = useNavigate()
@@ -29,10 +29,25 @@ export default function ProfilePage() {
   const [aiPriority, setAiPriority] = useState<string[]>(['system', 'google', 'anthropic', 'openai'])
   const [modelSaving, setModelSaving] = useState(false)
   const [requestedRole, setRequestedRole] = useState<string>('vet')
+  const [verificationNotes, setVerificationNotes] = useState('')
+  const [verificationDocument, setVerificationDocument] = useState<File | null>(null)
+  const [verificationSubmitting, setVerificationSubmitting] = useState(false)
+  const [verificationRequests, setVerificationRequests] = useState<any[]>([])
+  const [showVerificationForm, setShowVerificationForm] = useState(false)
 
   useEffect(() => {
     loadProfile()
+    loadVerificationRequests()
   }, [])
+
+  const loadVerificationRequests = async () => {
+    try {
+      const res = await getMyVerifications()
+      setVerificationRequests(res.data.requests || [])
+    } catch (err) {
+      console.error('Failed to load verification requests', err)
+    }
+  }
 
   const loadProfile = async () => {
     try {
@@ -262,18 +277,23 @@ export default function ProfilePage() {
 
   const requestVerify = async () => {
     try {
-      await requestVerification()
+      setVerificationSubmitting(true)
+      await requestVerification(
+        requestedRole as 'vet' | 'authority',
+        verificationNotes || undefined,
+        verificationDocument || undefined
+      )
+      setVerificationNotes('')
+      setVerificationDocument(null)
+      setShowVerificationForm(false)
       await loadProfile()
+      await loadVerificationRequests()
       setSuccess(t('profile.requestVerificationSuccess'))
       setTimeout(() => setSuccess(null), 3000)
     } catch (err: any) {
-      if (err?.response?.status === 409) {
-        await loadProfile()
-        setSuccess(t('profile.requestVerificationSuccess'))
-        setTimeout(() => setSuccess(null), 3000)
-      } else {
-        setError(err?.response?.data?.error || err.message || t('common.error'))
-      }
+      setError(err?.response?.data?.error || err.message || t('common.error'))
+    } finally {
+      setVerificationSubmitting(false)
     }
   }
 
@@ -361,25 +381,117 @@ export default function ProfilePage() {
             ) : isPending ? (
               <p className="text-muted" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', margin: 0 }}><Clock size={18} /> {t('profile.verificationPending')}</p>
             ) : (
-              <div style={{ background: 'var(--surface)', padding: 'var(--space-4)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
-                <p style={{ margin: '0 0 var(--space-3) 0' }}>{t('profile.selectRoleToVerify')}</p>
-                <div style={{ display: 'flex', gap: 'var(--space-4)', marginBottom: 'var(--space-3)' }}>
-                  <label style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center', cursor: 'pointer' }}>
-                    <input type="radio" name="requestRole" checked={requestedRole === 'vet'}
-                      onChange={() => setRequestedRole('vet')} 
-                      style={{ width: 16, height: 16, accentColor: 'var(--primary-500)' }} />
-                    {t('docScan.vet')}
-                  </label>
-                  <label style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center', cursor: 'pointer' }}>
-                    <input type="radio" name="requestRole" checked={requestedRole === 'authority'}
-                      onChange={() => setRequestedRole('authority')} 
-                      style={{ width: 16, height: 16, accentColor: 'var(--primary-500)' }} />
-                    {t('docScan.authority')}
-                  </label>
-                </div>
-                <button className="btn btn-primary" onClick={requestVerify}>
-                  <CheckCircle size={16} /> {t('profile.requestVerification')}
-                </button>
+              <></>
+            )}
+
+            {/* Verification History */}
+            <div style={{ marginTop: 'var(--space-4)' }}>
+              {verificationRequests.length > 0 && (
+                <>
+                  <h4 style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: 'var(--space-3)' }}>{t('profile.verificationRequests')}</h4>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                    {verificationRequests.map(req => (
+                      <div key={req.id} className="card" style={{ padding: 'var(--space-3)', background: req.status === 'pending' ? 'var(--warning-50)' : req.status === 'approved' ? 'var(--success-50)' : 'var(--danger-50)', borderLeft: `4px solid ${req.status === 'pending' ? 'var(--warning-500)' : req.status === 'approved' ? 'var(--success-500)' : 'var(--danger-500)'}` }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 'var(--space-2)' }}>
+                          <div>
+                            <p style={{ margin: 0, fontWeight: 600, textTransform: 'capitalize' }}>
+                              {req.type === 'vet' ? t('profile.vetVerification') : t('profile.authorityVerification')}
+                            </p>
+                            <p className="text-muted" style={{ margin: '4px 0 0 0', fontSize: 'var(--font-size-xs)' }}>
+                              {new Date(req.created_at).toLocaleString()}
+                            </p>
+                          </div>
+                          <span className="badge" style={{ background: req.status === 'pending' ? 'var(--warning-500)' : req.status === 'approved' ? 'var(--success-500)' : 'var(--danger-500)' }}>
+                            {req.status === 'pending' ? t('profile.status') : req.status === 'approved' ? t('admin.approved') : t('admin.rejected')}
+                          </span>
+                        </div>
+                        {req.notes && <p style={{ margin: '0 0 var(--space-2) 0', fontSize: 'var(--font-size-sm)' }}>{req.notes}</p>}
+                        {req.rejection_reason && (
+                          <div style={{ background: 'rgba(255,0,0,0.05)', padding: 'var(--space-2)', borderRadius: 'var(--radius-sm)', marginTop: 'var(--space-2)' }}>
+                            <p style={{ margin: 0, fontSize: 'var(--font-size-xs)', fontWeight: 600, color: 'var(--danger-600)' }}>{t('profile.rejectionReason')}:</p>
+                            <p style={{ margin: '4px 0 0 0', fontSize: 'var(--font-size-sm)', color: 'var(--danger-700)' }}>{req.rejection_reason}</p>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Verification Request Form */}
+            {!isVet && !isOrg && !isPending && (
+              <div style={{ marginTop: 'var(--space-4)' }}>
+                {!showVerificationForm ? (
+                  <button className="btn btn-primary" onClick={() => setShowVerificationForm(true)}>
+                    <CheckCircle size={16} /> {t('profile.requestVerification')}
+                  </button>
+                ) : (
+                  <div className="card" style={{ background: 'var(--surface)', padding: 'var(--space-4)', marginTop: 'var(--space-3)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-3)' }}>
+                      <h4 style={{ margin: 0, fontSize: 'var(--font-size-base)', fontWeight: 600 }}>{t('profile.requestVerification')}</h4>
+                      <button className="btn btn-ghost" onClick={() => { setShowVerificationForm(false); setVerificationNotes(''); setVerificationDocument(null) }} style={{ padding: '4px' }}>
+                        <X size={18} />
+                      </button>
+                    </div>
+
+                    <div style={{ marginBottom: 'var(--space-3)' }}>
+                      <label style={{ display: 'block', fontWeight: 600, marginBottom: 'var(--space-2)', fontSize: 'var(--font-size-sm)' }}>{t('profile.verificationType')}</label>
+                      <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+                        <label style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center', cursor: 'pointer' }}>
+                          <input type="radio" name="requestRole" checked={requestedRole === 'vet'}
+                            onChange={() => setRequestedRole('vet')} 
+                            style={{ width: 16, height: 16, accentColor: 'var(--primary-500)' }} />
+                          {t('profile.vetVerification')}
+                        </label>
+                        <label style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center', cursor: 'pointer' }}>
+                          <input type="radio" name="requestRole" checked={requestedRole === 'authority'}
+                            onChange={() => setRequestedRole('authority')} 
+                            style={{ width: 16, height: 16, accentColor: 'var(--primary-500)' }} />
+                          {t('profile.authorityVerification')}
+                        </label>
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: 'var(--space-3)' }}>
+                      <label style={{ display: 'block', fontWeight: 600, marginBottom: 'var(--space-2)', fontSize: 'var(--font-size-sm)' }}>{t('profile.verificationNotes')}</label>
+                      <textarea
+                        className="form-input"
+                        placeholder={t('profile.verificationNotes')}
+                        value={verificationNotes}
+                        onChange={(e) => setVerificationNotes(e.target.value)}
+                        rows={3}
+                        style={{ resize: 'vertical' }}
+                      />
+                    </div>
+
+                    <div style={{ marginBottom: 'var(--space-3)' }}>
+                      <label style={{ display: 'block', fontWeight: 600, marginBottom: 'var(--space-2)', fontSize: 'var(--font-size-sm)' }}>{t('profile.attachDocument')}</label>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                        <input
+                          type="file"
+                          accept=".pdf,.jpg,.jpeg,.png,.gif"
+                          onChange={(e) => setVerificationDocument(e.target.files?.[0] || null)}
+                          style={{ flex: 1 }}
+                        />
+                        {verificationDocument && (
+                          <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--success-600)' }}>
+                            ✓ {verificationDocument.name}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: 'var(--space-2)', justifyContent: 'flex-end' }}>
+                      <button className="btn btn-outline" onClick={() => { setShowVerificationForm(false); setVerificationNotes(''); setVerificationDocument(null) }} disabled={verificationSubmitting}>
+                        {t('common.cancel')}
+                      </button>
+                      <button className="btn btn-primary" onClick={requestVerify} disabled={verificationSubmitting}>
+                        {verificationSubmitting ? <Clock size={16} /> : <Upload size={16} />} {verificationSubmitting ? t('common.loading') : t('profile.submitVerification')}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </>

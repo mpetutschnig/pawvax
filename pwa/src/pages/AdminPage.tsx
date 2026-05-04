@@ -3,9 +3,9 @@ import { useTranslation } from 'react-i18next'
 import {
   adminGetStats, adminGetAccounts, adminGetAnimals, adminGetPendingVerifications,
   adminVerifyAccount, adminPatchAccount, adminGetAuditLog, adminDeleteAnimal, adminDeleteAccount, adminGetTestResults,
-  adminGetOrphans, adminDeleteOrphans
+  adminGetOrphans, adminDeleteOrphans, adminGetVerifications, adminApproveVerification, adminRejectVerification
 } from '../api/rest'
-import { PawPrint, LogOut, LayoutDashboard, Users, Cat, ShieldCheck, FileClock, CheckCircle, Menu, X, Settings, XCircle, FlaskConical, Trash2 } from 'lucide-react'
+import { PawPrint, LogOut, LayoutDashboard, Users, Cat, ShieldCheck, FileClock, CheckCircle, Menu, X, Settings, XCircle, FlaskConical, Trash2, AlertCircle } from 'lucide-react'
 import { AdminAnimalDTO } from '../types/animal'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 
@@ -103,6 +103,11 @@ export default function AdminPage() {
   const [orphanReport, setOrphanReport] = useState<OrphanReport | null>(null)
   const [selectedOrphanCategories, setSelectedOrphanCategories] = useState<string[]>([])
   const [orphanDeleting, setOrphanDeleting] = useState(false)
+  const [orphanFilter, setOrphanFilter] = useState('')
+  const [verificationRequests, setVerificationRequests] = useState<any[]>([])
+  const [rejectingRequestId, setRejectingRequestId] = useState<string | null>(null)
+  const [rejectionReason, setRejectionReason] = useState('')
+  const [verificationProcessing, setVerificationProcessing] = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/settings').then(res => res.json()).then(data => setAppSettings(data)).catch(console.error)
@@ -129,8 +134,8 @@ export default function AdminPage() {
         const res = await adminGetAnimals()
         setAnimals(res.data)
       } else if (section === 'verifications') {
-        const res = await adminGetPendingVerifications()
-        setVerifications(res.data)
+        const res = await adminGetVerifications()
+        setVerificationRequests(res.data.verifications || [])
       } else if (section === 'audit') {
         const res = await adminGetAuditLog({ page: auditPage })
         setAuditLog(res.data)
@@ -146,6 +151,7 @@ export default function AdminPage() {
         const res = await adminGetOrphans()
         setOrphanReport(res.data)
         setSelectedOrphanCategories([])
+        setOrphanFilter('')
       }
     } catch (err) {
       console.error('Admin load error:', err)
@@ -178,7 +184,16 @@ export default function AdminPage() {
   const selectedAccount = selectedId ? accounts.find(a => a.id === selectedId) : null
   const selectedAnimal = selectedId ? animals.find(a => a.id === selectedId) : null
   const orphanCategories = orphanReport?.categories ?? []
+  const filteredOrphanCategories = orphanCategories.filter(category => {
+    const haystack = `${category.label} ${category.key}`.toLowerCase()
+    return haystack.includes(orphanFilter.trim().toLowerCase())
+  })
   const orphanTotal = orphanReport?.total ?? 0
+  const orphanBreakdown = orphanCategories
+    .filter(category => category.count > 0)
+    .slice(0, 3)
+    .map(category => `${category.count} ${t(`admin.orphanCategory.${category.key}` as any, category.label)}`)
+    .join(' · ')
 
   const toggleOrphanCategory = (key: string) => {
     setSelectedOrphanCategories(current => current.includes(key)
@@ -207,6 +222,39 @@ export default function AdminPage() {
       alert(t('common.error'))
     } finally {
       setOrphanDeleting(false)
+    }
+  }
+
+  const approveVerification = async (requestId: string) => {
+    setVerificationProcessing(requestId)
+    try {
+      await adminApproveVerification(requestId)
+      await loadData()
+    } catch (err) {
+      alert(t('common.error'))
+      console.error(err)
+    } finally {
+      setVerificationProcessing(null)
+    }
+  }
+
+  const rejectVerification = async (requestId: string) => {
+    if (!rejectionReason.trim()) {
+      alert(t('admin.enterRejectionReason'))
+      return
+    }
+
+    setVerificationProcessing(requestId)
+    try {
+      await adminRejectVerification(requestId, rejectionReason)
+      setRejectingRequestId(null)
+      setRejectionReason('')
+      await loadData()
+    } catch (err) {
+      alert(t('common.error'))
+      console.error(err)
+    } finally {
+      setVerificationProcessing(null)
     }
   }
 
@@ -310,9 +358,9 @@ export default function AdminPage() {
                 { label: t('admin.totalDocuments'), value: stats.documents, trend: '+18%', up: true },
                 { label: t('admin.auditEntries'), value: stats.auditEntries, trend: '+2%', up: true },
                 { label: t('admin.pendingVerifications'), value: stats.pendingVerifications, trend: '', up: true, clickable: true, onClick: () => setSection('verifications') },
-                { label: t('admin.orphanedItems'), value: orphanTotal, trend: orphanTotal > 0 ? t('admin.cleanupRecommended') : '', up: false, clickable: true, onClick: () => setSection('cleanup') },
+                { label: t('admin.orphanedItems'), value: orphanTotal, trend: orphanTotal > 0 ? t('admin.cleanupRecommended') : '', detail: orphanBreakdown, up: false, clickable: true, onClick: () => setSection('cleanup'), alert: orphanTotal > 0 },
               ].map(stat => (
-                <div key={stat.label} className="card card-sm" style={{ marginBottom: 0, ...(stat.clickable ? { cursor: 'pointer', transition: 'all 0.2s' } : {}) }} onClick={stat.onClick} onMouseEnter={(e) => stat.clickable && (e.currentTarget.style.transform = 'translateY(-4px)')} onMouseLeave={(e) => stat.clickable && (e.currentTarget.style.transform = 'translateY(0)')}>
+                <div key={stat.label} className="card card-sm" style={{ marginBottom: 0, ...(stat.clickable ? { cursor: 'pointer', transition: 'all 0.2s' } : {}), ...(stat.alert ? { border: '1px solid var(--danger-300)', background: 'var(--danger-50)' } : {}) }} onClick={stat.onClick} onMouseEnter={(e) => stat.clickable && (e.currentTarget.style.transform = 'translateY(-4px)')} onMouseLeave={(e) => stat.clickable && (e.currentTarget.style.transform = 'translateY(0)')}>
                   <div style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', color: stat.value > 0 ? 'var(--danger-500)' : 'var(--text-primary)', lineHeight: 1 }}>
                     {stat.value}
                   </div>
@@ -322,6 +370,11 @@ export default function AdminPage() {
                   {stat.trend && (
                     <div style={{ fontSize: 'var(--font-size-xs)', fontWeight: 600, color: stat.up ? 'var(--success-600)' : 'var(--danger-500)', marginTop: 6 }}>
                       {stat.up ? '↑' : '↓'} {stat.trend}
+                    </div>
+                  )}
+                  {stat.detail && (
+                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', marginTop: 'var(--space-2)', lineHeight: 1.4 }}>
+                      {stat.detail}
                     </div>
                   )}
                 </div>
@@ -434,42 +487,109 @@ export default function AdminPage() {
         {section === 'verifications' && !loading && (
           <div className="animate-fade-in">
             <h1 style={{ marginBottom: 'var(--space-6)' }}>{t('admin.verifications')}</h1>
-            {verifications.length === 0 ? (
+            {verificationRequests.length === 0 ? (
               <div className="card text-center" style={{ padding: 'var(--space-8)' }}>
                 <ShieldCheck size={48} color="var(--primary-200)" style={{ margin: '0 auto var(--space-4)' }} />
                 <p className="text-muted">{t('admin.noVerifications')}</p>
               </div>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 'var(--space-4)' }}>
-                {verifications.map(v => (
-                  <div key={v.id} className="card">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--space-4)' }}>
-                      <div>
-                        <p style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'var(--font-size-base)', margin: '0 0 2px 0' }}>{v.name}</p>
-                        <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', margin: 0 }}>{v.email}</p>
+              <div style={{ display: 'grid', gap: 'var(--space-4)' }}>
+                {verificationRequests.map(req => (
+                  <div key={req.id} className="card" style={{ padding: 0, overflow: 'hidden', borderLeft: `4px solid ${req.status === 'pending' ? 'var(--warning-500)' : req.status === 'approved' ? 'var(--success-500)' : 'var(--danger-500)'}` }}>
+                    <div style={{ padding: 'var(--space-4)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 'var(--space-3)' }}>
+                        <div>
+                          <p style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'var(--font-size-base)', margin: '0 0 2px 0' }}>{req.name}</p>
+                          <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', margin: 0 }}>{req.email}</p>
+                          <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', margin: '4px 0 0 0' }}>
+                            {new Date(req.created_at).toLocaleString()}
+                          </p>
+                        </div>
+                        <span className="badge" style={{ background: req.status === 'pending' ? 'var(--warning-500)' : req.status === 'approved' ? 'var(--success-500)' : 'var(--danger-500)' }}>
+                          {req.status === 'pending' ? t('admin.pending') : req.status === 'approved' ? t('admin.approved') : t('admin.rejected')}
+                        </span>
                       </div>
-                      <span className="badge badge-warning">{t('admin.pending')}</span>
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-                      <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-                        <button
-                          className="btn btn-primary flex-1"
-                          onClick={() => adminPatchAccount(v.id, { role: 'user,vet' }).then(() => adminVerifyAccount(v.id, true)).then(() => loadData())}
-                          style={{ padding: '8px 0', fontSize: '12px' }}
-                        >
-                          <CheckCircle size={14} /> {t('admin.approveVet')}
-                        </button>
-                        <button
-                          className="btn btn-secondary flex-1"
-                          onClick={() => adminPatchAccount(v.id, { role: 'user,authority' }).then(() => adminVerifyAccount(v.id, true)).then(() => loadData())}
-                          style={{ padding: '8px 0', fontSize: '12px' }}
-                        >
-                          <ShieldCheck size={14} /> {t('admin.approveOrg')}
-                        </button>
+
+                      <div style={{ background: 'var(--surface)', padding: 'var(--space-3)', borderRadius: 'var(--radius-sm)', marginBottom: 'var(--space-3)' }}>
+                        <p style={{ margin: '0 0 4px 0', fontSize: 'var(--font-size-sm)', fontWeight: 600 }}>{t('admin.requestedType')}:</p>
+                        <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', textTransform: 'capitalize' }}>
+                          {req.type === 'vet' ? t('profile.vetVerification') : t('profile.authorityVerification')}
+                        </p>
                       </div>
-                      <button className="btn btn-ghost btn-full" onClick={() => adminVerifyAccount(v.id, false).then(() => loadData())}>
-                        {t('admin.reject')}
-                      </button>
+
+                      {req.notes && (
+                        <div style={{ background: 'var(--surface)', padding: 'var(--space-3)', borderRadius: 'var(--radius-sm)', marginBottom: 'var(--space-3)' }}>
+                          <p style={{ margin: '0 0 4px 0', fontSize: 'var(--font-size-sm)', fontWeight: 600 }}>{t('admin.requestedNotes')}:</p>
+                          <p style={{ margin: 0, fontSize: 'var(--font-size-sm)' }}>{req.notes}</p>
+                        </div>
+                      )}
+
+                      {req.document_path && (
+                        <div style={{ background: 'var(--surface)', padding: 'var(--space-3)', borderRadius: 'var(--radius-sm)', marginBottom: 'var(--space-3)' }}>
+                          <p style={{ margin: '0 0 4px 0', fontSize: 'var(--font-size-sm)', fontWeight: 600 }}>{t('admin.viewDocument')}:</p>
+                          <a href={`/uploads/${req.document_path}`} target="_blank" rel="noopener noreferrer" className="text-link" style={{ fontSize: 'var(--font-size-sm)' }}>
+                            📄 {req.document_path.split('/').pop()}
+                          </a>
+                        </div>
+                      )}
+
+                      {req.rejection_reason && (
+                        <div style={{ background: 'var(--danger-50)', padding: 'var(--space-3)', borderRadius: 'var(--radius-sm)', marginBottom: 'var(--space-3)', borderLeft: '3px solid var(--danger-500)' }}>
+                          <p style={{ margin: '0 0 4px 0', fontSize: 'var(--font-size-sm)', fontWeight: 600, color: 'var(--danger-600)' }}>{t('profile.rejectionReason')}:</p>
+                          <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', color: 'var(--danger-700)' }}>{req.rejection_reason}</p>
+                        </div>
+                      )}
+
+                      {req.status === 'pending' && (
+                        <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
+                          <button
+                            className="btn btn-primary flex-1"
+                            onClick={() => approveVerification(req.id)}
+                            disabled={verificationProcessing === req.id}
+                          >
+                            <CheckCircle size={14} /> {verificationProcessing === req.id ? t('common.loading') : t('admin.approveVerification')}
+                          </button>
+                          <button
+                            className="btn btn-outline flex-1"
+                            onClick={() => setRejectingRequestId(req.id)}
+                            disabled={verificationProcessing === req.id}
+                          >
+                            <AlertCircle size={14} /> {t('admin.rejectVerification')}
+                          </button>
+                        </div>
+                      )}
+
+                      {rejectingRequestId === req.id && (
+                        <div style={{ marginTop: 'var(--space-3)', padding: 'var(--space-3)', background: 'var(--danger-50)', borderRadius: 'var(--radius-sm)' }}>
+                          <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: 'var(--space-2)' }}>
+                            {t('admin.enterRejectionReason')}:
+                          </label>
+                          <textarea
+                            className="form-input"
+                            placeholder={t('admin.rejectionReasonPlaceholder')}
+                            value={rejectionReason}
+                            onChange={(e) => setRejectionReason(e.target.value)}
+                            rows={3}
+                            style={{ marginBottom: 'var(--space-2)', fontSize: 'var(--font-size-sm)' }}
+                          />
+                          <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                            <button
+                              className="btn btn-danger flex-1"
+                              onClick={() => rejectVerification(req.id)}
+                              disabled={verificationProcessing === req.id}
+                            >
+                              {verificationProcessing === req.id ? t('common.loading') : t('admin.confirmReject')}
+                            </button>
+                            <button
+                              className="btn btn-ghost flex-1"
+                              onClick={() => { setRejectingRequestId(null); setRejectionReason('') }}
+                              disabled={verificationProcessing === req.id}
+                            >
+                              {t('common.cancel')}
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -608,52 +728,68 @@ export default function AdminPage() {
                 <p style={{ margin: 0, fontWeight: 600 }}>{t('admin.noOrphans')}</p>
               </div>
             ) : (
-              <div style={{ display: 'grid', gap: 'var(--space-4)' }}>
-                {orphanCategories.map(category => (
-                  <div key={category.key} className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-3)', padding: 'var(--space-4)', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', cursor: 'pointer' }}>
-                        <input
-                          type="checkbox"
-                          checked={selectedOrphanCategories.includes(category.key)}
-                          onChange={() => toggleOrphanCategory(category.key)}
-                          style={{ width: 16, height: 16, accentColor: 'var(--danger-500)' }}
-                        />
-                        <div>
-                          <div style={{ fontWeight: 600 }}>{t(`admin.orphanCategory.${category.key}` as any, category.label)}</div>
-                          <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>{category.count} {t('admin.orphanedItems')}</div>
-                        </div>
-                      </label>
-                      <button className="btn btn-danger" onClick={() => deleteSelectedOrphans([category.key])} disabled={orphanDeleting}>
-                        {t('admin.deleteCategory')}
-                      </button>
+              <>
+                <div className="card" style={{ marginBottom: 'var(--space-4)' }}>
+                  <label className="form-label">{t('common.search')}</label>
+                  <input
+                    className="form-input"
+                    value={orphanFilter}
+                    onChange={e => setOrphanFilter(e.target.value)}
+                    placeholder={`${t('common.search')}...`}
+                  />
+                </div>
+                <div style={{ display: 'grid', gap: 'var(--space-4)' }}>
+                  {filteredOrphanCategories.length === 0 && (
+                    <div className="card text-center" style={{ padding: 'var(--space-6)' }}>
+                      <p className="text-muted" style={{ margin: 0 }}>{t('admin.noOrphans')}</p>
                     </div>
+                  )}
+                  {filteredOrphanCategories.map(category => (
+                    <div key={category.key} className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-3)', padding: 'var(--space-4)', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', cursor: 'pointer' }}>
+                          <input
+                            type="checkbox"
+                            checked={selectedOrphanCategories.includes(category.key)}
+                            onChange={() => toggleOrphanCategory(category.key)}
+                            style={{ width: 16, height: 16, accentColor: 'var(--danger-500)' }}
+                          />
+                          <div>
+                            <div style={{ fontWeight: 600 }}>{t(`admin.orphanCategory.${category.key}` as any, category.label)}</div>
+                            <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>{category.count} {t('admin.orphanedItems')}</div>
+                          </div>
+                        </label>
+                        <button className="btn btn-danger" onClick={() => deleteSelectedOrphans([category.key])} disabled={orphanDeleting}>
+                          {t('admin.deleteCategory')}
+                        </button>
+                      </div>
 
-                    <div style={{ overflowX: 'auto' }}>
-                      <table className="admin-table">
-                        <thead>
-                          <tr>
-                            <th>ID</th>
-                            <th>{t('admin.name')}</th>
-                            <th>{t('admin.reference')}</th>
-                            <th>{t('admin.timestamp')}</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {category.items.map(item => (
-                            <tr key={item.id}>
-                              <td><code>{item.id}</code></td>
-                              <td>{item.title || '—'}</td>
-                              <td><code>{item.reference || '—'}</code></td>
-                              <td>{item.created_at ? String(item.created_at) : '—'}</td>
+                      <div style={{ overflowX: 'auto' }}>
+                        <table className="admin-table">
+                          <thead>
+                            <tr>
+                              <th>ID</th>
+                              <th>{t('admin.name')}</th>
+                              <th>{t('admin.reference')}</th>
+                              <th>{t('admin.timestamp')}</th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                          </thead>
+                          <tbody>
+                            {category.items.map(item => (
+                              <tr key={item.id}>
+                                <td><code>{item.id}</code></td>
+                                <td>{item.title || '—'}</td>
+                                <td><code>{item.reference || '—'}</code></td>
+                                <td>{item.created_at ? String(item.created_at) : '—'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              </>
             )}
           </div>
         )}

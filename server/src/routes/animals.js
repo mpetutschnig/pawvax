@@ -916,4 +916,63 @@ export default async function animalRoutes(fastify) {
       return reply.code(500).send({ error: 'Fehler beim Speichern des Avatars' })
     }
   })
+
+  // Get all recently scanned animals by current user (last 12 hours)
+  fastify.get('/api/animals/recently-scanned', { onRequest: [fastify.authenticate] }, async (req, reply) => {
+    const db = getDb()
+    const { accountId } = req.user
+
+    const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString()
+    const scans = db.prepare(`
+      SELECT DISTINCT a.*, ast.scanned_at
+      FROM animal_scans ast
+      JOIN animals a ON a.id = ast.animal_id
+      WHERE ast.account_id = ? AND ast.scanned_at > ?
+      ORDER BY ast.scanned_at DESC
+    `).all(accountId, twelveHoursAgo)
+
+    return { scans, last_12h_count: scans.length }
+  })
+    const db = getDb()
+    const { id } = req.params
+    const { accountId, role } = req.user
+
+    const animal = db.prepare('SELECT account_id FROM animals WHERE id = ?').get(id)
+    if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden' })
+
+    // Only owner can see recent scans
+    if (animal.account_id !== accountId) {
+      return reply.code(403).send({ error: 'Keine Berechtigung' })
+    }
+
+    // Get scans from last 12 hours
+    const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString()
+    const scans = db.prepare(`
+      SELECT ast.id, ast.animal_id, ast.account_id, ast.scanned_at, a.name as scanner_name
+      FROM animal_scans ast
+      JOIN accounts a ON a.id = ast.account_id
+      WHERE ast.animal_id = ? AND ast.scanned_at > ?
+      ORDER BY ast.scanned_at DESC
+    `).all(id, twelveHoursAgo)
+
+    return { scans, animal_id: id }
+  })
+
+  // Track an animal scan (called when document is scanned/uploaded)
+  fastify.post('/api/animals/:id/track-scan', async (req, reply) => {
+    const db = getDb()
+    const { id } = req.params
+    const { accountId, role } = req.user
+
+    const animal = db.prepare('SELECT id FROM animals WHERE id = ?').get(id)
+    if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden' })
+
+    const scanId = uuid()
+    db.prepare(`
+      INSERT INTO animal_scans (id, animal_id, account_id, scanned_at)
+      VALUES (?, ?, ?, datetime('now'))
+    `).run(scanId, id, accountId)
+
+    return { success: true, scanId }
+  })
 }

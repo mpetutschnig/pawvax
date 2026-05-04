@@ -6,6 +6,61 @@ import { decrypt } from '../utils/crypto.js'
 import { unlink } from 'fs/promises'
 import { resolve } from 'path'
 
+function getDocumentPages(db, documentId) {
+  return db.prepare(`
+    SELECT page_number, image_path
+    FROM document_pages
+    WHERE document_id = ?
+    ORDER BY page_number ASC
+  `).all(documentId)
+}
+
+async function analyzeDocumentPages(pages, options) {
+  const pageResults = []
+  const detectedTypes = []
+  let combinedText = ''
+  let provider = null
+
+  for (const page of pages) {
+    const result = await analyzeDocument(
+      page.image_path,
+      options.userGeminiKey,
+      options.userGeminiModel,
+      options.onProgress ? (message) => options.onProgress(page.page_number, message) : null,
+      options.userAnthropicKey,
+      options.userClaudeModel,
+      options.userOpenAiKey,
+      options.userOpenAiModel,
+      options.priority
+    )
+
+    pageResults.push(result.data)
+    provider = result.provider
+
+    const normalizedType = normalizeDocumentType(result.data?.type)
+    if (normalizedType) {
+      detectedTypes.push(normalizedType)
+    }
+
+    const pageText = [
+      result.data?.raw_text,
+      result.data?.rawText,
+      result.data?.summary,
+      result.data?.title,
+      result.data?.text
+    ].filter(Boolean).join('\n')
+
+    combinedText += (combinedText && pageText ? '\n---\n' : '') + pageText
+  }
+
+  return {
+    pageResults,
+    combinedText,
+    provider,
+    suggestedType: detectedTypes[0] || 'general'
+  }
+}
+
 function normalizeRole(role) {
   return role === 'readonly' ? 'guest' : role
 }
@@ -60,7 +115,7 @@ export default async function documentRoutes(fastify) {
 
     const isUploader = doc.added_by_account === accountId
 
-    const pages = db.prepare('SELECT image_path FROM document_pages WHERE document_id = ? ORDER BY id ASC').all(doc.id)
+    const pages = getDocumentPages(db, doc.id)
 
     return {
       ...doc,
@@ -259,28 +314,52 @@ export default async function documentRoutes(fastify) {
       // Setze status auf 'analyzing'
       db.prepare('UPDATE documents SET analysis_status = ? WHERE id = ?').run('analyzing', docId)
 
-      // Analyze the document image
-      const result = await analyzeDocument(
-        doc.image_path, 
-        userGeminiKey, userGeminiModel, 
-        null, 
-        userAnthropicKey, userClaudeModel, 
-        userOpenAiKey, userOpenAiModel, 
-        priority
-      )
-      const extractedData = result.data
+      const pages = getDocumentPages(db, docId)
+      const analysisPages = pages.length > 0
+        ? pages
+        : [{ page_number: 1, image_path: doc.image_path }]
+
+      if (!analysisPages[0]?.image_path) {
+        throw new Error('Keine gespeicherten Dokumentseiten für die Analyse gefunden')
+      }
+
+      const result = await analyzeDocumentPages(analysisPages, {
+        userGeminiKey,
+        userGeminiModel,
+        userAnthropicKey,
+        userClaudeModel,
+        userOpenAiKey,
+        userOpenAiModel,
+        priority,
+        onProgress: (pageNumber, message) => {
+          req.log.debug({ docId, pageNumber, message }, 'Retry analysis page progress')
+        }
+      })
+      const extractedData = {
+        text: result.combinedText,
+        type: result.suggestedType,
+        pages: analysisPages.length,
+        page_results: result.pageResults
+      }
       const provider = result.provider
 
       // Update document with analysis results
       db.prepare(`
         UPDATE documents
-        SET extracted_json = ?, ocr_provider = ?, analysis_status = ?
+        SET extracted_json = ?, ocr_provider = ?, analysis_status = ?, doc_type = ?, image_path = ?
         WHERE id = ?
-      `).run(JSON.stringify(extractedData), provider, 'completed', docId)
+      `).run(
+        JSON.stringify(extractedData),
+        provider,
+        'completed',
+        result.suggestedType,
+        analysisPages[0].image_path,
+        docId
+      )
 
       logAudit(db, {
         accountId, role, action: 'retry_analysis', resource: 'document', resourceId: docId,
-        details: { ocr_provider: provider },
+        details: { ocr_provider: provider, pages: analysisPages.length },
         ip: req.ip
       })
 

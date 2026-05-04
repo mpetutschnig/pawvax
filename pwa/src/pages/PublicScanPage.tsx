@@ -300,9 +300,18 @@ export default function PublicScanPage() {
           {scanMode === 'barcode' && (
             <div style={{ marginBottom: 'var(--space-4)' }}>
               <div
-                id="public-barcode-reader"
-                style={{ borderRadius: 'var(--radius-lg)', overflow: 'hidden', minHeight: 240, background: 'var(--surface)' }}
-              />
+                style={{
+                  position: 'relative',
+                  background: 'oklch(8% 0.02 250)',
+                  borderRadius: 'var(--radius-xl)',
+                  overflow: 'hidden',
+                  aspectRatio: '4/3',
+                  minHeight: 280,
+                  width: '100%'
+                }}
+              >
+                <div id="public-barcode-reader" style={{ width: '100%', height: '100%' }} />
+              </div>
             </div>
           )}
 

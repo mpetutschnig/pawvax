@@ -15,6 +15,8 @@
 
 import { v4 as uuid } from 'uuid'
 import Database from 'better-sqlite3'
+import { writeFileSync } from 'node:fs'
+import { join } from 'node:path'
 
 const API_URL = process.env.API_URL || 'http://localhost:3000/api'
 
@@ -85,6 +87,16 @@ async function createDocumentFixtureViaWs(token, animalId, allowedRoles = ['gues
   }
 
   return documentId
+}
+
+function writeTinyPng(filename) {
+  const buffer = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9oN8m6kAAAAASUVORK5CYII=',
+    'base64'
+  )
+  const filePath = join(process.env.UPLOADS_DIR, filename)
+  writeFileSync(filePath, buffer)
+  return filePath
 }
 
 // State zwischen Tests
@@ -1050,6 +1062,55 @@ describe('9. Extended Regression Tests', () => {
     }
   })
 
+  test('9k. GET /documents/:id returns all stored document pages', async () => {
+    const db = new Database(process.env.DB_PATH)
+    const docId = uuid()
+    const page1 = writeTinyPng(`page-1-${Date.now()}.png`)
+    const page2 = writeTinyPng(`page-2-${Date.now()}.png`)
+    const ownerId = db.prepare('SELECT id FROM accounts WHERE email LIKE ? LIMIT 1').get('reg9-%@example.com')?.id
+
+    db.prepare(`
+      INSERT INTO documents (id, animal_id, doc_type, image_path, extracted_json, ocr_provider, added_by_account, added_by_role, allowed_roles, analysis_status)
+      VALUES (?, ?, 'general', ?, '{}', 'pending', ?, 'user', '["guest"]', 'completed')
+    `).run(docId, animalId9, page1, ownerId)
+    db.prepare('INSERT INTO document_pages (document_id, page_number, image_path) VALUES (?, 1, ?)').run(docId, page1)
+    db.prepare('INSERT INTO document_pages (document_id, page_number, image_path) VALUES (?, 2, ?)').run(docId, page2)
+
+    const { status, data } = await apiCallWithToken(token9, 'GET', `/documents/${docId}`)
+    expect(status).toBe(200)
+    expect(Array.isArray(data.pages)).toBe(true)
+    expect(data.pages).toHaveLength(2)
+    expect(data.pages[0]).toBe(page1)
+    expect(data.pages[1]).toBe(page2)
+
+    db.close()
+  })
+
+  test('9l. Retry analysis uses stored pages instead of empty document image_path', async () => {
+    const db = new Database(process.env.DB_PATH)
+    const docId = uuid()
+    const page1 = writeTinyPng(`retry-page-1-${Date.now()}.png`)
+    const page2 = writeTinyPng(`retry-page-2-${Date.now()}.png`)
+    const ownerId = db.prepare('SELECT id FROM accounts WHERE email LIKE ? LIMIT 1').get('reg9-%@example.com')?.id
+
+    db.prepare(`
+      INSERT INTO documents (id, animal_id, doc_type, image_path, extracted_json, ocr_provider, added_by_account, added_by_role, allowed_roles, analysis_status)
+      VALUES (?, ?, 'general', '', '{}', 'pending', ?, 'user', '["guest"]', 'pending_analysis')
+    `).run(docId, animalId9, ownerId)
+    db.prepare('INSERT INTO document_pages (document_id, page_number, image_path) VALUES (?, 1, ?)').run(docId, page1)
+    db.prepare('INSERT INTO document_pages (document_id, page_number, image_path) VALUES (?, 2, ?)').run(docId, page2)
+
+    const { status, data } = await apiCallWithToken(token9, 'POST', `/documents/${docId}/retry-analysis`, {})
+    expect(status).toBe(500)
+    expect(data.error).not.toContain('Dokumentdatei nicht gefunden')
+    expect(data.error).not.toContain("Keine gespeicherten Dokumentseiten")
+
+    const refreshed = db.prepare('SELECT analysis_status FROM documents WHERE id = ?').get(docId)
+    expect(refreshed.analysis_status).toBe('pending_analysis')
+
+    db.close()
+  })
+
   test('9k. Admin can list and bulk delete orphaned records', async () => {
     adminDb9.pragma('foreign_keys = OFF')
 
@@ -1099,5 +1160,172 @@ describe('9. Extended Regression Tests', () => {
     expect(adminDb9.prepare('SELECT id FROM animals WHERE id = ?').get(orphanAnimalId)).toBeUndefined()
     expect(adminDb9.prepare('SELECT id FROM documents WHERE id = ?').get(orphanDocumentId)).toBeUndefined()
     expect(adminDb9.prepare('SELECT tag_id FROM animal_tags WHERE tag_id = ?').get(orphanTagId)).toBeUndefined()
+  })
+})
+
+// ════════════════════════════════════════════════════════════════
+// 10. VERIFIKATIONS-WORKFLOW
+// ════════════════════════════════════════════════════════════════
+
+describe('10. Verification Workflow', () => {
+  let vetToken, vetUserId
+  let authorityToken, authorityUserId
+  let adminToken, adminUserId
+  let verificationId
+
+  beforeAll(async () => {
+    // Create vet user
+    const vetReg = await apiCall('POST', '/auth/register', {
+      name: 'Dr. Tierarzt',
+      email: `vet-${Date.now()}@example.com`,
+      password: 'VetPassword123!'
+    })
+    expect(vetReg.status).toBe(201)
+    vetToken = vetReg.data.token
+    vetUserId = vetReg.data.account_id
+
+    // Create authority user
+    const authReg = await apiCall('POST', '/auth/register', {
+      name: 'Behörde Official',
+      email: `authority-${Date.now()}@example.com`,
+      password: 'AuthPassword123!'
+    })
+    expect(authReg.status).toBe(201)
+    authorityToken = authReg.data.token
+    authorityUserId = authReg.data.account_id
+
+    // Create admin user
+    const adminReg = await apiCall('POST', '/auth/register', {
+      name: 'Admin',
+      email: `admin-${Date.now()}@example.com`,
+      password: 'AdminPassword123!'
+    })
+    expect(adminReg.status).toBe(201)
+    adminToken = adminReg.data.token
+    adminUserId = adminReg.data.account_id
+
+    // Make user admin (direct DB)
+    const db = new Database(':memory:')
+    db.exec(adminDb9.prepare('SELECT sql FROM sqlite_master WHERE type="table"').all().map(t => t.sql).join(';'))
+    db.prepare('UPDATE accounts SET role = ? WHERE id = ?').run('admin', adminUserId)
+  })
+
+  test('10a. User can request vet verification with notes', async () => {
+    const formData = new FormData()
+    formData.append('type', 'vet')
+    formData.append('notes', 'Ich bin praktizierender Tierarzt seit 10 Jahren')
+
+    const response = await fetch(`${API_URL}/accounts/request-verification`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${vetToken}` },
+      body: formData
+    })
+
+    expect(response.status).toBe(201)
+    const data = await response.json()
+    expect(data.id).toBeTruthy()
+    verificationId = data.id
+    expect(data.status).toBe('pending')
+    expect(data.type).toBe('vet')
+    expect(data.notes).toBe('Ich bin praktizierender Tierarzt seit 10 Jahren')
+  })
+
+  test('10b. User cannot request duplicate vet verification', async () => {
+    const formData = new FormData()
+    formData.append('type', 'vet')
+
+    const response = await fetch(`${API_URL}/accounts/request-verification`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${vetToken}` },
+      body: formData
+    })
+
+    expect(response.status).toBe(409)
+    const data = await response.json()
+    expect(data.error).toContain('pending')
+  })
+
+  test('10c. User can view their verification requests', async () => {
+    const { status, data } = await apiCallWithToken(vetToken, 'GET', '/accounts/verifications')
+
+    expect(status).toBe(200)
+    expect(Array.isArray(data.requests)).toBe(true)
+    const request = data.requests.find(r => r.id === verificationId)
+    expect(request).toBeTruthy()
+    expect(request.status).toBe('pending')
+    expect(request.type).toBe('vet')
+    expect(request.notes).toBe('Ich bin praktizierender Tierarzt seit 10 Jahren')
+  })
+
+  test('10d. Admin can list all verification requests', async () => {
+    const { status, data } = await apiCallWithToken(adminToken, 'GET', '/admin/verifications')
+
+    expect(status).toBe(200)
+    expect(Array.isArray(data)).toBe(true)
+    const request = data.find(r => r.id === verificationId)
+    expect(request).toBeTruthy()
+    expect(request.name).toBe('Dr. Tierarzt')
+    expect(request.status).toBe('pending')
+  })
+
+  test('10e. Admin can approve verification request', async () => {
+    const { status, data } = await apiCallWithToken(adminToken, 'POST', `/admin/verifications/${verificationId}/approve`)
+
+    expect(status).toBe(200)
+    expect(data.status).toBe('approved')
+
+    // Verify account is updated
+    const { data: userProfile } = await apiCallWithToken(vetToken, 'GET', '/accounts/profile')
+    expect(userProfile.verified).toBe(1)
+    expect(userProfile.verification_status).toBe('approved')
+  })
+
+  test('10f. Admin can reject verification request with reason', async () => {
+    // Create new authority request to reject
+    const formData = new FormData()
+    formData.append('type', 'authority')
+    formData.append('notes', 'Ich bin bei der Veterinärbehörde angestellt')
+
+    const requestRes = await fetch(`${API_URL}/accounts/request-verification`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${authorityToken}` },
+      body: formData
+    })
+    expect(requestRes.status).toBe(201)
+    const newRequest = await requestRes.json()
+
+    // Admin rejects with reason
+    const { status, data } = await apiCallWithToken(adminToken, 'POST', `/admin/verifications/${newRequest.id}/reject`, {
+      reason: 'Bitte senden Sie einen aktuellen Berechtigungsnachweis'
+    })
+
+    expect(status).toBe(200)
+    expect(data.status).toBe('rejected')
+    expect(data.rejection_reason).toBe('Bitte senden Sie einen aktuellen Berechtigungsnachweis')
+  })
+
+  test('10g. User can see rejection reason in their verification requests', async () => {
+    const { status, data } = await apiCallWithToken(authorityToken, 'GET', '/accounts/verifications')
+
+    expect(status).toBe(200)
+    const rejectedRequest = data.requests.find(r => r.status === 'rejected')
+    expect(rejectedRequest).toBeTruthy()
+    expect(rejectedRequest.rejection_reason).toBe('Bitte senden Sie einen aktuellen Berechtigungsnachweis')
+  })
+
+  test('10h. User cannot request verification without being authenticated', async () => {
+    const response = await fetch(`${API_URL}/accounts/request-verification`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'vet' })
+    })
+
+    expect(response.status).toBe(401)
+  })
+
+  test('10i. Admin cannot approve already approved request', async () => {
+    const { status } = await apiCallWithToken(adminToken, 'POST', `/admin/verifications/${verificationId}/approve`)
+
+    expect(status).toBe(409)
   })
 })

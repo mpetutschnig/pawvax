@@ -264,20 +264,24 @@ export default function DocumentScanPage() {
         },
         body: JSON.stringify({ provider: retryProvider, model: retryModel })
       })
+      const data = await res.json().catch(() => ({}))
+      setShowModelSelection(false)
+
       if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.error || t('animal.documentFailed'))
+        navigate(`/animals/${animalId}/documents/${documentId}`, {
+          replace: true,
+          state: { analysisError: data.error || t('animal.documentFailed') }
+        })
+        return
       }
-      const data = await res.json()
-      setResult(data.extractedData)
-      setOcrProvider(data.provider)
-      setSuggestedType(data.extractedData?.type || data.extractedData?.suggestedType || 'other')
-      setShowModelSelection(false)
-      setPhase('done')
+
+      navigate(`/animals/${animalId}/documents/${documentId}`, { replace: true })
     } catch (err: any) {
-      setErrorMsg(err.message)
       setShowModelSelection(false)
-      setPhase('error')
+      navigate(`/animals/${animalId}/documents/${documentId}`, {
+        replace: true,
+        state: { analysisError: err.message || t('common.error') }
+      })
     } finally {
       setSavingModel(false)
     }
@@ -303,19 +307,22 @@ export default function DocumentScanPage() {
           if (msg.includes('Quota') || msg.includes('quota')) setOcrProvider('⚠️ Quota - Tesseract Fallback')
         },
         onResult: (data: any) => {
+          const nextDocumentId = data.data.documentId
           setResult(data.data)
           setSuggestedType(data.data.type || data.data.suggestedType || 'other')
-          setDocumentId(data.data.documentId)
+          setDocumentId(nextDocumentId)
           setOcrProvider(data.data.ocrProvider || 'unknown')
           setAutoSavedAt(new Date())
 
-          // If analysis failed (pending_analysis), show error instead of done
           if (data.data.analysisStatus === 'pending_analysis') {
-            setErrorMsg('⚠️ Analyse fehlgeschlagen. Dokument gespeichert. Versuchen Sie es mit einem anderen Modell.')
-            setPhase('error')
-          } else {
-            setPhase('done')
+            navigate(`/animals/${animalId}/documents/${nextDocumentId}`, {
+              replace: true,
+              state: { analysisError: t('docScan.analyzeFailedRetry') }
+            })
+            return
           }
+
+          navigate(`/animals/${animalId}/documents/${nextDocumentId}`, { replace: true })
         },
         onError: (msg: string) => {
           setErrorMsg(msg)

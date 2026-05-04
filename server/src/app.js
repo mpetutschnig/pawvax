@@ -2,6 +2,7 @@ import 'dotenv/config'
 import Fastify from 'fastify'
 import fastifyJwt from '@fastify/jwt'
 import fastifyWs from '@fastify/websocket'
+import fastifyMultipart from '@fastify/multipart'
 import fastifyCors from '@fastify/cors'
 import fastifyHelmet from '@fastify/helmet'
 import fastifyRateLimit from '@fastify/rate-limit'
@@ -63,6 +64,11 @@ await fastify.register(fastifyJwt, { secret: jwtSecret, sign: { expiresIn: '7d' 
 await fastify.register(fastifyRateLimit, {
   max: 100,
   timeWindow: '1 minute'
+})
+await fastify.register(fastifyMultipart, {
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB
+  }
 })
 await fastify.register(fastifyWs)
 
