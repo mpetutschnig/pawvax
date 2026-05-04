@@ -53,6 +53,8 @@ export function initDb(dbPath) {
     `ALTER TABLE accounts ADD COLUMN ai_provider_priority TEXT DEFAULT '["google", "anthropic", "openai"]'`,
     `ALTER TABLE animals ADD COLUMN unique_id TEXT UNIQUE`,
     `ALTER TABLE animal_public_shares ADD COLUMN link_name TEXT`,
+    `ALTER TABLE animals ADD COLUMN archive_reason TEXT CHECK(archive_reason IN ('verstorben', 'verloren', 'verkauft', 'abgegeben', 'sonstiges'))`,
+    `ALTER TABLE animals ADD COLUMN archived_at TEXT`,
   ]
   for (const sql of migrations) {
     try { db.exec(sql) } catch { /* column already exists */ }

@@ -24,7 +24,9 @@ CREATE TABLE IF NOT EXISTS animals (
   dynamic_fields TEXT,
   avatar_path TEXT,
   created_at TEXT DEFAULT (datetime('now')),
-  is_archived INTEGER DEFAULT 0 NOT NULL
+  is_archived INTEGER DEFAULT 0 NOT NULL,
+  archive_reason TEXT CHECK(archive_reason IN ('verstorben', 'verloren', 'verkauft', 'abgegeben', 'sonstiges')),
+  archived_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS animal_tags (
@@ -118,3 +120,35 @@ CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS medical_administrations (
+  id               TEXT PRIMARY KEY,
+  animal_id        TEXT NOT NULL REFERENCES animals(id) ON DELETE CASCADE,
+  document_id      TEXT REFERENCES documents(id) ON DELETE SET NULL,
+  type             TEXT NOT NULL CHECK(type IN ('vaccination', 'medication', 'other')),
+  substance        TEXT NOT NULL,
+  purpose          TEXT,
+  administered_at  TEXT NOT NULL,
+  next_due_at      TEXT,
+  notes            TEXT,
+  ocr_source       INTEGER DEFAULT 0,
+  created_at       TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS test_results (
+  id               TEXT PRIMARY KEY,
+  test_timestamp   INTEGER NOT NULL,
+  summary_json     TEXT NOT NULL,
+  details_json     TEXT,
+  pass_count       INTEGER DEFAULT 0,
+  fail_count       INTEGER DEFAULT 0,
+  total_count      INTEGER DEFAULT 0,
+  status           TEXT NOT NULL CHECK(status IN ('passed', 'failed', 'incomplete')),
+  created_at       INTEGER DEFAULT (unixepoch())
+);
+
+CREATE INDEX IF NOT EXISTS idx_medical_admin_animal ON medical_administrations(animal_id);
+CREATE INDEX IF NOT EXISTS idx_medical_admin_document ON medical_administrations(document_id);
+CREATE INDEX IF NOT EXISTS idx_medical_admin_next_due ON medical_administrations(next_due_at);
+CREATE INDEX IF NOT EXISTS idx_test_results_timestamp ON test_results(test_timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_test_results_created ON test_results(created_at DESC);
