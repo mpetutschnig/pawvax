@@ -5,6 +5,10 @@ import { PawPrint, Calendar, User, MapPin, Syringe, Pill, FileText, ChevronUp, C
 import { api } from '../api/rest'
 import { addRecentlyViewedAnimal } from '../hooks/useRecentlyViewed'
 
+function uniqueImagePaths(imagePath: string | undefined, pages: string[] | undefined): string[] {
+  return [...new Set([imagePath, ...(pages || [])].filter((p): p is string => Boolean(p)))]
+}
+
 export default function PublicSharePage() {
   const { shareId } = useParams<{ shareId: string }>()
   const { t, i18n } = useTranslation()
@@ -12,6 +16,19 @@ export default function PublicSharePage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [expandedDocId, setExpandedDocId] = useState<string | null>(null)
+
+  const docTypeLabel = (type: string) => {
+    const labels: Record<string, string> = {
+      vaccination: t('animal.docTypeVaccination'),
+      medical_product: t('animal.docTypeMedicalProduct'),
+      pedigree: t('animal.docTypePedigree'),
+      dog_certificate: t('animal.docTypeDogCertificate'),
+      general: t('animal.docTypeGeneral'),
+      medication: t('animal.docTypeMedicalProduct'),
+      other: t('animal.docTypeGeneral')
+    }
+    return labels[type] || type
+  }
 
   useEffect(() => {
     if (!shareId) return
@@ -115,12 +132,14 @@ export default function PublicSharePage() {
       {animal.documents && animal.documents.length > 0 ? (() => {
         const groups: Record<string, { icon: React.ReactNode; label: string; docs: any[] }> = {
           vaccination: { icon: <Syringe size={18} />, label: t('animal.vaccinations'), docs: [] },
-          medication:  { icon: <Pill size={18} />,    label: t('animal.medications'),  docs: [] },
-          other:       { icon: <FileText size={18} />, label: t('animal.documents'),   docs: [] },
+          medical_product: { icon: <Pill size={18} />, label: docTypeLabel('medical_product'), docs: [] },
+          pedigree: { icon: <FileText size={18} />, label: docTypeLabel('pedigree'), docs: [] },
+          dog_certificate: { icon: <FileText size={18} />, label: docTypeLabel('dog_certificate'), docs: [] },
+          general: { icon: <FileText size={18} />, label: t('animal.documents'), docs: [] },
         }
         for (const doc of animal.documents) {
           if (groups[doc.doc_type]) groups[doc.doc_type].docs.push(doc)
-          else groups.other.docs.push(doc)
+          else groups.general.docs.push(doc)
         }
         return (
           <div className="animate-fade-in" style={{ animationDelay: '150ms' }}>
@@ -137,7 +156,7 @@ export default function PublicSharePage() {
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
                             <span style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>
-                              {doc.extracted_json?.title || (type === 'vaccination' ? t('animal.docTypeVaccination') : type === 'medication' ? t('animal.docTypeMedication') : t('animal.docTypeOther'))}
+                              {doc.extracted_json?.title || docTypeLabel(type)}
                             </span>
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
@@ -155,7 +174,33 @@ export default function PublicSharePage() {
                                 <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', color: 'var(--primary-900)' }}>{doc.extracted_json.summary}</p>
                               </div>
                             )}
-                            {[doc.image_path, ...(doc.pages || [])].filter(Boolean).map((imgPath: string, idx: number) => (
+
+                            {Array.isArray(doc.extracted_json?.vaccinations) && doc.extracted_json.vaccinations.length > 0 && (
+                              <div style={{ marginBottom: 'var(--space-3)', display: 'grid', gap: 'var(--space-2)' }}>
+                                {doc.extracted_json.vaccinations.map((entry: any, index: number) => (
+                                  <div key={index} style={{ padding: 'var(--space-3)', background: 'var(--surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
+                                    <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>{entry.vaccine || t('animal.docTypeVaccination')}</div>
+                                    <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)', marginTop: '4px' }}>
+                                      {[entry.date, entry.nextDue ? `Next: ${entry.nextDue}` : null, entry.vet].filter(Boolean).join(' • ')}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {doc.extracted_json?.product && (
+                              <div style={{ marginBottom: 'var(--space-3)', padding: 'var(--space-3)', background: 'var(--surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
+                                <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>{doc.extracted_json.product.name || docTypeLabel('medical_product')}</div>
+                                <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)', marginTop: '4px', display: 'grid', gap: '2px' }}>
+                                  {doc.extracted_json.product.active_substance && <span>{doc.extracted_json.product.active_substance}</span>}
+                                  {doc.extracted_json.product.dosage && <span>{doc.extracted_json.product.dosage}</span>}
+                                  {doc.extracted_json.product.manufacturer && <span>{doc.extracted_json.product.manufacturer}</span>}
+                                  {doc.extracted_json.usage && <span>{doc.extracted_json.usage}</span>}
+                                </div>
+                              </div>
+                            )}
+
+                            {uniqueImagePaths(doc.image_path, doc.pages).map((imgPath: string, idx: number) => (
                               <img key={idx} src={`/uploads/${imgPath.split('/').pop()}`} alt={`Page ${idx + 1}`} style={{ width: '100%', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-2)', display: 'block' }} />
                             ))}
                           </div>
