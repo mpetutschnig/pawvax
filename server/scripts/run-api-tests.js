@@ -149,6 +149,7 @@ async function main() {
       const dataDir = join(serverRoot, 'data')
       mkdirSync(dataDir, { recursive: true })
       writeFileSync(join(dataDir, 'test-results.json'), JSON.stringify({ summary, tests: jestData }, null, 2))
+      writeFileSync(join(dataDir, 'jest-raw.json'), rawJson)
       console.log(`[test-runner] Results saved: ${summary.passedTests}/${summary.totalTests} passed`)
     } catch (e) {
       console.warn('[test-runner] Could not save test results:', e.message)

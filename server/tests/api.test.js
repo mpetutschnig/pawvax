@@ -443,23 +443,23 @@ describe('PAWvax API Tests', () => {
       documentId = await createDocumentFixtureViaWs(ownerToken, ownerAnimalId, ['guest'])
     })
 
-    test('4a. Existing document without access returns 401 on GET', async () => {
+    test('4a. Existing document without access returns 403 on GET', async () => {
       const { status } = await apiCallWithToken(foreignToken, 'GET', `/documents/${documentId}`)
-      expect(status).toBe(401)
+      expect(status).toBe(403)
     })
 
-    test('4b. Existing document without access returns 401 on PATCH', async () => {
+    test('4b. Existing document without access returns 403 on PATCH', async () => {
       const { status } = await apiCallWithToken(foreignToken, 'PATCH', `/documents/${documentId}`, {
         doc_type: 'vaccination'
       })
-      expect(status).toBe(401)
+      expect(status).toBe(403)
     })
 
-    test('4c. Existing document without access returns 401 on DELETE', async () => {
+    test('4c. Existing document without access returns 403 on DELETE', async () => {
       const anotherDocId = await createDocumentFixtureViaWs(ownerToken, ownerAnimalId, ['guest'])
 
       const { status } = await apiCallWithToken(foreignToken, 'DELETE', `/documents/${anotherDocId}`)
-      expect(status).toBe(401)
+      expect(status).toBe(403)
     })
 
     test('4d. Missing document still returns 404', async () => {

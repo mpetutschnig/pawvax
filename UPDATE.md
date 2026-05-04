@@ -118,36 +118,9 @@ XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "cd /tmp && po
 Wenn erfolgreich, speichere Ergebnisse in DB:
 
 ```bash
-TEST_RUN_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-sqlite3 /home/paw-api/data/paw.db <<SQL
-INSERT INTO settings (key, value)
-VALUES (
-  'last_test_run',
-  json_object(
-    'status', 'passed',
-    'date', '$TEST_RUN_DATE',
-    'passedTests', 59,
-    'failedTests', 0,
-    'pendingTests', 0,
-    'todoTests', 0,
-    'totalTests', 59
-  )
-)
-ON CONFLICT(key) DO UPDATE SET value = excluded.value;
-
-INSERT INTO settings (key, value)
-VALUES (
-  'last_test_run_details',
-  json_object(
-    'numPassedTests', 59,
-    'numFailedTests', 0,
-    'numPendingTests', 0,
-    'numTodoTests', 0,
-    'numTotalTests', 59
-  )
-)
-ON CONFLICT(key) DO UPDATE SET value = excluded.value;
-SQL
+node /git/pawvax/server/scripts/persist-test-results.js \
+  /git/pawvax/server/data/jest-raw.json \
+  /home/paw-api/data/paw.db
 echo "Test-Ergebnisse in DB gespeichert"
 ```
 
