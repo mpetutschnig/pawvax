@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useBarcode } from '../hooks/useBarcode'
 import { useNfc } from '../hooks/useNfc'
-import { getAnimalByTag, createAnimal } from '../api/rest'
+import { getAnimalByTag, createAnimal, trackAnimalScan } from '../api/rest'
 import { PageHeader } from '../components/PageHeader'
 import { Camera, Radio, Keyboard, AlertCircle } from 'lucide-react'
 
@@ -39,6 +39,7 @@ export default function ScanPage() {
 
     try {
       const res = await getAnimalByTag(tagId)
+      trackAnimalScan(res.data.id).catch(() => {})
       navigate(`/animals/${res.data.id}`)
       stopBarcode()
       if (tagType === 'nfc') stopNfc?.()
@@ -79,11 +80,13 @@ export default function ScanPage() {
         tagId: unknownTag.id,
         tagType: unknownTag.type
       })
+      trackAnimalScan(res.data.id).catch(() => {})
       navigate(`/animals/${res.data.id}`)
     } catch (err: any) {
       if (err.response?.status === 409 && err.response?.data?.conflict?.animalId) {
         const conflictId = err.response.data.conflict.animalId
         // Tag is already assigned, navigate to the existing animal's page instead of showing an error.
+        trackAnimalScan(conflictId).catch(() => {})
         navigate(`/animals/${conflictId}`)
       } else {
         setError(t('animals.createError'))
