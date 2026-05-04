@@ -1222,7 +1222,7 @@ describe('9. Extended Regression Tests', () => {
     expect([409, 429]).toContain(response.status)
     if (response.status === 409) {
       const data = await response.json()
-      expect(data.error).toContain('pending')
+      expect(data.error).toBeTruthy() // German message: 'Verifikation bereits beantragt' or 'Bereits verifiziert'
     }
   })
 

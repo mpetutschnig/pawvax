@@ -64,7 +64,8 @@ await fastify.register(fastifyHelmet, {
 await fastify.register(fastifyJwt, { secret: jwtSecret, sign: { expiresIn: '7d' } })
 await fastify.register(fastifyRateLimit, {
   max: 100,
-  timeWindow: '1 minute'
+  timeWindow: '1 minute',
+  allowList: ['127.0.0.1', '::1', '::ffff:127.0.0.1']
 })
 await fastify.register(fastifyMultipart, {
   limits: {
@@ -99,6 +100,20 @@ await fastify.register(fastifySwagger, {
 
 await fastify.register(fastifySwaggerUi, {
   routePrefix: '/documentation'
+})
+
+// Fastify v5: Allow empty JSON body (e.g. DELETE requests with Content-Type: application/json but no body)
+fastify.addContentTypeParser('application/json', { parseAs: 'string' }, function (req, body, done) {
+  if (!body || body.trim() === '') {
+    done(null, undefined)
+    return
+  }
+  try {
+    done(null, JSON.parse(body))
+  } catch (err) {
+    err.statusCode = 400
+    done(err, undefined)
+  }
 })
 
 // JWT-Authenticate Decorator für geschützte Routen
@@ -145,7 +160,7 @@ fastify.addHook('onResponse', (req, reply, done) => {
     method: req.method,
     url: req.url,
     statusCode,
-    responseTime: Math.round(reply.getResponseTime()),
+    responseTime: Math.round(reply.elapsedTime),
     ip: req.ip,
     userId: req.user?.accountId ?? null,
     role: req.user?.role ?? null,

@@ -3,7 +3,7 @@ import { getDb } from '../db/index.js'
 
 export default async function reminderRoutes(fastify) {
   // GET /api/reminders — active (non-dismissed) reminders for current account
-  fastify.get('/reminders', { preHandler: fastify.authenticate }, async (req, reply) => {
+  fastify.get('/api/reminders', { preHandler: fastify.authenticate }, async (req, reply) => {
     const db = getDb()
     const accountId = req.user.accountId
 
@@ -19,7 +19,7 @@ export default async function reminderRoutes(fastify) {
   })
 
   // POST /api/reminders — create a reminder
-  fastify.post('/reminders', { preHandler: fastify.authenticate }, async (req, reply) => {
+  fastify.post('/api/reminders', { preHandler: fastify.authenticate }, async (req, reply) => {
     const db = getDb()
     const accountId = req.user.accountId
     const { animal_id, document_id, title, due_date, notes } = req.body || {}
@@ -57,7 +57,7 @@ export default async function reminderRoutes(fastify) {
   })
 
   // PATCH /api/reminders/:id/dismiss — mark a reminder as done
-  fastify.patch('/reminders/:id/dismiss', { preHandler: fastify.authenticate }, async (req, reply) => {
+  fastify.patch('/api/reminders/:id/dismiss', { preHandler: fastify.authenticate }, async (req, reply) => {
     const db = getDb()
     const accountId = req.user.accountId
     const { id } = req.params

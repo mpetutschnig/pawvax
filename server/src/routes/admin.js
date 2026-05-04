@@ -299,8 +299,8 @@ export default async function adminRoutes(fastify) {
     const db = getDb()
     try { await req.jwtVerify() } catch { return reply.code(401).send({ error: 'Nicht autorisiert' }) }
     
-    const adminRole = req.user?.role || 'user'
-    if (adminRole !== 'admin') return reply.code(403).send({ error: 'Admin-Zugriff erforderlich' })
+    const userRoles = req.user?.roles ?? [req.user?.role || 'user']
+    if (!userRoles.includes('admin')) return reply.code(403).send({ error: 'Admin-Zugriff erforderlich' })
 
     const verifications = db.prepare(`
       SELECT 
@@ -330,8 +330,8 @@ export default async function adminRoutes(fastify) {
     const db = getDb()
     try { await req.jwtVerify() } catch { return reply.code(401).send({ error: 'Nicht autorisiert' }) }
     
-    const adminRole = req.user?.role || 'user'
-    if (adminRole !== 'admin') return reply.code(403).send({ error: 'Admin-Zugriff erforderlich' })
+    const userRoles = req.user?.roles ?? [req.user?.role || 'user']
+    if (!userRoles.includes('admin')) return reply.code(403).send({ error: 'Admin-Zugriff erforderlich' })
 
     const { id } = req.params
     const { accountId: adminId } = req.user
@@ -375,8 +375,8 @@ export default async function adminRoutes(fastify) {
     const db = getDb()
     try { await req.jwtVerify() } catch { return reply.code(401).send({ error: 'Nicht autorisiert' }) }
     
-    const adminRole = req.user?.role || 'user'
-    if (adminRole !== 'admin') return reply.code(403).send({ error: 'Admin-Zugriff erforderlich' })
+    const userRoles = req.user?.roles ?? [req.user?.role || 'user']
+    if (!userRoles.includes('admin')) return reply.code(403).send({ error: 'Admin-Zugriff erforderlich' })
 
     const { id } = req.params
     const { reason } = req.body
