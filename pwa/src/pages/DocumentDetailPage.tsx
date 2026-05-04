@@ -613,12 +613,12 @@ export default function DocumentDetailPage() {
                       </div>
                       {targetDisease && <p style={{ margin: '0 0 var(--space-3) 0', fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>{targetDisease}</p>}
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)', fontSize: 'var(--font-size-xs)', marginBottom: 'var(--space-3)' }}>
-                        {record.administration_date && <div><span style={{ color: 'var(--text-tertiary)' }}>Verabreicht</span><br /><strong>{record.administration_date}</strong></div>}
-                        {validUntil && <div><span style={{ color: 'var(--text-tertiary)' }}>Gültig bis</span><br /><strong style={{ color: dateColor }}>{validUntil}</strong></div>}
-                        {record.batch_number && <div><span style={{ color: 'var(--text-tertiary)' }}>Charge</span><br /><strong>{record.batch_number}</strong></div>}
-                        {record.expiry_date && <div><span style={{ color: 'var(--text-tertiary)' }}>Ablauf Charge</span><br /><strong>{record.expiry_date}</strong></div>}
-                        {record.manufacturer && <div><span style={{ color: 'var(--text-tertiary)' }}>Hersteller</span><br /><strong>{record.manufacturer}</strong></div>}
-                        {record.vet_name && <div><span style={{ color: 'var(--text-tertiary)' }}>Tierarzt</span><br /><strong>{record.vet_name}</strong></div>}
+                        {record.administration_date && <div><span style={{ color: 'var(--text-tertiary)' }}>{t('vaccine.administrationDate')}</span><br /><strong>{record.administration_date}</strong></div>}
+                        {validUntil && <div><span style={{ color: 'var(--text-tertiary)' }}>{t('vaccine.validUntil')}</span><br /><strong style={{ color: dateColor }}>{validUntil}</strong></div>}
+                        {record.batch_number && <div><span style={{ color: 'var(--text-tertiary)' }}>{t('vaccine.batchNumber')}</span><br /><strong>{record.batch_number}</strong></div>}
+                        {record.expiry_date && <div><span style={{ color: 'var(--text-tertiary)' }}>{t('vaccine.expiryDate')}</span><br /><strong>{record.expiry_date}</strong></div>}
+                        {record.manufacturer && <div><span style={{ color: 'var(--text-tertiary)' }}>{t('vaccine.manufacturer')}</span><br /><strong>{record.manufacturer}</strong></div>}
+                        {record.vet_name && <div><span style={{ color: 'var(--text-tertiary)' }}>{t('vaccine.vetName')}</span><br /><strong>{record.vet_name}</strong></div>}
                       </div>
                       {canSetReminder && (
                         <button
