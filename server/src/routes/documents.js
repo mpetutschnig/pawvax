@@ -107,7 +107,11 @@ export default async function documentRoutes(fastify) {
       const requestRole = userRoles.includes('vet') ? 'vet' : userRoles.includes('authority') ? 'authority' : null
       
       if (requestRole) {
+        // Vet/Authority: check their specific role in the document
         hasAccess = canRoleSeeDocument(doc.allowed_roles, requestRole)
+      } else {
+        // Regular authenticated user: can see documents marked as 'guest'
+        hasAccess = canRoleSeeDocument(doc.allowed_roles, 'guest')
       }
     }
 

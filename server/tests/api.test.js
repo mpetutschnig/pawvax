@@ -443,9 +443,10 @@ describe('PAWvax API Tests', () => {
       documentId = await createDocumentFixtureViaWs(ownerToken, ownerAnimalId, ['guest'])
     })
 
-    test('4a. Existing document without access returns 403 on GET', async () => {
+    test('4a. Document with guest access should be visible to authenticated users', async () => {
+      // Document is created with allowed_roles: ['guest'], so any authenticated user can see it
       const { status } = await apiCallWithToken(foreignToken, 'GET', `/documents/${documentId}`)
-      expect(status).toBe(403)
+      expect(status).toBe(200)
     })
 
     test('4b. Existing document without access returns 403 on PATCH', async () => {
@@ -465,6 +466,21 @@ describe('PAWvax API Tests', () => {
     test('4d. Missing document still returns 404', async () => {
       const { status } = await apiCallWithToken(ownerToken, 'GET', `/documents/${uuid()}`)
       expect(status).toBe(404)
+    })
+
+    test('4e. Vet-only document returns 403 for regular user', async () => {
+      // Insert a vet-only document directly via DB to ensure allowed_roles is strictly ['vet']
+      const db = new Database(process.env.DB_PATH)
+      const restrictedDocId = uuid()
+      db.prepare(`
+        INSERT INTO documents (id, animal_id, doc_type, image_path, extracted_json, ocr_provider, added_by_account, added_by_role, allowed_roles, analysis_status)
+        VALUES (?, ?, 'general', '', '{}', 'pending', ?, 'user', '["vet"]', 'completed')
+      `).run(restrictedDocId, ownerAnimalId, ownerAnimalId)
+      db.close()
+
+      // Regular authenticated user (not vet) cannot access vet-only document → 403
+      const { status } = await apiCallWithToken(foreignToken, 'GET', `/documents/${restrictedDocId}`)
+      expect(status).toBe(403)
     })
   })
 
