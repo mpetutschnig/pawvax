@@ -85,6 +85,8 @@ export const adminPatchAccount = (id: string, data: object) => api.patch(`/admin
 export const adminGetAuditLog = (params?: object) => api.get('/admin/audit', { params })
 export const adminGetStats = () => api.get('/admin/stats')
 export const adminGetTestResults = () => api.get('/admin/test-results')
+export const adminGetOrphans = () => api.get('/admin/orphans')
+export const adminDeleteOrphans = (categories: string[]) => api.post('/admin/orphans/delete', { categories })
 export const adminDeleteAccount = (id: string) => api.delete(`/admin/accounts/${id}`)
 export const adminDeleteAnimal = (id: string) => api.delete(`/admin/animals/${id}`)
 export const adminDeleteDocument = (id: string) => api.delete(`/admin/documents/${id}`)

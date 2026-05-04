@@ -9,6 +9,206 @@ import { fileURLToPath } from 'node:url'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const TEST_RESULTS_FILE = join(__dirname, '..', '..', 'data', 'test-results.json')
 
+const ORPHAN_DEFINITIONS = [
+  {
+    key: 'animals',
+    label: 'Orphaned animals',
+    selectSql: `
+      SELECT a.id, a.name AS title, a.account_id AS reference, a.created_at
+      FROM animals a
+      LEFT JOIN accounts ac ON ac.id = a.account_id
+      WHERE ac.id IS NULL
+      ORDER BY a.created_at DESC
+    `,
+    deleteTable: 'animals',
+    deleteColumn: 'id'
+  },
+  {
+    key: 'documents',
+    label: 'Orphaned documents',
+    selectSql: `
+      SELECT d.id,
+             COALESCE(json_extract(d.extracted_json, '$.title'), d.doc_type, d.image_path) AS title,
+             d.animal_id AS reference,
+             d.created_at
+      FROM documents d
+      LEFT JOIN animals a ON a.id = d.animal_id
+      WHERE a.id IS NULL
+      ORDER BY d.created_at DESC
+    `,
+    deleteTable: 'documents',
+    deleteColumn: 'id'
+  },
+  {
+    key: 'animal_tags',
+    label: 'Orphaned tags',
+    selectSql: `
+      SELECT t.tag_id AS id, t.tag_id AS title, t.animal_id AS reference, t.added_at AS created_at
+      FROM animal_tags t
+      LEFT JOIN animals a ON a.id = t.animal_id
+      WHERE a.id IS NULL
+      ORDER BY t.added_at DESC
+    `,
+    deleteTable: 'animal_tags',
+    deleteColumn: 'tag_id'
+  },
+  {
+    key: 'document_pages',
+    label: 'Orphaned document pages',
+    selectSql: `
+      SELECT CAST(dp.id AS TEXT) AS id,
+             'Page ' || dp.page_number AS title,
+             dp.document_id AS reference,
+             NULL AS created_at
+      FROM document_pages dp
+      LEFT JOIN documents d ON d.id = dp.document_id
+      WHERE d.id IS NULL
+      ORDER BY dp.id DESC
+    `,
+    deleteTable: 'document_pages',
+    deleteColumn: 'id'
+  },
+  {
+    key: 'animal_sharing',
+    label: 'Orphaned animal sharing rows',
+    selectSql: `
+      SELECT s.id, s.role AS title, s.animal_id AS reference, NULL AS created_at
+      FROM animal_sharing s
+      LEFT JOIN animals a ON a.id = s.animal_id
+      WHERE a.id IS NULL
+      ORDER BY s.id DESC
+    `,
+    deleteTable: 'animal_sharing',
+    deleteColumn: 'id'
+  },
+  {
+    key: 'animal_public_shares',
+    label: 'Orphaned public shares',
+    selectSql: `
+      SELECT s.id, COALESCE(s.link_name, s.id) AS title, s.animal_id AS reference, s.created_at
+      FROM animal_public_shares s
+      LEFT JOIN animals a ON a.id = s.animal_id
+      WHERE a.id IS NULL
+      ORDER BY s.created_at DESC
+    `,
+    deleteTable: 'animal_public_shares',
+    deleteColumn: 'id'
+  },
+  {
+    key: 'animal_transfers',
+    label: 'Orphaned transfer codes',
+    selectSql: `
+      SELECT t.code AS id, t.code AS title, t.animal_id AS reference, t.created_at
+      FROM animal_transfers t
+      LEFT JOIN animals a ON a.id = t.animal_id
+      WHERE a.id IS NULL
+      ORDER BY t.created_at DESC
+    `,
+    deleteTable: 'animal_transfers',
+    deleteColumn: 'code'
+  },
+  {
+    key: 'organizations',
+    label: 'Organizations without owner',
+    selectSql: `
+      SELECT o.id, o.name AS title, o.owner_id AS reference, o.created_at
+      FROM organizations o
+      LEFT JOIN accounts a ON a.id = o.owner_id
+      WHERE a.id IS NULL
+      ORDER BY o.created_at DESC
+    `,
+    deleteTable: 'organizations',
+    deleteColumn: 'id'
+  },
+  {
+    key: 'org_memberships_missing_account',
+    label: 'Organization memberships without account',
+    selectSql: `
+      SELECT m.org_id || ':' || m.account_id AS id,
+             m.role AS title,
+             m.account_id AS reference,
+             m.created_at
+      FROM org_memberships m
+      LEFT JOIN accounts a ON a.id = m.account_id
+      WHERE a.id IS NULL
+      ORDER BY m.created_at DESC
+    `,
+    deleteTable: 'org_memberships',
+    deleteWhereSql: 'account_id IN (%PLACEHOLDERS%)'
+  },
+  {
+    key: 'org_memberships_missing_org',
+    label: 'Organization memberships without organization',
+    selectSql: `
+      SELECT m.org_id || ':' || m.account_id AS id,
+             m.role AS title,
+             m.org_id AS reference,
+             m.created_at
+      FROM org_memberships m
+      LEFT JOIN organizations o ON o.id = m.org_id
+      WHERE o.id IS NULL
+      ORDER BY m.created_at DESC
+    `,
+    deleteTable: 'org_memberships',
+    deleteWhereSql: 'org_id IN (%PLACEHOLDERS%)'
+  },
+  {
+    key: 'medical_administrations_missing_animal',
+    label: 'Medical entries without animal',
+    selectSql: `
+      SELECT m.id, m.substance AS title, m.animal_id AS reference, m.created_at
+      FROM medical_administrations m
+      LEFT JOIN animals a ON a.id = m.animal_id
+      WHERE a.id IS NULL
+      ORDER BY m.created_at DESC
+    `,
+    deleteTable: 'medical_administrations',
+    deleteColumn: 'id'
+  },
+  {
+    key: 'medical_administrations_missing_document',
+    label: 'Medical entries without document',
+    selectSql: `
+      SELECT m.id, m.substance AS title, m.document_id AS reference, m.created_at
+      FROM medical_administrations m
+      LEFT JOIN documents d ON d.id = m.document_id
+      WHERE m.document_id IS NOT NULL AND d.id IS NULL
+      ORDER BY m.created_at DESC
+    `,
+    deleteTable: 'medical_administrations',
+    deleteColumn: 'id'
+  }
+]
+
+function listOrphanCategories(db) {
+  return ORPHAN_DEFINITIONS.map((definition) => {
+    const items = db.prepare(definition.selectSql).all()
+    return {
+      key: definition.key,
+      label: definition.label,
+      count: items.length,
+      items,
+    }
+  }).filter(category => category.count > 0)
+}
+
+function deleteOrphanCategory(db, definition, rows) {
+  if (rows.length === 0) return 0
+
+  const values = definition.deleteColumn
+    ? rows.map(row => row.id)
+    : rows.map(row => row.reference)
+
+  const uniqueValues = [...new Set(values.filter(value => value !== null && value !== undefined))]
+  if (uniqueValues.length === 0) return 0
+
+  const placeholders = uniqueValues.map(() => '?').join(', ')
+  const whereSql = definition.deleteWhereSql ?? `${definition.deleteColumn} IN (${placeholders})`
+  const sql = `DELETE FROM ${definition.deleteTable} WHERE ${whereSql.replace('%PLACEHOLDERS%', placeholders)}`
+  const result = db.prepare(sql).run(...uniqueValues)
+  return result.changes
+}
+
 export default async function adminRoutes(fastify) {
   // alle Admin-Routen erfordern JWT + Admin-Rolle
   fastify.addHook('onRequest', async (req, reply) => {
@@ -191,6 +391,60 @@ export default async function adminRoutes(fastify) {
     return {
       summary: summary ? JSON.parse(summary.value) : null,
       tests: details ? JSON.parse(details.value) : null
+    }
+  })
+
+  fastify.get('/api/admin/orphans', async () => {
+    const db = getDb()
+    const categories = listOrphanCategories(db)
+    return {
+      total: categories.reduce((sum, category) => sum + category.count, 0),
+      categories,
+    }
+  })
+
+  fastify.post('/api/admin/orphans/delete', async (req, reply) => {
+    const db = getDb()
+    const { accountId, role } = req.user
+    const requestedCategories = Array.isArray(req.body?.categories) ? req.body.categories : []
+
+    if (requestedCategories.length === 0) {
+      return reply.code(400).send({ error: 'categories must contain at least one orphan category key' })
+    }
+
+    const definitions = ORPHAN_DEFINITIONS.filter(definition => requestedCategories.includes(definition.key))
+    if (definitions.length === 0) {
+      return reply.code(400).send({ error: 'No valid orphan categories selected' })
+    }
+
+    const deleted = {}
+    const removeOrphans = db.transaction(() => {
+      for (const definition of definitions) {
+        const rows = db.prepare(definition.selectSql).all()
+        deleted[definition.key] = deleteOrphanCategory(db, definition, rows)
+      }
+    })
+
+    removeOrphans()
+
+    logAudit(db, {
+      accountId,
+      role,
+      action: 'bulk_delete_orphans',
+      resource: 'maintenance',
+      resourceId: requestedCategories.join(','),
+      details: deleted,
+      ip: req.ip
+    })
+
+    const categories = listOrphanCategories(db)
+    return {
+      deleted,
+      totalDeleted: Object.values(deleted).reduce((sum, value) => sum + value, 0),
+      report: {
+        total: categories.reduce((sum, category) => sum + category.count, 0),
+        categories,
+      }
     }
   })
 

@@ -14,6 +14,7 @@
  */
 
 import { v4 as uuid } from 'uuid'
+import Database from 'better-sqlite3'
 
 const API_URL = process.env.API_URL || 'http://localhost:3000/api'
 
@@ -885,6 +886,8 @@ describe('API Health Checks', () => {
 describe('9. Extended Regression Tests', () => {
   let token9
   let animalId9
+  let adminToken9
+  let adminDb9
 
   beforeAll(async () => {
     const email = `reg9-${Date.now()}@example.com`
@@ -903,6 +906,30 @@ describe('9. Extended Regression Tests', () => {
     })
     expect(animal.status).toBe(201)
     animalId9 = animal.data.id
+
+    const adminEmail = `reg9-admin-${Date.now()}@example.com`
+    const adminReg = await apiCallWithToken(null, 'POST', '/auth/register', {
+      name: 'Regression Admin',
+      email: adminEmail,
+      password: 'SecurePassword123!'
+    })
+    expect(adminReg.status).toBe(201)
+
+    adminDb9 = new Database(process.env.DB_PATH)
+    const adminAccountId = adminReg.data.account?.id || adminReg.data.userId || adminReg.data.id
+    expect(adminAccountId).toBeTruthy()
+    adminDb9.prepare('UPDATE accounts SET role = ? WHERE id = ?').run('user,admin', adminAccountId)
+
+    const adminLogin = await apiCallWithToken(null, 'POST', '/auth/login', {
+      email: adminEmail,
+      password: 'SecurePassword123!'
+    })
+    expect(adminLogin.status).toBe(200)
+    adminToken9 = adminLogin.data.token
+  })
+
+  afterAll(() => {
+    adminDb9?.close()
   })
 
   test('9a. Archive with valid reason succeeds', async () => {
@@ -1021,5 +1048,56 @@ describe('9. Extended Regression Tests', () => {
     } else {
       expect(status).toBe(403)
     }
+  })
+
+  test('9k. Admin can list and bulk delete orphaned records', async () => {
+    adminDb9.pragma('foreign_keys = OFF')
+
+    const orphanAnimalId = uuid().slice(0, 8).toUpperCase()
+    const orphanDocumentId = uuid().slice(0, 8).toUpperCase()
+    const orphanTagId = `ORPHAN-${Date.now()}`
+    const missingAnimalRef = `MISSING-ANIMAL-${Date.now()}`
+    const missingAccountRef = `MISSING-ACCOUNT-${Date.now()}`
+
+    adminDb9.prepare(`
+      INSERT INTO animals (id, account_id, name, species, breed, dynamic_fields)
+      VALUES (?, ?, ?, 'dog', 'Test', '{}')
+    `).run(orphanAnimalId, missingAccountRef, 'Orphan Animal')
+
+    adminDb9.prepare(`
+      INSERT INTO documents (id, animal_id, doc_type, image_path, extracted_json, allowed_roles)
+      VALUES (?, ?, 'general', '/tmp/orphan.jpg', '{"title":"Orphan Document"}', '["guest"]')
+    `).run(orphanDocumentId, missingAnimalRef)
+
+    adminDb9.prepare(`
+      INSERT INTO animal_tags (tag_id, animal_id, tag_type, active)
+      VALUES (?, ?, 'barcode', 1)
+    `).run(orphanTagId, missingAnimalRef)
+
+    adminDb9.pragma('foreign_keys = ON')
+
+    const listResponse = await apiCallWithToken(adminToken9, 'GET', '/admin/orphans')
+    expect(listResponse.status).toBe(200)
+    expect(Array.isArray(listResponse.data.categories)).toBe(true)
+
+    const animalsCategory = listResponse.data.categories.find((category) => category.key === 'animals')
+    const documentsCategory = listResponse.data.categories.find((category) => category.key === 'documents')
+    const tagsCategory = listResponse.data.categories.find((category) => category.key === 'animal_tags')
+
+    expect(animalsCategory?.items.some((item) => item.id === orphanAnimalId)).toBe(true)
+    expect(documentsCategory?.items.some((item) => item.id === orphanDocumentId)).toBe(true)
+    expect(tagsCategory?.items.some((item) => item.id === orphanTagId)).toBe(true)
+
+    const deleteResponse = await apiCallWithToken(adminToken9, 'POST', '/admin/orphans/delete', {
+      categories: ['animals', 'documents', 'animal_tags']
+    })
+    expect(deleteResponse.status).toBe(200)
+    expect(deleteResponse.data.deleted.animals).toBeGreaterThanOrEqual(1)
+    expect(deleteResponse.data.deleted.documents).toBeGreaterThanOrEqual(1)
+    expect(deleteResponse.data.deleted.animal_tags).toBeGreaterThanOrEqual(1)
+
+    expect(adminDb9.prepare('SELECT id FROM animals WHERE id = ?').get(orphanAnimalId)).toBeUndefined()
+    expect(adminDb9.prepare('SELECT id FROM documents WHERE id = ?').get(orphanDocumentId)).toBeUndefined()
+    expect(adminDb9.prepare('SELECT tag_id FROM animal_tags WHERE tag_id = ?').get(orphanTagId)).toBeUndefined()
   })
 })

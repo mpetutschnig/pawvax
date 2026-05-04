@@ -2,13 +2,14 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   adminGetStats, adminGetAccounts, adminGetAnimals, adminGetPendingVerifications,
-  adminVerifyAccount, adminPatchAccount, adminGetAuditLog, adminDeleteAnimal, adminDeleteAccount, adminGetTestResults
+  adminVerifyAccount, adminPatchAccount, adminGetAuditLog, adminDeleteAnimal, adminDeleteAccount, adminGetTestResults,
+  adminGetOrphans, adminDeleteOrphans
 } from '../api/rest'
-import { PawPrint, LogOut, LayoutDashboard, Users, Cat, ShieldCheck, FileClock, CheckCircle, Menu, X, Settings, XCircle, FlaskConical } from 'lucide-react'
+import { PawPrint, LogOut, LayoutDashboard, Users, Cat, ShieldCheck, FileClock, CheckCircle, Menu, X, Settings, XCircle, FlaskConical, Trash2 } from 'lucide-react'
 import { AdminAnimalDTO } from '../types/animal'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 
-type Section = 'overview' | 'accounts' | 'animals' | 'verifications' | 'audit' | 'settings' | 'tests'
+type Section = 'overview' | 'accounts' | 'animals' | 'verifications' | 'audit' | 'settings' | 'tests' | 'cleanup'
 
 interface Account {
   id: string; name: string; email: string; role: string; verified: number; verification_status?: string; created_at: string
@@ -60,6 +61,25 @@ interface TestResults {
   } | null
 }
 
+interface OrphanItem {
+  id: string
+  title: string | null
+  reference: string | null
+  created_at?: string | number | null
+}
+
+interface OrphanCategory {
+  key: string
+  label: string
+  count: number
+  items: OrphanItem[]
+}
+
+interface OrphanReport {
+  total: number
+  categories: OrphanCategory[]
+}
+
 export default function AdminPage() {
   const { t, i18n } = useTranslation()
   const [section, setSection] = useState<Section>('overview')
@@ -80,6 +100,9 @@ export default function AdminPage() {
   const [settingsSaving, setSettingsSaving] = useState(false)
   const [testResults, setTestResults] = useState<TestResults | null>(null)
   const [selectedTest, setSelectedTest] = useState<TestCase | null>(null)
+  const [orphanReport, setOrphanReport] = useState<OrphanReport | null>(null)
+  const [selectedOrphanCategories, setSelectedOrphanCategories] = useState<string[]>([])
+  const [orphanDeleting, setOrphanDeleting] = useState(false)
 
   useEffect(() => {
     fetch('/api/settings').then(res => res.json()).then(data => setAppSettings(data)).catch(console.error)
@@ -93,8 +116,9 @@ export default function AdminPage() {
     setLoading(true)
     try {
       if (section === 'overview') {
-        const res = await adminGetStats()
-        setStats(res.data)
+        const [statsRes, orphanRes] = await Promise.all([adminGetStats(), adminGetOrphans()])
+        setStats(statsRes.data)
+        setOrphanReport(orphanRes.data)
         const setRes = await fetch('/api/settings')
         const setData = await setRes.json()
         setAppSettings(setData)
@@ -118,6 +142,10 @@ export default function AdminPage() {
         const res = await adminGetTestResults()
         setTestResults(res.data)
         setSelectedTest(null)
+      } else if (section === 'cleanup') {
+        const res = await adminGetOrphans()
+        setOrphanReport(res.data)
+        setSelectedOrphanCategories([])
       }
     } catch (err) {
       console.error('Admin load error:', err)
@@ -149,6 +177,38 @@ export default function AdminPage() {
 
   const selectedAccount = selectedId ? accounts.find(a => a.id === selectedId) : null
   const selectedAnimal = selectedId ? animals.find(a => a.id === selectedId) : null
+  const orphanCategories = orphanReport?.categories ?? []
+  const orphanTotal = orphanReport?.total ?? 0
+
+  const toggleOrphanCategory = (key: string) => {
+    setSelectedOrphanCategories(current => current.includes(key)
+      ? current.filter(entry => entry !== key)
+      : [...current, key])
+  }
+
+  const deleteSelectedOrphans = async (categories = selectedOrphanCategories) => {
+    if (categories.length === 0) return
+
+    const selectedLabels = orphanCategories
+      .filter(category => categories.includes(category.key))
+      .map(category => category.label)
+
+    if (!confirm(`${t('admin.deleteSelectedOrphans')}\n\n${selectedLabels.join('\n')}`)) {
+      return
+    }
+
+    setOrphanDeleting(true)
+    try {
+      const res = await adminDeleteOrphans(categories)
+      setOrphanReport(res.data.report)
+      setSelectedOrphanCategories([])
+    } catch (err) {
+      console.error('Orphan cleanup failed:', err)
+      alert(t('common.error'))
+    } finally {
+      setOrphanDeleting(false)
+    }
+  }
 
   let lastTestRun: TestResults['summary'] = null
   try {
@@ -208,6 +268,7 @@ export default function AdminPage() {
           { id: 'animals', labelKey: 'admin.animals', icon: <Cat size={18} /> },
           { id: 'verifications', labelKey: 'admin.verifications', icon: <ShieldCheck size={18} />, badge: stats?.pendingVerifications },
           { id: 'audit', labelKey: 'admin.audit', icon: <FileClock size={18} /> },
+          { id: 'cleanup', labelKey: 'admin.cleanup', icon: <Trash2 size={18} />, badge: orphanTotal || undefined },
           { id: 'tests', labelKey: 'admin.tests', icon: <FlaskConical size={18} /> },
           { id: 'settings', labelKey: 'admin.settings', icon: <Settings size={18} /> }
         ].map(item => (
@@ -249,6 +310,7 @@ export default function AdminPage() {
                 { label: t('admin.totalDocuments'), value: stats.documents, trend: '+18%', up: true },
                 { label: t('admin.auditEntries'), value: stats.auditEntries, trend: '+2%', up: true },
                 { label: t('admin.pendingVerifications'), value: stats.pendingVerifications, trend: '', up: true, clickable: true, onClick: () => setSection('verifications') },
+                { label: t('admin.orphanedItems'), value: orphanTotal, trend: orphanTotal > 0 ? t('admin.cleanupRecommended') : '', up: false, clickable: true, onClick: () => setSection('cleanup') },
               ].map(stat => (
                 <div key={stat.label} className="card card-sm" style={{ marginBottom: 0, ...(stat.clickable ? { cursor: 'pointer', transition: 'all 0.2s' } : {}) }} onClick={stat.onClick} onMouseEnter={(e) => stat.clickable && (e.currentTarget.style.transform = 'translateY(-4px)')} onMouseLeave={(e) => stat.clickable && (e.currentTarget.style.transform = 'translateY(0)')}>
                   <div style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', color: stat.value > 0 ? 'var(--danger-500)' : 'var(--text-primary)', lineHeight: 1 }}>
@@ -520,143 +582,159 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* Tests Section */}
-        {section === 'tests' && !loading && testResults && (
-          <div className="animate-fade-in" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)', height: '100%' }}>
-            {/* Left: Test List */}
-            <div>
-              <h1 style={{ marginBottom: 'var(--space-4)' }}>{t('admin.tests')}</h1>
-              <div className="card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', height: 'calc(100vh - 200px)' }}>
-                <div style={{ padding: 'var(--space-4)', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
-                  <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
-                    <span style={{ color: 'var(--success-600)', fontWeight: 600 }}>{testResults.tests?.numPassedTests || 0}</span> / <span style={{ color: testResults.tests?.numFailedTests ? 'var(--danger-600)' : 'var(--text-secondary)' }}>{(testResults.tests?.numPassedTests || 0) + (testResults.tests?.numFailedTests || 0)}</span> Tests
-                  </div>
-                </div>
-                <div style={{ flex: 1, overflowY: 'auto' }}>
-                  {testResults?.tests ? (() => {
-                    const allTests: TestCase[] = []
-
-                    // Flatten test results from all suites
-                    if (Array.isArray(testResults.tests.testResults)) {
-                      for (const suite of testResults.tests.testResults) {
-                        const results = suite.assertionResults || suite.testResults || []
-                        if (Array.isArray(results)) {
-                          allTests.push(...results)
-                        }
-                      }
-                    }
-
-                    if (allTests.length === 0) {
-                      return <div style={{ padding: 'var(--space-4)', textAlign: 'center', color: 'var(--text-tertiary)' }}>{t('admin.noTestResults')}</div>
-                    }
-
-                    // Group by ancestorTitles[1]
-                    const groups = new Map<string, TestCase[]>()
-                    for (const test of allTests) {
-                      const groupName = test.ancestorTitles?.[1] ?? 'Other'
-                      if (!groups.has(groupName)) groups.set(groupName, [])
-                      groups.get(groupName)!.push(test)
-                    }
-
-                    return Array.from(groups.entries()).map(([groupName, tests]) => (
-                      <div key={groupName}>
-                        <div style={{ padding: 'var(--space-3)', paddingLeft: 'var(--space-4)', background: 'var(--surface)', borderBottom: '1px solid var(--border)', fontSize: 'var(--font-size-xs)', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                          {groupName}
-                        </div>
-                        {tests.map((test, testIdx) => (
-                          <div
-                            key={testIdx}
-                            onClick={() => setSelectedTest(test)}
-                            style={{
-                              padding: 'var(--space-3)',
-                              paddingLeft: 'var(--space-6)',
-                              borderBottom: '1px solid var(--border)',
-                              cursor: 'pointer',
-                              background: selectedTest === test ? 'var(--primary-50)' : 'transparent',
-                              transition: 'all 0.2s'
-                            }}
-                          >
-                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-2)' }}>
-                              <div style={{ marginTop: '2px', flexShrink: 0 }}>
-                                {test.status === 'passed' ? (
-                                  <CheckCircle size={16} color="var(--success-600)" />
-                                ) : (
-                                  <XCircle size={16} color="var(--danger-500)" />
-                                )}
-                              </div>
-                              <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 500, lineHeight: 1.4, wordBreak: 'break-word' }}>
-                                  {test.title}
-                                </div>
-                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginTop: '2px' }}>
-                                  {test.duration}ms
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ))
-                  })() : (
-                    <div style={{ padding: 'var(--space-4)', textAlign: 'center', color: 'var(--text-tertiary)' }}>
-                      {t('admin.noTestResults')}
-                    </div>
-                  )}
-                </div>
+        {/* Cleanup */}
+        {section === 'cleanup' && !loading && (
+          <div className="animate-fade-in">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 'var(--space-4)', marginBottom: 'var(--space-6)', flexWrap: 'wrap' }}>
+              <div>
+                <h1 style={{ marginBottom: 'var(--space-2)' }}>{t('admin.cleanup')}</h1>
+                <p className="text-muted" style={{ margin: 0 }}>
+                  {t('admin.cleanupDescription')}
+                </p>
+              </div>
+              <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+                <button className="btn btn-outline" onClick={() => loadData()}>
+                  {t('common.refresh') || 'Refresh'}
+                </button>
+                <button className="btn btn-danger" disabled={selectedOrphanCategories.length === 0 || orphanDeleting} onClick={() => deleteSelectedOrphans()}>
+                  {orphanDeleting ? t('common.loading') : t('admin.deleteSelectedOrphans')}
+                </button>
               </div>
             </div>
 
-            {/* Right: Test Detail */}
-            {selectedTest && (
-              <div>
-                <div className="card" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 200px)', overflowY: 'auto' }}>
-                  <h2 style={{ marginBottom: 'var(--space-2)' }}>{t('admin.testDetails')}</h2>
+            {orphanCategories.length === 0 ? (
+              <div className="card text-center" style={{ padding: 'var(--space-8)' }}>
+                <CheckCircle size={48} color="var(--success-600)" style={{ margin: '0 auto var(--space-4)' }} />
+                <p style={{ margin: 0, fontWeight: 600 }}>{t('admin.noOrphans')}</p>
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gap: 'var(--space-4)' }}>
+                {orphanCategories.map(category => (
+                  <div key={category.key} className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-3)', padding: 'var(--space-4)', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={selectedOrphanCategories.includes(category.key)}
+                          onChange={() => toggleOrphanCategory(category.key)}
+                          style={{ width: 16, height: 16, accentColor: 'var(--danger-500)' }}
+                        />
+                        <div>
+                          <div style={{ fontWeight: 600 }}>{t(`admin.orphanCategory.${category.key}` as any, category.label)}</div>
+                          <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>{category.count} {t('admin.orphanedItems')}</div>
+                        </div>
+                      </label>
+                      <button className="btn btn-danger" onClick={() => deleteSelectedOrphans([category.key])} disabled={orphanDeleting}>
+                        {t('admin.deleteCategory')}
+                      </button>
+                    </div>
 
-                  <div style={{ marginBottom: 'var(--space-4)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-2)' }}>
-                      {selectedTest.status === 'passed' ? (
-                        <CheckCircle size={20} color="var(--success-600)" />
-                      ) : (
-                        <XCircle size={20} color="var(--danger-500)" />
-                      )}
-                      <span style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, color: selectedTest.status === 'passed' ? 'var(--success-600)' : 'var(--danger-500)' }}>
-                        {selectedTest.status === 'passed' ? t('admin.testsPassed') : t('admin.testsFailed')}
-                      </span>
+                    <div style={{ overflowX: 'auto' }}>
+                      <table className="admin-table">
+                        <thead>
+                          <tr>
+                            <th>ID</th>
+                            <th>{t('admin.name')}</th>
+                            <th>{t('admin.reference')}</th>
+                            <th>{t('admin.timestamp')}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {category.items.map(item => (
+                            <tr key={item.id}>
+                              <td><code>{item.id}</code></td>
+                              <td>{item.title || '—'}</td>
+                              <td><code>{item.reference || '—'}</code></td>
+                              <td>{item.created_at ? String(item.created_at) : '—'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   </div>
-
-                  <div style={{ marginBottom: 'var(--space-4)' }}>
-                    <label style={{ fontSize: 'var(--font-size-xs)', textTransform: 'uppercase', color: 'var(--text-tertiary)' }}>Title</label>
-                    <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 500, marginTop: '4px', wordBreak: 'break-word' }}>
-                      {selectedTest.title}
-                    </div>
-                  </div>
-
-                  <div style={{ marginBottom: 'var(--space-4)' }}>
-                    <label style={{ fontSize: 'var(--font-size-xs)', textTransform: 'uppercase', color: 'var(--text-tertiary)' }}>Suite</label>
-                    <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                      {selectedTest.ancestorTitles.slice(1).join(' › ')}
-                    </div>
-                  </div>
-
-                  <div style={{ marginBottom: 'var(--space-4)' }}>
-                    <label style={{ fontSize: 'var(--font-size-xs)', textTransform: 'uppercase', color: 'var(--text-tertiary)' }}>Duration</label>
-                    <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                      {selectedTest.duration}ms
-                    </div>
-                  </div>
-
-                  {selectedTest.failureMessages && selectedTest.failureMessages.length > 0 && (
-                    <div>
-                      <label style={{ fontSize: 'var(--font-size-xs)', textTransform: 'uppercase', color: 'var(--text-tertiary)', display: 'block', marginBottom: 'var(--space-2)' }}>Error Message</label>
-                      <pre style={{ background: 'var(--surface)', padding: 'var(--space-3)', borderRadius: 'var(--radius-sm)', fontSize: 'var(--font-size-xs)', lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word', margin: 0, color: 'var(--danger-600)' }}>
-                        {selectedTest.failureMessages.join('\n')}
-                      </pre>
-                    </div>
-                  )}
-                </div>
+                ))}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Tests Section */}
+        {section === 'tests' && !loading && testResults && (
+          <div className="animate-fade-in">
+            <h1 style={{ marginBottom: 'var(--space-4)' }}>{t('admin.tests')}</h1>
+            <div className="card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', height: 'calc(100vh - 200px)' }}>
+              <div style={{ padding: 'var(--space-4)', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
+                <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
+                  <span style={{ color: 'var(--success-600)', fontWeight: 600 }}>{testResults.tests?.numPassedTests || 0}</span> / <span style={{ color: testResults.tests?.numFailedTests ? 'var(--danger-600)' : 'var(--text-secondary)' }}>{(testResults.tests?.numPassedTests || 0) + (testResults.tests?.numFailedTests || 0)}</span> Tests
+                </div>
+              </div>
+              <div style={{ flex: 1, overflowY: 'auto' }}>
+                {testResults.tests ? (() => {
+                  const allTests: TestCase[] = []
+                  if (Array.isArray(testResults.tests.testResults)) {
+                    for (const suite of testResults.tests.testResults) {
+                      const results = suite.assertionResults || suite.testResults || []
+                      if (Array.isArray(results)) allTests.push(...results)
+                    }
+                  }
+
+                  if (allTests.length === 0) {
+                    return <div style={{ padding: 'var(--space-4)', textAlign: 'center', color: 'var(--text-tertiary)' }}>{t('admin.noTestResults')}</div>
+                  }
+
+                  const groups = new Map<string, TestCase[]>()
+                  for (const test of allTests) {
+                    const groupName = test.ancestorTitles?.[1] ?? 'Other'
+                    if (!groups.has(groupName)) groups.set(groupName, [])
+                    groups.get(groupName)!.push(test)
+                  }
+
+                  return Array.from(groups.entries()).map(([groupName, tests]) => (
+                    <div key={groupName}>
+                      <div style={{ padding: 'var(--space-3)', paddingLeft: 'var(--space-4)', background: 'var(--surface)', borderBottom: '1px solid var(--border)', fontSize: 'var(--font-size-xs)', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        {groupName}
+                      </div>
+                      {tests.map((test, testIdx) => (
+                        <div
+                          key={`${groupName}-${testIdx}`}
+                          onClick={() => setSelectedTest(test)}
+                          style={{
+                            padding: 'var(--space-3)',
+                            paddingLeft: 'var(--space-6)',
+                            borderBottom: '1px solid var(--border)',
+                            cursor: 'pointer',
+                            background: selectedTest === test ? 'var(--primary-50)' : 'transparent',
+                            transition: 'all 0.2s'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-2)' }}>
+                            <div style={{ marginTop: '2px', flexShrink: 0 }}>
+                              {test.status === 'passed' ? (
+                                <CheckCircle size={16} color="var(--success-600)" />
+                              ) : (
+                                <XCircle size={16} color="var(--danger-500)" />
+                              )}
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 500, lineHeight: 1.4, wordBreak: 'break-word' }}>
+                                {test.title}
+                              </div>
+                              <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginTop: '2px' }}>
+                                {test.duration}ms
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ))
+                })() : (
+                  <div style={{ padding: 'var(--space-4)', textAlign: 'center', color: 'var(--text-tertiary)' }}>
+                    {t('admin.noTestResults')}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
@@ -667,7 +745,53 @@ export default function AdminPage() {
         )}
       </main>
 
-      {/* Detail Panel */}
+      {section === 'tests' && selectedTest && (
+        <div className="admin-detail-panel animate-slide-up" style={{ boxShadow: 'var(--shadow-xl)' }}>
+          <h2 style={{ marginBottom: 'var(--space-4)' }}>{t('admin.testDetails')}</h2>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-4)' }}>
+            {selectedTest.status === 'passed' ? (
+              <CheckCircle size={20} color="var(--success-600)" />
+            ) : (
+              <XCircle size={20} color="var(--danger-500)" />
+            )}
+            <span style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, color: selectedTest.status === 'passed' ? 'var(--success-600)' : 'var(--danger-500)' }}>
+              {selectedTest.status === 'passed' ? t('admin.testsPassed') : t('admin.testsFailed')}
+            </span>
+          </div>
+
+          <div style={{ marginBottom: 'var(--space-4)' }}>
+            <label style={{ fontSize: 'var(--font-size-xs)', textTransform: 'uppercase', color: 'var(--text-tertiary)' }}>Title</label>
+            <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 500, marginTop: '4px', wordBreak: 'break-word' }}>
+              {selectedTest.title}
+            </div>
+          </div>
+
+          <div style={{ marginBottom: 'var(--space-4)' }}>
+            <label style={{ fontSize: 'var(--font-size-xs)', textTransform: 'uppercase', color: 'var(--text-tertiary)' }}>Suite</label>
+            <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', marginTop: '4px' }}>
+              {selectedTest.ancestorTitles.slice(1).join(' › ')}
+            </div>
+          </div>
+
+          <div style={{ marginBottom: 'var(--space-4)' }}>
+            <label style={{ fontSize: 'var(--font-size-xs)', textTransform: 'uppercase', color: 'var(--text-tertiary)' }}>Duration</label>
+            <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', marginTop: '4px' }}>
+              {selectedTest.duration}ms
+            </div>
+          </div>
+
+          {selectedTest.failureMessages && selectedTest.failureMessages.length > 0 && (
+            <div>
+              <label style={{ fontSize: 'var(--font-size-xs)', textTransform: 'uppercase', color: 'var(--text-tertiary)', display: 'block', marginBottom: 'var(--space-2)' }}>Error Message</label>
+              <pre style={{ background: 'var(--surface)', padding: 'var(--space-3)', borderRadius: 'var(--radius-sm)', fontSize: 'var(--font-size-xs)', lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word', margin: 0, color: 'var(--danger-600)' }}>
+                {selectedTest.failureMessages.join('\n')}
+              </pre>
+            </div>
+          )}
+        </div>
+      )}
+
       {selectedAccount && (
         <div className="admin-detail-panel animate-slide-up" style={{ boxShadow: 'var(--shadow-xl)' }}>
           <h2 style={{ marginBottom: '2px' }}>{selectedAccount.name}</h2>
@@ -709,10 +833,7 @@ export default function AdminPage() {
             {t('admin.deleteAccount')}
           </button>
 
-          <button
-            className="btn btn-outline btn-full"
-            onClick={() => setSelectedId(null)}
-          >
+          <button className="btn btn-outline btn-full" onClick={() => setSelectedId(null)}>
             {t('common.cancel')}
           </button>
         </div>
