@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { mkdtempSync, rmSync, mkdirSync } from 'node:fs'
+import { mkdtempSync, rmSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -76,6 +76,7 @@ async function main() {
   const tempRoot = mkdtempSync(join(tmpdir(), 'pawvax-api-tests-'))
   const dbPath = join(tempRoot, 'paw.test.db')
   const uploadsDir = join(tempRoot, 'uploads')
+  const jestJsonOutput = join(tempRoot, 'jest-results.json')
   mkdirSync(uploadsDir, { recursive: true })
 
   const port = await getFreePort()
@@ -116,6 +117,8 @@ async function main() {
       'node_modules/jest/bin/jest.js',
       '--runInBand',
       '--forceExit',
+      '--json',
+      `--outputFile=${jestJsonOutput}`,
       ...passthroughArgs,
     ]
 
@@ -129,6 +132,27 @@ async function main() {
       jestProcess.once('error', reject)
       jestProcess.once('exit', resolve)
     })
+
+    // Persist test results to server/data/test-results.json
+    try {
+      const rawJson = readFileSync(jestJsonOutput, 'utf-8')
+      const jestData = JSON.parse(rawJson)
+      const summary = {
+        status: jestData.success ? 'passed' : 'failed',
+        date: new Date().toISOString(),
+        passedTests: jestData.numPassedTests,
+        failedTests: jestData.numFailedTests,
+        pendingTests: jestData.numPendingTests,
+        todoTests: jestData.numTodoTests,
+        totalTests: jestData.numTotalTests,
+      }
+      const dataDir = join(serverRoot, 'data')
+      mkdirSync(dataDir, { recursive: true })
+      writeFileSync(join(dataDir, 'test-results.json'), JSON.stringify({ summary, tests: jestData }, null, 2))
+      console.log(`[test-runner] Results saved: ${summary.passedTests}/${summary.totalTests} passed`)
+    } catch (e) {
+      console.warn('[test-runner] Could not save test results:', e.message)
+    }
 
     await stopProcess(serverProcess)
     rmSync(tempRoot, { recursive: true, force: true })

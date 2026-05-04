@@ -2,6 +2,12 @@ import { v4 as uuid } from 'uuid'
 import { getDb } from '../db/index.js'
 import { logAudit } from '../services/audit.js'
 import { generateApiKey } from '../utils/apikey.js'
+import { readFileSync, existsSync } from 'node:fs'
+import { join, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const TEST_RESULTS_FILE = join(__dirname, '..', '..', 'data', 'test-results.json')
 
 export default async function adminRoutes(fastify) {
   // alle Admin-Routen erfordern JWT + Admin-Rolle
@@ -187,10 +193,18 @@ export default async function adminRoutes(fastify) {
 
   // Test Results
   fastify.get('/api/admin/test-results', async (req) => {
+    if (existsSync(TEST_RESULTS_FILE)) {
+      try {
+        const data = JSON.parse(readFileSync(TEST_RESULTS_FILE, 'utf-8'))
+        return data
+      } catch {
+        return { summary: null, tests: null }
+      }
+    }
+    // Fallback: legacy DB-based storage
     const db = getDb()
     const summary = db.prepare("SELECT value FROM settings WHERE key = 'last_test_run'").get()
     const details = db.prepare("SELECT value FROM settings WHERE key = 'last_test_run_details'").get()
-
     return {
       summary: summary ? JSON.parse(summary.value) : null,
       tests: details ? JSON.parse(details.value) : null

@@ -55,6 +55,7 @@ android/local.properties
 server/paw.db
 server/paw.db-shm
 server/paw.db-wal
+server/data/
 
 # ==========================================
 # 4. AI Tools & Documentation
