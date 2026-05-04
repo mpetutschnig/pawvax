@@ -174,23 +174,6 @@ export default async function adminRoutes(fastify) {
     }
   })
 
-  // Animal stats per user (for current user)
-  fastify.get('/api/animals/stats', async (req) => {
-    const db = getDb()
-    const { accountId } = req.user
-
-    const total = db.prepare('SELECT COUNT(*) as cnt FROM animals WHERE account_id = ?').get(accountId).cnt
-    const active = db.prepare('SELECT COUNT(*) as cnt FROM animals WHERE account_id = ? AND is_archived = 0').get(accountId).cnt
-    const archived = db.prepare('SELECT COUNT(*) as cnt FROM animals WHERE account_id = ? AND is_archived = 1').get(accountId).cnt
-    const with_docs = db.prepare(`
-      SELECT COUNT(DISTINCT a.id) as cnt FROM animals a
-      JOIN documents d ON d.animal_id = a.id
-      WHERE a.account_id = ?
-    `).get(accountId).cnt
-
-    return { total, active, archived, with_documents: with_docs }
-  })
-
   // Test Results
   fastify.get('/api/admin/test-results', async (req) => {
     if (existsSync(TEST_RESULTS_FILE)) {

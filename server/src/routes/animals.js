@@ -561,6 +561,21 @@ export default async function animalRoutes(fastify) {
     return db.prepare('SELECT * FROM animals WHERE account_id = ? ORDER BY is_archived ASC, name ASC').all(req.user.accountId)
   })
 
+  // Tier-Statistiken für den aktuellen Nutzer
+  fastify.get('/api/animals/stats', async (req) => {
+    const db = getDb()
+    const { accountId } = req.user
+    const total = db.prepare('SELECT COUNT(*) as cnt FROM animals WHERE account_id = ?').get(accountId).cnt
+    const active = db.prepare('SELECT COUNT(*) as cnt FROM animals WHERE account_id = ? AND is_archived = 0').get(accountId).cnt
+    const archived = db.prepare('SELECT COUNT(*) as cnt FROM animals WHERE account_id = ? AND is_archived = 1').get(accountId).cnt
+    const with_docs = db.prepare(`
+      SELECT COUNT(DISTINCT a.id) as cnt FROM animals a
+      JOIN documents d ON d.animal_id = a.id
+      WHERE a.account_id = ?
+    `).get(accountId).cnt
+    return { total, active, archived, with_documents: with_docs }
+  })
+
   // Dokumentliste eines Tieres (mit Rollenfilter)
   fastify.get('/api/animals/:id/documents', async (req, reply) => {
     const db = getDb()

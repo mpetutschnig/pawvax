@@ -869,11 +869,157 @@ describe('PAWvax API Tests', () => {
 })
 
 describe('API Health Checks', () => {
-  test('Health Check — API läuft?', async () => {
+  test('Health Check – API läuft?', async () => {
     const response = await fetch(`${API_URL.replace('/api', '')}/health`)
     const data = await response.json()
 
     expect(response.status).toBe(200)
     expect(data.status).toBe('ok')
+  })
+})
+
+// ════════════════════════════════════════════════════════════════
+// 9. Extended Regression Tests (Batch 9)
+// ════════════════════════════════════════════════════════════════
+
+describe('9. Extended Regression Tests', () => {
+  let token9
+  let animalId9
+
+  beforeAll(async () => {
+    const email = `reg9-${Date.now()}@example.com`
+    const reg = await apiCallWithToken(null, 'POST', '/auth/register', {
+      name: 'Regression User',
+      email,
+      password: 'SecurePassword123!'
+    })
+    expect(reg.status).toBe(201)
+    token9 = reg.data.token
+
+    const animal = await apiCallWithToken(token9, 'POST', '/animals', {
+      name: 'RegAnimal',
+      species: 'dog',
+      breed: 'Mischling'
+    })
+    expect(animal.status).toBe(201)
+    animalId9 = animal.data.id
+  })
+
+  test('9a. Archive with valid reason succeeds', async () => {
+    const { status, data } = await apiCallWithToken(token9, 'PATCH', `/animals/${animalId9}/archive`, {
+      is_archived: true,
+      archive_reason: 'verloren'
+    })
+    expect(status).toBe(200)
+    expect(data.success).toBe(true)
+    expect(data.archive_reason).toBe('verloren')
+  })
+
+  test('9b. Archive with invalid reason returns 400', async () => {
+    const { data: newAnimal } = await apiCallWithToken(token9, 'POST', '/animals', {
+      name: 'ArchiveTestAnimal',
+      species: 'cat'
+    })
+    const { status } = await apiCallWithToken(token9, 'PATCH', `/animals/${newAnimal.id}/archive`, {
+      is_archived: true,
+      archive_reason: 'invalid_reason_xyz'
+    })
+    expect(status).toBe(400)
+  })
+
+  test('9c. Archive requires reason when is_archived=true', async () => {
+    const { data: newAnimal } = await apiCallWithToken(token9, 'POST', '/animals', {
+      name: 'NoReasonAnimal',
+      species: 'cat'
+    })
+    const { status } = await apiCallWithToken(token9, 'PATCH', `/animals/${newAnimal.id}/archive`, {
+      is_archived: true
+      // no archive_reason
+    })
+    expect(status).toBe(400)
+  })
+
+  test('9d. Un-archive animal (is_archived=false) requires no reason', async () => {
+    // First create and archive a new animal
+    const { data: newAnimal } = await apiCallWithToken(token9, 'POST', '/animals', {
+      name: 'UnarchiveAnimal',
+      species: 'cat'
+    })
+    await apiCallWithToken(token9, 'PATCH', `/animals/${newAnimal.id}/archive`, {
+      is_archived: true,
+      archive_reason: 'verstorben'
+    })
+    const { status, data } = await apiCallWithToken(token9, 'PATCH', `/animals/${newAnimal.id}/archive`, {
+      is_archived: false
+    })
+    expect(status).toBe(200)
+    expect(data.success).toBe(true)
+  })
+
+  test('9e. Admin stats returns nested animals object', async () => {
+    // Requires admin token — if not admin, expect 403
+    const { status, data } = await apiCallWithToken(token9, 'GET', '/admin/stats')
+    if (status === 200) {
+      expect(typeof data.animals).toBe('object')
+      expect(data.animals).toHaveProperty('total')
+      expect(data.animals).toHaveProperty('active')
+      expect(data.animals).toHaveProperty('archived')
+      expect(data.animals).toHaveProperty('with_documents')
+    } else {
+      expect(status).toBe(403)
+    }
+  })
+
+  test('9f. GET /animals/stats returns per-user animal counts', async () => {
+    const { status, data } = await apiCallWithToken(token9, 'GET', '/animals/stats')
+    expect(status).toBe(200)
+    expect(data).toHaveProperty('total')
+    expect(data).toHaveProperty('active')
+    expect(data).toHaveProperty('archived')
+    expect(data).toHaveProperty('with_documents')
+    expect(typeof data.total).toBe('number')
+  })
+
+  test('9g. Document PATCH normalizes legacy doc_type medication → medical_product', async () => {
+    const docId = await createDocumentFixtureViaWs(token9, animalId9, ['guest'])
+    const { status } = await apiCallWithToken(token9, 'PATCH', `/documents/${docId}`, {
+      doc_type: 'medication'
+    })
+    expect([200, 204]).toContain(status)
+    // Verify normalization via GET
+    const { status: getStatus, data: getDoc } = await apiCallWithToken(token9, 'GET', `/documents/${docId}`)
+    expect(getStatus).toBe(200)
+    expect(getDoc.doc_type).toBe('medical_product')
+  })
+
+  test('9h. Document PATCH normalizes legacy doc_type other → general', async () => {
+    const docId = await createDocumentFixtureViaWs(token9, animalId9, ['guest'])
+    const { status } = await apiCallWithToken(token9, 'PATCH', `/documents/${docId}`, {
+      doc_type: 'other'
+    })
+    expect([200, 204]).toContain(status)
+    // Verify normalization via GET
+    const { status: getStatus, data: getDoc } = await apiCallWithToken(token9, 'GET', `/documents/${docId}`)
+    expect(getStatus).toBe(200)
+    expect(getDoc.doc_type).toBe('general')
+  })
+
+  test('9i. Document PATCH accepts all 5 canonical doc_types', async () => {
+    const canonicalTypes = ['vaccination', 'pedigree', 'dog_certificate', 'medical_product', 'general']
+    for (const docType of canonicalTypes) {
+      const docId = await createDocumentFixtureViaWs(token9, animalId9, ['guest'])
+      const { status } = await apiCallWithToken(token9, 'PATCH', `/documents/${docId}`, { doc_type: docType })
+      expect([200, 204]).toContain(status)
+    }
+  })
+
+  test('9j. GET /admin/test-results returns expected shape', async () => {
+    const { status, data } = await apiCallWithToken(token9, 'GET', '/admin/test-results')
+    if (status === 200) {
+      expect(data).toHaveProperty('summary')
+      expect(data).toHaveProperty('tests')
+    } else {
+      expect(status).toBe(403)
+    }
   })
 })
