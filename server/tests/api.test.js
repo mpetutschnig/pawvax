@@ -1330,4 +1330,175 @@ describe('Suite 11: Animal Scan Tracking', () => {
   })
 })
 
+// ════════════════════════════════════════════════════════════════
+// Suite 12: REMINDERS
+// ════════════════════════════════════════════════════════════════
+
+describe('Suite 12: Reminders', () => {
+  let token12, animalId12, documentId12, reminderId
+
+  beforeAll(async () => {
+    const email = `reminder-test-${Date.now()}@example.com`
+    const { data: reg } = await apiCallWithToken(null, 'POST', '/auth/register', {
+      name: 'Reminder Test User',
+      email,
+      password: 'SecurePassword123!'
+    })
+    token12 = reg.token
+
+    const { data: animal } = await apiCallWithToken(token12, 'POST', '/animals', {
+      name: 'Impf-Hund',
+      species: 'dog'
+    })
+    animalId12 = animal.id
+
+    // Create a document fixture for document_id tests
+    documentId12 = await (async () => {
+      const ws = new WebSocket(toWsUrl(API_URL))
+      await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error('WS open timeout')), 5000)
+        ws.onopen = () => { clearTimeout(timeout); resolve() }
+        ws.onerror = (e) => { clearTimeout(timeout); reject(new Error(e?.message || 'WS error')) }
+      })
+      ws.send(JSON.stringify({ type: 'auth', token: token12 }))
+      const authMsg = await waitForWsMessage(ws)
+      if (authMsg.type !== 'auth_ok') { ws.close(); return null }
+      const docId = `reminder-doc-${Date.now()}`
+      ws.send(JSON.stringify({ type: 'upload_start', animalId: animalId12, filename: 'test.jpg', mimeType: 'image/jpeg', allowedRoles: ['guest'], documentId: docId }))
+      const readyMsg = await waitForWsMessage(ws)
+      ws.close()
+      if (readyMsg.type !== 'ready') return null
+      writeTinyPng(`${docId}.jpg`)
+      return docId
+    })().catch(() => null)
+  })
+
+  test('12a. POST /reminders — Erinnerung erstellen', async () => {
+    const { status, data } = await apiCallWithToken(token12, 'POST', '/reminders', {
+      animal_id: animalId12,
+      title: 'Impf-Hund – Tollwut (Nobivac) auffrischen',
+      due_date: '2027-03-15',
+      notes: 'Charge: B12345\nTierarzt: Dr. Maier'
+    })
+    expect(status).toBe(201)
+    expect(data.id).toBeTruthy()
+    expect(data.title).toBe('Impf-Hund – Tollwut (Nobivac) auffrischen')
+    expect(data.due_date).toBe('2027-03-15')
+    expect(data.dismissed_at).toBeNull()
+    reminderId = data.id
+  })
+
+  test('12b. POST /reminders — Mit document_id', async () => {
+    if (!documentId12) return
+    const { status, data } = await apiCallWithToken(token12, 'POST', '/reminders', {
+      animal_id: animalId12,
+      document_id: documentId12,
+      title: 'Impfauffrischung mit Dokument',
+      due_date: '2027-06-01'
+    })
+    expect(status).toBe(201)
+    expect(data.document_id).toBe(documentId12)
+  })
+
+  test('12c. GET /reminders — Aktive Erinnerungen laden', async () => {
+    const { status, data } = await apiCallWithToken(token12, 'GET', '/reminders')
+    expect(status).toBe(200)
+    expect(Array.isArray(data)).toBe(true)
+    expect(data.length).toBeGreaterThan(0)
+    expect(data.some(r => r.id === reminderId)).toBe(true)
+    const reminder = data.find(r => r.id === reminderId)
+    expect(reminder.animal_name).toBeTruthy()
+  })
+
+  test('12d. GET /reminders — Sortiert nach due_date aufsteigend', async () => {
+    const { status, data } = await apiCallWithToken(token12, 'GET', '/reminders')
+    expect(status).toBe(200)
+    for (let i = 1; i < data.length; i++) {
+      expect(data[i].due_date >= data[i - 1].due_date).toBe(true)
+    }
+  })
+
+  test('12e. POST /reminders — Fehlendes due_date liefert 400', async () => {
+    const { status } = await apiCallWithToken(token12, 'POST', '/reminders', {
+      animal_id: animalId12,
+      title: 'Kein Datum'
+    })
+    expect(status).toBe(400)
+  })
+
+  test('12f. POST /reminders — Falsches Datumsformat liefert 400', async () => {
+    const { status } = await apiCallWithToken(token12, 'POST', '/reminders', {
+      animal_id: animalId12,
+      title: 'Falsches Datum',
+      due_date: '15.03.2027'
+    })
+    expect(status).toBe(400)
+  })
+
+  test('12g. PATCH /reminders/:id/dismiss — Erinnerung als erledigt markieren', async () => {
+    const { status, data } = await apiCallWithToken(token12, 'PATCH', `/reminders/${reminderId}/dismiss`)
+    expect(status).toBe(200)
+    expect(data.success).toBe(true)
+  })
+
+  test('12h. GET /reminders — Erledigte Erinnerung nicht mehr in Liste', async () => {
+    const { status, data } = await apiCallWithToken(token12, 'GET', '/reminders')
+    expect(status).toBe(200)
+    expect(data.some(r => r.id === reminderId)).toBe(false)
+  })
+
+  test('12i. PATCH /reminders/:id/dismiss — Fremde Erinnerung gibt 403', async () => {
+    // Create another user with their own animal + reminder
+    const email2 = `reminder-other-${Date.now()}@example.com`
+    const { data: reg2 } = await apiCallWithToken(null, 'POST', '/auth/register', {
+      name: 'Other Reminder User',
+      email: email2,
+      password: 'SecurePassword123!'
+    })
+    const token2 = reg2.token
+
+    const { data: animal2 } = await apiCallWithToken(token2, 'POST', '/animals', {
+      name: 'Other Dog',
+      species: 'dog'
+    })
+    const { data: rem2 } = await apiCallWithToken(token2, 'POST', '/reminders', {
+      animal_id: animal2.id,
+      title: 'Other reminder',
+      due_date: '2027-01-01'
+    })
+
+    // Try to dismiss as user1 → must be 403
+    const { status } = await apiCallWithToken(token12, 'PATCH', `/reminders/${rem2.id}/dismiss`)
+    expect(status).toBe(403)
+  })
+
+  test('12j. POST /reminders — Fremdes Tier gibt 403', async () => {
+    const email3 = `reminder-other2-${Date.now()}@example.com`
+    const { data: reg3 } = await apiCallWithToken(null, 'POST', '/auth/register', {
+      name: 'Third Reminder User',
+      email: email3,
+      password: 'SecurePassword123!'
+    })
+    const token3 = reg3.token
+
+    const { data: animal3 } = await apiCallWithToken(token3, 'POST', '/animals', {
+      name: 'Third Dog',
+      species: 'dog'
+    })
+
+    // Try to create reminder for animal3 as token12 user → must be 403
+    const { status } = await apiCallWithToken(token12, 'POST', '/reminders', {
+      animal_id: animal3.id,
+      title: 'Should fail',
+      due_date: '2027-01-01'
+    })
+    expect(status).toBe(403)
+  })
+
+  test('12k. GET /reminders — Unauthenticated gives 401', async () => {
+    const { status } = await apiCallWithToken(null, 'GET', '/reminders')
+    expect(status).toBe(401)
+  })
+})
+
 
