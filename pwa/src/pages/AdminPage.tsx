@@ -23,7 +23,11 @@ interface AuditEntry {
 }
 
 interface Stats {
-  accounts: number; animals: number; documents: number; auditEntries: number; pendingVerifications: number
+  accounts: number
+  animals: { total: number; active: number; archived: number; with_documents: number }
+  documents: number
+  auditEntries: number
+  pendingVerifications: number
 }
 
 interface AuditLog {
@@ -241,7 +245,7 @@ export default function AdminPage() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--space-4)', marginBottom: 'var(--space-6)' }}>
               {[
                 { label: t('admin.registeredAccounts'), value: stats.accounts, trend: '+12%', up: true },
-                { label: t('admin.totalAnimals'), value: stats.animals, trend: '+5%', up: true },
+                { label: t('admin.totalAnimals'), value: stats.animals.total, trend: '+5%', up: true },
                 { label: t('admin.totalDocuments'), value: stats.documents, trend: '+18%', up: true },
                 { label: t('admin.auditEntries'), value: stats.auditEntries, trend: '+2%', up: true },
                 { label: t('admin.pendingVerifications'), value: stats.pendingVerifications, trend: '', up: true, clickable: true, onClick: () => setSection('verifications') },
