@@ -18,7 +18,7 @@ import Database from 'better-sqlite3'
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { computeRecordHash, flagDuplicates } from '../src/services/dedup.js'
-import { getPromptForDocumentType, normalizeDocumentType, PROMPTS } from '../src/services/ocr.js'
+import { buildExtractedDocumentData, getPromptForDocumentType, normalizeDocumentType, PROMPTS } from '../src/services/ocr.js'
 
 const API_URL = process.env.API_URL || 'http://localhost:3000/api'
 
@@ -1942,6 +1942,36 @@ describe('Suite 15: Multilingual OCR Prompts', () => {
     expect(normalizeDocumentType('general')).toBe('general')
     expect(normalizeDocumentType('unknown_type_xyz')).toBe('general')
     expect(normalizeDocumentType('')).toBe('general')
+  })
+
+  test('15m. buildExtractedDocumentData upgrades general OCR payloads with extracted_text vaccinations', () => {
+    const data = buildExtractedDocumentData({
+      combinedText: 'Impfpass / Sonstige Impfungen',
+      suggestedType: 'general',
+      pages: 1,
+      pageResults: [{
+        type: 'general',
+        title: 'Impfpass / Sonstige Impfungen',
+        document_date: '2026-12-02',
+        extracted_text: {
+          vaccinations: [
+            {
+              vaccine: 'Eurican L4',
+              date: '2025-12-02',
+              valid_until: '2026-12-02',
+              batch: 'H09350'
+            }
+          ]
+        }
+      }]
+    })
+
+    expect(data.type).toBe('vaccination')
+    expect(Array.isArray(data.vaccinations)).toBe(true)
+    expect(data.vaccinations).toHaveLength(1)
+    expect(data.vaccinations[0].vaccine).toBe('Eurican L4')
+    expect(data.payload.type).toBe('vaccination')
+    expect(data.payload.vaccinations).toHaveLength(1)
   })
 })
 

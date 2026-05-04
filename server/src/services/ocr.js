@@ -1004,6 +1004,19 @@ function uniqueStrings(values = []) {
   return [...new Set(values.filter(value => typeof value === 'string' && value.trim().length > 0))]
 }
 
+function getNestedArray(source, key) {
+  if (!source || typeof source !== 'object') return []
+  const direct = source[key]
+  if (Array.isArray(direct)) return direct
+  const extractedText = source.extracted_text
+  if (extractedText && Array.isArray(extractedText[key])) return extractedText[key]
+  return []
+}
+
+function firstNonEmptyArray(...candidates) {
+  return candidates.find((candidate) => Array.isArray(candidate) && candidate.length > 0) || []
+}
+
 function collectListRecords(pageResults, primaryKey, fallbackKey = primaryKey) {
   return pageResults.flatMap((page) => {
     // Handle case where page itself is an array (new direct array format)
@@ -1011,11 +1024,29 @@ function collectListRecords(pageResults, primaryKey, fallbackKey = primaryKey) {
       return page
     }
     const payload = page?.payload || {}
-    return payload[primaryKey] || page?.[primaryKey] || payload[fallbackKey] || page?.[fallbackKey] || []
+    return firstNonEmptyArray(
+      getNestedArray(payload, primaryKey),
+      getNestedArray(page, primaryKey),
+      getNestedArray(payload, fallbackKey),
+      getNestedArray(page, fallbackKey)
+    )
   })
 }
 
+function inferSuggestedType(suggestedType, pageResults) {
+  if (suggestedType !== 'general') return suggestedType
+
+  const vaccinations = collectListRecords(pageResults, 'vaccinations')
+  if (vaccinations.length > 0) return 'vaccination'
+
+  const treatments = collectListRecords(pageResults, 'treatments', 'treatment_log')
+  if (treatments.length > 0) return 'treatment'
+
+  return suggestedType
+}
+
 export function buildExtractedDocumentData({ combinedText, suggestedType, pageResults, pages }) {
+  const effectiveSuggestedType = inferSuggestedType(suggestedType, pageResults)
   const firstPage = pageResults[0] || {}
   const animal = firstDefined(...pageResults.map(page => page?.animal).filter(Boolean))
   const title = firstDefined(...pageResults.map(page => page?.title), firstPage.title)
@@ -1024,7 +1055,7 @@ export function buildExtractedDocumentData({ combinedText, suggestedType, pageRe
   const suggestedTags = uniqueStrings(pageResults.flatMap(page => page?.suggested_tags || page?.payload?.suggested_tags || []))
 
   const extracted = {
-    type: suggestedType,
+    type: effectiveSuggestedType,
     text: combinedText,
     pages,
     page_results: pageResults,
@@ -1035,13 +1066,13 @@ export function buildExtractedDocumentData({ combinedText, suggestedType, pageRe
     ...(suggestedTags.length ? { suggested_tags: suggestedTags } : {})
   }
 
-  if (suggestedType === 'vaccination') {
+  if (effectiveSuggestedType === 'vaccination') {
     const vaccinations = collectListRecords(pageResults, 'vaccinations')
     return {
       ...extracted,
       vaccinations,
       payload: {
-        type: suggestedType,
+        type: effectiveSuggestedType,
         ...(title ? { title } : {}),
         ...(documentDate ? { document_date: documentDate } : {}),
         ...(summary ? { summary } : {}),
@@ -1052,13 +1083,13 @@ export function buildExtractedDocumentData({ combinedText, suggestedType, pageRe
     }
   }
 
-  if (suggestedType === 'treatment') {
+  if (effectiveSuggestedType === 'treatment') {
     const treatments = collectListRecords(pageResults, 'treatments', 'treatment_log')
     return {
       ...extracted,
       treatments,
       payload: {
-        type: suggestedType,
+        type: effectiveSuggestedType,
         ...(title ? { title } : {}),
         ...(documentDate ? { document_date: documentDate } : {}),
         ...(summary ? { summary } : {}),
