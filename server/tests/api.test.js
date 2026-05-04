@@ -1235,5 +1235,83 @@ describe('9. Extended Regression Tests', () => {
   })
 })
 
+// ════════════════════════════════════════════════════════════════
+// 11. ANIMAL SCAN TRACKING (recently-scanned, track-scan, unarchive)
+// Uses existing reg9 user to avoid rate-limiting on registration
+// ════════════════════════════════════════════════════════════════
+
+describe('Suite 11: Animal Scan Tracking', () => {
+  let db11
+  let token11
+  let animalId11
+
+  beforeAll(async () => {
+    db11 = new Database(process.env.DB_PATH)
+
+    // Find the reg9 user created in Suite 9 – no new registration needed
+    const account = db11.prepare(`SELECT id, email FROM accounts WHERE email LIKE 'reg9-%@example.com' AND email NOT LIKE '%admin%' LIMIT 1`).get()
+    if (!account) return
+
+    const loginRes = await apiCall('POST', '/auth/login', {
+      email: account.email,
+      password: 'SecurePassword123!'
+    })
+    if (loginRes.status !== 200) return
+    token11 = loginRes.data.token
+
+    const animalRes = await apiCallWithToken(token11, 'POST', '/animals', {
+      name: 'ScanTest-Tier', species: 'cat', breed: 'Hauskatze'
+    })
+    if (animalRes.status === 201) {
+      animalId11 = animalRes.data.id
+    }
+  })
+
+  afterAll(() => {
+    db11?.close()
+  })
+
+  test('11a. GET /animals/recently-scanned returns list (auth required)', async () => {
+    if (!token11) return
+    const { status, data } = await apiCallWithToken(token11, 'GET', '/animals/recently-scanned')
+    expect([200, 429]).toContain(status)
+    if (status === 200) {
+      expect(Array.isArray(data.scans)).toBe(true)
+      expect(data).toHaveProperty('recent_count')
+    }
+  })
+
+  test('11b. POST /animals/:id/track-scan records a scan', async () => {
+    if (!token11 || !animalId11) return
+    const { status } = await apiCallWithToken(token11, 'POST', `/animals/${animalId11}/track-scan`)
+    expect([200, 201]).toContain(status)
+  })
+
+  test('11c. GET /animals/recently-scanned shows the tracked animal', async () => {
+    if (!token11 || !animalId11) return
+    const { status, data } = await apiCallWithToken(token11, 'GET', '/animals/recently-scanned')
+    expect(status).toBe(200)
+    expect(data.scans.some((s) => s.id === animalId11)).toBe(true)
+    expect(data.recent_count).toBeGreaterThanOrEqual(1)
+  })
+
+  test('11d. GET /animals/:id/recent-scans accessible by owner', async () => {
+    if (!token11 || !animalId11) return
+    const { status, data } = await apiCallWithToken(token11, 'GET', `/animals/${animalId11}/recent-scans`)
+    expect(status).toBe(200)
+    expect(Array.isArray(data.scans)).toBe(true)
+  })
+
+  test('11e. POST /animals/:id/unarchive reactivates an archived animal', async () => {
+    if (!token11 || !animalId11) return
+    await apiCallWithToken(token11, 'PATCH', `/animals/${animalId11}/archive`, {
+      is_archived: true, archive_reason: 'verloren'
+    })
+    const { status } = await apiCallWithToken(token11, 'POST', `/animals/${animalId11}/unarchive`)
+    expect(status).toBe(200)
+    const { data } = await apiCallWithToken(token11, 'GET', `/animals/${animalId11}`)
+    expect(data.is_archived).toBeFalsy()
+  })
+})
 
 

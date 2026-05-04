@@ -24,7 +24,7 @@ export function useBarcode(elementId: string, onResult: (code: string) => void, 
       try {
         await scanner.start(
           { facingMode: 'environment' },
-          { fps: 10, qrbox: { width: 250, height: 250 } },
+          { fps: 10, qrbox: (w: number, h: number) => ({ width: Math.round(Math.min(w, h) * 0.75), height: Math.round(Math.min(w, h) * 0.75) }) },
           (decodedText) => {
             onResult(decodedText)
             scannerRef.current?.stop().catch(() => {})
@@ -35,7 +35,7 @@ export function useBarcode(elementId: string, onResult: (code: string) => void, 
         // Fallback: Versuche mit leerer Config
         await scanner.start(
           {},
-          { fps: 10, qrbox: { width: 250, height: 250 } },
+          { fps: 10, qrbox: (w: number, h: number) => ({ width: Math.round(Math.min(w, h) * 0.75), height: Math.round(Math.min(w, h) * 0.75) }) },
           (decodedText) => {
             onResult(decodedText)
             scannerRef.current?.stop().catch(() => {})

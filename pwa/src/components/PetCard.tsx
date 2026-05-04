@@ -41,7 +41,6 @@ export function PetCard({ id, name, species, breed, age, vaccinationStatus, hasN
       {/* Info */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'var(--font-size-base)', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-          {isArchived && <span style={{ fontSize: '0.85em', color: 'var(--text-secondary)' }}>✝</span>}
           {name}
         </div>
         <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-tertiary)', marginBottom: 'var(--space-2)' }}>{breed}{age ? ` · ${age}` : ''}</div>

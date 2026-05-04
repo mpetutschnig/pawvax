@@ -524,6 +524,30 @@ export default async function animalRoutes(fastify) {
     return { success: true, is_archived: newState, archive_reason: newState ? archive_reason : null }
   })
 
+  // Tier reaktivieren (Archivierung aufheben)
+  fastify.post('/api/animals/:id/unarchive', { onRequest: [fastify.authenticate] }, async (req, reply) => {
+    const db = getDb()
+    const { id } = req.params
+    const { accountId, role } = req.user
+
+    const animal = db.prepare('SELECT id, is_archived FROM animals WHERE id = ? AND account_id = ?').get(id, accountId)
+    if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden oder keine Berechtigung' })
+    if (!animal.is_archived) return reply.code(400).send({ error: 'Tier ist nicht archiviert' })
+
+    db.prepare('UPDATE animals SET is_archived = 0, archive_reason = NULL, archived_at = NULL WHERE id = ?').run(id)
+
+    logAudit(db, {
+      accountId,
+      role,
+      action: 'unarchive_animal',
+      resource: 'animal',
+      resourceId: id,
+      ip: req.ip
+    })
+
+    return { success: true }
+  })
+
   // Tier löschen (mit Sicherheitsbestätigung)
   fastify.delete('/api/animals/:id', async (req, reply) => {
     const db = getDb()
@@ -917,21 +941,21 @@ export default async function animalRoutes(fastify) {
     }
   })
 
-  // Get all recently scanned animals by current user (last 12 hours)
+  // Get all recently scanned animals by current user (no time limit, last 20)
   fastify.get('/api/animals/recently-scanned', { onRequest: [fastify.authenticate] }, async (req, reply) => {
     const db = getDb()
     const { accountId } = req.user
 
-    const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString()
     const scans = db.prepare(`
       SELECT DISTINCT a.*, ast.scanned_at
       FROM animal_scans ast
       JOIN animals a ON a.id = ast.animal_id
-      WHERE ast.account_id = ? AND ast.scanned_at > ?
+      WHERE ast.account_id = ?
       ORDER BY ast.scanned_at DESC
-    `).all(accountId, twelveHoursAgo)
+      LIMIT 20
+    `).all(accountId)
 
-    return { scans, last_12h_count: scans.length }
+    return { scans, recent_count: scans.length }
   })
 
   // Get recent scans of an animal (last 12 hours)

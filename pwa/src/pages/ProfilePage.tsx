@@ -21,6 +21,7 @@ export default function ProfilePage() {
   const [openaiError, setOpenaiError] = useState('')
   const [openaiSuccess, setOpenaiSuccess] = useState('')
   const [showConfirmDelete, setShowConfirmDelete] = useState(false)
+  const [deleteConfirmEmail, setDeleteConfirmEmail] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [geminiModel, setGeminiModel] = useState('')
@@ -276,6 +277,10 @@ export default function ProfilePage() {
   }
 
   const requestVerify = async () => {
+    if (!verificationNotes.trim() && !verificationDocument) {
+      setError(t('profile.verificationMinRequired'))
+      return
+    }
     try {
       setVerificationSubmitting(true)
       await requestVerification(
@@ -319,6 +324,10 @@ export default function ProfilePage() {
   }
 
   const handleDelete = async () => {
+    if (deleteConfirmEmail.toLowerCase() !== (profile?.email || '').toLowerCase()) {
+      setError(t('profile.emailMismatch'))
+      return
+    }
     try {
       await deleteMe()
       localStorage.removeItem('token')
@@ -407,9 +416,9 @@ export default function ProfilePage() {
                         </div>
                         {req.notes && <p style={{ margin: '0 0 var(--space-2) 0', fontSize: 'var(--font-size-sm)' }}>{req.notes}</p>}
                         {req.rejection_reason && (
-                          <div style={{ background: 'rgba(255,0,0,0.05)', padding: 'var(--space-2)', borderRadius: 'var(--radius-sm)', marginTop: 'var(--space-2)' }}>
-                            <p style={{ margin: 0, fontSize: 'var(--font-size-xs)', fontWeight: 600, color: 'var(--danger-600)' }}>{t('profile.rejectionReason')}:</p>
-                            <p style={{ margin: '4px 0 0 0', fontSize: 'var(--font-size-sm)', color: 'var(--danger-700)' }}>{req.rejection_reason}</p>
+                          <div style={{ background: 'var(--danger-50)', padding: 'var(--space-2)', borderRadius: 'var(--radius-sm)', marginTop: 'var(--space-2)', borderLeft: '3px solid var(--danger-500)' }}>
+                            <p style={{ margin: 0, fontSize: 'var(--font-size-xs)', fontWeight: 600, color: 'var(--danger-700)' }}>{t('profile.rejectionReason')}:</p>
+                            <p style={{ margin: '4px 0 0 0', fontSize: 'var(--font-size-sm)', color: 'var(--danger-900)' }}>{req.rejection_reason}</p>
                           </div>
                         )}
                       </div>
@@ -665,6 +674,13 @@ export default function ProfilePage() {
         {claudeError && <div className="error-card" style={{ marginTop: 'var(--space-3)', padding: 'var(--space-3)' }}><p style={{ margin: 0 }}>{claudeError}</p></div>}
         {claudeSuccess && <div className="card" style={{ marginTop: 'var(--space-3)', padding: 'var(--space-3)', background: 'var(--success-50)', borderColor: 'var(--success-500)', display: 'flex', gap: 'var(--space-2)' }}><CheckCircle size={16} color="var(--success-600)" /><p style={{ margin: 0, color: 'var(--success-600)', fontWeight: 500, fontSize: 'var(--font-size-sm)' }}>{claudeSuccess}</p></div>}
 
+        <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-4)', padding: 'var(--space-3)', background: 'color-mix(in oklch, var(--warning-500) 12%, var(--surface))', borderRadius: 'var(--radius-md)', border: '1px solid color-mix(in oklch, var(--warning-500) 30%, transparent)' }}>
+          <AlertTriangle size={16} color="var(--warning-600)" style={{ flexShrink: 0, marginTop: '2px' }} />
+          <p style={{ fontSize: 'var(--font-size-xs)', margin: 0, color: 'var(--text-primary)' }}>
+            {t('profile.aiWarning')}
+          </p>
+        </div>
+
         <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginTop: 'var(--space-6)', marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
           <Key size={18} color="var(--primary-500)" /> OpenAI
         </h3>
@@ -712,6 +728,13 @@ export default function ProfilePage() {
         {openaiError && <div className="error-card" style={{ marginTop: 'var(--space-3)', padding: 'var(--space-3)' }}><p style={{ margin: 0 }}>{openaiError}</p></div>}
         {openaiSuccess && <div className="card" style={{ marginTop: 'var(--space-3)', padding: 'var(--space-3)', background: 'var(--success-50)', borderColor: 'var(--success-500)', display: 'flex', gap: 'var(--space-2)' }}><CheckCircle size={16} color="var(--success-600)" /><p style={{ margin: 0, color: 'var(--success-600)', fontWeight: 500, fontSize: 'var(--font-size-sm)' }}>{openaiSuccess}</p></div>}
 
+        <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-4)', padding: 'var(--space-3)', background: 'color-mix(in oklch, var(--warning-500) 12%, var(--surface))', borderRadius: 'var(--radius-md)', border: '1px solid color-mix(in oklch, var(--warning-500) 30%, transparent)' }}>
+          <AlertTriangle size={16} color="var(--warning-600)" style={{ flexShrink: 0, marginTop: '2px' }} />
+          <p style={{ fontSize: 'var(--font-size-xs)', margin: 0, color: 'var(--text-primary)' }}>
+            {t('profile.aiWarning')}
+          </p>
+        </div>
+
         <hr className="divider" style={{ margin: 'var(--space-6) 0' }} />
 
         <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
@@ -733,7 +756,7 @@ export default function ProfilePage() {
           {t('profile.dataExportBtn')}
         </button>
 
-        <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--space-3)', color: 'var(--danger-500)' }}>{t('profile.deleteAccount')}</h3>
+        <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--space-3)', color: 'var(--danger-500)' }}>{t('profile.deleteAccountTitle')}</h3>
         <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-4)' }}>
           {t('profile.deleteAccountDesc')}
         </p>
@@ -758,6 +781,16 @@ export default function ProfilePage() {
             <button className="btn btn-secondary" onClick={handleTakeout} style={{ marginTop: 'var(--space-2)' }}>
               {t('profile.dataExportBtn')}
             </button>
+          </div>
+          <div style={{ marginBottom: 'var(--space-4)' }}>
+            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: 'var(--space-2)', color: 'var(--danger-700)' }}>{t('profile.confirmEmailLabel')}</label>
+            <input
+              className="form-input"
+              type="email"
+              value={deleteConfirmEmail}
+              onChange={e => setDeleteConfirmEmail(e.target.value)}
+              placeholder={profile?.email || ''}
+            />
           </div>
           <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
             <button className="btn btn-danger flex-1" onClick={handleDelete}>

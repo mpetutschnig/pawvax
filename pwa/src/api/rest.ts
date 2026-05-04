@@ -89,6 +89,7 @@ export const getMyVerifications = () => api.get('/accounts/verifications')
 export const trackAnimalScan = (animalId: string) => api.post(`/animals/${animalId}/track-scan`)
 export const getRecentScans = (animalId: string) => api.get(`/animals/${animalId}/recent-scans`)
 export const getRecentlyScannedAnimals = () => api.get('/animals/recently-scanned')
+export const unarchiveAnimal = (animalId: string) => api.post(`/animals/${animalId}/unarchive`)
 
 // Account / Profil
 export const getMe = () => api.get('/accounts/me')

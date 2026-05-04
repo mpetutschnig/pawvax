@@ -316,6 +316,27 @@ export default function AnimalPage() {
     }
   }
 
+  const handleUnarchive = async () => {
+    if (!id || !animal || !isOwner) return
+    try {
+      setSubmitting(true)
+      const token = localStorage.getItem('token')
+      const res = await fetch(`/api/animals/${id}/unarchive`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Unarchive failed')
+      }
+      setAnimal(prev => prev ? { ...prev, is_archived: 0, archive_reason: undefined } : null)
+    } catch (err: any) {
+      setError(err.message || t('common.error'))
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   const handleGenerateTransfer = async () => {
     try {
       setSubmitting(true)
@@ -511,18 +532,25 @@ export default function AnimalPage() {
       <div className="content-grid">
         <div>
           {!isOwner && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', padding: 'var(--space-3)', background: 'var(--info-50)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-4)', border: '1px solid var(--info-200)' }}>
-              <ShieldAlert size={18} color="var(--info-600)" />
-              <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--info-800)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', padding: 'var(--space-3)', background: 'var(--info-100)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-4)', border: '1px solid var(--info-300)' }}>
+              <ShieldAlert size={18} color="var(--info-700)" />
+              <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--info-900)', fontWeight: 500 }}>
                 {t('scan.sharedAccess')}: <strong style={{ textTransform: 'capitalize' }}>{animal.request_role === 'vet' ? t('docScan.vet') : animal.request_role === 'authority' ? t('docScan.authority') : t('docScan.guestAccess')}</strong>
               </span>
             </div>
           )}
 
           {animal.is_archived ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', padding: 'var(--space-3)', background: 'var(--surface-alt)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-4)', border: '1px solid var(--border)' }}>
-              <Trash2 size={18} color="var(--text-secondary)" />
-              <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', fontWeight: 600 }}>{t('animal.archived')}</span>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--space-3)', background: 'var(--surface-alt)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-4)', border: '1px solid var(--border)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                <Trash2 size={18} color="var(--text-secondary)" />
+                <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', fontWeight: 600 }}>{t('animal.archived')}</span>
+              </div>
+              {isOwner && (
+                <button className="btn btn-outline" style={{ fontSize: 'var(--font-size-sm)', padding: '4px 12px' }} onClick={handleUnarchive} disabled={submitting}>
+                  {t('animal.unarchive')}
+                </button>
+              )}
             </div>
           ) : null}
 

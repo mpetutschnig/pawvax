@@ -191,13 +191,13 @@ export default function ScanPage() {
             {['tl','tr','bl','br'].map(pos => (
               <div key={pos} style={{
                 position: 'absolute',
-                width: 24, height: 24,
-                borderColor: 'var(--accent-400)',
+                width: 36, height: 36,
+                borderColor: 'var(--success-400)',
                 borderStyle: 'solid',
-                ...(pos === 'tl' ? { top: 16, left: 16, borderWidth: '3px 0 0 3px', borderRadius: '4px 0 0 0' } : {}),
-                ...(pos === 'tr' ? { top: 16, right: 16, borderWidth: '3px 3px 0 0', borderRadius: '0 4px 0 0' } : {}),
-                ...(pos === 'bl' ? { bottom: 16, left: 16, borderWidth: '0 0 3px 3px', borderRadius: '0 0 0 4px' } : {}),
-                ...(pos === 'br' ? { bottom: 16, right: 16, borderWidth: '0 3px 3px 0', borderRadius: '0 0 4px 0' } : {}),
+                ...(pos === 'tl' ? { top: 12, left: 12, borderWidth: '4px 0 0 4px', borderRadius: '6px 0 0 0' } : {}),
+                ...(pos === 'tr' ? { top: 12, right: 12, borderWidth: '4px 4px 0 0', borderRadius: '0 6px 0 0' } : {}),
+                ...(pos === 'bl' ? { bottom: 12, left: 12, borderWidth: '0 0 4px 4px', borderRadius: '0 0 0 6px' } : {}),
+                ...(pos === 'br' ? { bottom: 12, right: 12, borderWidth: '0 4px 4px 0', borderRadius: '0 0 6px 0' } : {}),
               }} />
             ))}
             

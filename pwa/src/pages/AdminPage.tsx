@@ -530,8 +530,8 @@ export default function AdminPage() {
 
                       {req.rejection_reason && (
                         <div style={{ background: 'var(--danger-50)', padding: 'var(--space-3)', borderRadius: 'var(--radius-sm)', marginBottom: 'var(--space-3)', borderLeft: '3px solid var(--danger-500)' }}>
-                          <p style={{ margin: '0 0 4px 0', fontSize: 'var(--font-size-sm)', fontWeight: 600, color: 'var(--danger-600)' }}>{t('profile.rejectionReason')}:</p>
-                          <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', color: 'var(--danger-700)' }}>{req.rejection_reason}</p>
+                          <p style={{ margin: '0 0 4px 0', fontSize: 'var(--font-size-sm)', fontWeight: 600, color: 'var(--danger-700)' }}>{t('profile.rejectionReason')}:</p>
+                          <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', color: 'var(--danger-900)' }}>{req.rejection_reason}</p>
                         </div>
                       )}
 

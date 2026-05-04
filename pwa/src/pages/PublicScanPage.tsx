@@ -125,12 +125,12 @@ export default function PublicScanPage() {
           {/* Readonly-Hinweis */}
           <div style={{
             display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-            padding: 'var(--space-3)', background: 'var(--success-50)',
+            padding: 'var(--space-3)', background: 'var(--success-100)',
             borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-4)',
-            border: '1px solid var(--success-200)'
+            border: '1px solid var(--success-300)'
           }}>
-            <ShieldCheck size={18} color="var(--success-600)" />
-            <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--success-800)' }}>
+            <ShieldCheck size={18} color="var(--success-700)" />
+            <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--success-900)', fontWeight: 500 }}>
               {t('publicScan.publicProfile')}
             </span>
           </div>
