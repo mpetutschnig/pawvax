@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { getDocument, deleteDocument, patchDocument, getAnimalDocuments, getMe, createReminder, reanalyzeDocument, getDocumentHistory } from '../api/rest'
 import { generateICS, downloadBlob } from '../utils/ics'
+import { normalizeVaccinationRecord } from '../utils/vaccination'
 import { PageHeader } from '../components/PageHeader'
 import { Shield, Pill, FileText, PawPrint, Landmark, Calendar, Download, Mail, Tag, Save, X, Edit2, Trash2, CheckCircle, Award, GraduationCap, ChevronLeft, ChevronRight, Bell, AlertTriangle } from 'lucide-react'
 import { TagCombobox } from '../components/TagCombobox'
@@ -199,9 +200,10 @@ export default function DocumentDetailPage() {
   const handleCreateInAppReminder = async (record: any, recordKey: string) => {
     const json = doc?.extracted_json || {}
     const animalName = json.animal?.name || ''
-    const targetDisease = record.target_disease || record.group || ''
-    const vaccineName = record.vaccine_name || record.vaccine || ''
-    const dueDate = record.valid_until || record.nextDue || ''
+    const vaccination = normalizeVaccinationRecord(record)
+    const targetDisease = vaccination.targetDisease
+    const vaccineName = vaccination.vaccineName
+    const dueDate = vaccination.validUntil
 
     if (!dueDate || !animalId) return
     const isoDate = /^\d{4}-\d{2}-\d{2}/.test(dueDate) ? dueDate.substring(0, 10) : ''
@@ -215,9 +217,9 @@ export default function DocumentDetailPage() {
     const title = titleParts.join(' \u2013 ')
 
     const notesParts: string[] = []
-    if (record.batch_number || record.batch) notesParts.push(`Charge: ${record.batch_number || record.batch}`)
-    if (record.administration_date || record.vaccination_date) notesParts.push(`Verabreicht: ${record.administration_date || record.vaccination_date}`)
-    if (record.vet_name) notesParts.push(`Tierarzt: ${record.vet_name}`)
+  if (vaccination.batchNumber) notesParts.push(`Charge: ${vaccination.batchNumber}`)
+  if (vaccination.administrationDate) notesParts.push(`Verabreicht: ${vaccination.administrationDate}`)
+  if (vaccination.veterinarianName) notesParts.push(`Tierarzt: ${vaccination.veterinarianName}`)
     const notes = notesParts.join('\n')
 
     setSavingReminder(recordKey)
@@ -646,9 +648,10 @@ export default function DocumentDetailPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
                 {visibleRecords.map((record: any) => {
                   const recordKey = `vax-${allRecords.indexOf(record)}`
-                  const vaccineName = record.vaccine_name || record.vaccine || '–'
-                  const targetDisease = record.target_disease || record.group || ''
-                  const validUntil = record.valid_until || record.nextDue || ''
+                  const vaccination = normalizeVaccinationRecord(record)
+                  const vaccineName = vaccination.vaccineName || '–'
+                  const targetDisease = vaccination.targetDisease
+                  const validUntil = vaccination.validUntil
                   const today = new Date()
                   today.setHours(0, 0, 0, 0)
                   const dueDate = validUntil ? new Date(validUntil) : null
@@ -669,17 +672,19 @@ export default function DocumentDetailPage() {
                       </div>
                       {targetDisease && <p style={{ margin: '0 0 var(--space-3) 0', fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>{targetDisease}</p>}
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)', fontSize: 'var(--font-size-xs)', marginBottom: 'var(--space-3)' }}>
-                        {(record.administration_date || record.vaccination_date) && <div><span style={{ color: 'var(--text-tertiary)' }}>{t('vaccine.administrationDate')}</span><br /><strong>{record.administration_date || record.vaccination_date}</strong></div>}
+                        {vaccination.administrationDate && <div><span style={{ color: 'var(--text-tertiary)' }}>{t('vaccine.administrationDate')}</span><br /><strong>{vaccination.administrationDate}</strong></div>}
                         {record.valid_from && <div><span style={{ color: 'var(--text-tertiary)' }}>{t('docDetail.validFrom')}</span><br /><strong>{record.valid_from}</strong></div>}
                         {validUntil && <div><span style={{ color: 'var(--text-tertiary)' }}>{t('vaccine.validUntil')}</span><br /><strong style={{ color: dateColor }}>{validUntil}</strong></div>}
-                        {(record.batch_number || record.batch) && <div><span style={{ color: 'var(--text-tertiary)' }}>{t('vaccine.batchNumber')}</span><br /><strong>{record.batch_number || record.batch}</strong></div>}
-                        {(record.expiry_date || record.expiry_date_of_vial) && <div><span style={{ color: 'var(--text-tertiary)' }}>{t('vaccine.expiryDate')}</span><br /><strong>{record.expiry_date || record.expiry_date_of_vial}</strong></div>}
-                        {record.manufacturer && <div><span style={{ color: 'var(--text-tertiary)' }}>{t('vaccine.manufacturer')}</span><br /><strong>{record.manufacturer}</strong></div>}
-                        {(record.vet_name || record.veterinarian?.name) && <div><span style={{ color: 'var(--text-tertiary)' }}>{t('vaccine.vetName')}</span><br /><strong>{record.vet_name || record.veterinarian?.name}</strong></div>}
+                        {vaccination.batchNumber && <div><span style={{ color: 'var(--text-tertiary)' }}>{t('vaccine.batchNumber')}</span><br /><strong>{vaccination.batchNumber}</strong></div>}
+                        {vaccination.expiryDate && <div><span style={{ color: 'var(--text-tertiary)' }}>{t('vaccine.expiryDate')}</span><br /><strong>{vaccination.expiryDate}</strong></div>}
+                        {vaccination.manufacturer && <div><span style={{ color: 'var(--text-tertiary)' }}>{t('vaccine.manufacturer')}</span><br /><strong>{vaccination.manufacturer}</strong></div>}
+                        {vaccination.veterinarianName && <div><span style={{ color: 'var(--text-tertiary)' }}>{t('vaccine.vetName')}</span><br /><strong>{vaccination.veterinarianName}</strong></div>}
                       </div>
-                      {record.components?.length > 0 && <p style={{ margin: '0 0 var(--space-2) 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}><strong>{t('docDetail.components')}:</strong> {record.components.join(', ')}</p>}
-                      {record.purpose && <p style={{ margin: '0 0 var(--space-2) 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}><strong>{t('docDetail.summary')}:</strong> {record.purpose}</p>}
-                      {(record.veterinarian?.practice || record.veterinarian?.clinic) && <p style={{ margin: '0 0 var(--space-2) 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}><strong>{t('docDetail.practice')}:</strong> {record.veterinarian.practice || record.veterinarian.clinic}</p>}
+                      {vaccination.components.length > 0 && <p style={{ margin: '0 0 var(--space-2) 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}><strong>{t('docDetail.components')}:</strong> {vaccination.components.join(', ')}</p>}
+                      {vaccination.purpose && <p style={{ margin: '0 0 var(--space-2) 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}><strong>{t('docDetail.summary')}:</strong> {vaccination.purpose}</p>}
+                      {vaccination.veterinarianClinic && <p style={{ margin: '0 0 var(--space-2) 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}><strong>{t('docDetail.practice')}:</strong> {vaccination.veterinarianClinic}</p>}
+                      {vaccination.veterinarianAddress && <p style={{ margin: '0 0 var(--space-2) 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}><strong>{t('docDetail.address')}:</strong> {vaccination.veterinarianAddress}</p>}
+                      {vaccination.veterinarianContact && <p style={{ margin: '0 0 var(--space-2) 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}><strong>{t('docDetail.contact')}:</strong> {vaccination.veterinarianContact}</p>}
                       {canSetReminder && (
                         <button
                           className={`btn ${isSaved ? 'btn-ghost' : 'btn-secondary'} btn-full`}

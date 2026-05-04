@@ -5,6 +5,7 @@ import { getAnimal, getAnimalDocuments, getAnimalTags, updateAnimal, deleteAnima
 import { PageHeader } from '../components/PageHeader' 
 import { PawPrint, Cat, Edit2, Trash2, Camera, Search, Radio, ShieldAlert, AlertTriangle, RefreshCw, X, Syringe, FileText, CheckCircle, ArrowDownAZ, ArrowUpAZ, SlidersHorizontal, ArrowRightLeft, Share2 } from 'lucide-react'
 import { AnimalDTO } from '../types/animal'
+import { normalizeVaccinationRecord } from '../utils/vaccination'
 interface AnimalTag {
   tag_id: string; tag_type: string; active: number; added_at: string
 }
@@ -533,11 +534,7 @@ export default function AnimalPage() {
       return records.map((record: any, index: number) => ({
         id: `${doc.id}-${index}`,
         documentId: doc.id,
-        vaccine: record.vaccine_name || record.vaccine || '—',
-        administrationDate: record.administration_date || record.vaccination_date || record.date || '',
-        validUntil: record.valid_until || record.nextDue || '',
-        batchNumber: record.batch_number || record.batch || '',
-        manufacturer: record.manufacturer || ''
+        ...normalizeVaccinationRecord(record)
       }))
     })
     .sort((a, b) => String(b.administrationDate || b.validUntil || '').localeCompare(String(a.administrationDate || a.validUntil || '')))
@@ -945,6 +942,7 @@ export default function AnimalPage() {
                       <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) 0' }}>{t('animal.vaccinations')}</th>
                       <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)' }}>{t('vaccine.administrationDate')}</th>
                       <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)' }}>{t('vaccine.validUntil')}</th>
+                      <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)' }}>{t('vaccine.expiryDate')}</th>
                       <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)' }}>{t('vaccine.batchNumber')}</th>
                     </tr>
                   </thead>
@@ -953,12 +951,13 @@ export default function AnimalPage() {
                       <tr key={record.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                         <td style={{ padding: 'var(--space-2) 0' }}>
                           <Link to={`/animals/${id}/documents/${record.documentId}`} style={{ color: 'var(--text-primary)', textDecoration: 'none', fontWeight: 600 }}>
-                            {record.vaccine}
+                            {record.vaccineName || '—'}
                           </Link>
                           {record.manufacturer && <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>{record.manufacturer}</div>}
                         </td>
                         <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{record.administrationDate || '—'}</td>
                         <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{record.validUntil || '—'}</td>
+                        <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{record.expiryDate || '—'}</td>
                         <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{record.batchNumber || '—'}</td>
                       </tr>
                     ))}

@@ -512,6 +512,8 @@
   "docDetail.components": "Komponenten",
   "docDetail.activeIngredient": "Wirkstoff",
   "docDetail.practice": "Praxis",
+  "docDetail.address": "Adresse",
+  "docDetail.contact": "Kontakt",
   "docDetail.reminderTitlePlaceholder": "z.B. Tetanus",
   "docDetail.reminderNotesPlaceholder": "z.B. Auffrischung nötig...",
   "profile.openaiSaved": "OpenAI API-Schlüssel gespeichert",

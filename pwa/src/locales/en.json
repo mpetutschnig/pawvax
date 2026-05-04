@@ -507,6 +507,8 @@
   "docDetail.components": "Components",
   "docDetail.activeIngredient": "Active Ingredient",
   "docDetail.practice": "Practice",
+  "docDetail.address": "Address",
+  "docDetail.contact": "Contact",
   "docDetail.reminderTitlePlaceholder": "e.g. Tetanus",
   "docDetail.reminderNotesPlaceholder": "e.g. Booster needed...",
   "profile.aiPriorityTitle": "AI Provider Priority",
