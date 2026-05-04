@@ -20,8 +20,12 @@ export default function AnimalPage() {
   const docTypeLabel = (type: string): string => {
     const labels: Record<string, string> = {
       vaccination: t('animal.docTypeVaccination'),
-      medication: t('animal.docTypeMedication'),
-      other: t('animal.docTypeOther')
+      medical_product: t('animal.docTypeMedicalProduct'),
+      pedigree: t('animal.docTypePedigree'),
+      dog_certificate: t('animal.docTypeDogCertificate'),
+      general: t('animal.docTypeGeneral'),
+      medication: t('animal.docTypeMedicalProduct'),
+      other: t('animal.docTypeGeneral')
     }
     return labels[type] || type
   }
@@ -39,7 +43,7 @@ export default function AnimalPage() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [documentTab, setDocumentTab] = useState<'all' | 'pending'>('all')
   const [retrying, setRetrying] = useState<string | null>(null)
-  const [filterType, setFilterType] = useState<'all' | 'vaccination' | 'medication' | 'other'>('all')
+  const [filterType, setFilterType] = useState<'all' | 'vaccination' | 'medical_product' | 'pedigree' | 'dog_certificate' | 'general'>('all')
   const [filterTag, setFilterTag] = useState('')
   const [filterDateFrom, setFilterDateFrom] = useState('')
   const [filterDateTo, setFilterDateTo] = useState('')
@@ -491,7 +495,7 @@ export default function AnimalPage() {
   // Grouped: Map<doc_type, Document[]> — only when showing all types
   const groupedDocs = filterType === 'all' ? (() => {
     const map = new Map<string, Document[]>()
-    for (const type of ['vaccination', 'medication', 'other'] as const) {
+    for (const type of ['vaccination', 'medical_product', 'pedigree', 'dog_certificate', 'general'] as const) {
       const group = filteredDocs.filter(d => d.doc_type === type)
       if (group.length > 0) map.set(type, group)
     }
@@ -924,7 +928,7 @@ export default function AnimalPage() {
             <>
               {/* Type filter chips + sort toggle */}
               <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap', marginBottom: 'var(--space-3)' }}>
-                {(['all', 'vaccination', 'medication', 'other'] as const).map(type => (
+                {(['all', 'vaccination', 'medical_product', 'pedigree', 'dog_certificate', 'general'] as const).map(type => (
                   <button
                     key={type}
                     className={`btn ${filterType === type ? 'btn-primary' : 'btn-outline'}`}
@@ -1157,6 +1161,99 @@ export default function AnimalPage() {
           ))}
         </>
       )}
+
+      {showArchiveDialog && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: 'var(--space-4)'
+          }}
+          onClick={() => {
+            setShowArchiveDialog(false)
+            setArchiveReason('')
+            setError(null)
+          }}
+        >
+          <div
+            className="card animate-slide-up"
+            style={{
+              maxWidth: '400px',
+              width: '100%',
+              padding: 'var(--space-6)',
+              position: 'relative'
+            }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              className="btn-ghost"
+              style={{
+                position: 'absolute',
+                top: 'var(--space-3)',
+                right: 'var(--space-3)',
+                padding: '8px',
+                margin: 0
+              }}
+              onClick={() => {
+                setShowArchiveDialog(false)
+                setArchiveReason('')
+                setError(null)
+              }}
+            >
+              <X size={20} />
+            </button>
+
+            <h3 style={{ marginTop: 0, marginBottom: 'var(--space-2)' }}>{t('animal.archiveDialog')}</h3>
+            <p className="text-muted" style={{ marginBottom: 'var(--space-4)' }}>{t('animal.archiveConfirm')}</p>
+
+            <div className="form-group" style={{ marginBottom: 'var(--space-6)' }}>
+              <label className="form-label" style={{ marginBottom: 'var(--space-2)' }}>{t('animal.archiveReason')} *</label>
+              <select
+                className="form-select"
+                value={archiveReason}
+                onChange={(event) => {
+                  setArchiveReason(event.target.value as typeof archiveReason)
+                  setError(null)
+                }}
+                style={{ borderColor: !archiveReason && error ? 'var(--danger-500)' : 'var(--border)' }}
+              >
+                <option value="">{t('common.select')}</option>
+                <option value="verstorben">{t('animal.archiveReason_verstorben')}</option>
+                <option value="verloren">{t('animal.archiveReason_verloren')}</option>
+                <option value="verkauft">{t('animal.archiveReason_verkauft')}</option>
+                <option value="abgegeben">{t('animal.archiveReason_abgegeben')}</option>
+                <option value="sonstiges">{t('animal.archiveReason_sonstiges')}</option>
+              </select>
+              {!archiveReason && error && (
+                <p style={{ color: 'var(--danger-500)', fontSize: 'var(--font-size-xs)', margin: 'var(--space-1) 0 0 0' }}>{error}</p>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+              <button className="btn btn-primary flex-1" onClick={handleArchiveConfirm} disabled={submitting || !archiveReason}>
+                {submitting ? `${t('common.loading')}...` : t('animal.archiveAnimal')}
+              </button>
+              <button
+                className="btn btn-ghost flex-1"
+                onClick={() => {
+                  setShowArchiveDialog(false)
+                  setArchiveReason('')
+                  setError(null)
+                }}
+                disabled={submitting}
+              >
+                {t('common.cancel')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
         </div>
       </div>
     </div>

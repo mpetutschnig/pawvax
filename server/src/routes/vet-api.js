@@ -2,7 +2,7 @@ import { v4 as uuid } from 'uuid'
 import { getDb } from '../db/index.js'
 import { hashApiKey } from '../utils/apikey.js'
 import { logAudit } from '../services/audit.js'
-import { analyzeDocument } from '../services/ocr.js'
+import { analyzeDocument, normalizeDocumentType } from '../services/ocr.js'
 import { decrypt } from '../utils/crypto.js'
 import { writeFileSync, mkdirSync } from 'fs'
 import { resolve, join, sep } from 'path'
@@ -232,7 +232,7 @@ export default async function vetApiRoutes(fastify) {
   // ──────────────────────────────────────────────────────────────────────────
   fastify.post('/api/v1/animals/:animalId/documents', {
     schema: {
-      description: 'Upload a document image for an animal. Multipart: field "file" (image) + field "doc_type" (vaccination|medication|other)',
+      description: 'Upload a document image for an animal. Multipart: field "file" (image) + field "doc_type" (vaccination|pedigree|dog_certificate|medical_product|general)',
       tags: ['VET API'],
       params: { type: 'object', properties: { animalId: { type: 'string' } } }
     }
@@ -255,9 +255,9 @@ export default async function vetApiRoutes(fastify) {
       fields[key] = field.value
     }
 
-    const docType = fields.doc_type || 'other'
-    if (!['vaccination', 'medication', 'other'].includes(docType)) {
-      return reply.code(400).send({ error: 'Invalid doc_type. Must be: vaccination, medication, or other' })
+    const docType = normalizeDocumentType(fields.doc_type || 'general')
+    if (!['vaccination', 'pedigree', 'dog_certificate', 'medical_product', 'general'].includes(docType)) {
+      return reply.code(400).send({ error: 'Invalid doc_type. Must be one of: vaccination, pedigree, dog_certificate, medical_product, general' })
     }
 
     // Save file

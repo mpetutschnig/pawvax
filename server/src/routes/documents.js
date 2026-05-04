@@ -1,4 +1,5 @@
 import { getDb } from '../db/index.js'
+import { normalizeDocumentType } from '../services/ocr.js'
 import { logAudit } from '../services/audit.js'
 import { analyzeDocument } from '../services/ocr.js'
 import { decrypt } from '../utils/crypto.js'
@@ -115,10 +116,11 @@ export default async function documentRoutes(fastify) {
     }
 
     if (doc_type !== undefined) {
+      const normalizedDocType = normalizeDocumentType(doc_type)
       db.prepare('UPDATE documents SET doc_type = ? WHERE id = ?')
-        .run(doc_type, doc.id)
+        .run(normalizedDocType, doc.id)
       logAudit(db, { accountId, role, action: 'update_document_type', resource: 'document', resourceId: doc.id,
-        details: { doc_type }, ip: req.ip })
+        details: { doc_type: normalizedDocType }, ip: req.ip })
     }
 
     return { success: true }

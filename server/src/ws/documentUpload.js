@@ -1,6 +1,6 @@
 import { v4 as uuid } from 'uuid'
 import { getDb } from '../db/index.js'
-import { analyzeDocument } from '../services/ocr.js'
+import { analyzeDocument, normalizeDocumentType, classifyDocumentType } from '../services/ocr.js'
 import { saveImageChunks } from '../services/storage.js'
 import { decrypt } from '../utils/crypto.js'
 import { logAudit } from '../services/audit.js'
@@ -136,7 +136,7 @@ export default async function wsDocumentUpload(fastify) {
           if (!existingCheck) {
             db.prepare(`
               INSERT INTO documents (id, animal_id, doc_type, image_path, extracted_json, ocr_provider, added_by_account, added_by_role, allowed_roles)
-              VALUES (?, ?, 'other', '', '{}', 'pending', ?, ?, ?)
+              VALUES (?, ?, 'general', '', '{}', 'pending', ?, ?, ?)
             `).run(docId, animalId, accountId, userRole, JSON.stringify(normalizedAllowedRoles))
           }
 
@@ -206,6 +206,8 @@ export default async function wsDocumentUpload(fastify) {
 
             // Analyze each page and combine text
             let combinedText = ''
+            const pageResults = []
+            const detectedTypes = []
             let lastProvider = 'gemini'
             let analysisError = null
             for (const page of pages) {
@@ -216,7 +218,19 @@ export default async function wsDocumentUpload(fastify) {
                 }, userAnthropicKey, userClaudeModel)
                 const pageElapsed = Date.now() - pageStartTime
                 fastify.log.debug({ pageNumber: page.page_number, elapsedMs: pageElapsed, provider: result.provider }, 'WS: Page analysis completed')
-                combinedText += (combinedText ? '\n---\n' : '') + (result.data.text || '')
+                pageResults.push(result.data)
+                const normalizedType = normalizeDocumentType(result.data?.type)
+                if (normalizedType) {
+                  detectedTypes.push(normalizedType)
+                }
+                const pageText = [
+                  result.data?.raw_text,
+                  result.data?.rawText,
+                  result.data?.summary,
+                  result.data?.title,
+                  result.data?.text
+                ].filter(Boolean).join('\n')
+                combinedText += (combinedText && pageText ? '\n---\n' : '') + pageText
                 lastProvider = result.provider
               } catch (err) {
                 fastify.log.error({ err, pageNumber: page.page_number }, 'WS: Error analyzing page')
@@ -227,13 +241,12 @@ export default async function wsDocumentUpload(fastify) {
             }
 
             // Use Gemini to suggest type and tags from combined text
-            let suggestedType = 'other'
-            let suggestedTags = []
-            if (combinedText && userGeminiKey) {
+            let suggestedType = detectedTypes[0] || 'general'
+            if (!detectedTypes.length && combinedText && userGeminiKey) {
               try {
                 send(socket, { type: 'status', message: 'Erzeuge Vorschläge mit KI...' })
                 const typeGuess = await guessDocumentType(combinedText, userGeminiKey, userGeminiModel)
-                suggestedType = typeGuess
+                suggestedType = normalizeDocumentType(typeGuess)
               } catch (err) {
                 fastify.log.error({ err }, 'WS: Error guessing document type')
               }
@@ -257,7 +270,7 @@ export default async function wsDocumentUpload(fastify) {
               `).run(
                 suggestedType,
                 pages[0].image_path,
-                analysisError ? JSON.stringify({ pages: pages.length, error: analysisError.message }) : JSON.stringify({ text: combinedText, type: suggestedType, pages: pages.length }),
+                analysisError ? JSON.stringify({ pages: pages.length, error: analysisError.message }) : JSON.stringify({ text: combinedText, type: suggestedType, pages: pages.length, page_results: pageResults }),
                 lastProvider,
                 accountId,
                 userRole,
@@ -275,7 +288,7 @@ export default async function wsDocumentUpload(fastify) {
                 uploadState.animalId,
                 suggestedType,
                 pages[0].image_path,
-                analysisError ? JSON.stringify({ pages: pages.length, error: analysisError.message }) : JSON.stringify({ text: combinedText, type: suggestedType, pages: pages.length }),
+                analysisError ? JSON.stringify({ pages: pages.length, error: analysisError.message }) : JSON.stringify({ text: combinedText, type: suggestedType, pages: pages.length, page_results: pageResults }),
                 lastProvider,
                 accountId,
                 userRole,
@@ -319,23 +332,30 @@ function send(socket, obj) {
 }
 
 async function guessDocumentType(text, geminiKey, modelId = 'gemini-1.5-flash') {
-  if (!geminiKey) return 'other'
+  if (!geminiKey) return 'general'
   try {
     const { GoogleGenerativeAI } = await import('@google/generative-ai')
     const genAI = new GoogleGenerativeAI(geminiKey)
     const model = genAI.getGenerativeModel({ model: modelId })
 
     const prompt = `Based on the following extracted document text, determine what type of veterinary document this is.
-Return ONLY one word from this list: vaccination, vet_report, microchip, passport, other
+Return ONLY one word from this list: vaccination, pedigree, dog_certificate, medical_product, general
 
-Text: ${text.slice(0, 500)}`
+DOCUMENT_TYPES:
+- vaccination: Impfpass, Impfbescheinigung, shows Impfstoffe and dates
+- pedigree: Stammbaum, Urkunde, Zuchtdokument with Registrierungsnummer
+- dog_certificate: Hundeführerschein, Sachkundenachweis with Prüfbewertung
+- medical_product: Medikamentenbeschreibung, Packungsbeilage, Wirkstoff/Dosierung
+- general: Gesundheitsbericht, Laborbefund, allgemeines Tierdokument
+
+Text: ${text.slice(0, 800)}`
 
     const result = await model.generateContent(prompt)
     const response = result.response.text().toLowerCase().trim()
-    const types = ['vaccination', 'vet_report', 'microchip', 'passport', 'other']
-    return types.find(t => response.includes(t)) || 'other'
+    const classified = normalizeDocumentType(response)
+    return classified
   } catch (err) {
     fastify.log.error({ err }, 'guessDocumentType error')
-    return 'other'
+    return 'general'
   }
 }

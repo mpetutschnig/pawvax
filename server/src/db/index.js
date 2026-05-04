@@ -60,6 +60,55 @@ export function initDb(dbPath) {
     try { db.exec(sql) } catch { /* column already exists */ }
   }
 
+  try {
+    const documentsTableSql = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'documents'").get()?.sql || ''
+    const needsDocumentTypeMigration = documentsTableSql.includes("CHECK(doc_type IN ('vaccination', 'medication', 'other'))")
+
+    if (needsDocumentTypeMigration) {
+      db.exec(`
+        BEGIN;
+        CREATE TABLE documents_new (
+          id               TEXT PRIMARY KEY,
+          animal_id        TEXT NOT NULL REFERENCES animals(id) ON DELETE CASCADE,
+          doc_type         TEXT NOT NULL DEFAULT 'general' CHECK(doc_type IN ('vaccination', 'pedigree', 'dog_certificate', 'medical_product', 'general')),
+          image_path       TEXT NOT NULL,
+          extracted_json   TEXT NOT NULL,
+          ocr_provider     TEXT,
+          added_by_role    TEXT,
+          added_by_account TEXT,
+          allowed_roles    TEXT,
+          created_at       TEXT DEFAULT (datetime('now')),
+          analysis_status  TEXT DEFAULT 'pending_analysis'
+        );
+
+        INSERT INTO documents_new (id, animal_id, doc_type, image_path, extracted_json, ocr_provider, added_by_role, added_by_account, allowed_roles, created_at, analysis_status)
+        SELECT
+          id,
+          animal_id,
+          CASE
+            WHEN doc_type = 'vaccination' THEN 'vaccination'
+            WHEN doc_type = 'medication' THEN 'medical_product'
+            ELSE 'general'
+          END,
+          image_path,
+          extracted_json,
+          ocr_provider,
+          added_by_role,
+          added_by_account,
+          allowed_roles,
+          created_at,
+          COALESCE(analysis_status, 'pending_analysis')
+        FROM documents;
+
+        DROP TABLE documents;
+        ALTER TABLE documents_new RENAME TO documents;
+        COMMIT;
+      `)
+    }
+  } catch {
+    /* documents table may not exist yet */
+  }
+
   // Backfill unique_id for existing animals
   try {
     const animalsWithoutId = db.prepare('SELECT id FROM animals WHERE unique_id IS NULL').all()
