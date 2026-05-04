@@ -37,6 +37,8 @@ npm test
 npm test:watch
 ```
 
+`npm test` startet jetzt automatisch einen lokalen Testserver mit einer isolierten temporaeren Test-Datenbank und einem separaten Upload-Ordner. Die echte Arbeits-DB wird dabei nicht verwendet.
+
 **Available Commands:**
 ```bash
 npm test                 # Alle Tests
@@ -84,13 +86,11 @@ npm test -- --testNamePattern="Animals"  # Nur bestimmte Tests
 ### Lokal testen
 
 ```bash
-# Terminal 1: Server
 cd server
-npm start
-
-# Terminal 2: Tests
 npm test
 ```
+
+Der Test-Runner startet den API-Server selbst auf einem freien lokalen Port und raeumt Test-DB sowie Upload-Dateien danach wieder auf.
 
 ### Sicherheitshinweis
 

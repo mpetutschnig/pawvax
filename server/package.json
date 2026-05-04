@@ -5,9 +5,10 @@
   "scripts": {
     "start": "node src/app.js",
     "dev": "node --watch src/app.js",
-    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand --forceExit --detectOpenHandles",
-    "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch --runInBand",
-    "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage --runInBand --forceExit"
+    "test": "node scripts/run-api-tests.js",
+    "test:watch": "node scripts/run-api-tests.js --watch",
+    "test:coverage": "node scripts/run-api-tests.js --coverage",
+    "test:jest": "node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand --forceExit --detectOpenHandles"
   },
   "devDependencies": {
     "@types/jest": "^29.5.11",

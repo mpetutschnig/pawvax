@@ -89,6 +89,13 @@ Run all tests:
 npm test
 ```
 
+This command now starts a dedicated local API server automatically with:
+- a temporary isolated SQLite database
+- a separate temporary uploads directory
+- a free local port
+
+That means the default test flow no longer touches your working database.
+
 Run one suite/group:
 
 ```bash
@@ -107,18 +114,28 @@ Watch mode:
 npm test:watch
 ```
 
+Raw Jest only (without managed local server) remains available for advanced debugging:
+
+```bash
+npm run test:jest
+```
+
 ---
 
 ## Run server for local tests
 
-```bash
-# Terminal 1
-cd server
-npm run dev
+For normal API test runs, no second terminal is needed:
 
-# Terminal 2
+```bash
 cd server
 npm test
+```
+
+If you want to debug the app manually, you can still start the server yourself:
+
+```bash
+cd server
+npm run dev
 ```
 
 ---
