@@ -149,11 +149,40 @@ export default async function adminRoutes(fastify) {
     const db = getDb()
     const accounts = db.prepare('SELECT COUNT(*) as cnt FROM accounts').get().cnt
     const animals = db.prepare('SELECT COUNT(*) as cnt FROM animals').get().cnt
+    const animals_active = db.prepare('SELECT COUNT(*) as cnt FROM animals WHERE is_archived = 0').get().cnt
+    const animals_archived = db.prepare('SELECT COUNT(*) as cnt FROM animals WHERE is_archived = 1').get().cnt
+    const animals_with_docs = db.prepare(`
+      SELECT COUNT(DISTINCT a.id) as cnt FROM animals a
+      JOIN documents d ON d.animal_id = a.id
+    `).get().cnt
     const documents = db.prepare('SELECT COUNT(*) as cnt FROM documents').get().cnt
     const auditEntries = db.prepare('SELECT COUNT(*) as cnt FROM audit_log').get().cnt
     const pendingVerifications = db.prepare("SELECT COUNT(*) as cnt FROM accounts WHERE verification_status = 'pending'").get().cnt
 
-    return { accounts, animals, documents, auditEntries, pendingVerifications }
+    return {
+      accounts,
+      animals: { total: animals, active: animals_active, archived: animals_archived, with_documents: animals_with_docs },
+      documents,
+      auditEntries,
+      pendingVerifications
+    }
+  })
+
+  // Animal stats per user (for current user)
+  fastify.get('/api/animals/stats', async (req) => {
+    const db = getDb()
+    const { accountId } = req.user
+
+    const total = db.prepare('SELECT COUNT(*) as cnt FROM animals WHERE account_id = ?').get(accountId).cnt
+    const active = db.prepare('SELECT COUNT(*) as cnt FROM animals WHERE account_id = ? AND is_archived = 0').get(accountId).cnt
+    const archived = db.prepare('SELECT COUNT(*) as cnt FROM animals WHERE account_id = ? AND is_archived = 1').get(accountId).cnt
+    const with_docs = db.prepare(`
+      SELECT COUNT(DISTINCT a.id) as cnt FROM animals a
+      JOIN documents d ON d.animal_id = a.id
+      WHERE a.account_id = ?
+    `).get(accountId).cnt
+
+    return { total, active, archived, with_documents: with_docs }
   })
 
   // Test Results
