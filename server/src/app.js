@@ -164,18 +164,25 @@ fastify.addHook('onResponse', (req, reply, done) => {
   done()
 })
 
-// Global handler for unhandled 500 errors
+// Global handler for validation and unhandled errors
 fastify.setErrorHandler((error, req, reply) => {
+  const statusCode = Number.isInteger(error?.statusCode) ? error.statusCode : 500
+  const message = statusCode >= 500 ? 'unhandled server error' : 'request error'
   req.log.error({
     method: req.method,
     url: req.url,
-    statusCode: 500,
+    statusCode,
     ip: req.ip,
     userId: req.user?.accountId ?? null,
     role: req.user?.role ?? null,
     err: { message: error.message, code: error.code },
-  }, 'unhandled server error')
-  reply.code(500).send({ error: 'Interner Serverfehler' })
+  }, message)
+
+  const responseError = statusCode >= 500
+    ? 'Interner Serverfehler'
+    : (error?.message || 'Ungueltige Anfrage')
+
+  reply.code(statusCode).send({ error: responseError })
 })
 
 // Routen

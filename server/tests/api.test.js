@@ -14,10 +14,78 @@
  */
 
 import fetch from 'node-fetch'
-import { getDb } from '../src/db/index.js'
 import { v4 as uuid } from 'uuid'
 
 const API_URL = process.env.API_URL || 'http://localhost:3000/api'
+
+function toWsUrl(apiUrl) {
+  const noApiSuffix = apiUrl.endsWith('/api') ? apiUrl.slice(0, -4) : apiUrl
+  return noApiSuffix.replace(/^http/, 'ws') + '/ws'
+}
+
+function waitForWsMessage(ws, timeoutMs = 5000) {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error('Timeout while waiting for websocket message'))
+    }, timeoutMs)
+
+    ws.onmessage = (event) => {
+      clearTimeout(timeout)
+      try {
+        resolve(JSON.parse(String(event.data)))
+      } catch (err) {
+        reject(err)
+      }
+    }
+
+    ws.onerror = (event) => {
+      clearTimeout(timeout)
+      reject(new Error(`WebSocket error: ${event?.message || 'unknown'}`))
+    }
+  })
+}
+
+async function createDocumentFixtureViaWs(token, animalId, allowedRoles = ['guest']) {
+  const ws = new WebSocket(toWsUrl(API_URL))
+
+  await new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error('WebSocket open timeout')), 5000)
+    ws.onopen = () => {
+      clearTimeout(timeout)
+      resolve()
+    }
+    ws.onerror = (event) => {
+      clearTimeout(timeout)
+      reject(new Error(`WebSocket open failed: ${event?.message || 'unknown'}`))
+    }
+  })
+
+  ws.send(JSON.stringify({ type: 'auth', token }))
+  const authMsg = await waitForWsMessage(ws)
+  if (authMsg.type !== 'auth_ok') {
+    ws.close()
+    throw new Error(`Unexpected WS auth response: ${JSON.stringify(authMsg)}`)
+  }
+
+  const documentId = uuid()
+  ws.send(JSON.stringify({
+    type: 'upload_start',
+    animalId,
+    filename: 'test-fixture.jpg',
+    mimeType: 'image/jpeg',
+    allowedRoles,
+    documentId
+  }))
+
+  const readyMsg = await waitForWsMessage(ws)
+  ws.close()
+
+  if (readyMsg.type !== 'ready' || readyMsg.documentId !== documentId) {
+    throw new Error(`Unexpected WS ready response: ${JSON.stringify(readyMsg)}`)
+  }
+
+  return documentId
+}
 
 // State zwischen Tests
 let testState = {
@@ -256,7 +324,9 @@ describe('PAWvax API Tests', () => {
       expect(tagStatus).toBe(201)
 
       // Jetzt lösche das Tier mit Cascade
-      const { status: deleteStatus } = await apiCall('DELETE', `/animals/${deleteAnimalId}`)
+      const { status: deleteStatus } = await apiCall('DELETE', `/animals/${deleteAnimalId}`, {
+        confirmationText: 'To-Delete-Animal'
+      })
 
       expect(deleteStatus).toBe(204)
 
@@ -353,23 +423,7 @@ describe('PAWvax API Tests', () => {
       expect(ownerAnimal.status).toBe(201)
       ownerAnimalId = ownerAnimal.data.id
 
-      documentId = uuid()
-      const db = getDb()
-      db.prepare(`
-        INSERT INTO documents (id, animal_id, doc_type, image_path, extracted_json, ocr_provider, added_by_account, added_by_role, allowed_roles, analysis_status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
-        documentId,
-        ownerAnimalId,
-        'other',
-        'test-doc.jpg',
-        JSON.stringify({ text: 'test' }),
-        'pending',
-        ownerReg.data.userId || ownerReg.data.id || null,
-        'user',
-        JSON.stringify(['guest']),
-        'completed'
-      )
+      documentId = await createDocumentFixtureViaWs(ownerToken, ownerAnimalId, ['guest'])
     })
 
     test('4a. Existing document without access returns 401 on GET', async () => {
@@ -385,23 +439,7 @@ describe('PAWvax API Tests', () => {
     })
 
     test('4c. Existing document without access returns 401 on DELETE', async () => {
-      const anotherDocId = uuid()
-      const db = getDb()
-      db.prepare(`
-        INSERT INTO documents (id, animal_id, doc_type, image_path, extracted_json, ocr_provider, added_by_account, added_by_role, allowed_roles, analysis_status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
-        anotherDocId,
-        ownerAnimalId,
-        'other',
-        'test-doc-delete.jpg',
-        JSON.stringify({ text: 'delete-test' }),
-        'pending',
-        null,
-        'user',
-        JSON.stringify(['guest']),
-        'completed'
-      )
+      const anotherDocId = await createDocumentFixtureViaWs(ownerToken, ownerAnimalId, ['guest'])
 
       const { status } = await apiCallWithToken(foreignToken, 'DELETE', `/documents/${anotherDocId}`)
       expect(status).toBe(401)
