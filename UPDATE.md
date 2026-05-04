@@ -54,14 +54,14 @@ chmod -R a+rX /git/pawvax
 
 ```bash
 PAW_API_UID=$(id -u paw-api)
-XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "podman --cgroup-manager=cgroupfs build --progress=plain -t paw-api:latest -f /git/pawvax/server/Dockerfile /git/pawvax/server"
+XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "cd /tmp && podman --cgroup-manager=cgroupfs build --progress=plain -t paw-api:latest -f /git/pawvax/server/Dockerfile /git/pawvax/server"
 ```
 
 ### 5 — Frontend-Image bauen (paw-pwa)
 
 ```bash
 PAW_PWA_UID=$(id -u paw-pwa)
-XDG_RUNTIME_DIR=/run/user/$PAW_PWA_UID su -s /bin/bash paw-pwa -c "podman --cgroup-manager=cgroupfs build --progress=plain -t paw-pwa:latest -f /git/pawvax/pwa/Containerfile /git/pawvax/pwa"
+XDG_RUNTIME_DIR=/run/user/$PAW_PWA_UID su -s /bin/bash paw-pwa -c "cd /tmp && podman --cgroup-manager=cgroupfs build --progress=plain -t paw-pwa:latest -f /git/pawvax/pwa/Containerfile /git/pawvax/pwa"
 ```
 
 ### 6 — paw-api Service neu starten
