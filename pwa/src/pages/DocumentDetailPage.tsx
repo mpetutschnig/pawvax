@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { getDocument, deleteDocument, patchDocument, getAnimalDocuments, getMe } from '../api/rest'
 import { generateICS, downloadBlob } from '../utils/ics'
 import { PageHeader } from '../components/PageHeader'
-import { Shield, Pill, FileText, PawPrint, Landmark, Calendar, Download, Mail, Tag, Save, X, Edit2, Trash2, CheckCircle } from 'lucide-react'
+import { Shield, Pill, FileText, PawPrint, Landmark, Calendar, Download, Mail, Tag, Save, X, Edit2, Trash2, CheckCircle, Award, GraduationCap } from 'lucide-react'
 import { TagCombobox } from '../components/TagCombobox'
 
 export default function DocumentDetailPage() {
@@ -22,6 +22,7 @@ export default function DocumentDetailPage() {
   const [tags, setTags] = useState<string[]>([])
   const [allExistingTags, setAllExistingTags] = useState<string[]>([])
   const [editMode, setEditMode] = useState(false)
+  const [editedTitle, setEditedTitle] = useState('')
   const [saving, setSaving] = useState(false)
   const [visibility, setVisibility] = useState<string[]>([])
   const [showJsonDetails, setShowJsonDetails] = useState(false)
@@ -54,8 +55,13 @@ export default function DocumentDetailPage() {
 
   const docTypeConfig: Record<string, { label: string; icon: React.ReactNode }> = {
     vaccination: { label: t('animal.docTypeVaccination'), icon: <Shield size={20} /> },
-    medication: { label: t('animal.docTypeMedication'), icon: <Pill size={20} /> },
-    other: { label: t('animal.docTypeOther'), icon: <FileText size={20} /> }
+    pedigree: { label: t('animal.docTypePedigree'), icon: <Award size={20} /> },
+    dog_certificate: { label: t('animal.docTypeDogCertificate'), icon: <GraduationCap size={20} /> },
+    medical_product: { label: t('animal.docTypeMedicalProduct'), icon: <Pill size={20} /> },
+    general: { label: t('animal.docTypeGeneral'), icon: <FileText size={20} /> },
+    // Legacy fallbacks
+    medication: { label: t('animal.docTypeMedicalProduct'), icon: <Pill size={20} /> },
+    other: { label: t('animal.docTypeGeneral'), icon: <FileText size={20} /> }
   }
 
   useEffect(() => {
@@ -90,6 +96,7 @@ export default function DocumentDetailPage() {
       const res = await getDocument(docId!)
       setDoc(res.data)
       setTags(res.data.extracted_json?.suggested_tags || [])
+      setEditedTitle(res.data.extracted_json?.title || '')
       try {
         setVisibility(res.data.allowed_roles ? JSON.parse(res.data.allowed_roles) : [])
       } catch { setVisibility([]) }
@@ -171,7 +178,7 @@ export default function DocumentDetailPage() {
     try {
       const updates: any = {}
       if (doc.isOwner) updates.allowed_roles = visibility
-      if (canEditTags) updates.extracted_json = { ...doc.extracted_json, suggested_tags: tags }
+      if (canEditTags) updates.extracted_json = { ...doc.extracted_json, suggested_tags: tags, title: editedTitle }
 
       await patchDocument(docId!, updates)
       setEditMode(false)
@@ -382,6 +389,18 @@ export default function DocumentDetailPage() {
 
         {editMode ? (
           <div style={{ background: 'var(--surface)', padding: 'var(--space-4)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-6)' }}>
+            {canEditTags && (
+              <div className="form-group">
+                <label className="form-label">{t('docDetail.title')}</label>
+                <input
+                  className="form-input"
+                  type="text"
+                  value={editedTitle}
+                  onChange={e => setEditedTitle(e.target.value)}
+                  placeholder={t('docDetail.titlePlaceholder')}
+                />
+              </div>
+            )}
             {canEditTags && (
               <div className="form-group">
                 <label className="form-label">{t('docDetail.tagAdd')}</label>

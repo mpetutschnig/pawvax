@@ -293,6 +293,8 @@
   "docDetail.vetLock": "Verified veterinary document: This document was uploaded by a veterinarian and cannot be deleted.",
   "docDetail.edit": "Edit",
   "docDetail.save": "Save",
+  "docDetail.title": "Title",
+  "docDetail.titlePlaceholder": "Enter document title...",
   "docDetail.cancel": "Cancel",
   "docDetail.tagPlaceholder": "New tag...",
   "docDetail.tagAdd": "Add",

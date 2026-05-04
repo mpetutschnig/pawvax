@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { CheckCircle, AlertCircle, Syringe, FileText, Cpu, BookOpen, Camera, RefreshCw, Plus, X } from 'lucide-react'
+import { CheckCircle, AlertCircle, Syringe, FileText, BookOpen, Camera, RefreshCw, Plus, X } from 'lucide-react'
 import { PageHeader } from '../components/PageHeader'
 import { uploadMultiPageDocument } from '../api/ws'
 import { patchDocument, getMe, patchMe } from '../api/rest'
@@ -98,9 +98,10 @@ export default function DocumentScanPage() {
 
   const docTypes = [
     { id: 'vaccination', label: t('animal.docTypeVaccination'), icon: <Syringe size={14} /> },
-    { id: 'report', label: t('docDetail.type'), icon: <FileText size={14} /> },
-    { id: 'microchip', label: 'Microchip', icon: <Cpu size={14} /> },
-    { id: 'passport', label: 'Passport', icon: <BookOpen size={14} /> },
+    { id: 'medical_product', label: t('animal.docTypeMedicalProduct'), icon: <FileText size={14} /> },
+    { id: 'pedigree', label: t('animal.docTypePedigree'), icon: <BookOpen size={14} /> },
+    { id: 'dog_certificate', label: t('animal.docTypeDogCertificate'), icon: <CheckCircle size={14} /> },
+    { id: 'general', label: t('animal.docTypeGeneral'), icon: <FileText size={14} /> },
   ]
 
   useEffect(() => {
@@ -733,9 +734,63 @@ export default function DocumentScanPage() {
 
               <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-md)', padding: 'var(--space-4)', textAlign: 'left', marginBottom: 'var(--space-6)' }}>
                 <h4 style={{ margin: '0 0 var(--space-2) 0', fontSize: 'var(--font-size-sm)' }}>{t('docDetail.ocrText')}</h4>
-                <pre style={{ margin: 0, fontSize: 'var(--font-size-xs)', overflowX: 'auto', whiteSpace: 'pre-wrap', wordWrap: 'break-word', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>
-                  {typeof result === 'string' ? result : JSON.stringify(result, null, 2)}
-                </pre>
+                {(() => {
+                  const parsed = typeof result === 'object' ? (result as any) : null
+                  if (!parsed) return (
+                    <pre style={{ margin: 0, fontSize: 'var(--font-size-xs)', overflowX: 'auto', whiteSpace: 'pre-wrap', wordWrap: 'break-word', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>
+                      {typeof result === 'string' ? result : JSON.stringify(result, null, 2)}
+                    </pre>
+                  )
+                  const data = parsed?.data || parsed?.page_results?.[0] || parsed
+                  return (
+                    <div style={{ display: 'grid', gap: 'var(--space-2)', fontSize: 'var(--font-size-sm)' }}>
+                      {data?.title && <div><strong>{t('docDetail.title')}:</strong> {data.title}</div>}
+                      {data?.document_date && <div><strong>{t('animal.created')}:</strong> {data.document_date}</div>}
+                      {data?.summary && <div className="text-muted">{data.summary}</div>}
+                      {Array.isArray(data?.vaccinations) && data.vaccinations.length > 0 && (
+                        <div>
+                          <strong>{t('animal.vaccinations')}:</strong>
+                          {data.vaccinations.map((v: any, i: number) => (
+                            <div key={i} style={{ marginLeft: 'var(--space-3)', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
+                              • {[v.vaccine, v.date, v.nextDue ? `Next: ${v.nextDue}` : null, v.vet].filter(Boolean).join(' — ')}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {data?.product && (
+                        <div>
+                          <strong>{t('animal.docTypeMedicalProduct')}:</strong>
+                          <div style={{ marginLeft: 'var(--space-3)', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
+                            {[data.product.name, data.product.active_substance, data.product.dosage, data.product.manufacturer].filter(Boolean).join(' — ')}
+                          </div>
+                        </div>
+                      )}
+                      {data?.pedigree && (
+                        <div>
+                          <strong>{t('animal.docTypePedigree')}:</strong>
+                          <div style={{ marginLeft: 'var(--space-3)', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
+                            {[data.pedigree.federation, data.pedigree.registration_number, data.pedigree.sire ? `Vater: ${data.pedigree.sire}` : null, data.pedigree.dam ? `Mutter: ${data.pedigree.dam}` : null].filter(Boolean).join(' — ')}
+                          </div>
+                        </div>
+                      )}
+                      {data?.certificate && (
+                        <div>
+                          <strong>{t('animal.docTypeDogCertificate')}:</strong>
+                          <div style={{ marginLeft: 'var(--space-3)', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
+                            {[data.certificate.holder_name, data.certificate.evaluation, data.certificate.passed !== undefined ? (data.certificate.passed ? '✓ Bestanden' : '✗ Nicht bestanden') : null].filter(Boolean).join(' — ')}
+                          </div>
+                        </div>
+                      )}
+                      {Array.isArray(data?.suggested_tags) && data.suggested_tags.length > 0 && (
+                        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: 'var(--space-1)' }}>
+                          {data.suggested_tags.map((tag: string, i: number) => (
+                            <span key={i} className="badge">{tag}</span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })()}
               </div>
 
               <button className="btn btn-ghost btn-full" onClick={() => navigate(`/animals/${animalId}`)} type="button">

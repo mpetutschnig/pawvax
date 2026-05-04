@@ -303,6 +303,8 @@
   "docDetail.vetLock": "Verifiziertes Tierarzt-Dokument: Dieses Dokument wurde durch einen Tierarzt hochgeladen und kann daher nicht gelöscht werden.",
   "docDetail.edit": "Bearbeiten",
   "docDetail.save": "Speichern",
+  "docDetail.title": "Titel",
+  "docDetail.titlePlaceholder": "Dokumenttitel eingeben...",
   "docDetail.cancel": "Abbrechen",
   "docDetail.tagPlaceholder": "Neuer Tag...",
   "docDetail.tagAdd": "Hinzufügen",
