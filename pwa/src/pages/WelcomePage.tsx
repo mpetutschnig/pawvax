@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { PawPrint, Radio, Edit3, CheckCircle, AlertCircle } from 'lucide-react'
+import { PawPrint, Radio, Edit3, CheckCircle, AlertCircle, ScanLine, FileText, Key } from 'lucide-react'
 
 export default function WelcomePage() {
   const navigate = useNavigate()
@@ -120,6 +120,76 @@ export default function WelcomePage() {
         >
           {t('welcome.skip')}
         </button>
+      </div>
+
+      <div className="card" style={{ marginTop: 'var(--space-6)' }}>
+        <h2 style={{ margin: '0 0 var(--space-2) 0', fontSize: 'var(--font-size-lg)', fontWeight: 700 }}>
+          {t('welcome.firstStepsTitle')}
+        </h2>
+        <p className="text-muted" style={{ margin: '0 0 var(--space-5) 0', fontSize: 'var(--font-size-sm)' }}>
+          {t('welcome.firstStepsIntro')}
+        </p>
+
+        <div style={{ display: 'grid', gap: 'var(--space-4)' }}>
+          <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'flex-start' }}>
+            <div style={{ width: 40, height: 40, borderRadius: 'var(--radius-md)', background: 'var(--primary-50)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <PawPrint size={20} color="var(--primary-600)" strokeWidth={1.8} />
+            </div>
+            <div>
+              <div style={{ fontWeight: 600, marginBottom: '4px' }}>{t('welcome.stepManualTitle')}</div>
+              <div className="text-muted" style={{ fontSize: 'var(--font-size-sm)' }}>{t('welcome.stepManualDesc')}</div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'flex-start' }}>
+            <div style={{ width: 40, height: 40, borderRadius: 'var(--radius-md)', background: 'var(--success-50)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <ScanLine size={20} color="var(--success-600)" strokeWidth={1.8} />
+            </div>
+            <div>
+              <div style={{ fontWeight: 600, marginBottom: '4px' }}>{t('welcome.stepScanTitle')}</div>
+              <div className="text-muted" style={{ fontSize: 'var(--font-size-sm)' }}>{t('welcome.stepScanDesc')}</div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'flex-start' }}>
+            <div style={{ width: 40, height: 40, borderRadius: 'var(--radius-md)', background: 'var(--info-50)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <FileText size={20} color="var(--info-600)" strokeWidth={1.8} />
+            </div>
+            <div>
+              <div style={{ fontWeight: 600, marginBottom: '4px' }}>{t('welcome.stepAiTitle')}</div>
+              <div className="text-muted" style={{ fontSize: 'var(--font-size-sm)' }}>{t('welcome.stepAiDesc')}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="card" style={{ marginTop: 'var(--space-4)', borderLeft: '4px solid var(--warning-500)' }}>
+        <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'flex-start' }}>
+          <div style={{ width: 40, height: 40, borderRadius: 'var(--radius-md)', background: 'color-mix(in oklch, var(--warning-500) 12%, var(--surface))', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Key size={20} color="var(--warning-700)" strokeWidth={1.8} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <h3 style={{ margin: '0 0 var(--space-2) 0', fontSize: 'var(--font-size-base)', fontWeight: 700 }}>
+              {t('welcome.stepTokenTitle')}
+            </h3>
+            <p className="text-muted" style={{ margin: '0 0 var(--space-3) 0', fontSize: 'var(--font-size-sm)' }}>
+              {t('welcome.stepTokenDesc')}
+            </p>
+            <div style={{ display: 'grid', gap: 'var(--space-2)', marginBottom: 'var(--space-4)' }}>
+              <div style={{ padding: 'var(--space-3)', borderRadius: 'var(--radius-md)', background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                <div style={{ fontWeight: 600, marginBottom: '4px' }}>{t('welcome.stepTokenWithoutTitle')}</div>
+                <div className="text-muted" style={{ fontSize: 'var(--font-size-sm)' }}>{t('welcome.stepTokenWithoutDesc')}</div>
+              </div>
+              <div style={{ padding: 'var(--space-3)', borderRadius: 'var(--radius-md)', background: 'var(--success-50)', border: '1px solid var(--success-200)' }}>
+                <div style={{ fontWeight: 600, marginBottom: '4px', color: 'var(--success-700)' }}>{t('welcome.stepTokenWithTitle')}</div>
+                <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--success-800)' }}>{t('welcome.stepTokenWithDesc')}</div>
+              </div>
+            </div>
+            <button className="btn btn-outline btn-full" onClick={() => navigate('/profile')}>
+              {t('welcome.setupAiToken')}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   )

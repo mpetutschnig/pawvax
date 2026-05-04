@@ -595,6 +595,19 @@ describe('PAWvax API Tests', () => {
         expect(status).toBe(403)
       }
     })
+
+    test('7c. Get Admin Test Results — Letzten Deploy-Teststatus abrufen', async () => {
+      const { status, data } = await apiCall('GET', '/admin/test-results')
+
+      if (status === 200) {
+        expect(data).toHaveProperty('summary')
+        expect(data).toHaveProperty('tests')
+        expect(data.summary === null || typeof data.summary === 'object').toBe(true)
+        expect(data.tests === null || typeof data.tests === 'object').toBe(true)
+      } else {
+        expect(status).toBe(403)
+      }
+    })
   })
 
   // ════════════════════════════════════════════════════════════════

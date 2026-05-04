@@ -40,7 +40,15 @@ interface TestCase {
 }
 
 interface TestResults {
-  summary: { status: string; date: string } | null
+  summary: {
+    status: string
+    date: string
+    passedTests?: number
+    failedTests?: number
+    pendingTests?: number
+    todoTests?: number
+    totalTests?: number
+  } | null
   tests: {
     numPassedTests: number
     numFailedTests: number
@@ -138,7 +146,7 @@ export default function AdminPage() {
   const selectedAccount = selectedId ? accounts.find(a => a.id === selectedId) : null
   const selectedAnimal = selectedId ? animals.find(a => a.id === selectedId) : null
 
-  let lastTestRun: { status: string; date: string } | null = null
+  let lastTestRun: TestResults['summary'] = null
   try {
     if ((appSettings as any).last_test_run) {
       lastTestRun = JSON.parse((appSettings as any).last_test_run)
@@ -268,6 +276,12 @@ export default function AdminPage() {
                     <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
                       {new Date(lastTestRun.date).toLocaleString(i18n.language === 'de' ? 'de-AT' : 'en-GB')}
                     </div>
+                    {typeof lastTestRun.totalTests === 'number' && (
+                      <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                        {lastTestRun.passedTests || 0}/{lastTestRun.totalTests} Tests
+                        {lastTestRun.failedTests ? `, ${lastTestRun.failedTests} fehlgeschlagen` : ''}
+                      </div>
+                    )}
                     <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--primary-600)', marginTop: 'var(--space-2)', fontWeight: 500 }}>
                       {t('admin.viewDetails')} →
                     </div>

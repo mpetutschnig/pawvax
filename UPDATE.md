@@ -119,21 +119,7 @@ echo "🚀 PAW Update erfolgreich abgeschlossen!"
 
 ```bash
 PAW_API_UID=$(id -u paw-api)
-XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "cd /tmp && podman run --rm --cgroup-manager=cgroupfs --security-opt label=disable -v /git/pawvax/server:/app -v /tmp:/tmp -w /app docker.io/node:22-alpine sh -lc 'apk add --no-cache python3 make g++ cairo-dev jpeg-dev pango-dev giflib-dev && npm ci && npm test -- --json --outputFile=/tmp/paw-test-results.json'"
-```
-
-Test-Details in DB speichern:
-
-```bash
-su -s /bin/bash paw-api -c "
-  cat > /tmp/save_tests.sql <<'EOSQL'
-INSERT OR REPLACE INTO settings (key, value)
-SELECT 'last_test_run_details', readfile('/tmp/paw-test-results.json')
-WHERE readfile('/tmp/paw-test-results.json') IS NOT NULL;
-EOSQL
-  sqlite3 /home/paw-api/data/paw.db < /tmp/save_tests.sql
-  rm /tmp/save_tests.sql
-"
+XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "cd /tmp && podman run --rm --cgroup-manager=cgroupfs --security-opt label=disable -v /git/pawvax/server:/app -v /home/paw-api/data:/data -v /tmp:/tmp -w /app docker.io/node:22-alpine sh -lc 'apk add --no-cache python3 make g++ cairo-dev jpeg-dev pango-dev giflib-dev && npm ci && npm test -- --json --outputFile=/tmp/paw-test-results.json && node scripts/persist-test-results.js /tmp/paw-test-results.json /data/paw.db'"
 ```
 
 ---
