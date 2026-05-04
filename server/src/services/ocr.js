@@ -992,6 +992,17 @@ export function normalizeDocumentType(typeInput) {
   return mapping[normalized] || 'general'
 }
 
+function normalizeRequestedDocumentType(typeInput) {
+  if (!typeInput) return null
+
+  const normalized = String(typeInput).toLowerCase().trim()
+  if (!normalized || normalized === 'auto' || normalized === 'unsure' || normalized === 'uncertain') {
+    return null
+  }
+
+  return normalizeDocumentType(normalized)
+}
+
 function firstDefined(...values) {
   return values.find(value => value !== undefined && value !== null && value !== '')
 }
