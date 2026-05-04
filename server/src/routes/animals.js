@@ -7,6 +7,14 @@ function normalizeRole(role) {
   return role === 'readonly' ? 'guest' : role
 }
 
+function buildShareLinkName(inputName, shareId) {
+  const base = typeof inputName === 'string'
+    ? inputName.trim().replace(/\s+/g, ' ').slice(0, 80)
+    : ''
+  const prefix = base || 'Link'
+  return `${prefix} - ${shareId.slice(0, 8)}`
+}
+
 function parseAllowedRoles(rawRoles) {
   if (!rawRoles) return null
   try {
@@ -694,20 +702,22 @@ export default async function animalRoutes(fastify) {
     const db = getDb()
     const { id } = req.params
     const { accountId, role } = req.user
+    const name = req.body?.name
 
     const animal = db.prepare('SELECT id FROM animals WHERE id = ? AND account_id = ?').get(id, accountId)
     if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden oder keine Berechtigung' })
 
     const shareId = uuid()
+    const linkName = buildShareLinkName(name, shareId)
     const expiresAt = new Date()
     expiresAt.setDate(expiresAt.getDate() + 14) // 14 Tage gültig
 
-    db.prepare('INSERT INTO animal_public_shares (id, animal_id, expires_at) VALUES (?, ?, ?)')
-      .run(shareId, id, Math.floor(expiresAt.getTime() / 1000))
+    db.prepare('INSERT INTO animal_public_shares (id, animal_id, link_name, expires_at) VALUES (?, ?, ?, ?)')
+      .run(shareId, id, linkName, Math.floor(expiresAt.getTime() / 1000))
 
     logAudit(db, { accountId, role, action: 'create_temp_share', resource: 'sharing', resourceId: id, ip: req.ip })
 
-    return reply.code(201).send({ shareId })
+    return reply.code(201).send({ shareId, linkName })
   })
 
   // Liste aktive Sharing-Links für ein Tier
@@ -722,7 +732,7 @@ export default async function animalRoutes(fastify) {
 
     const now = Math.floor(Date.now() / 1000)
     const shares = db.prepare(`
-      SELECT id, created_at, expires_at, (expires_at - ?) as seconds_remaining
+      SELECT id, link_name, created_at, expires_at, (expires_at - ?) as seconds_remaining
       FROM animal_public_shares
       WHERE animal_id = ? AND expires_at > ?
       ORDER BY created_at DESC
@@ -730,6 +740,7 @@ export default async function animalRoutes(fastify) {
 
     return reply.code(200).send(shares.map(s => ({
       id: s.id,
+      linkName: s.link_name || `Legacy-${String(s.id).slice(0, 8)}`,
       createdAt: new Date(s.created_at * 1000).toISOString(),
       expiresAt: new Date(s.expires_at * 1000).toISOString(),
       secondsRemaining: s.seconds_remaining,

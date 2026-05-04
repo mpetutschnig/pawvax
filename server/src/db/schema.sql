@@ -82,6 +82,7 @@ CREATE TABLE IF NOT EXISTS animal_sharing (
 CREATE TABLE IF NOT EXISTS animal_public_shares (
   id        TEXT PRIMARY KEY,
   animal_id TEXT NOT NULL REFERENCES animals(id) ON DELETE CASCADE,
+  link_name TEXT,
   expires_at INTEGER NOT NULL,
   created_at INTEGER DEFAULT (unixepoch())
 );

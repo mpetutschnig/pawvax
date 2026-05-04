@@ -60,6 +60,12 @@ export const deleteDocument = (id: string) => api.delete(`/documents/${id}`)
 export const getSharing = (animalId: string) => api.get(`/animals/${animalId}/sharing`)
 export const updateSharing = (animalId: string, role: string, data: object) =>
   api.put(`/animals/${animalId}/sharing`, { role, ...data })
+export const createTemporaryShare = (animalId: string, name?: string) =>
+  api.post(`/animals/${animalId}/sharing/temporary`, name ? { name } : {})
+export const getAnimalShares = (animalId: string) =>
+  api.get(`/animals/${animalId}/shares`)
+export const revokeAnimalShare = (animalId: string, shareId: string) =>
+  api.delete(`/animals/${animalId}/shares/${shareId}`)
 
 // Vet verification
 export const requestVerification = () => api.post('/accounts/request-verification')

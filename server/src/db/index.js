@@ -52,6 +52,7 @@ export function initDb(dbPath) {
     `ALTER TABLE accounts ADD COLUMN openai_model TEXT DEFAULT 'gpt-4.1-mini'`,
     `ALTER TABLE accounts ADD COLUMN ai_provider_priority TEXT DEFAULT '["google", "anthropic", "openai"]'`,
     `ALTER TABLE animals ADD COLUMN unique_id TEXT UNIQUE`,
+    `ALTER TABLE animal_public_shares ADD COLUMN link_name TEXT`,
   ]
   for (const sql of migrations) {
     try { db.exec(sql) } catch { /* column already exists */ }
@@ -125,6 +126,15 @@ export function initDb(dbPath) {
       WHERE typeof(expires_at) = 'text'
     `)
   } catch { /* table may not exist yet or already migrated */ }
+
+  // Backfill link_name for legacy shares
+  try {
+    db.exec(`
+      UPDATE animal_public_shares
+      SET link_name = 'Legacy-' || substr(id, 1, 8)
+      WHERE link_name IS NULL OR trim(link_name) = ''
+    `)
+  } catch { /* table or column may not exist yet */ }
 
   // JWT Blacklist table for logout functionality
   try {
