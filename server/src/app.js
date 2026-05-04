@@ -136,6 +136,13 @@ fastify.addHook('preHandler', async (req, reply) => {
   }
 })
 
+fastify.addHook('onRequest', async (req) => {
+  if (req.url === '/health' || req.url.startsWith('/uploads/') || req.url.startsWith('/documentation')) {
+    return
+  }
+  req.log.info({ method: req.method, url: req.url, ip: req.ip }, 'request_started')
+})
+
 // Capture error body for structured logging
 fastify.addHook('onSend', async (req, reply, payload) => {
   if (reply.statusCode >= 400) {

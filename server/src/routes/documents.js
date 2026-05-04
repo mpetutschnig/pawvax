@@ -353,6 +353,8 @@ export default async function documentRoutes(fastify) {
       return reply.code(400).send({ error: 'Dieses Dokument ist nicht pending' })
     }
 
+    req.log.info({ docId, accountId, requestedProvider, requestedModel, language, analysisStatus: doc.analysis_status }, 'Retry analysis requested')
+
     try {
       // Get user's keys and models
       const acc = db.prepare('SELECT gemini_token, gemini_model, anthropic_token, claude_model, openai_token, openai_model, ai_provider_priority FROM accounts WHERE id = ?').get(accountId)
@@ -447,7 +449,7 @@ export default async function documentRoutes(fastify) {
         provider
       })
     } catch (err) {
-      req.log.error({ err, docId }, 'Retry analysis failed')
+      req.log.error({ err, docId, accountId, requestedProvider, requestedModel, language }, 'Retry analysis failed')
       // Reset status back to pending_analysis on error
       db.prepare('UPDATE documents SET analysis_status = ? WHERE id = ?').run('pending_analysis', docId)
 
@@ -481,6 +483,8 @@ export default async function documentRoutes(fastify) {
     if (doc.analysis_status !== 'completed') {
       return reply.code(400).send({ error: 'Dokument muss bereits analysiert sein' })
     }
+
+    req.log.info({ docId, accountId, requestedProvider, requestedModel, language, analysisStatus: doc.analysis_status }, 'Re-analysis requested')
 
     try {
       // Store old analysis in history (versioning)
@@ -587,7 +591,7 @@ export default async function documentRoutes(fastify) {
         }
       })
     } catch (err) {
-      req.log.error({ err, docId }, 'Re-analysis failed')
+      req.log.error({ err, docId, accountId, requestedProvider, requestedModel, language }, 'Re-analysis failed')
 
       if (err.message?.includes('429') || err.message?.includes('Quota')) {
         return reply.code(503).send({ error: 'Gemini API Quota überschritten. Bitte später versuchen.' })

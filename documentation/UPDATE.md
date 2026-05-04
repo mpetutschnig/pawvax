@@ -134,11 +134,18 @@ Wichtig:
 - Nicht `start` vor `persist` ausfuehren.
 - Die DB muss fuer `persist` und `sqlite3 cleanup` frei sein.
 
-### 7.1 API-Container stoppen
+### 7.1 API-Service stoppen
 
 ```bash
-su - paw-api -c "podman stop systemd-paw-api 2>/dev/null || true"
+PAW_API_UID=$(id -u paw-api)
+su -s /bin/bash paw-api -c "cd /tmp && XDG_RUNTIME_DIR=/run/user/$PAW_API_UID DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$PAW_API_UID/bus systemctl --user stop paw-api"
 sleep 2
+```
+
+Optional pruefen, dass kein API-Container mehr laeuft:
+
+```bash
+su - paw-api -c "podman ps"
 ```
 
 ### 7.2 Testergebnisse in DB speichern
@@ -157,16 +164,18 @@ Persisted deploy test results (passed, 115/115 passed)
 ### 7.3 Test-Accounts aufraeumen
 
 ```bash
-su -s /bin/bash paw-api -c "sqlite3 /home/paw-api/data/paw.db \"DELETE FROM accounts WHERE email LIKE 'test%@example.com' OR email LIKE 'journey%@test.com';\""
-su -s /bin/bash paw-api -c "sqlite3 /home/paw-api/data/paw.db \"DELETE FROM accounts WHERE email LIKE 'reminder-%@example.com' OR email LIKE 'reminder-other%@example.com';\""
-su -s /bin/bash paw-api -c "sqlite3 /home/paw-api/data/paw.db \"DELETE FROM accounts WHERE email = 'dedup@example.com';\""
-echo "Test-Accounts bereinigt."
+PAW_API_UID=$(id -u paw-api)
+XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "cd /tmp && podman --cgroup-manager=cgroupfs run --rm --security-opt label=disable -v /git/pawvax/server:/app -v /home/paw-api/data:/data -w /app docker.io/node:22-alpine sh -c 'node scripts/cleanup-test-data.js /data/paw.db'"
 ```
 
-### 7.4 API-Container wieder starten
+Das Script loescht bekannte Test-Accounts mit aktivierten Foreign Keys und raeumt zusaetzlich bereits vorhandene Orphans auf, die durch fruehere direkte `sqlite3 DELETE`-Befehle entstanden sind.
+
+### 7.4 API-Service wieder starten
 
 ```bash
-su - paw-api -c "podman start systemd-paw-api 2>/dev/null || true"
+PAW_API_UID=$(id -u paw-api)
+su -s /bin/bash paw-api -c "cd /tmp && XDG_RUNTIME_DIR=/run/user/$PAW_API_UID DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$PAW_API_UID/bus systemctl --user start paw-api"
+su -s /bin/bash paw-api -c "cd /tmp && XDG_RUNTIME_DIR=/run/user/$PAW_API_UID DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$PAW_API_UID/bus systemctl --user status paw-api --no-pager"
 ```
 
 ### 7.5 Ergebnis pruefen

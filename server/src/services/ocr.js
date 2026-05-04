@@ -872,11 +872,7 @@ async function analyzeWithClaude(imagePath, anthropicKey, model, onProgress, pro
   const result = await response.json()
   const text = result.content?.[0]?.text || ''
 
-  const jsonMatch = text.match(/\{[\s\S]*\}/)
-  if (!jsonMatch) throw new Error('Kein JSON in Claude-Antwort')
-
-  const parsed = { type: normalizeDocumentType(documentType), ...JSON.parse(jsonMatch[0]) }
-  return { provider: 'claude', data: normalizeDateFields(parsed) }
+  return { provider: 'claude', data: parseStructuredModelResponse(text, 'Claude', documentType) }
 }
 
 async function analyzeWithGemini(imagePath, geminiKey, model, onProgress, prompt = GEMINI_PROMPT, documentType = 'general') {
@@ -898,6 +894,9 @@ async function analyzeWithGemini(imagePath, geminiKey, model, onProgress, prompt
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
+      generationConfig: {
+        responseMimeType: 'application/json'
+      },
       contents: [{
         parts: [
           { text: prompt },
@@ -926,12 +925,8 @@ async function analyzeWithGemini(imagePath, geminiKey, model, onProgress, prompt
   if (onProgress) onProgress('Anmeldung bei Google API erfolgreich! Verarbeite JSON-Antwort...')
   const result = await response.json();
   const text = result.candidates?.[0]?.content?.parts?.[0]?.text || '';
-  
-  const jsonMatch = text.match(/\{[\s\S]*\}/)
-  if (!jsonMatch) throw new Error('Kein JSON in Gemini-Antwort')
 
-  const parsed = { type: normalizeDocumentType(documentType), ...JSON.parse(jsonMatch[0]) }
-  return { provider: 'gemini', data: normalizeDateFields(parsed) }
+  return { provider: 'gemini', data: parseStructuredModelResponse(text, 'Gemini', documentType) }
 }
 
 async function analyzeWithTesseract(imagePath, onProgress) {
@@ -1002,6 +997,79 @@ function firstDefined(...values) {
 
 function uniqueStrings(values = []) {
   return [...new Set(values.filter(value => typeof value === 'string' && value.trim().length > 0))]
+}
+
+function extractBalancedJsonCandidate(text) {
+  const source = String(text || '')
+  let startIndex = -1
+  let depth = 0
+  let inString = false
+  let escaping = false
+
+  for (let index = 0; index < source.length; index += 1) {
+    const char = source[index]
+
+    if (inString) {
+      if (escaping) {
+        escaping = false
+      } else if (char === '\\') {
+        escaping = true
+      } else if (char === '"') {
+        inString = false
+      }
+      continue
+    }
+
+    if (char === '"') {
+      inString = true
+      continue
+    }
+
+    if (char === '{' || char === '[') {
+      if (depth === 0) {
+        startIndex = index
+      }
+      depth += 1
+      continue
+    }
+
+    if (char === '}' || char === ']') {
+      if (depth === 0) continue
+      depth -= 1
+      if (depth === 0 && startIndex >= 0) {
+        return source.slice(startIndex, index + 1)
+      }
+    }
+  }
+
+  return null
+}
+
+export function parseStructuredModelResponse(text, provider, documentType = 'general') {
+  const trimmed = String(text || '').trim()
+  const candidates = [trimmed]
+
+  const fencedMatches = [...trimmed.matchAll(/```(?:json)?\s*([\s\S]*?)```/gi)]
+  for (const match of fencedMatches) {
+    if (match[1]) candidates.push(match[1].trim())
+  }
+
+  const balanced = extractBalancedJsonCandidate(trimmed)
+  if (balanced) candidates.push(balanced)
+
+  for (const candidate of candidates) {
+    if (!candidate) continue
+    try {
+      const parsed = JSON.parse(candidate)
+      if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') continue
+      return normalizeDateFields({ type: normalizeDocumentType(documentType), ...parsed })
+    } catch {
+      continue
+    }
+  }
+
+  const preview = trimmed.replace(/\s+/g, ' ').slice(0, 240)
+  throw new Error(`Kein JSON in ${provider}-Antwort${preview ? `: ${preview}` : ''}`)
 }
 
 function getNestedArray(source, key) {
@@ -1313,9 +1381,5 @@ async function analyzeWithOpenAI(imagePath, openAiKey, model, onProgress, prompt
   const result = await response.json()
   const text = result.choices?.[0]?.message?.content || ''
 
-  const jsonMatch = text.match(/\{[\s\S]*\}/)
-  if (!jsonMatch) throw new Error('Kein JSON in OpenAI-Antwort')
-
-  const parsed = { type: normalizeDocumentType(documentType), ...JSON.parse(jsonMatch[0]) }
-  return { provider: 'openai', data: normalizeDateFields(parsed) }
+  return { provider: 'openai', data: parseStructuredModelResponse(text, 'OpenAI', documentType) }
 }

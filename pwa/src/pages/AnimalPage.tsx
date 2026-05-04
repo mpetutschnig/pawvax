@@ -525,6 +525,23 @@ export default function AnimalPage() {
     return map
   })() : null
 
+  const vaccinationRecords = documents
+    .filter(d => d.analysis_status !== 'pending_analysis' && d.doc_type === 'vaccination')
+    .flatMap((doc) => {
+      const records = doc.extracted_json?.payload?.vaccinations || doc.extracted_json?.vaccinations || []
+      if (!Array.isArray(records)) return []
+      return records.map((record: any, index: number) => ({
+        id: `${doc.id}-${index}`,
+        documentId: doc.id,
+        vaccine: record.vaccine_name || record.vaccine || '—',
+        administrationDate: record.administration_date || record.vaccination_date || record.date || '',
+        validUntil: record.valid_until || record.nextDue || '',
+        batchNumber: record.batch_number || record.batch || '',
+        manufacturer: record.manufacturer || ''
+      }))
+    })
+    .sort((a, b) => String(b.administrationDate || b.validUntil || '').localeCompare(String(a.administrationDate || a.validUntil || '')))
+
   return (
     <div className="container page">
       <PageHeader title={animal.name} backTo="/animals" showThemeToggle />
@@ -914,6 +931,43 @@ export default function AnimalPage() {
         </div>
 
         <div>
+          {vaccinationRecords.length > 0 && (
+            <div className="card" style={{ marginBottom: 'var(--space-4)', overflow: 'hidden' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
+                <Syringe size={18} color="var(--primary-600)" />
+                <h3 style={{ margin: 0 }}>{t('animal.vaccinations')}</h3>
+                <span className="badge">{vaccinationRecords.length}</span>
+              </div>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                      <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) 0' }}>{t('animal.vaccinations')}</th>
+                      <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)' }}>{t('vaccine.administrationDate')}</th>
+                      <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)' }}>{t('vaccine.validUntil')}</th>
+                      <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)' }}>{t('vaccine.batchNumber')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {vaccinationRecords.map((record) => (
+                      <tr key={record.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                        <td style={{ padding: 'var(--space-2) 0' }}>
+                          <Link to={`/animals/${id}/documents/${record.documentId}`} style={{ color: 'var(--text-primary)', textDecoration: 'none', fontWeight: 600 }}>
+                            {record.vaccine}
+                          </Link>
+                          {record.manufacturer && <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>{record.manufacturer}</div>}
+                        </td>
+                        <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{record.administrationDate || '—'}</td>
+                        <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{record.validUntil || '—'}</td>
+                        <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{record.batchNumber || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           {/* Document Tabs */}
           <div style={{ display: 'flex', gap: 'var(--space-3)', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border)' }}>
         <button

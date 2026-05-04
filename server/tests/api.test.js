@@ -18,7 +18,7 @@ import Database from 'better-sqlite3'
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { computeRecordHash, flagDuplicates } from '../src/services/dedup.js'
-import { buildExtractedDocumentData, getPromptForDocumentType, normalizeDocumentType, PROMPTS } from '../src/services/ocr.js'
+import { buildExtractedDocumentData, getPromptForDocumentType, normalizeDocumentType, parseStructuredModelResponse, PROMPTS } from '../src/services/ocr.js'
 
 const API_URL = process.env.API_URL || 'http://localhost:3000/api'
 
@@ -1972,6 +1972,28 @@ describe('Suite 15: Multilingual OCR Prompts', () => {
     expect(data.vaccinations[0].vaccine).toBe('Eurican L4')
     expect(data.payload.type).toBe('vaccination')
     expect(data.payload.vaccinations).toHaveLength(1)
+  })
+
+  test('15n. parseStructuredModelResponse accepts fenced JSON with surrounding text', () => {
+    const text = [
+      'Here is the extracted JSON:',
+      '',
+      '```json',
+      '{',
+      '  "title": "Impfpass / Sonstige Impfungen",',
+      '  "vaccinations": [',
+      '    { "vaccine": "Eurican L4", "date": "2025-12-02" }',
+      '  ]',
+      '}',
+      '```'
+    ].join('\n')
+
+    const parsed = parseStructuredModelResponse(text, 'Gemini', 'vaccination')
+
+    expect(parsed.type).toBe('vaccination')
+    expect(parsed.title).toBe('Impfpass / Sonstige Impfungen')
+    expect(parsed.vaccinations).toHaveLength(1)
+    expect(parsed.vaccinations[0].vaccine).toBe('Eurican L4')
   })
 })
 
