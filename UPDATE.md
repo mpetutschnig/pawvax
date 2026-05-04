@@ -22,43 +22,18 @@ ssh hetzner
 
 ```bash
 su -s /bin/bash paw-git -c "cd /tmp && git -C /git/pawvax pull"
-```
 
----
-
-## Schritt 2: Update auf dem Server ausführen
-
-Führe die folgenden Blöcke nacheinander als `root` im **Hetzner Server-Terminal** aus. Prüfe nach jedem Block die Ausgabe auf Fehler.
-
-### 1 — Shells temporär auf /bin/bash setzen
-
-```bash
 usermod -s /bin/bash paw-git
 usermod -s /bin/bash paw-api
 usermod -s /bin/bash paw-pwa
-```
 
-### 2 — Neusten Code ziehen
-
-```bash
 su -s /bin/bash paw-git -c "cd /tmp && git -C /git/pawvax pull"
-```
-
-### 3 — Dateiberechtigungen setzen
-
-```bash
 chmod -R a+rX /git/pawvax
 chmod -R a+w /git/pawvax/server /git/pawvax/pwa
-```
 
-### 4 — Vor dem Build bereinigen
-
-```bash
 PAW_API_UID=$(id -u paw-api)
 XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "cd /tmp && podman --cgroup-manager=cgroupfs container prune -f && podman --cgroup-manager=cgroupfs image prune -af && podman --cgroup-manager=cgroupfs builder prune -af"
-```
 
-```bash
 PAW_PWA_UID=$(id -u paw-pwa)
 XDG_RUNTIME_DIR=/run/user/$PAW_PWA_UID su -s /bin/bash paw-pwa -c "cd /tmp && podman --cgroup-manager=cgroupfs container prune -f && podman --cgroup-manager=cgroupfs image prune -af && podman --cgroup-manager=cgroupfs builder prune -af"
 ```
@@ -85,11 +60,7 @@ su -s /bin/bash paw-api -c "cd /tmp && XDG_RUNTIME_DIR=/run/user/$PAW_API_UID DB
 
 PAW_PWA_UID=$(id -u paw-pwa)
 su -s /bin/bash paw-pwa -c "cd /tmp && XDG_RUNTIME_DIR=/run/user/$PAW_PWA_UID DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$PAW_PWA_UID/bus systemctl --user restart paw-pwa"
-```
 
-### 9 — Status paw-api & paw-pwa prüfen
-
-```bash
 PAW_API_UID=$(id -u paw-api)
 su -s /bin/bash paw-api -c "cd /tmp && XDG_RUNTIME_DIR=/run/user/$PAW_API_UID systemctl --user status paw-api --no-pager"
 
@@ -118,9 +89,8 @@ XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "cd /tmp && po
 Wenn erfolgreich, speichere Ergebnisse in DB:
 
 ```bash
-node /git/pawvax/server/scripts/persist-test-results.js \
-  /git/pawvax/server/data/jest-raw.json \
-  /home/paw-api/data/paw.db
+PAW_API_UID=$(id -u paw-api)
+XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "podman run --rm --cgroup-manager=cgroupfs --security-opt label=disable --user=0 -v /git/pawvax/server:/app -v /home/paw-api/data:/data -v /tmp:/tmp -w /app docker.io/node:22-alpine sh -lc 'node scripts/persist-test-results.js /tmp/jest-raw.json /data/paw.db'"
 echo "Test-Ergebnisse in DB gespeichert"
 ```
 
