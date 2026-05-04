@@ -61,7 +61,7 @@ function getPublicSharingRole(db) {
   }
 }
 
-function ensureDefaultSharing(db, animalId) {
+function ensureDefaultSharing(db, animalId, logger = null) {
   const publicRole = getPublicSharingRole(db)
   const defaults = [
     { role: publicRole, c: 0, b: 1, d: 1, a: 0, df: 0 },
@@ -73,7 +73,11 @@ function ensureDefaultSharing(db, animalId) {
       db.prepare(`INSERT INTO animal_sharing (id, animal_id, role, share_contact, share_breed, share_birthdate, share_address, share_dynamic_fields)
                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
         .run(uuid(), animalId, d.role, d.c, d.b, d.d, d.a, d.df)
-    } catch { /* already exists */ }
+    } catch (err) {
+      if (!String(err?.message || '').includes('UNIQUE constraint failed')) {
+        logger?.warn({ err: err?.message, animalId, role: d.role }, 'ensureDefaultSharing failed')
+      }
+    }
   }
 }
 
@@ -167,11 +171,17 @@ export default async function animalRoutes(fastify) {
     const primaryRole = effectiveRoles.includes('vet') ? 'vet' : effectiveRoles.includes('authority') ? 'authority' : 'guest'
 
     // Stelle sicher, dass default sharing existiert (für alte Tiere ohne Sharing-Zeile)
-    ensureDefaultSharing(db, row.id)
+    ensureDefaultSharing(db, row.id, fastify.log)
 
     // Metadaten-Freigabe: beste Rolle verwenden (vet/authority sehen mehr), Fallback auf guest
     const publicRole = getPublicSharingRole(db)
     let sharing = getSharingForRole(db, row.id, primaryRole) || getSharingForRole(db, row.id, publicRole)
+
+    // Retry once if sharing rows are unexpectedly missing
+    if (!sharing) {
+      ensureDefaultSharing(db, row.id, fastify.log)
+      sharing = getSharingForRole(db, row.id, primaryRole) || getSharingForRole(db, row.id, publicRole)
+    }
 
     // Wenn immer noch kein sharing existiert, create es jetzt
     if (!sharing) {
@@ -180,7 +190,9 @@ export default async function animalRoutes(fastify) {
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
           .run(uuid(), row.id, publicRole, 0, 1, 1, 0, 0)
         sharing = getSharingForRole(db, row.id, publicRole)
-      } catch { /* already exists */ }
+      } catch (err) {
+        fastify.log.warn({ err: err?.message, animalId: row.id, role: publicRole }, 'public sharing fallback insert failed')
+      }
     }
 
     const result = {
@@ -204,7 +216,12 @@ export default async function animalRoutes(fastify) {
       ORDER BY created_at DESC
     `).all(row.id)
 
-    result.documents = docs.filter(d => effectiveRoles.some(r => canRoleSeeDocument(d.allowed_roles, r)))
+    result.documents = docs.filter(d => {
+      if (d.allowed_roles && !parseAllowedRoles(d.allowed_roles)) {
+        fastify.log.warn({ documentId: d.id, animalId: row.id }, 'Malformed allowed_roles; document hidden in public scan')
+      }
+      return effectiveRoles.some(r => canRoleSeeDocument(d.allowed_roles, r))
+    })
 
     for (const d of result.documents) {
       try { d.extracted_json = JSON.parse(d.extracted_json) } catch { d.extracted_json = {} }

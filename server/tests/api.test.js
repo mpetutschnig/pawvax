@@ -95,6 +95,7 @@ let testState = {
   documentId: null,
   shareId: null,
   tagId: null,
+  publicTagId: null,
   apiKeyId: null
 }
 
@@ -363,13 +364,15 @@ describe('PAWvax API Tests', () => {
     })
 
     test('3c. Add Barcode Tag — Barcode mit Tier verbinden', async () => {
+      const publicTagId = `BARCODE-TEST-${Date.now()}`
       const { status, data } = await apiCall('POST', `/animals/${testState.animalId}/tags`, {
-        tagId: `BARCODE-TEST-${Date.now()}`,
+        tagId: publicTagId,
         tagType: 'barcode'
       })
 
       expect(status).toBe(201)
       expect(data.tag_type).toBe('barcode')
+      testState.publicTagId = publicTagId
     })
 
     test('3d. Deactivate Tag — Tag deaktivieren', async () => {
@@ -452,27 +455,94 @@ describe('PAWvax API Tests', () => {
   })
 
   // ════════════════════════════════════════════════════════════════
-  // 5. SHARING — Temporäre Links
+  // 5. Public Scan Regression
   // ════════════════════════════════════════════════════════════════
 
-  describe('5. Sharing', () => {
-    test('5a. Get Sharing Settings — Freigabe-Settings abrufen', async () => {
+  describe('5. Public Scan', () => {
+    test('5a. Known active tag returns public animal profile', async () => {
+      if (!testState.publicTagId) return
+
+      const response = await fetch(`${API_URL}/public/tag/${encodeURIComponent(testState.publicTagId)}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      })
+      const data = await response.json().catch(() => ({}))
+
+      expect(response.status).toBe(200)
+      expect(data.id).toBe(testState.animalId)
+      expect(data).toHaveProperty('is_public')
+    })
+
+    test('5b. Guest-visible document appears in public scan result', async () => {
+      if (!testState.publicTagId || !testState.animalId || !testState.token) return
+
+      const visibleDocId = await createDocumentFixtureViaWs(testState.token, testState.animalId, ['guest'])
+      const response = await fetch(`${API_URL}/public/tag/${encodeURIComponent(testState.publicTagId)}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      })
+      const data = await response.json().catch(() => ({}))
+
+      expect(response.status).toBe(200)
+      expect(Array.isArray(data.documents)).toBe(true)
+      expect(data.documents.some(d => d.id === visibleDocId)).toBe(true)
+    })
+
+    test('5c. Vet-only document is hidden in public scan result', async () => {
+      if (!testState.publicTagId || !testState.animalId || !testState.token) return
+
+      const vetOnlyDocId = await createDocumentFixtureViaWs(testState.token, testState.animalId, ['vet'])
+      const response = await fetch(`${API_URL}/public/tag/${encodeURIComponent(testState.publicTagId)}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      })
+      const data = await response.json().catch(() => ({}))
+
+      expect(response.status).toBe(200)
+      expect(Array.isArray(data.documents)).toBe(true)
+      expect(data.documents.some(d => d.id === vetOnlyDocId)).toBe(false)
+    })
+  })
+
+  // ════════════════════════════════════════════════════════════════
+  // 6. SHARING — Temporäre Links
+  // ════════════════════════════════════════════════════════════════
+
+  describe('6. Sharing', () => {
+    test('6a. Get Sharing Settings — Freigabe-Settings abrufen', async () => {
       const { status, data } = await apiCall('GET', `/animals/${testState.animalId}/sharing`)
 
       expect(status).toBe(200)
       expect(Array.isArray(data) || typeof data === 'object').toBe(true)
     })
 
-    test('5b. Create Sharing Link — Temporären Link erstellen', async () => {
-      const { status, data } = await apiCall('POST', `/animals/${testState.animalId}/sharing/temporary`, {})
+    test('6b. Create Sharing Link — Temporären Link erstellen', async () => {
+      const { status, data } = await apiCall('POST', `/animals/${testState.animalId}/sharing/temporary`, {
+        name: 'Tierpension Alpha'
+      })
 
       expect(status).toBe(201)
       expect(data.shareId).toBeTruthy()
+      expect(data.linkName).toMatch(/^Tierpension Alpha - [a-f0-9]{8}$/i)
 
       testState.shareId = data.shareId
     })
 
-    test('5c. Public: Get Shared Animal — Tier über Link abrufen (OHNE JWT)', async () => {
+    test('6c. Get Active Sharing Links — Liste enthält Link mit Namen', async () => {
+      if (!testState.shareId) {
+        return
+      }
+
+      const { status, data } = await apiCall('GET', `/animals/${testState.animalId}/shares`)
+      expect(status).toBe(200)
+      expect(Array.isArray(data)).toBe(true)
+
+      const createdLink = data.find((s) => s.id === testState.shareId)
+      expect(createdLink).toBeTruthy()
+      expect(createdLink.linkName).toMatch(/^Tierpension Alpha - [a-f0-9]{8}$/i)
+    })
+
+    test('6d. Public: Get Shared Animal — Tier über Link abrufen (OHNE JWT)', async () => {
       if (!testState.shareId) {
         return
       }
@@ -490,7 +560,7 @@ describe('PAWvax API Tests', () => {
       expect(data.id).toBeTruthy()
     })
 
-    test('5d. Delete Sharing Link — Link löschen', async () => {
+    test('6e. Delete Sharing Link — Link löschen', async () => {
       if (!testState.shareId) {
         return
       }
@@ -502,11 +572,11 @@ describe('PAWvax API Tests', () => {
   })
 
   // ════════════════════════════════════════════════════════════════
-  // 6. ADMIN — Nur für Admin-Tests
+  // 7. ADMIN — Nur für Admin-Tests
   // ════════════════════════════════════════════════════════════════
 
-  describe('5. Admin (Nur wenn Admin)', () => {
-    test('5a. Get Admin Stats — System-Statistiken', async () => {
+  describe('7. Admin (Nur wenn Admin)', () => {
+    test('7a. Get Admin Stats — System-Statistiken', async () => {
       const { status, data } = await apiCall('GET', '/admin/stats')
 
       // Kann 200 oder 403 sein je nach Rolle
@@ -517,7 +587,7 @@ describe('PAWvax API Tests', () => {
       }
     })
 
-    test('5b. Get Audit Log — Audit-Log abrufen', async () => {
+    test('7b. Get Audit Log — Audit-Log abrufen', async () => {
       const { status, data } = await apiCall('GET', '/admin/audit?limit=10')
 
       if (status === 200) {
@@ -607,10 +677,106 @@ describe('PAWvax API Tests', () => {
   })
 
   // ════════════════════════════════════════════════════════════════
-  // 8. INTEGRATION — Full User Journey
+  // 8. Endpoint Smoke Coverage
   // ════════════════════════════════════════════════════════════════
 
-  describe('8. Integration Tests (Full Journey)', () => {
+  describe('8. Endpoint Smoke Coverage', () => {
+    test('8a. GET /settings reachable', async () => {
+      const { status } = await apiCall('GET', '/settings')
+      expect([200, 401]).toContain(status)
+    })
+
+    test('8b. PATCH /admin/settings returns guarded status', async () => {
+      const { status } = await apiCall('PATCH', '/admin/settings', { maintenance_mode: false })
+      expect([401, 403, 200]).toContain(status)
+    })
+
+    test('8c. Organizations routes are reachable and guarded', async () => {
+      const orgId = uuid()
+      const { status: createStatus } = await apiCall('POST', '/organizations', { name: 'Smoke Org' })
+      const { status: listStatus } = await apiCall('GET', '/organizations')
+      const { status: membersStatus } = await apiCall('GET', `/organizations/${orgId}/members`)
+      const { status: inviteStatus } = await apiCall('POST', `/organizations/${orgId}/invite`, { email: `invite${Date.now()}@example.com` })
+      const { status: acceptStatus } = await apiCall('POST', `/organizations/${orgId}/accept`, {})
+      const { status: removeStatus } = await apiCall('DELETE', `/organizations/${orgId}/members/${uuid()}`)
+
+      expect([200, 201, 400, 401, 403, 404]).toContain(createStatus)
+      expect([200, 401, 403]).toContain(listStatus)
+      expect([200, 401, 403, 404]).toContain(membersStatus)
+      expect([200, 201, 400, 401, 403, 404]).toContain(inviteStatus)
+      expect([200, 400, 401, 403, 404]).toContain(acceptStatus)
+      expect([200, 204, 401, 403, 404]).toContain(removeStatus)
+    })
+
+    test('8d. Document pending/retry endpoints are reachable', async () => {
+      const { status: pendingStatus } = await apiCall('GET', `/animals/${testState.animalId}/documents/pending`)
+      const { status: retryStatus } = await apiCall('POST', `/documents/${uuid()}/retry-analysis`, {})
+
+      expect([200, 401, 403, 404]).toContain(pendingStatus)
+      expect([200, 202, 401, 403, 404]).toContain(retryStatus)
+    })
+
+    test('8e. Transfer and avatar endpoints are reachable', async () => {
+      const { status: transferStatus } = await apiCall('POST', `/animals/${testState.animalId}/transfer`, {})
+      const { status: acceptStatus } = await apiCall('POST', '/animals/transfer/accept', { code: 'INVALID-CODE' })
+      const { status: avatarStatus } = await apiCall('PATCH', `/animals/${testState.animalId}/avatar`, { base64Image: 'not-a-valid-image' })
+
+      expect([200, 201, 400, 401, 403, 404]).toContain(transferStatus)
+      expect([200, 400, 401, 403, 404]).toContain(acceptStatus)
+      expect([200, 400, 401, 403, 404, 413]).toContain(avatarStatus)
+    })
+
+    test('8f. AI models endpoint is reachable', async () => {
+      const { status } = await apiCall('GET', '/ai/models')
+      expect([200, 401, 403]).toContain(status)
+    })
+
+    test('8g. Admin API key endpoints are guarded', async () => {
+      const keyId = uuid()
+      const { status: createStatus } = await apiCall('POST', '/admin/api-keys', {
+        account_id: testState.userId,
+        name: 'Smoke Key'
+      })
+      const { status: listStatus } = await apiCall('GET', '/admin/api-keys')
+      const { status: deleteStatus } = await apiCall('DELETE', `/admin/api-keys/${keyId}`)
+
+      expect([201, 400, 401, 403, 404]).toContain(createStatus)
+      expect([200, 401, 403]).toContain(listStatus)
+      expect([200, 401, 403, 404]).toContain(deleteStatus)
+    })
+
+    test('8h. Vet API endpoints reject missing API key', async () => {
+      const base = API_URL.replace('/api', '/api/v1')
+
+      const [animalRes, docsRes, tagRes, uploadRes, vaccRes] = await Promise.all([
+        fetch(`${base}/animals/${testState.animalId}`, { method: 'GET' }),
+        fetch(`${base}/animals/${testState.animalId}/documents`, { method: 'GET' }),
+        fetch(`${base}/animals/by-tag/${encodeURIComponent(testState.publicTagId || 'missing-tag')}`, { method: 'GET' }),
+        fetch(`${base}/animals/${testState.animalId}/documents`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ doc_type: 'other', extracted_json: {} })
+        }),
+        fetch(`${base}/animals/${testState.animalId}/vaccinations`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ vaccine_name: 'Smoke', administered_at: new Date().toISOString() })
+        }),
+      ])
+
+      expect([401, 403]).toContain(animalRes.status)
+      expect([401, 403]).toContain(docsRes.status)
+      expect([401, 403]).toContain(tagRes.status)
+      expect([401, 403]).toContain(uploadRes.status)
+      expect([401, 403]).toContain(vaccRes.status)
+    })
+  })
+
+  // ════════════════════════════════════════════════════════════════
+  // 9. INTEGRATION — Full User Journey
+  // ════════════════════════════════════════════════════════════════
+
+  describe('9. Integration Tests (Full Journey)', () => {
     let journeyState = { token: null, animalId: null }
 
     test('8a. Journey: Register → Create Animal → Add Tag → Get Animal', async () => {
