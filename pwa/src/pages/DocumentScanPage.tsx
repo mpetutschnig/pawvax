@@ -267,7 +267,6 @@ export default function DocumentScanPage() {
         },
         body: JSON.stringify({ provider: retryProvider, model: retryModel, language: i18next.language || 'de' })
       })
-      })
       const data = await res.json().catch(() => ({}))
       setShowModelSelection(false)
 
