@@ -262,6 +262,9 @@ export default function AdminPage() {
     }
   } catch {}
 
+  const lastTestRunPassed = lastTestRun?.status === 'passed'
+  const lastTestRunIncomplete = lastTestRun?.status === 'incomplete'
+
   const adminName = t('admin.adminUser') // Ideally from Auth context
 
   return (
@@ -390,9 +393,9 @@ export default function AdminPage() {
                 {lastTestRun ? (
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-                      {lastTestRun.status === 'success' ? <CheckCircle size={20} color="var(--success-600)" /> : <XCircle size={20} color="var(--danger-500)" />}
-                      <span style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, color: lastTestRun.status === 'success' ? 'var(--success-600)' : 'var(--danger-500)' }}>
-                        {lastTestRun.status === 'success' ? t('admin.testSuccess') : t('admin.testFailed')}
+                      {lastTestRunPassed ? <CheckCircle size={20} color="var(--success-600)" /> : <XCircle size={20} color={lastTestRunIncomplete ? 'var(--warning-600, #b7791f)' : 'var(--danger-500)'} />}
+                      <span style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, color: lastTestRunPassed ? 'var(--success-600)' : (lastTestRunIncomplete ? 'var(--warning-600, #b7791f)' : 'var(--danger-500)') }}>
+                        {lastTestRunPassed ? t('admin.testSuccess') : t('admin.testFailed')}
                       </span>
                     </div>
                     <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
