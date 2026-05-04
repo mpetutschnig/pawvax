@@ -18,6 +18,7 @@ import Database from 'better-sqlite3'
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { computeRecordHash, flagDuplicates } from '../src/services/dedup.js'
+import { getPromptForDocumentType, normalizeDocumentType, PROMPTS } from '../src/services/ocr.js'
 
 const API_URL = process.env.API_URL || 'http://localhost:3000/api'
 
@@ -1764,3 +1765,182 @@ describe('Suite 14: Re-Analysis (Phase 4)', () => {
 })
 
 
+// ════════════════════════════════════════════════════════════════
+// Suite 15: MULTILINGUAL OCR PROMPTS
+// Tests that AI prompts are language-specific and correctly routed
+// ════════════════════════════════════════════════════════════════
+
+describe('Suite 15: Multilingual OCR Prompts', () => {
+  // ── Unit: getPromptForDocumentType ────────────────────────────
+
+  test('15a. DE vaccination prompt contains German keywords', () => {
+    const prompt = getPromptForDocumentType('vaccination', 'de')
+    expect(prompt).toContain('Impfpass')
+    expect(prompt).toContain('Chargennummer')
+    expect(prompt).toContain('Gültig bis')
+    expect(prompt).not.toContain('You are a veterinary')
+  })
+
+  test('15b. EN vaccination prompt contains English keywords', () => {
+    const prompt = getPromptForDocumentType('vaccination', 'en')
+    expect(prompt).toContain('vaccination')
+    expect(prompt).toContain('batch_number')
+    expect(prompt).toContain('valid_until')
+    expect(prompt).not.toContain('Du bist ein')
+  })
+
+  test('15c. DE and EN vaccination prompts are different strings', () => {
+    const dePrompt = getPromptForDocumentType('vaccination', 'de')
+    const enPrompt = getPromptForDocumentType('vaccination', 'en')
+    expect(dePrompt).not.toBe(enPrompt)
+    expect(dePrompt.length).toBeGreaterThan(100)
+    expect(enPrompt.length).toBeGreaterThan(100)
+  })
+
+  test('15d. Unknown language falls back to German prompt', () => {
+    const frPrompt = getPromptForDocumentType('vaccination', 'fr')
+    const dePrompt = getPromptForDocumentType('vaccination', 'de')
+    expect(frPrompt).toBe(dePrompt)
+  })
+
+  test('15e. null/undefined language falls back to German prompt', () => {
+    const nullPrompt = getPromptForDocumentType('vaccination', null)
+    const undefPrompt = getPromptForDocumentType('vaccination', undefined)
+    const dePrompt = getPromptForDocumentType('vaccination', 'de')
+    expect(nullPrompt).toBe(dePrompt)
+    expect(undefPrompt).toBe(dePrompt)
+  })
+
+  test('15f. All document types have both DE and EN prompts', () => {
+    const docTypes = ['vaccination', 'treatment', 'pedigree', 'dog_certificate', 'medical_product', 'general']
+    for (const docType of docTypes) {
+      expect(PROMPTS.de[docType]).toBeTruthy()
+      expect(PROMPTS.en[docType]).toBeTruthy()
+      expect(PROMPTS.de[docType]).not.toBe(PROMPTS.en[docType])
+    }
+  })
+
+  test('15g. DE classification prompt contains German document type names', () => {
+    const prompt = PROMPTS.de.classification
+    expect(prompt).toContain('Impfpass')
+    expect(prompt).toContain('Stammbaum')
+    expect(prompt).toContain('Hundeführerschein')
+    expect(prompt).toContain('Packungsbeilage')
+  })
+
+  test('15h. EN classification prompt contains English document type names', () => {
+    const prompt = PROMPTS.en.classification
+    expect(prompt).toContain('vaccination record')
+    expect(prompt).toContain('pedigree')
+    expect(prompt).toContain('Dog Handler Certificate')
+    expect(prompt).toContain('package insert')
+  })
+
+  // ── Integration: retry-analysis with language parameter ────────
+
+  test('15i. retry-analysis accepts language=de and returns 200', async () => {
+    const db = new Database(process.env.DB_PATH)
+
+    // Create a user + animal + document for this test
+    const email = `ocr-lang-de-${Date.now()}@example.com`
+    const { data: reg } = await apiCallWithToken(null, 'POST', '/auth/register', {
+      name: 'OCR Lang DE Tester',
+      email,
+      password: 'SecurePassword123!'
+    })
+    const token15 = reg.token
+
+    const { data: animal } = await apiCallWithToken(token15, 'POST', '/animals', { name: 'Lang Test Hund', species: 'dog' })
+    const animalId15 = animal.id
+
+    const imagePath = writeTinyPng(`lang-de-test-${Date.now()}.png`)
+    const docId = `lang-de-doc-${Date.now()}`
+
+    db.prepare(`
+      INSERT INTO documents (id, animal_id, doc_type, image_path, analysis_status, extracted_json, ocr_provider, created_at)
+      VALUES (?, ?, 'vaccination', ?, 'pending_analysis', '{}', 'pending', datetime('now'))
+    `).run(docId, animalId15, imagePath)
+    db.prepare(`INSERT INTO document_pages (document_id, image_path, page_number) VALUES (?, ?, 1)`).run(docId, imagePath)
+    db.close()
+
+    const { status, data } = await apiCallWithToken(token15, 'POST', `/documents/${docId}/retry-analysis`, {
+      language: 'de'
+    })
+    expect(status).toBe(200)
+    expect(data.provider).toBe('mock-ocr')
+  })
+
+  test('15j. retry-analysis accepts language=en and returns 200', async () => {
+    const db = new Database(process.env.DB_PATH)
+
+    const email = `ocr-lang-en-${Date.now()}@example.com`
+    const { data: reg } = await apiCallWithToken(null, 'POST', '/auth/register', {
+      name: 'OCR Lang EN Tester',
+      email,
+      password: 'SecurePassword123!'
+    })
+    const token15en = reg.token
+
+    const { data: animal } = await apiCallWithToken(token15en, 'POST', '/animals', { name: 'Lang Test Dog', species: 'dog' })
+    const animalId15en = animal.id
+
+    const imagePath = writeTinyPng(`lang-en-test-${Date.now()}.png`)
+    const docId = `lang-en-doc-${Date.now()}`
+
+    db.prepare(`
+      INSERT INTO documents (id, animal_id, doc_type, image_path, analysis_status, extracted_json, ocr_provider, created_at)
+      VALUES (?, ?, 'vaccination', ?, 'pending_analysis', '{}', 'pending', datetime('now'))
+    `).run(docId, animalId15en, imagePath)
+    db.prepare(`INSERT INTO document_pages (document_id, image_path, page_number) VALUES (?, ?, 1)`).run(docId, imagePath)
+    db.close()
+
+    const { status, data } = await apiCallWithToken(token15en, 'POST', `/documents/${docId}/retry-analysis`, {
+      language: 'en'
+    })
+    expect(status).toBe(200)
+    expect(data.provider).toBe('mock-ocr')
+  })
+
+  test('15k. re-analyze accepts language parameter', async () => {
+    const db = new Database(process.env.DB_PATH)
+
+    const email = `ocr-reanalyze-${Date.now()}@example.com`
+    const { data: reg } = await apiCallWithToken(null, 'POST', '/auth/register', {
+      name: 'Re-Analyze Lang Tester',
+      email,
+      password: 'SecurePassword123!'
+    })
+    const token15k = reg.token
+
+    const { data: animal } = await apiCallWithToken(token15k, 'POST', '/animals', { name: 'Reanalyze Dog', species: 'dog' })
+    const animalId15k = animal.id
+
+    const imagePath = writeTinyPng(`reanalyze-lang-${Date.now()}.png`)
+    const docId = `reanalyze-lang-doc-${Date.now()}`
+
+    db.prepare(`
+      INSERT INTO documents (id, animal_id, doc_type, image_path, analysis_status, extracted_json, ocr_provider, created_at)
+      VALUES (?, ?, 'vaccination', ?, 'completed', '{"title":"Old","vaccinations":[]}', 'system', datetime('now'))
+    `).run(docId, animalId15k, imagePath)
+    db.prepare(`INSERT INTO document_pages (document_id, image_path, page_number) VALUES (?, ?, 1)`).run(docId, imagePath)
+    db.close()
+
+    const { status } = await apiCallWithToken(token15k, 'POST', `/documents/${docId}/re-analyze`, {
+      language: 'en'
+    })
+    expect(status).toBe(200)
+  })
+
+  test('15l. normalizeDocumentType handles all supported aliases', () => {
+    expect(normalizeDocumentType('vaccination')).toBe('vaccination')
+    expect(normalizeDocumentType('impfpass')).toBe('vaccination')
+    expect(normalizeDocumentType('pedigree')).toBe('pedigree')
+    expect(normalizeDocumentType('stammbaum')).toBe('pedigree')
+    expect(normalizeDocumentType('dog_certificate')).toBe('dog_certificate')
+    expect(normalizeDocumentType('medical_product')).toBe('medical_product')
+    expect(normalizeDocumentType('treatment')).toBe('treatment')
+    expect(normalizeDocumentType('general')).toBe('general')
+    expect(normalizeDocumentType('unknown_type_xyz')).toBe('general')
+    expect(normalizeDocumentType('')).toBe('general')
+  })
+})
