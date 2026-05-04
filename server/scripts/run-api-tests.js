@@ -89,6 +89,7 @@ async function main() {
     DB_PATH: dbPath,
     UPLOADS_DIR: uploadsDir,
     JWT_SECRET: process.env.JWT_SECRET || 'test-secret',
+    PAW_MOCK_OCR: process.env.PAW_MOCK_OCR || '1',
   }
 
   const jestEnv = {
@@ -98,6 +99,7 @@ async function main() {
     DB_PATH: dbPath,
     UPLOADS_DIR: uploadsDir,
     TEST_TIMEOUT: process.env.TEST_TIMEOUT || '15000',
+    PAW_MOCK_OCR: process.env.PAW_MOCK_OCR || '1',
   }
 
   const serverProcess = spawn(process.execPath, ['src/app.js'], {

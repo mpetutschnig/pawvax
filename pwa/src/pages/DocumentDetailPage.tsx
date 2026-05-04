@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { getDocument, deleteDocument, patchDocument, getAnimalDocuments, getMe, createReminder } from '../api/rest'
+import { getDocument, deleteDocument, patchDocument, getAnimalDocuments, getMe, createReminder, reanalyzeDocument, getDocumentHistory } from '../api/rest'
 import { generateICS, downloadBlob } from '../utils/ics'
 import { PageHeader } from '../components/PageHeader'
 import { Shield, Pill, FileText, PawPrint, Landmark, Calendar, Download, Mail, Tag, Save, X, Edit2, Trash2, CheckCircle, Award, GraduationCap, ChevronLeft, ChevronRight, Bell, AlertTriangle } from 'lucide-react'
@@ -30,8 +30,12 @@ export default function DocumentDetailPage() {
   const [saving, setSaving] = useState(false)
   const [visibility, setVisibility] = useState<string[]>([])
   const [showJsonDetails, setShowJsonDetails] = useState(false)
+  const [roles, setRoles] = useState<string[]>([])
+  const [analysisHistory, setAnalysisHistory] = useState<any[]>([])
+  const [historyLoading, setHistoryLoading] = useState(false)
   
   const [showRetryModal, setShowRetryModal] = useState(false)
+  const [analysisAction, setAnalysisAction] = useState<'retry' | 'reanalyze'>('retry')
   const [retryProvider, setRetryProvider] = useState('google')
   const [retryModel, setRetryModel] = useState('gemini-3.1-flash-lite-preview')
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
@@ -88,6 +92,7 @@ export default function DocumentDetailPage() {
 
   useEffect(() => {
     getMe().then(res => {
+      setRoles(res.data.roles || [])
       setHasGemini(res.data.has_gemini_token)
       setHasAnthropic(res.data.has_anthropic_token)
       setHasOpenai(res.data.has_openai_token)
@@ -110,19 +115,25 @@ export default function DocumentDetailPage() {
   }, [])
 
   const loadDocument = async () => {
+    setHistoryLoading(true)
     try {
-      const res = await getDocument(docId!)
-      setDoc(res.data)
-      setTags(res.data.extracted_json?.suggested_tags || [])
-      setEditedTitle(res.data.extracted_json?.title || '')
+      const [docRes, historyRes] = await Promise.all([
+        getDocument(docId!),
+        getDocumentHistory(docId!).catch(() => null)
+      ])
+      setDoc(docRes.data)
+      setTags(docRes.data.extracted_json?.suggested_tags || [])
+      setEditedTitle(docRes.data.extracted_json?.title || '')
       try {
-        setVisibility(res.data.allowed_roles ? JSON.parse(res.data.allowed_roles) : [])
+        setVisibility(docRes.data.allowed_roles ? JSON.parse(docRes.data.allowed_roles) : [])
       } catch { setVisibility([]) }
+      setAnalysisHistory(historyRes?.data?.history || [])
       setError(null)
     } catch (err) {
       setError(t('common.error'))
       console.error(err)
     } finally {
+      setHistoryLoading(false)
       setLoading(false)
     }
   }
@@ -286,6 +297,20 @@ export default function DocumentDetailPage() {
     }
   }
 
+  const handleReanalyze = async () => {
+    setSaving(true)
+    setError(null)
+    try {
+      await reanalyzeDocument(docId!, { provider: retryProvider, model: retryModel })
+      setShowRetryModal(false)
+      await loadDocument()
+    } catch (err: any) {
+      setError(err.response?.data?.error || t('common.error'))
+    } finally {
+      setSaving(false)
+    }
+  }
+
 
   const removeTag = (t: string) => {
     setTags(tags.filter(x => x !== t))
@@ -307,6 +332,7 @@ export default function DocumentDetailPage() {
   const config = docTypeConfig[doc.doc_type] || docTypeConfig.other
   const documentImages = Array.from(new Set([doc.image_path, ...(doc.pages || [])].filter(Boolean)))
   const currentImage = documentImages[currentImageIndex] || null
+  const canReanalyze = (doc.isOwner || roles.includes('admin')) && doc.analysis_status === 'completed'
 
   const canEditTags = doc.isUploader || doc.added_by_role !== 'vet'
   const canEditVisibility = doc.isOwner
@@ -319,7 +345,7 @@ export default function DocumentDetailPage() {
           <button className="btn btn-ghost" style={{ padding: '8px', margin: '-8px' }} onClick={() => { setShowRetryModal(false); setError(null); }}>
             <X size={24} />
           </button>
-          <h1 style={{ margin: 0, fontSize: 'var(--font-size-xl)' }}>{t('docDetail.aiAnalysis')}</h1>
+          <h1 style={{ margin: 0, fontSize: 'var(--font-size-xl)' }}>{analysisAction === 'reanalyze' ? t('docDetail.reanalyze') : t('docDetail.aiAnalysis')}</h1>
         </div>
         
         {error && <div className="error-card" style={{ marginBottom: 'var(--space-4)' }}><p>{error}</p></div>}
@@ -361,8 +387,8 @@ export default function DocumentDetailPage() {
           )}
           <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-6)' }}>
             {hasAnyKey && (
-              <button className="btn btn-primary flex-1" onClick={handleRetryAnalysis} disabled={saving}>
-                {saving ? t('animal.retrying') : t('animal.analyzeBtn')}
+              <button className="btn btn-primary flex-1" onClick={analysisAction === 'reanalyze' ? handleReanalyze : handleRetryAnalysis} disabled={saving}>
+                {saving ? (analysisAction === 'reanalyze' ? t('docDetail.reanalyzing') : t('animal.retrying')) : (analysisAction === 'reanalyze' ? t('docDetail.reanalyze') : t('animal.analyzeBtn'))}
               </button>
             )}
             <button className="btn btn-ghost flex-1" onClick={() => { setShowRetryModal(false); setError(null); }} disabled={saving}>
@@ -480,6 +506,47 @@ export default function DocumentDetailPage() {
             <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', color: 'var(--primary-900)' }}>{extracted.summary}</p>
           </div>
         )}
+
+        <div style={{ marginBottom: 'var(--space-6)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-3)' }}>
+            <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0 }}>{t('docDetail.analysisHistory')}</h3>
+            {canReanalyze && (
+              <button className="btn btn-secondary" onClick={() => { setAnalysisAction('reanalyze'); setShowRetryModal(true); setError(null) }} disabled={saving}>
+                {t('docDetail.reanalyze')}
+              </button>
+            )}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+            <div className="card" style={{ padding: 'var(--space-4)', borderLeft: '4px solid var(--primary-400)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+                <strong>{t('docDetail.currentAnalysis')}</strong>
+                <span className="text-muted">{doc.ocr_provider || 'unknown'}</span>
+              </div>
+              <p style={{ margin: '8px 0 0 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
+                {new Date(doc.created_at).toLocaleString(i18n.language === 'de' ? 'de-AT' : 'en-GB')}
+              </p>
+            </div>
+            {analysisHistory.map((entry: any) => (
+              <div key={entry.id} className="card" style={{ padding: 'var(--space-4)', borderLeft: '4px solid var(--border)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+                  <strong>{t('docDetail.previousVersion', { version: entry.version })}</strong>
+                  <span className="text-muted">{entry.ocr_provider || 'unknown'}</span>
+                </div>
+                <p style={{ margin: '8px 0 0 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
+                  {new Date(entry.created_at).toLocaleString(i18n.language === 'de' ? 'de-AT' : 'en-GB')}
+                </p>
+                {(entry.extracted_json?.summary || entry.extracted_json?.title) && (
+                  <p style={{ margin: '8px 0 0 0', fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)' }}>
+                    {entry.extracted_json?.title || entry.extracted_json?.summary}
+                  </p>
+                )}
+              </div>
+            ))}
+            {!analysisHistory.length && !historyLoading && (
+              <p className="text-muted" style={{ margin: 0 }}>{t('docDetail.noPreviousVersions')}</p>
+            )}
+          </div>
+        </div>
 
         {/* Singleton duplicate warning */}
         {doc.doc_type !== 'vaccination' && doc.doc_type !== 'treatment' && (() => {
@@ -802,7 +869,7 @@ export default function DocumentDetailPage() {
 
         {!rawText && doc.analysis_status === 'pending_analysis' ? (
           <div style={{ marginTop: 'var(--space-4)' }}>
-            <button className="btn btn-primary btn-full" onClick={() => setShowRetryModal(true)}>
+            <button className="btn btn-primary btn-full" onClick={() => { setAnalysisAction('retry'); setShowRetryModal(true) }}>
               {t('animal.retry')}
             </button>
           </div>

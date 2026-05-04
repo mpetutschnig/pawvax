@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
 import Database from 'better-sqlite3'
 
@@ -17,7 +18,9 @@ function buildSummary(results) {
   const numPendingTests = Number(results?.numPendingTests || 0)
   const numTodoTests = Number(results?.numTodoTests || 0)
   const totalTests = Number(results?.numTotalTests || (numPassedTests + numFailedTests + numPendingTests + numTodoTests))
-  const status = numFailedTests > 0 || results?.success === false ? 'failed' : 'success'
+  const status = numFailedTests > 0 || results?.success === false
+    ? 'failed'
+    : (numPassedTests + numPendingTests + numTodoTests < totalTests ? 'incomplete' : 'passed')
 
   return {
     status,
@@ -33,9 +36,33 @@ function buildSummary(results) {
 function persistResults(dbPath, summary, detailsRaw) {
   const db = new Database(dbPath)
   const upsert = db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value')
+  const insertTestResult = db.prepare(`
+    INSERT INTO test_results (
+      id,
+      test_timestamp,
+      summary_json,
+      details_json,
+      pass_count,
+      fail_count,
+      total_count,
+      status
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `)
+  const summaryJson = JSON.stringify(summary)
+  const testTimestamp = Date.parse(summary.date)
 
   db.transaction(() => {
-    upsert.run('last_test_run', JSON.stringify(summary))
+    insertTestResult.run(
+      randomUUID(),
+      Number.isFinite(testTimestamp) ? testTimestamp : Date.now(),
+      summaryJson,
+      detailsRaw,
+      summary.passedTests,
+      summary.failedTests,
+      summary.totalTests,
+      summary.status,
+    )
+    upsert.run('last_test_run', summaryJson)
     upsert.run('last_test_run_details', detailsRaw)
   })()
 

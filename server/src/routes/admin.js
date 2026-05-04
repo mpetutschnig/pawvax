@@ -9,6 +9,18 @@ import { fileURLToPath } from 'node:url'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const TEST_RESULTS_FILE = join(__dirname, '..', '..', 'data', 'test-results.json')
 
+function normalizeStoredTestPayload(rawSummary, rawDetails) {
+  const parsedSummary = rawSummary ? JSON.parse(rawSummary) : null
+  const parsedDetails = rawDetails ? JSON.parse(rawDetails) : null
+
+  return {
+    summary: parsedSummary ?? parsedDetails?.summary ?? null,
+    tests: parsedDetails?.tests?.testResults || parsedDetails?.tests?.assertionResults
+      ? parsedDetails.tests
+      : (parsedDetails?.tests ?? parsedDetails ?? null)
+  }
+}
+
 const ORPHAN_DEFINITIONS = [
   {
     key: 'animals',
@@ -513,6 +525,22 @@ export default async function adminRoutes(fastify) {
 
   // Test Results
   fastify.get('/api/admin/test-results', async (req) => {
+    const db = getDb()
+    const latestRow = db.prepare(`
+      SELECT summary_json, details_json
+      FROM test_results
+      ORDER BY test_timestamp DESC, created_at DESC
+      LIMIT 1
+    `).get()
+
+    if (latestRow) {
+      try {
+        return normalizeStoredTestPayload(latestRow.summary_json, latestRow.details_json)
+      } catch {
+        return { summary: null, tests: null }
+      }
+    }
+
     if (existsSync(TEST_RESULTS_FILE)) {
       try {
         const data = JSON.parse(readFileSync(TEST_RESULTS_FILE, 'utf-8'))
@@ -524,15 +552,13 @@ export default async function adminRoutes(fastify) {
         return { summary: null, tests: null }
       }
     }
-    // Fallback: legacy DB-based storage
-    const db = getDb()
+
     const summary = db.prepare("SELECT value FROM settings WHERE key = 'last_test_run'").get()
     const details = db.prepare("SELECT value FROM settings WHERE key = 'last_test_run_details'").get()
-    const parsedSummary = summary ? JSON.parse(summary.value) : null
-    const parsedDetails = details ? JSON.parse(details.value) : null
-    return {
-      summary: parsedSummary ?? parsedDetails?.summary ?? null,
-      tests: parsedDetails?.tests?.testResults || parsedDetails?.tests?.assertionResults ? parsedDetails.tests : (parsedDetails?.tests ?? parsedDetails ?? null)
+    try {
+      return normalizeStoredTestPayload(summary?.value, details?.value)
+    } catch {
+      return { summary: null, tests: null }
     }
   })
 

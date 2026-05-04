@@ -1,7 +1,7 @@
 import { v4 as uuid } from 'uuid'
 import { createHash } from 'node:crypto'
 import { getDb } from '../db/index.js'
-import { analyzeDocument, normalizeDocumentType, classifyDocumentType } from '../services/ocr.js'
+import { analyzeDocument, buildExtractedDocumentData, normalizeDocumentType, classifyDocumentType } from '../services/ocr.js'
 import { saveImageChunks } from '../services/storage.js'
 import { decrypt } from '../utils/crypto.js'
 import { logAudit } from '../services/audit.js'
@@ -277,7 +277,7 @@ export default async function wsDocumentUpload(fastify) {
               `).run(
                 suggestedType,
                 pages[0].image_path,
-                analysisError ? JSON.stringify({ pages: pages.length, error: analysisError.message }) : JSON.stringify({ text: combinedText, type: suggestedType, pages: pages.length, page_results: pageResults }),
+                analysisError ? JSON.stringify({ pages: pages.length, error: analysisError.message }) : JSON.stringify(buildExtractedDocumentData({ combinedText, suggestedType, pageResults, pages: pages.length })),
                 lastProvider,
                 accountId,
                 userRole,
@@ -295,7 +295,7 @@ export default async function wsDocumentUpload(fastify) {
                 uploadState.animalId,
                 suggestedType,
                 pages[0].image_path,
-                analysisError ? JSON.stringify({ pages: pages.length, error: analysisError.message }) : JSON.stringify({ text: combinedText, type: suggestedType, pages: pages.length, page_results: pageResults }),
+                analysisError ? JSON.stringify({ pages: pages.length, error: analysisError.message }) : JSON.stringify(buildExtractedDocumentData({ combinedText, suggestedType, pageResults, pages: pages.length })),
                 lastProvider,
                 accountId,
                 userRole,

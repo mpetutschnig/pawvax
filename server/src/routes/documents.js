@@ -1,5 +1,5 @@
 import { getDb } from '../db/index.js'
-import { normalizeDocumentType } from '../services/ocr.js'
+import { buildExtractedDocumentData, normalizeDocumentType } from '../services/ocr.js'
 import { logAudit } from '../services/audit.js'
 import { analyzeDocument } from '../services/ocr.js'
 import { decrypt } from '../utils/crypto.js'
@@ -84,6 +84,10 @@ function canRoleSeeDocument(rawRoles, requestRole) {
   return false
 }
 
+function canManageReanalysis(doc, accountId, role) {
+  return doc.owner_id === accountId || role === 'admin'
+}
+
 export default async function documentRoutes(fastify) {
   fastify.addHook('onRequest', fastify.authenticate)
 
@@ -130,6 +134,47 @@ export default async function documentRoutes(fastify) {
       added_by_role: doc.added_by_role || 'user',
       isOwner,
       isUploader
+    }
+  })
+
+  fastify.get('/api/documents/:id/history', async (req, reply) => {
+    const db = getDb()
+    const { accountId, role } = req.user
+    const docId = req.params.id
+
+    const doc = db.prepare(`
+      SELECT d.id, d.created_at, d.ocr_provider, d.extracted_json, a.account_id AS owner_id
+      FROM documents d
+      JOIN animals a ON a.id = d.animal_id
+      WHERE d.id = ?
+    `).get(docId)
+
+    if (!doc) return reply.code(404).send({ error: 'Dokument nicht gefunden' })
+    if (!canManageReanalysis(doc, accountId, role)) {
+      return reply.code(403).send({ error: 'Keine Berechtigung' })
+    }
+
+    const history = db.prepare(`
+      SELECT id, document_id, extracted_json, version, ocr_provider, created_at
+      FROM analysis_history
+      WHERE document_id = ?
+      ORDER BY version DESC, created_at DESC
+    `).all(docId).map((entry) => ({
+      ...entry,
+      extracted_json: JSON.parse(entry.extracted_json)
+    }))
+
+    const currentVersion = history.reduce((max, entry) => Math.max(max, entry.version), 0) + 1
+
+    return {
+      documentId: docId,
+      current: {
+        version: currentVersion,
+        ocr_provider: doc.ocr_provider,
+        created_at: doc.created_at,
+        extracted_json: JSON.parse(doc.extracted_json)
+      },
+      history
     }
   })
 
@@ -341,16 +386,17 @@ export default async function documentRoutes(fastify) {
           req.log.debug({ docId, pageNumber, message }, 'Retry analysis page progress')
         }
       })
-      const extractedData = {
-        text: result.combinedText,
-        type: result.suggestedType,
-        pages: analysisPages.length,
-        page_results: result.pageResults
-      }
       const provider = result.provider
 
       // Flag duplicate records across existing documents of the same animal
       flagDuplicates(db, doc.animal_id, docId, result.suggestedType, result.pageResults)
+
+      const extractedData = buildExtractedDocumentData({
+        combinedText: result.combinedText,
+        suggestedType: result.suggestedType,
+        pageResults: result.pageResults,
+        pages: analysisPages.length
+      })
 
       // Update document with analysis results
       db.prepare(`
@@ -407,7 +453,7 @@ export default async function documentRoutes(fastify) {
     `).get(docId)
 
     if (!doc) return reply.code(404).send({ error: 'Dokument nicht gefunden' })
-    if (doc.owner_id !== accountId && role !== 'admin') {
+    if (!canManageReanalysis(doc, accountId, role)) {
       return reply.code(403).send({ error: 'Keine Berechtigung' })
     }
 
@@ -476,25 +522,26 @@ export default async function documentRoutes(fastify) {
           req.log.debug({ docId, pageNumber, message }, 'Re-analysis page progress')
         }
       })
-      const extractedData = {
-        text: result.combinedText,
-        type: result.suggestedType,
-        pages: analysisPages.length,
-        page_results: result.pageResults
-      }
-
       // Flag duplicate records (re-compute with new analysis)
       flagDuplicates(db, doc.animal_id, docId, result.suggestedType, result.pageResults)
+
+      const extractedData = buildExtractedDocumentData({
+        combinedText: result.combinedText,
+        suggestedType: result.suggestedType,
+        pageResults: result.pageResults,
+        pages: analysisPages.length
+      })
 
       // Update document with new analysis results
       db.prepare(`
         UPDATE documents
-        SET extracted_json = ?, ocr_provider = ?, doc_type = ?
+        SET extracted_json = ?, ocr_provider = ?, doc_type = ?, analysis_status = ?
         WHERE id = ?
       `).run(
         JSON.stringify(extractedData),
         result.provider,
         result.suggestedType,
+        'completed',
         docId
       )
 

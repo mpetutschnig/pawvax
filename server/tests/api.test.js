@@ -1118,12 +1118,13 @@ describe('9. Extended Regression Tests', () => {
     db.prepare('INSERT INTO document_pages (document_id, page_number, image_path) VALUES (?, 2, ?)').run(docId, page2)
 
     const { status, data } = await apiCallWithToken(token9, 'POST', `/documents/${docId}/retry-analysis`, {})
-    expect(status).toBe(500)
-    expect(data.error).not.toContain('Dokumentdatei nicht gefunden')
-    expect(data.error).not.toContain("Keine gespeicherten Dokumentseiten")
+    expect(status).toBe(200)
+    expect(data.provider).toBe('mock-ocr')
+    expect(Array.isArray(data.extractedData.page_results)).toBe(true)
+    expect(data.extractedData.page_results.length).toBe(2)
 
     const refreshed = db.prepare('SELECT analysis_status FROM documents WHERE id = ?').get(docId)
-    expect(refreshed.analysis_status).toBe('pending_analysis')
+    expect(refreshed.analysis_status).toBe('completed')
 
     db.close()
   })
@@ -1642,8 +1643,11 @@ describe('Suite 13: Content-Hash Deduplication', () => {
 
 describe('Suite 14: Re-Analysis (Phase 4)', () => {
   let testAnimalId14 = ''
-  let testDocId14 = ''
   let testUser14Token = ''
+  let vaccinationDocId14 = ''
+  let treatmentDocId14 = ''
+  let vaccinationImagePath14 = ''
+  let treatmentImagePath14 = ''
   let db14
 
   beforeAll(async () => {
@@ -1664,100 +1668,98 @@ describe('Suite 14: Re-Analysis (Phase 4)', () => {
     })
     testAnimalId14 = animalRes.data.id
 
-    // Create and complete a test document
-    testDocId14 = `test-doc-14-${Date.now()}`
+    vaccinationImagePath14 = writeTinyPng(`vaccination-table-14-${Date.now()}.png`)
+    treatmentImagePath14 = writeTinyPng(`treatment-table-14-${Date.now()}.png`)
+
+    vaccinationDocId14 = `vaccination-doc-14-${Date.now()}`
     db14.prepare(`
       INSERT INTO documents (id, animal_id, doc_type, image_path, analysis_status, extracted_json, ocr_provider, created_at)
-      VALUES (?, ?, 'vaccination', 'test-14.jpg', 'completed', ?, 'system', datetime('now'))
-    `).run(testDocId14, testAnimalId14, JSON.stringify({
+      VALUES (?, ?, 'vaccination', ?, 'completed', ?, 'system', datetime('now'))
+    `).run(vaccinationDocId14, testAnimalId14, vaccinationImagePath14, JSON.stringify({
       type: 'vaccination',
       title: 'Original Analysis',
-      page_results: [{ vaccine: 'Tollwut' }]
+      vaccinations: [{ vaccine_name: 'Legacy Tollwut' }],
+      page_results: [{ vaccinations: [{ vaccine_name: 'Legacy Tollwut' }] }]
     }))
 
-    // Add document page (so re-analysis has something to work with)
     db14.prepare(`
       INSERT INTO document_pages (document_id, image_path, page_number)
       VALUES (?, ?, 1)
-    `).run(testDocId14, 'test-14.jpg')
-  })
+    `).run(vaccinationDocId14, vaccinationImagePath14)
 
-  test('14a. POST /documents/:id/re-analyze endpoint is protected', async () => {
-    // Endpoint should require authentication, returns 403 for unauthenticated
-    const noAuthRes = await apiCall('POST', `/documents/${testDocId14}/re-analyze`, {})
-    expect(noAuthRes.status).toBe(403)
-  })
-
-  test('14b. analysis_history table exists with proper schema', () => {
-    // Verify analysis_history table can accept inserts
-    const historyId = `test-history-${Date.now()}`
+    treatmentDocId14 = `treatment-doc-14-${Date.now()}`
     db14.prepare(`
-      INSERT INTO analysis_history (id, document_id, extracted_json, version, ocr_provider, created_at)
-      VALUES (?, ?, ?, 1, 'test', datetime('now'))
-    `).run(historyId, testDocId14, '{}')
+      INSERT INTO documents (id, animal_id, doc_type, image_path, analysis_status, extracted_json, ocr_provider, created_at)
+      VALUES (?, ?, 'treatment', ?, 'completed', ?, 'system', datetime('now'))
+    `).run(treatmentDocId14, testAnimalId14, treatmentImagePath14, JSON.stringify({
+      type: 'treatment',
+      title: 'Original Treatment Analysis',
+      treatments: [{ substance: 'Legacy Treatment' }],
+      page_results: [{ treatments: [{ substance: 'Legacy Treatment' }] }]
+    }))
 
-    const entry = db14.prepare(`SELECT * FROM analysis_history WHERE id = ?`).get(historyId)
-    expect(entry).toBeDefined()
-    expect(entry.document_id).toBe(testDocId14)
-    expect(entry.version).toBe(1)
-    expect(entry.ocr_provider).toBe('test')
+    db14.prepare(`
+      INSERT INTO document_pages (document_id, image_path, page_number)
+      VALUES (?, ?, 1)
+    `).run(treatmentDocId14, treatmentImagePath14)
   })
 
-  test('14c. Documents can have analysis_history and versions', () => {
-    // Test that versioning is supported in schema
-    const docIdForHistory = `doc-history-${Date.now()}`
-    
-    // Create document
+  test('14a. POST /documents/:id/re-analyze re-analyzes vaccination tables into structured records', async () => {
+    const res = await apiCallWithToken(testUser14Token, 'POST', `/documents/${vaccinationDocId14}/re-analyze`, {})
+
+    expect(res.status).toBe(200)
+    expect(res.data.success).toBe(true)
+    expect(res.data.provider).toBe('mock-ocr')
+    expect(res.data.previousVersion.historyId).toBeTruthy()
+    expect(Array.isArray(res.data.extractedData.vaccinations)).toBe(true)
+    expect(res.data.extractedData.vaccinations.length).toBe(2)
+    expect(res.data.extractedData.vaccinations[0].vaccine_name).toBe('DHLPPi')
+    expect(res.data.extractedData.vaccinations[0].administration_date).toBe('2021-09-06')
+
+    const stored = db14.prepare('SELECT extracted_json, ocr_provider FROM documents WHERE id = ?').get(vaccinationDocId14)
+    const parsed = JSON.parse(stored.extracted_json)
+    expect(stored.ocr_provider).toBe('mock-ocr')
+    expect(parsed.vaccinations.length).toBe(2)
+    expect(parsed.payload.vaccinations.length).toBe(2)
+  })
+
+  test('14b. POST /documents/:id/re-analyze re-analyzes treatment tables into structured records', async () => {
+    const res = await apiCallWithToken(testUser14Token, 'POST', `/documents/${treatmentDocId14}/re-analyze`, {})
+
+    expect(res.status).toBe(200)
+    expect(Array.isArray(res.data.extractedData.treatments)).toBe(true)
+    expect(res.data.extractedData.treatments.length).toBe(2)
+    expect(res.data.extractedData.treatments[0].substance).toBe('Milbemax')
+    expect(res.data.extractedData.treatments[0].administered_at).toBe('2024-03-15')
+  })
+
+  test('14c. GET /documents/:id/history returns previous analyses in descending version order', async () => {
+    const res = await apiCallWithToken(testUser14Token, 'GET', `/documents/${vaccinationDocId14}/history`)
+
+    expect(res.status).toBe(200)
+    expect(res.data.current.version).toBeGreaterThan(0)
+    expect(Array.isArray(res.data.history)).toBe(true)
+    expect(res.data.history.length).toBeGreaterThan(0)
+    expect(res.data.history[0].extracted_json.title).toBe('Original Analysis')
+  })
+
+  test('14d. Re-analyze endpoint requires authentication (401 for unauth)', async () => {
+    const res = await apiCallWithToken(null, 'POST', `/documents/${vaccinationDocId14}/re-analyze`, {})
+    expect(res.status).toBe(401)
+  })
+
+  test('14e. Re-analyze requires analysis_status = completed (400)', async () => {
+    const pendingImagePath = writeTinyPng(`vaccination-pending-14-${Date.now()}.png`)
+    const pendingDocId = `status-test-${Date.now()}`
+
     db14.prepare(`
       INSERT INTO documents (id, animal_id, doc_type, image_path, analysis_status, extracted_json, created_at)
-      VALUES (?, ?, 'vaccination', 'test-c.jpg', 'completed', ?, datetime('now'))
-    `).run(docIdForHistory, testAnimalId14, '{"v1":"data"}')
+      VALUES (?, ?, 'general', ?, 'pending_analysis', '{}', datetime('now'))
+    `).run(pendingDocId, testAnimalId14, pendingImagePath)
 
-    // Add history entries with version incrementing
-    db14.prepare(`
-      INSERT INTO analysis_history (id, document_id, extracted_json, version, ocr_provider, created_at)
-      VALUES (?, ?, ?, 1, 'gemini', datetime('now'))
-    `).run(`hist-${Date.now()}-1`, docIdForHistory, '{"v1":"data"}')
-
-    db14.prepare(`
-      INSERT INTO analysis_history (id, document_id, extracted_json, version, ocr_provider, created_at)
-      VALUES (?, ?, ?, 2, 'claude', datetime('now'))
-    `).run(`hist-${Date.now()}-2`, docIdForHistory, '{"v2":"data"}')
-
-    // Verify versions are incrementing
-    const histories = db14.prepare(`
-      SELECT version FROM analysis_history WHERE document_id = ? ORDER BY version ASC
-    `).all(docIdForHistory)
-    
-    expect(histories.length).toBe(2)
-    expect(histories[0].version).toBe(1)
-    expect(histories[1].version).toBe(2)
-  })
-
-  test('14d. Re-analyze endpoint requires authentication (403 Forbidden for unauth)', async () => {
-    // Call without token should give 403
-    const res = await apiCall('POST', `/documents/${testDocId14}/re-analyze`, {})
-    expect(res.status).toBe(403)
-  })
-
-  test('14e. Documents table supports analysis_status field', () => {
-    // Test that documents.analysis_status field works
-    const testDocId = `status-test-${Date.now()}`
-    
-    // Create with pending_analysis
-    db14.prepare(`
-      INSERT INTO documents (id, animal_id, doc_type, image_path, analysis_status, extracted_json, created_at)
-      VALUES (?, ?, 'general', 'test-e.jpg', 'pending_analysis', '{}', datetime('now'))
-    `).run(testDocId, testAnimalId14)
-
-    let doc = db14.prepare(`SELECT * FROM documents WHERE id = ?`).get(testDocId)
-    expect(doc.analysis_status).toBe('pending_analysis')
-
-    // Update to completed
-    db14.prepare(`UPDATE documents SET analysis_status = 'completed' WHERE id = ?`).run(testDocId)
-
-    doc = db14.prepare(`SELECT * FROM documents WHERE id = ?`).get(testDocId)
-    expect(doc.analysis_status).toBe('completed')
+    const res = await apiCallWithToken(testUser14Token, 'POST', `/documents/${pendingDocId}/re-analyze`, {})
+    expect(res.status).toBe(400)
+    expect(res.data.error).toContain('analysiert')
   })
 })
 

@@ -1,6 +1,6 @@
 import { createWorker } from 'tesseract.js'
 import { readFileSync, existsSync } from 'fs'
-import { resolve } from 'path'
+import { basename, resolve } from 'path'
 
 // Module-level logger — replaced by setOcrLogger() on startup
 let _log = {
@@ -369,6 +369,10 @@ export async function analyzeDocument(imagePath, userGeminiKey = null, model = n
     throw new Error(`Dokumentdatei nicht gefunden: ${imagePath}`)
   }
 
+  if (process.env.NODE_ENV === 'test' && process.env.PAW_MOCK_OCR === '1') {
+    return analyzeWithMockOcr(imagePath, onProgress)
+  }
+
   try {
     const documentType = await classifyDocumentType(imagePath, userGeminiKey, userAnthropicKey, userOpenAiKey, priority)
     const prompt = getPromptForDocumentType(documentType)
@@ -401,6 +405,94 @@ export async function analyzeDocument(imagePath, userGeminiKey = null, model = n
     _log.error({ err: { message: err.message, stack: err.stack } }, 'OCR fehlgeschlagen')
     throw err // Throw error to be handled by caller (will trigger pending_analysis status)
   }
+}
+
+function analyzeWithMockOcr(imagePath, onProgress) {
+  if (onProgress) onProgress('Nutze testweises Mock-OCR...')
+
+  const file = basename(imagePath).toLowerCase()
+
+  if (file.includes('treatment') || file.includes('behandlung') || file.includes('wurm')) {
+    return Promise.resolve({
+      provider: 'mock-ocr',
+      data: {
+        type: 'treatment',
+        title: 'Behandlungsprotokoll - Entwurmung',
+        document_date: '2024-03-15',
+        summary: '2 Behandlungseintraege aus Tabelle erkannt',
+        raw_text: 'Entwurmung 15.03.2024 Milbemax 1 Tablette',
+        animal: { name: 'Mocky', species: 'dog', breed: 'Mixed', birthdate: '2020-01-10' },
+        treatments: [
+          {
+            substance: 'Milbemax',
+            administered_at: '2024-03-15',
+            dosage: '1 Tablette',
+            vet_name: 'Dr. Mock',
+            next_due: '2024-06-15',
+            notes: 'Tabelle Zeile 1'
+          },
+          {
+            substance: 'Droncit',
+            administered_at: '2024-03-15',
+            dosage: '0.5 Tablette',
+            vet_name: 'Dr. Mock',
+            next_due: null,
+            notes: 'Tabelle Zeile 2'
+          }
+        ],
+        suggested_tags: ['Entwurmung', 'Milbemax']
+      }
+    })
+  }
+
+  if (file.includes('vaccination') || file.includes('impf') || file.includes('vax')) {
+    return Promise.resolve({
+      provider: 'mock-ocr',
+      data: {
+        type: 'vaccination',
+        title: 'Impfpass - Mocky',
+        document_date: '2021-09-06',
+        summary: '2 Impfungen aus Tabelle erkannt',
+        raw_text: 'Impfstoff Datum Gueltig bis Charge',
+        animal: { name: 'Mocky', species: 'dog', breed: 'Mixed', birthdate: '2020-01-10' },
+        vaccinations: [
+          {
+            vaccine_name: 'DHLPPi',
+            administration_date: '2021-09-06',
+            valid_until: '2024-09-06',
+            batch_number: 'BATCH-001',
+            manufacturer: 'Boehringer',
+            active_substances: ['Staupevirus', 'Parvovirus'],
+            vet_name: 'Dr. Mock',
+            target_disease: 'Staupe, Parvo'
+          },
+          {
+            vaccine_name: 'Tollwut',
+            administration_date: '2021-09-06',
+            valid_until: '2024-09-06',
+            batch_number: 'BATCH-002',
+            manufacturer: 'MSD',
+            active_substances: ['Tollwutvirus'],
+            vet_name: 'Dr. Mock',
+            target_disease: 'Tollwut'
+          }
+        ],
+        suggested_tags: ['DHLPPi', 'Tollwut']
+      }
+    })
+  }
+
+  return Promise.resolve({
+    provider: 'mock-ocr',
+    data: {
+      type: 'general',
+      title: 'Mock Dokument',
+      document_date: '2024-01-01',
+      summary: 'Mock OCR Ergebnis',
+      raw_text: 'Mock OCR Text',
+      suggested_tags: ['Mock']
+    }
+  })
 }
 
 async function analyzeWithClaude(imagePath, anthropicKey, model, onProgress, prompt = GEMINI_PROMPT, documentType = 'general') {
@@ -575,6 +667,89 @@ export function normalizeDocumentType(typeInput) {
   }
   
   return mapping[normalized] || 'general'
+}
+
+function firstDefined(...values) {
+  return values.find(value => value !== undefined && value !== null && value !== '')
+}
+
+function uniqueStrings(values = []) {
+  return [...new Set(values.filter(value => typeof value === 'string' && value.trim().length > 0))]
+}
+
+function collectListRecords(pageResults, primaryKey, fallbackKey = primaryKey) {
+  return pageResults.flatMap((page) => {
+    const payload = page?.payload || {}
+    return payload[primaryKey] || page?.[primaryKey] || payload[fallbackKey] || page?.[fallbackKey] || []
+  })
+}
+
+export function buildExtractedDocumentData({ combinedText, suggestedType, pageResults, pages }) {
+  const firstPage = pageResults[0] || {}
+  const animal = firstDefined(...pageResults.map(page => page?.animal).filter(Boolean))
+  const title = firstDefined(...pageResults.map(page => page?.title), firstPage.title)
+  const documentDate = firstDefined(...pageResults.map(page => page?.document_date), firstPage.document_date)
+  const summary = firstDefined(...pageResults.map(page => page?.summary), firstPage.summary)
+  const suggestedTags = uniqueStrings(pageResults.flatMap(page => page?.suggested_tags || page?.payload?.suggested_tags || []))
+
+  const extracted = {
+    type: suggestedType,
+    text: combinedText,
+    pages,
+    page_results: pageResults,
+    ...(title ? { title } : {}),
+    ...(documentDate ? { document_date: documentDate } : {}),
+    ...(summary ? { summary } : {}),
+    ...(animal ? { animal } : {}),
+    ...(suggestedTags.length ? { suggested_tags: suggestedTags } : {})
+  }
+
+  if (suggestedType === 'vaccination') {
+    const vaccinations = collectListRecords(pageResults, 'vaccinations')
+    return {
+      ...extracted,
+      vaccinations,
+      payload: {
+        type: suggestedType,
+        ...(title ? { title } : {}),
+        ...(documentDate ? { document_date: documentDate } : {}),
+        ...(summary ? { summary } : {}),
+        ...(animal ? { animal } : {}),
+        ...(suggestedTags.length ? { suggested_tags: suggestedTags } : {}),
+        vaccinations
+      }
+    }
+  }
+
+  if (suggestedType === 'treatment') {
+    const treatments = collectListRecords(pageResults, 'treatments', 'treatment_log')
+    return {
+      ...extracted,
+      treatments,
+      payload: {
+        type: suggestedType,
+        ...(title ? { title } : {}),
+        ...(documentDate ? { document_date: documentDate } : {}),
+        ...(summary ? { summary } : {}),
+        ...(animal ? { animal } : {}),
+        ...(suggestedTags.length ? { suggested_tags: suggestedTags } : {}),
+        treatments
+      }
+    }
+  }
+
+  return {
+    ...firstPage,
+    ...extracted,
+    payload: {
+      ...firstPage,
+      ...(title ? { title } : {}),
+      ...(documentDate ? { document_date: documentDate } : {}),
+      ...(summary ? { summary } : {}),
+      ...(animal ? { animal } : {}),
+      ...(suggestedTags.length ? { suggested_tags: suggestedTags } : {})
+    }
+  }
 }
 
 // Two-step OCR: first classify document type, then extract with type-specific prompt
