@@ -579,5 +579,10 @@
   "sharing.generateLink": "Link generieren",
   "sharing.copyLink": "Link kopieren",
   "sharing.tempLinkDesc": "Erstelle einen 14 Tage gültigen Link, um das Tierprofil (Lesezugriff) mit anderen, z.B. einer Tierpension, zu teilen.",
-  "docDetail.ocrDisclaimer": "Die extrahierten Textdaten dienen nur der Übersicht. Rechtlich bindend ist ausschließlich das angehängte Originaldokument (Foto)."
+  "docDetail.ocrDisclaimer": "Die extrahierten Textdaten dienen nur der Übersicht. Rechtlich bindend ist ausschließlich das angehängte Originaldokument (Foto).",
+  "reminders.title": "Erinnerungen",
+  "reminders.due": "Fällig",
+  "reminders.dismiss": "Erledigt",
+  "reminders.continue": "Weiter zu meinen Tieren",
+  "reminders.empty": "Keine offenen Erinnerungen"
 }

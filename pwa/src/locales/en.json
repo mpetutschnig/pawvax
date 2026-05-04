@@ -544,5 +544,10 @@
   "docs.dev.t3": "The system supports Google Gemini (default), Anthropic Claude, and OpenAI. Users can store their own keys in the profile. The backend iterates through the providers based on `ai_provider_priority`.",
   "landing": {
     "description": "Seamless access via NFC/Barcode. The interface adapts to your role. Own animals display full profiles; third-party tags show shared documents only."
-  }
+  },
+  "reminders.title": "Reminders",
+  "reminders.due": "Due",
+  "reminders.dismiss": "Done",
+  "reminders.continue": "Continue to my pets",
+  "reminders.empty": "No open reminders"
 }

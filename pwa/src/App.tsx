@@ -17,6 +17,7 @@ import PublicScanPage from './pages/PublicScanPage'
 import DocumentationPage from './pages/DocumentationPage'
 import WelcomePage from './pages/WelcomePage'
 import PublicSharePage from './pages/PublicSharePage'
+import RemindersPage from './pages/RemindersPage'
 
 function GlobalBrand() {
   const location = useLocation()
@@ -134,6 +135,7 @@ export default function App() {
         <Route path="/public-scan" element={<PublicScanPage />} />
         <Route path="/share/:shareId" element={<PublicSharePage />} />
         <Route path="/" element={<Navigate to="/animals" replace />} />
+        <Route path="/reminders" element={<RequireAuth><RemindersPage /></RequireAuth>} />
         <Route path="/animals" element={<RequireAuth><AnimalsPage /></RequireAuth>} />
         <Route path="/animals/:id" element={<RequireAuth><AnimalPage /></RequireAuth>} />
         <Route path="/animals/:id/tags" element={<RequireAuth><TagManagementPage /></RequireAuth>} />
