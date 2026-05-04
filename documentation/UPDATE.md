@@ -1,65 +1,91 @@
-# PAW - Automatisches Update-Skript
+# PAW - Update-Ablauf
 
-Dieses Dokument beschreibt den Update-Prozess.
+Dieses Dokument ist als Runbook gedacht: von oben nach unten ausfuehren, ohne Schritte zu mischen.
+
+Wichtig:
+- Die Befehle fuer `stop`, `persist`, `cleanup` und `start` getrennt nacheinander ausfuehren.
+- Den API-Container nicht vor dem Persistieren der Testergebnisse wieder starten.
+- Bei rootless Podman immer als passender User arbeiten.
 
 ---
 
-## Schritt 1: Code lokal hochladen
+## Schritt 1: Code lokal pushen
 
-Führe diese Befehle auf deinem **lokalen Entwicklungsrechner** aus:
+Auf dem lokalen Entwicklungsrechner:
 
 ```bash
 git add .
-git commit -m "Deployment Bug Fix"
+git commit -m "Deployment Update"
 git push
 ```
 
-Dann per SSH auf den Server verbinden und den Git-Pull als `paw-git` ausführen:
+Dann auf den Server verbinden:
 
 ```bash
 ssh hetzner
 ```
 
-```bash
-su -s /bin/bash paw-git -c "cd /tmp && git -C /git/pawvax pull"
+---
 
+## Schritt 2: Server vorbereiten
+
+Temporär Login-Shells aktivieren:
+
+```bash
 usermod -s /bin/bash paw-git
 usermod -s /bin/bash paw-api
 usermod -s /bin/bash paw-pwa
+```
 
+Code aktualisieren und Rechte setzen:
+
+```bash
 su -s /bin/bash paw-git -c "cd /tmp && git -C /git/pawvax pull"
 chmod -R a+rX /git/pawvax
 chmod -R a+w /git/pawvax/server /git/pawvax/pwa
+```
 
+---
+
+## Schritt 3: Rootless Podman aufraeumen
+
+API-User:
+
+```bash
 PAW_API_UID=$(id -u paw-api)
 XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "cd /tmp && podman --cgroup-manager=cgroupfs container prune -f && podman --cgroup-manager=cgroupfs image prune -af && podman --cgroup-manager=cgroupfs builder prune -af"
+```
 
+PWA-User:
+
+```bash
 PAW_PWA_UID=$(id -u paw-pwa)
 XDG_RUNTIME_DIR=/run/user/$PAW_PWA_UID su -s /bin/bash paw-pwa -c "cd /tmp && podman --cgroup-manager=cgroupfs container prune -f && podman --cgroup-manager=cgroupfs image prune -af && podman --cgroup-manager=cgroupfs builder prune -af"
 ```
 
-### 5 — Backend-Image bauen (paw-api)
+---
+
+## Schritt 4: Images bauen
+
+Backend-Image bauen:
 
 ```bash
 PAW_API_UID=$(id -u paw-api)
 XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "cd /tmp && podman --cgroup-manager=cgroupfs build --no-cache --progress=plain -t paw-api:latest -f /git/pawvax/server/Dockerfile /git/pawvax/server"
 ```
 
-### 6 — Frontend-Image bauen (paw-pwa)
+Frontend-Image bauen:
 
 ```bash
 PAW_PWA_UID=$(id -u paw-pwa)
 XDG_RUNTIME_DIR=/run/user/$PAW_PWA_UID su -s /bin/bash paw-pwa -c "cd /git/pawvax/pwa && podman --cgroup-manager=cgroupfs build -f Containerfile -t localhost/paw-pwa:latest ."
 ```
 
-**⚠️ Hinweis zu Service Worker & Browser Cache:**
-Nach dem PWA-Build müssen alte Service-Worker-Caches im Browser gelöscht werden:
-- DevTools öffnen (F12)
-- Application → Service Workers → "Unregister"
-- Application → Storage → "Clear site data"
-- **Hard Reload**: `Ctrl+Shift+R` (oder `Cmd+Shift+R` auf Mac)
+---
 
-### 7 — paw-api &  Service neu starten
+## Schritt 5: Services neu starten
+
+API und PWA neu starten:
 
 ```bash
 PAW_API_UID=$(id -u paw-api)
@@ -67,105 +93,130 @@ su -s /bin/bash paw-api -c "cd /tmp && XDG_RUNTIME_DIR=/run/user/$PAW_API_UID DB
 
 PAW_PWA_UID=$(id -u paw-pwa)
 su -s /bin/bash paw-pwa -c "cd /tmp && XDG_RUNTIME_DIR=/run/user/$PAW_PWA_UID DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$PAW_PWA_UID/bus systemctl --user restart paw-pwa"
-
-PAW_API_UID=$(id -u paw-api)
-su -s /bin/bash paw-api -c "cd /tmp && XDG_RUNTIME_DIR=/run/user/$PAW_API_UID systemctl --user status paw-api --no-pager"
-
-PAW_PWA_UID=$(id -u paw-pwa)
-su -s /bin/bash paw-pwa -c "cd /tmp && XDG_RUNTIME_DIR=/run/user/$PAW_PWA_UID systemctl --user status paw-pwa --no-pager"
 ```
 
-### 11 — Shells wieder auf /sbin/nologin setzen
+Status pruefen:
+
+```bash
+PAW_API_UID=$(id -u paw-api)
+su -s /bin/bash paw-api -c "cd /tmp && XDG_RUNTIME_DIR=/run/user/$PAW_API_UID DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$PAW_API_UID/bus systemctl --user status paw-api --no-pager"
+
+PAW_PWA_UID=$(id -u paw-pwa)
+su -s /bin/bash paw-pwa -c "cd /tmp && XDG_RUNTIME_DIR=/run/user/$PAW_PWA_UID DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$PAW_PWA_UID/bus systemctl --user status paw-pwa --no-pager"
+```
+
+Optional rootless Container pruefen:
+
+```bash
+su - paw-api -c "podman ps"
+su - paw-pwa -c "podman ps"
+```
+
+---
+
+## Schritt 6: Isolierte API-Tests ausfuehren
+
+Die Tests laufen isoliert im Container gegen den aktuellen Code und die produktive DB.
+
+```bash
+PAW_API_UID=$(id -u paw-api)
+XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "cd /tmp && podman run --rm --cgroup-manager=cgroupfs --security-opt label=disable -v /git/pawvax/server:/app -v /home/paw-api/data:/data -v /tmp:/tmp -w /app docker.io/node:22-alpine sh -lc 'apk add --no-cache python3 make g++ cairo-dev jpeg-dev pango-dev giflib-dev && npm ci && npm test && echo \"Tests erfolgreich\"'"
+```
+
+Wenn hier alles gruen ist, dann erst die Testergebnisse persistieren.
+
+---
+
+## Schritt 7: Testergebnisse persistieren und Test-Accounts bereinigen
+
+Wichtig:
+- Diesen Abschnitt Block fuer Block ausfuehren.
+- Nicht `start` vor `persist` ausfuehren.
+- Die DB muss fuer `persist` und `sqlite3 cleanup` frei sein.
+
+### 7.1 API-Container stoppen
+
+```bash
+su - paw-api -c "podman stop systemd-paw-api 2>/dev/null || true"
+sleep 2
+```
+
+### 7.2 Testergebnisse in DB speichern
+
+```bash
+PAW_API_UID=$(id -u paw-api)
+XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "cd /tmp && podman --cgroup-manager=cgroupfs run --rm --security-opt label=disable -v /git/pawvax/server:/app -v /home/paw-api/data:/data -v /tmp:/tmp -w /app docker.io/node:22-alpine sh -c 'node scripts/persist-test-results.js /tmp/jest-raw.json /data/paw.db'"
+```
+
+Erwartete Erfolgsmeldung:
+
+```bash
+Persisted deploy test results (passed, 115/115 passed)
+```
+
+### 7.3 Test-Accounts aufraeumen
+
+```bash
+su -s /bin/bash paw-api -c "sqlite3 /home/paw-api/data/paw.db \"DELETE FROM accounts WHERE email LIKE 'test%@example.com' OR email LIKE 'journey%@test.com';\""
+su -s /bin/bash paw-api -c "sqlite3 /home/paw-api/data/paw.db \"DELETE FROM accounts WHERE email LIKE 'reminder-%@example.com' OR email LIKE 'reminder-other%@example.com';\""
+su -s /bin/bash paw-api -c "sqlite3 /home/paw-api/data/paw.db \"DELETE FROM accounts WHERE email = 'dedup@example.com';\""
+echo "Test-Accounts bereinigt."
+```
+
+### 7.4 API-Container wieder starten
+
+```bash
+su - paw-api -c "podman start systemd-paw-api 2>/dev/null || true"
+```
+
+### 7.5 Ergebnis pruefen
+
+Im Admin-Dashboard sollte jetzt sichtbar sein:
+- Teststatus: erfolgreich
+- Testdetails: `115/115`
+- Admin-Version: aktuelle deployte Version
+
+---
+
+## Schritt 8: PWA im Browser aktualisieren
+
+Nach einem Frontend-Deploy muss die PWA im Browser hart aktualisiert werden:
+
+1. DevTools oeffnen.
+2. Application -> Service Workers -> Unregister.
+3. Application -> Storage -> Clear site data.
+4. Hard Reload mit `Ctrl+Shift+R`.
+
+---
+
+## Schritt 9: Funktional pruefen
+
+### Admin pruefen
+
+- Dashboard zeigt Teststatus gruen.
+- Testdetails zeigen `115/115`.
+- Versionsanzeige in der Admin-Seite ist sichtbar.
+
+### OCR / Dokumente pruefen
+
+- Bereits falsch klassifizierte Impfpass-Dokumente einmal neu analysieren.
+- Impfpass-Tabellen muessen danach als `vaccination` erscheinen.
+- Die Impftabelle muss auf der Tierseite wieder sichtbar sein.
+
+### EU Pet Passport pruefen
+
+- Heimtierausweis hochladen.
+- Dokumenttyp sollte als `pet_passport` erkannt werden.
+- Chip-Code sollte automatisch als Tag angelegt werden.
+- Die Detailseite muss Pass- und Chipdaten anzeigen.
+
+---
+
+## Schritt 10: Shells wieder sperren
 
 ```bash
 usermod -s /sbin/nologin paw-git
 usermod -s /sbin/nologin paw-api
 usermod -s /sbin/nologin paw-pwa
-echo "🚀 PAW Update erfolgreich abgeschlossen!"
+echo "PAW Update erfolgreich abgeschlossen."
 ```
-
----
-
-## Schritt 3: Isolierte API-Tests ausführen und Ergebnis speichern
-
-```bash
-PAW_API_UID=$(id -u paw-api)
-XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "cd /tmp && podman run --rm --cgroup-manager=cgroupfs --security-opt label=disable --user=0 -v /git/pawvax/server:/app -v /home/paw-api/data:/data -v /tmp:/tmp -w /app docker.io/node:22-alpine sh -lc 'apk add --no-cache python3 make g++ cairo-dev jpeg-dev pango-dev giflib-dev && npm ci && npm test && echo \"Tests erfolgreich\"'" 
-```
-
-Wenn erfolgreich, speichere Ergebnisse in DB:
-
-**⚠️ Bei Database Lock-Fehler: Erst API Container stoppen!**
-
-```bash
-# API Container stoppen (wenn noch aktiv)
-su - paw-api -c "podman stop systemd-paw-api 2>/dev/null || true"
-
-# Kurze Pause für Lock-Release
-sleep 2
-
-# Test-Ergebnisse persistieren (rootless, ohne --user=0)
-PAW_API_UID=$(id -u paw-api)
-XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "cd /tmp && podman --cgroup-manager=cgroupfs run --rm --security-opt label=disable \
-  -v /git/pawvax/server:/app \
-  -v /home/paw-api/data:/data \
-  -v /tmp:/tmp \
-  -w /app \
-  docker.io/node:22-alpine \
-  sh -c 'node scripts/persist-test-results.js /tmp/jest-raw.json /data/paw.db'" && echo "Test-Ergebnisse in DB gespeichert"
-
-# API Container neu starten
-su - paw-api -c "podman start systemd-paw-api 2>/dev/null || true"
-```
-
----
-
-## Schritt 4: Test-Accounts aufräumen
-
-```bash
-su -s /bin/bash paw-api -c "sqlite3 /home/paw-api/data/paw.db \
-  \"DELETE FROM accounts WHERE email LIKE 'test%@example.com' OR email LIKE 'journey%@test.com';\""
-echo "Test-Accounts bereinigt."
-```
-
-```bash
-su -s /bin/bash paw-api -c "sqlite3 /home/paw-api/data/paw.db \
-  \"DELETE FROM accounts WHERE email LIKE 'reminder-%@example.com' OR email LIKE 'reminder-other%@example.com';\""
-su -s /bin/bash paw-api -c "sqlite3 /home/paw-api/data/paw.db \
-  \"DELETE FROM accounts WHERE email = 'dedup@example.com';\""
-echo "Test-Accounts (Suiten 12-13) bereinigt."
-```
-
----
-
-## 🆕 EU Pet Passport (Heimtierausweis) Support
-
-Ab dieser Version unterstützt PAWvax EU-Heimtierausweise mit automatischer Chip-Code-Extraktion.
-
-### Neue Features:
-- **Document Type**: `pet_passport` (EU Heimtierausweis / Pet Passport)
-- **Tag Type**: `chip` (implantierte Mikrochip-Codes, auto-sync)
-- **OCR**: Multilingual (Deutsch & Englisch)
-- **Auto-Sync**: Chip-Codes werden automatisch als `animal_tags` registriert
-
-### Test Suite 16 - Pet Passport & Chip Tags:
-- ✅ 16a: Normalisierung von Heimtierausweis-Aliase (passport → pet_passport)
-- ✅ 16b-d: Multilingual OCR Prompts (DE/EN)
-- ✅ 16e: Chip-Tag API Erstellung
-- ✅ 16f: Pet_passport Dokumenttyp Persistenz
-- ✅ 16g: Auto-Chip-Tag Sync beim Document Analysis
-
-### Validierung:
-Nach dem Update können diese Schritte die neue Funktionalität testen:
-
-```bash
-# 1. Heimtierausweis-Bild hochladen → Dokumenttyp sollte auto-erkannt werden
-# 2. Document-Detail ansehen → pet_passport Daten angezeigt
-# 3. Animal-Seite prüfen → neuer "Chip-Code" Tag sollte erstellt sein
-# 4. API-Test: Suite 16 sollte 7/7 bestehen
-```
-
-**Hinweis für die PWA:**
-- Nach dem Update müssen Browser-Cache und Service Worker gelöscht werden
-- DevTools: F12 → Application → Service Workers → Unregister
-- Hard Reload: `Ctrl+Shift+R`
