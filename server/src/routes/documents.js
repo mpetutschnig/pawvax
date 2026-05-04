@@ -5,6 +5,7 @@ import { analyzeDocument } from '../services/ocr.js'
 import { decrypt } from '../utils/crypto.js'
 import { unlink } from 'fs/promises'
 import { resolve } from 'path'
+import { flagDuplicates } from '../services/dedup.js'
 
 function getDocumentPages(db, documentId) {
   return db.prepare(`
@@ -346,6 +347,9 @@ export default async function documentRoutes(fastify) {
         page_results: result.pageResults
       }
       const provider = result.provider
+
+      // Flag duplicate records across existing documents of the same animal
+      flagDuplicates(db, doc.animal_id, docId, result.suggestedType, result.pageResults)
 
       // Update document with analysis results
       db.prepare(`

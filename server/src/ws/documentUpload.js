@@ -1,9 +1,11 @@
 import { v4 as uuid } from 'uuid'
+import { createHash } from 'node:crypto'
 import { getDb } from '../db/index.js'
 import { analyzeDocument, normalizeDocumentType, classifyDocumentType } from '../services/ocr.js'
 import { saveImageChunks } from '../services/storage.js'
 import { decrypt } from '../utils/crypto.js'
 import { logAudit } from '../services/audit.js'
+import { flagDuplicates } from '../services/dedup.js'
 
 function normalizeRole(role) {
   return role === 'readonly' ? 'guest' : role
@@ -253,6 +255,11 @@ export default async function wsDocumentUpload(fastify) {
             }
 
             send(socket, { type: 'status', message: 'Speichere Ergebnis...' })
+
+            // Flag duplicate records across existing documents of the same animal
+            if (!analysisError) {
+              flagDuplicates(db, uploadState.animalId, uploadState.documentId, suggestedType, pageResults)
+            }
 
             // Create document with combined pages
             const docId = uploadState.documentId
