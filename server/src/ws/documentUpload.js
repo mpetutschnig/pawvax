@@ -127,10 +127,10 @@ export default async function wsDocumentUpload(fastify) {
           const { animalId, filename, mimeType, allowedRoles, pageNumber, documentId } = msg
           const pageNum = pageNumber ?? 1
           const normalizedAllowedRoles = normalizeAllowedRoles(allowedRoles)
-          fastify.log.debug({ docId, animalId: msg.animalId, filename: msg.filename, page: pageNum }, 'WS: upload start')
 
           // Insert stub document so document_pages FK is satisfied
           const docId = documentId || uuid()
+          fastify.log.debug({ docId, animalId, filename, page: pageNum }, 'WS: upload start')
           const db = getDb()
           const existingCheck = db.prepare('SELECT id FROM documents WHERE id = ?').get(docId)
           if (!existingCheck) {

@@ -860,6 +860,9 @@ export default async function animalRoutes(fastify) {
       return { avatar_path: filepath }
     } catch (err) {
       req.log.error({ err }, 'Avatar upload failed')
+      if (/unsupported image format|input buffer/i.test(String(err?.message || ''))) {
+        return reply.code(400).send({ error: 'Ungültiges Bildformat' })
+      }
       return reply.code(500).send({ error: 'Fehler beim Speichern des Avatars' })
     }
   })

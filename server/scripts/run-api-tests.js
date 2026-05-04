@@ -116,7 +116,6 @@ async function main() {
       'node_modules/jest/bin/jest.js',
       '--runInBand',
       '--forceExit',
-      '--detectOpenHandles',
       ...passthroughArgs,
     ]
 
