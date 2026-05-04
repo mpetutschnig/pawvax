@@ -30,7 +30,7 @@ export default function LoginPage() {
       localStorage.setItem('token', res.data.token)
       localStorage.setItem('role', res.data.account.role || 'user')
       localStorage.setItem('verified', String(res.data.account.verified || 0))
-      navigate('/welcome')
+      navigate(mode === 'register' ? '/welcome' : '/animals')
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
       setError(msg ?? t('auth.loginError'))
