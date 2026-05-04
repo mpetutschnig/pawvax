@@ -933,6 +933,9 @@ export default async function animalRoutes(fastify) {
 
     return { scans, last_12h_count: scans.length }
   })
+
+  // Get recent scans of an animal (last 12 hours)
+  fastify.get('/api/animals/:id/recent-scans', async (req, reply) => {
     const db = getDb()
     const { id } = req.params
     const { accountId, role } = req.user

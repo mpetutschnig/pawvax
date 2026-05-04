@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  adminGetStats, adminGetAccounts, adminGetAnimals, adminGetPendingVerifications,
-  adminVerifyAccount, adminPatchAccount, adminGetAuditLog, adminDeleteAnimal, adminDeleteAccount, adminGetTestResults,
+  adminGetStats, adminGetAccounts, adminGetAnimals,
+  adminPatchAccount, adminGetAuditLog, adminDeleteAnimal, adminDeleteAccount, adminGetTestResults,
   adminGetOrphans, adminDeleteOrphans, adminGetVerifications, adminApproveVerification, adminRejectVerification
 } from '../api/rest'
 import { PawPrint, LogOut, LayoutDashboard, Users, Cat, ShieldCheck, FileClock, CheckCircle, Menu, X, Settings, XCircle, FlaskConical, Trash2, AlertCircle } from 'lucide-react'
@@ -13,10 +13,6 @@ type Section = 'overview' | 'accounts' | 'animals' | 'verifications' | 'audit' |
 
 interface Account {
   id: string; name: string; email: string; role: string; verified: number; verification_status?: string; created_at: string
-}
-
-interface Verification {
-  id: string; name: string; email: string; role: string; verification_status: string; created_at: string
 }
 
 interface AuditEntry {
@@ -91,7 +87,6 @@ export default function AdminPage() {
   const [stats, setStats] = useState<Stats | null>(null)
   const [accounts, setAccounts] = useState<Account[]>([])
   const [animals, setAnimals] = useState<AdminAnimalDTO[]>([])
-  const [verifications, setVerifications] = useState<Verification[]>([])
   const [auditLog, setAuditLog] = useState<AuditLog | null>(null)
   const [auditPage, setAuditPage] = useState(1)
   const [selectedAuditEntry, setSelectedAuditEntry] = useState<AuditEntry | null>(null)
