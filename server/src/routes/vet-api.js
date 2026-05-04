@@ -256,6 +256,8 @@ export default async function vetApiRoutes(fastify) {
     }
 
     const docType = normalizeDocumentType(fields.doc_type || 'general')
+    const language = fields.language || 'de'
+    
     if (!['vaccination', 'pedigree', 'dog_certificate', 'medical_product', 'general'].includes(docType)) {
       return reply.code(400).send({ error: 'Invalid doc_type. Must be one of: vaccination, pedigree, dog_certificate, medical_product, general' })
     }
@@ -307,7 +309,8 @@ export default async function vetApiRoutes(fastify) {
           null,
           anthropicKey, account?.claude_model || 'claude-3-5-sonnet-20241022',
           openaiKey, account?.openai_model || 'gpt-4o-mini',
-          priority
+          priority,
+          language
         )
 
         db.prepare('UPDATE documents SET extracted_json = ?, ocr_provider = ?, analysis_status = ? WHERE id = ?')

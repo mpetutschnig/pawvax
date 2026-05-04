@@ -11,8 +11,13 @@ let _log = {
 }
 export function setOcrLogger(log) { _log = log }
 
-// Document type-specific extraction prompts
-const CLASSIFICATION_PROMPT = `
+// ============================================================================
+// MULTILINGUAL PROMPTS: German (de) and English (en)
+// ============================================================================
+
+const PROMPTS = {
+  de: {
+    classification: `
 Du bist ein Veterinär-Dokumentenanalyst. Analysiere das folgende Tierdokument und klassifiziere es genau.
 
 DOKUMENTTYPEN (exakte Beschreibung):
@@ -43,11 +48,9 @@ DOKUMENTTYPEN (exakte Beschreibung):
    - Zeigt: Text und Informationen zum Tier, die keinem anderen Typ genau entsprechen
 
 Antworte NUR mit dem Dokumenttyp (z.B. "vaccination"), KEINE anderen Worte.
-`.trim()
+`.trim(),
 
-// Type-specific extraction prompts
-const PROMPTS_BY_TYPE = {
-  vaccination: `
+    vaccination: `
 Du bist ein Veterinär-Dokumentenanalyst. Analysiere diesen Impfpass gründlich und extrahiere JEDEN Impfeintrag als separates Objekt.
 
 KRITISCHE REGELN:
@@ -99,70 +102,10 @@ AUSGABE-FORMAT (WICHTIG):
     "suggested_tags": ["tag1", "tag2", ...]
   }
 
-BEISPIEL STRUKTUR (GENAU DIESES FORMAT):
-{
-  "type": "vaccination",
-  "title": "Vaccination Record - Rex",
-  "document_date": "2021-09-06",
-  "summary": "Multiple vaccinations from September 2021 to December 2025. Mix of Nobivac and Eurican products.",
-  "animal": {
-    "name": "Rex",
-    "species": "dog",
-    "breed": "German Shepherd",
-    "birthdate": "2019-03-15"
-  },
-  "vaccinations": [
-    {
-      "vaccine_name": "Nobivac SHPPI",
-      "administration_date": "2021-09-06",
-      "valid_until": "2022-11-30",
-      "batch_number": "A628B01",
-      "manufacturer": "MSD Animal Health",
-      "active_substances": [
-        "Canine Distemper Virus (CDV)",
-        "Canine Adenovirus Type 2 (CAV2)",
-        "Canine Parvovirus (CPV)",
-        "Canine Parainfluenzavirus (CPiV)"
-      ],
-      "vet_name": "Mag. med. vet. Klaus FISCHL, 7563 Königsdorf",
-      "target_disease": "Distemper, Hepatitis, Leptospirosis, Parvovirus, Parainfluenza"
-    },
-    {
-      "vaccine_name": "Eurican DAPPI-Lmulti",
-      "administration_date": "2021-10-05",
-      "valid_until": "2022-08-06",
-      "batch_number": "L482640",
-      "manufacturer": "Boehringer Ingelheim",
-      "active_substances": [
-        "Canine Distemper Virus (CDV)",
-        "Canine Adenovirus Type 2 (CAV2)",
-        "Canine Parvovirus Type 2 (CPV)",
-        "Canine Parainfluenzavirus (CPiV)",
-        "Leptospira interrogans (Canicola, Icterohaemorrhagiae, Grippotyphosa)"
-      ],
-      "vet_name": "Dr. med. vet. Angela Wulschnig, 9546 Bad Kleinkirchheim",
-      "target_disease": "Distemper, Hepatitis, Leptospirosis, Parvovirus, Parainfluenza"
-    },
-    {
-      "vaccine_name": "Eurican L4",
-      "administration_date": "2025-12-02",
-      "valid_until": "2026-10-29",
-      "batch_number": "H09350",
-      "manufacturer": "Boehringer Ingelheim",
-      "active_substances": [
-        "Leptospira interrogans (Canicola, Icterohaemorrhagiae, Grippotyphosa, Australis)"
-      ],
-      "vet_name": "Dr. med. vet. Angela Wulschnig, 9546 Bad Kleinkirchheim",
-      "notes": "Booster"
-    }
-  ],
-  "suggested_tags": ["Vaccination", "Distemper", "Leptospirosis", "Boehringer", "MSD", "Nobivac", "Eurican"]
-}
-
 Gib NUR gültiges JSON aus (keine Erklärungen, keine Markdown-Code-Blöcke, kein Text davor/danach).
 `.trim(),
 
-  treatment: `
+    treatment: `
 Du bist ein Veterinär-Dokumentenanalyst. Analysiere dieses Behandlungsdokument und extrahiere JEDE Behandlung einzeln.
 
 KRITISCHE REGELN:
@@ -184,43 +127,10 @@ DATEN-NORMALISIERUNG:
 - Alle Daten müssen YYYY-MM-DD sein
 - Unlesbare/fehlende Daten → null
 
-BEISPIEL STRUKTUR:
-{
-  "type": "treatment",
-  "title": "Behandlungsprotokoll - Entwurmung & Antiparasitär",
-  "document_date": "2024-03-15",
-  "summary": "2 Behandlungseinträge dokumentiert",
-  "animal": { 
-    "name": "Max", 
-    "species": "dog", 
-    "breed": "Labrador", 
-    "birthdate": "2019-03-15" 
-  },
-  "treatments": [
-    {
-      "substance": "Milbemax (Entwurmung)",
-      "administered_at": "2024-03-15",
-      "dosage": "1 Tablette",
-      "vet_name": "Dr. Schmidt",
-      "next_due": "2024-06-15",
-      "notes": "Prophylaxe gegen Rund- und Bandwürmer"
-    },
-    {
-      "substance": "Prazitel (Antiparasitär)",
-      "administered_at": "2024-03-15",
-      "dosage": "per Schleimhaut",
-      "vet_name": "Dr. Schmidt",
-      "next_due": null,
-      "notes": "Zusätzliche Maßnahme gegen Parasiten"
-    }
-  ],
-  "suggested_tags": ["Entwurmung", "Milbemax", "Prophylaxe"]
-}
-
 Gib NUR gültiges JSON aus (keine Erklärungen).
 `.trim(),
 
-  pedigree: `
+    pedigree: `
 Du bist ein Veterinär-Dokumentenanalyst. Analysiere dieses Zuchtdokument/Stammbaum und gib strukturierte JSON-Daten zurück.
 
 WICHTIGE REGELN:
@@ -230,19 +140,10 @@ WICHTIGE REGELN:
 4. "document_date": Ausstellungsdatum des Stammbaums im Format YYYY-MM-DD.
 5. "title": z.B. "FCI Stammbaum - Max der Labrador".
 
-Gib EXAKT diese JSON-Struktur zurück (nur valide JSON, kein Text davor/danach):
-{
-  "type": "pedigree",
-  "title": "...",
-  "document_date": "YYYY-MM-DD",
-  "summary": "...",
-  "animal": { "name": "...", "species": "...", "breed": "...", "birthdate": "YYYY-MM-DD" },
-  "pedigree": { "registration_number": "...", "federation": "...", "sire": "...", "dam": "..." },
-  "suggested_tags": ["Zucht", "Stammbaum", "FCI"]
-}
+Gib EXAKT diese JSON-Struktur zurück (nur valide JSON, kein Text davor/danach).
 `.trim(),
 
-  dog_certificate: `
+    dog_certificate: `
 Du bist ein Veterinär-Dokumentenanalyst. Analysiere dieses Hundeführerschein-/Sachkundenachweis-Dokument und gib strukturierte JSON-Daten zurück.
 
 WICHTIGE REGELN:
@@ -252,19 +153,10 @@ WICHTIGE REGELN:
 4. "title": z.B. "Hundeführerschein 2024 - Max".
 5. Tags: ["Hundeführerschein", "Sachkundenachweis", "Prüfung bestanden"].
 
-Gib EXAKT diese JSON-Struktur zurück (nur valide JSON, kein Text davor/danach):
-{
-  "type": "dog_certificate",
-  "title": "...",
-  "document_date": "YYYY-MM-DD",
-  "summary": "...",
-  "animal": { "name": "...", "breed": "...", "chip_number": "..." },
-  "certificate": { "holder_name": "...", "evaluation": "...", "passed": true/false },
-  "suggested_tags": ["Hundeführerschein", "Sachkundenachweis"]
-}
+Gib EXAKT diese JSON-Struktur zurück (nur valide JSON, kein Text davor/danach).
 `.trim(),
 
-  medical_product: `
+    medical_product: `
 Du bist ein Veterinär-Dokumentenanalyst. Analysiere diese Medikamenten-/Produktbeschreibung und gib strukturierte JSON-Daten zurück.
 
 WICHTIGE REGELN:
@@ -274,26 +166,10 @@ WICHTIGE REGELN:
 4. "document_date": Datum auf dem Dokument oder Verfallsdatum im Format YYYY-MM-DD.
 5. "title": z.B. "Amoxicillin 500mg - Packungsbeilage".
 
-Gib EXAKT diese JSON-Struktur zurück (nur valide JSON, kein Text davor/danach):
-{
-  "type": "medical_product",
-  "title": "...",
-  "document_date": "YYYY-MM-DD",
-  "summary": "...",
-  "product": {
-    "name": "...",
-    "active_substance": "...",
-    "dosage": "...",
-    "package_size": "...",
-    "manufacturer": "...",
-    "expiry_date": "YYYY-MM-DD"
-  },
-  "usage": "...",
-  "suggested_tags": ["Medikament", "Wirkstoff"]
-}
+Gib EXAKT diese JSON-Struktur zurück (nur valide JSON, kein Text davor/danach).
 `.trim(),
 
-  general: `
+    general: `
 Du bist ein Veterinär-Dokumentenanalyst. Analysiere dieses allgemeine Tierdokument und gib strukturierte JSON-Daten zurück.
 
 WICHTIGE REGELN:
@@ -303,23 +179,175 @@ WICHTIGE REGELN:
 4. "summary": 1-2 Sätze über den Inhalt.
 5. Tags basierend auf erkannten Schlüsselworten.
 
-Gib EXAKT diese JSON-Struktur zurück (nur valide JSON, kein Text davor/danach):
-{
-  "type": "general",
-  "title": "...",
-  "document_date": "YYYY-MM-DD",
-  "summary": "...",
-  "raw_text": "...",
-  "suggested_tags": ["tag1", "tag2"]
-}
+Gib EXAKT diese JSON-Struktur zurück (nur valide JSON, kein Text davor/danach).
 `.trim()
+  },
+
+  en: {
+    classification: `
+You are a veterinary document analyst. Analyze the following pet document and classify it precisely.
+
+DOCUMENT TYPES (exact description):
+
+1. "vaccination" — vaccination record, vaccination certificate, vaccination protocol, vaccination table, vaccine sticker
+   - Shows: vaccine(s), vaccination date(s), batch number, valid until date, veterinarian stamp/signature
+   - Recognition features:
+     * Table format with columns like "Vaccine", "Date", "Batch Number", "Valid Until", "Stamp/Signature"
+     * OR: vaccine stickers with names like "Nobivac", "Eurican", "Virbagen", "Hexadog", etc.
+     * OR: page title "Vaccination Record", "Additional Vaccinations", "Revaccinations"
+     * OR: vaccine names + dates/batch numbers/manufacturers are identifiable
+   - Keywords: vaccination, vaccine, rabies, distemper, parvo, leptospirosis, kennel cough, Nobivac, Eurican, Virbagen, MSD, Boehringer, Virbac, batch number, valid until
+   - NOT: general health reports, medication invoices, treatment reports without structured vaccination entries
+
+2. "pedigree" — pedigree, certificate, breeding document, registration
+   - Shows: breeding association logo, pedigree/family tree graphic, parents/ancestors, registration number, breeding qualifications
+   - NOT: simple birth certificates without breeding association stamp, vaccination records
+
+3. "dog_certificate" — dog handler certificate, competency certification, exam certificate
+   - Shows: "Dog Handler Certificate" or "Competency Certification" title, exam evaluation, confirmation of completion, issue date
+   - NOT: breeding documents, vaccination records, general health documents
+
+4. "medical_product" — medication description, package insert, product datasheet
+   - Shows: medication name, active substance, dosage/unit, package size, usage instructions, manufacturer/batch number
+   - NOT: vaccination certificates, veterinary treatment reports, prescriptions without product details
+
+5. "general" — general pet document, health report, treatment, lab result
+   - Shows: text and information about the pet that doesn't match another type exactly
+
+Reply ONLY with the document type (e.g., "vaccination"), NO other words.
+`.trim(),
+
+    vaccination: `
+You are a veterinary document analyst. Thoroughly analyze this vaccination record and extract EVERY vaccination entry as a separate object.
+
+CRITICAL RULES:
+1. OUTPUT: A JSON object with ONE array of vaccination entries in the "vaccinations" property
+2. If 5 vaccinations are shown on the page, then 5 separate objects in the vaccinations[] array
+3. Extract for EVERY vaccination entry (English field names, dates in YYYY-MM-DD):
+   - administration_date: vaccination date in format YYYY-MM-DD (e.g., "2021-09-06", "2021-10-05")
+     * Convert: "06.09.2021" → "2021-09-06", "5.10.2021" → "2021-10-05"
+   - vaccine_name: full name of vaccine (e.g., "Nobivac SHPPI", "Eurican DAPPI-Lmulti", "Virbagen canis SHAPPi/L")
+   - manufacturer: full manufacturer name (e.g., "MSD Animal Health", "Boehringer Ingelheim", "Virbac")
+   - batch_number: batch/lot number (e.g., "A628B01", "L482640", "8KMF")
+   - valid_until: valid until date in format YYYY-MM-DD (e.g., "2022-11-30" for "11-2022", "2022-08-06" for "08/06/2022")
+     * If only MM-YYYY: interpret as last day of month (e.g., "11-2022" → "2022-11-30")
+     * Convert all formats to YYYY-MM-DD
+   - active_substances: array with DETAILED active substance descriptions
+     * With abbreviations in parentheses: ["Canine Distemper Virus (CDV)", "Canine Adenovirus Type 2 (CAV2)", "Canine Parvovirus (CPV)"]
+     * For combinations: list all individual components OR simplified form if too complex
+     * Example: ["Leptospira interrogans (Canicola, Icterohaemorrhagiae, Grippotyphosa)"]
+   - vet_name: name and address of veterinarian (e.g., "Dr. Klaus FISCHL, 7563 Königsdorf")
+   - target_disease: optional - the target disease/pathogen (e.g., "Distemper, Parvo, Rabies, Leptospirosis")
+   - notes: optional - only if comments are explicitly mentioned (e.g., "Booster", "Preliminary", "Due for revision")
+
+4. Additionally in main object:
+   - type: "vaccination"
+   - title: short title (e.g., "Vaccination Record - Max")
+   - document_date: first/main vaccination date in YYYY-MM-DD format
+   - summary: 1-2 sentences summary in English
+   - animal: object with name, species (dog/cat/other), breed, birthdate (YYYY-MM-DD) — or null if not readable
+
+DATA NORMALIZATION:
+- ALL dates MUST be in YYYY-MM-DD format
+- Examples:
+  * "06.09.2021" → "2021-09-06"
+  * "5.10.2021" → "2021-10-05"
+  * "11-2022" → "2022-11-30" (last day of month)
+  * "08/06/2022" → "2022-08-06"
+- Unreadable/missing data → null (NOT "n.a." or "")
+- Trim whitespace
+
+OUTPUT FORMAT (IMPORTANT):
+- Return a JSON object with these properties.
+
+Return ONLY valid JSON (no explanations, no markdown code blocks, no text before/after).
+`.trim(),
+
+    treatment: `
+You are a veterinary document analyst. Analyze this treatment document and extract EACH treatment individually.
+
+CRITICAL RULES:
+1. ONE TREATMENT = ONE OBJECT in treatments[]
+2. If 3 treatments are documented, then 3 separate objects
+3. ALL date specifications MUST be in YYYY-MM-DD format
+4. Extract for EVERY entry:
+   - substance (active ingredient/medication, e.g., "Deworming", "Milbemax", "Droncit", "Antiparasitic")
+   - administered_at (treatment date, YYYY-MM-DD)
+   - dosage (dosage, e.g., "1 tablet", "0.5 ml/kg", "one injection")
+   - vet_name (name of veterinarian)
+   - next_due (next treatment due, YYYY-MM-DD, or null)
+   - notes (optional notes, e.g., "Prophylaxis", "Allergy documented")
+5. Animal info: name, species, breed, birthdate (YYYY-MM-DD)
+6. document_date = earliest or main treatment date
+7. Tags based on substances: ["Deworming", "Antiparasitic", "Milbemax", etc.]
+
+DATA NORMALIZATION:
+- All dates must be YYYY-MM-DD
+- Unreadable/missing data → null
+
+Return ONLY valid JSON (no explanations).
+`.trim(),
+
+    pedigree: `
+You are a veterinary document analyst. Analyze this breeding document/pedigree and return structured JSON data.
+
+IMPORTANT RULES:
+1. Extract registration number and breeding association (e.g., FCI, breed club).
+2. Read animal identity: name, breed, birthdate, color/markings.
+3. Read pedigree info: sire, dam, grandparents (if visible).
+4. "document_date": issue date of pedigree in format YYYY-MM-DD.
+5. "title": e.g., "FCI Pedigree - Max the Labrador".
+
+Return EXACTLY this JSON structure (only valid JSON, no text before/after).
+`.trim(),
+
+    dog_certificate: `
+You are a veterinary document analyst. Analyze this dog handler certificate/competency certification document and return structured JSON data.
+
+IMPORTANT RULES:
+1. Extract holder name and dog info (name, breed, chip number).
+2. Read exam evaluation, result (passed/failed), exam date.
+3. "document_date": issue date in format YYYY-MM-DD.
+4. "title": e.g., "Dog Handler Certificate 2024 - Max".
+5. Tags: ["Dog Certificate", "Handler Certificate", "Exam Passed"].
+
+Return EXACTLY this JSON structure (only valid JSON, no text before/after).
+`.trim(),
+
+    medical_product: `
+You are a veterinary document analyst. Analyze this medication/product description and return structured JSON data.
+
+IMPORTANT RULES:
+1. Extract: product name, active substance(s), package size, dosage/unit, application method.
+2. Read manufacturer, batch number (if present), expiration date.
+3. Extract brief usage instructions.
+4. "document_date": date on document or expiration date in format YYYY-MM-DD.
+5. "title": e.g., "Amoxicillin 500mg - Package Insert".
+
+Return EXACTLY this JSON structure (only valid JSON, no text before/after).
+`.trim(),
+
+    general: `
+You are a veterinary document analyst. Analyze this general pet document and return structured JSON data.
+
+IMPORTANT RULES:
+1. Extract all identified information: animal name, species, dates, text.
+2. "document_date": main date on document in format YYYY-MM-DD (report date, invoice date, etc.).
+3. "title": short summary of content (e.g., "Examination Report", "Lab Result", "Invoice").
+4. "summary": 1-2 sentences about the content in English.
+5. Tags based on identified keywords.
+
+Return EXACTLY this JSON structure (only valid JSON, no text before/after).
+`.trim()
+  }
 }
 
-const GEMINI_PROMPT = PROMPTS_BY_TYPE.general
-
-function getPromptForDocumentType(documentType) {
-  return PROMPTS_BY_TYPE[normalizeDocumentType(documentType)] || PROMPTS_BY_TYPE.general
+function getPromptForDocumentType(documentType, language = 'de') {
+  const lang = (language && PROMPTS[language]) ? language : 'de'
+  return PROMPTS[lang][normalizeDocumentType(documentType)] || PROMPTS[lang].general
 }
+
+const GEMINI_PROMPT = PROMPTS.de.general
 
 // Helper: Parse and normalize date to YYYY-MM-DD
 function normalizeDate(dateStr) {
@@ -414,8 +442,11 @@ function normalizeDateFields(obj) {
   return normalized
 }
 
-export async function analyzeDocument(imagePath, userGeminiKey = null, model = null, onProgress = null, userAnthropicKey = null, claudeModel = null, userOpenAiKey = null, openAiModel = null, priority = ['google', 'anthropic', 'openai']) {
+export async function analyzeDocument(imagePath, userGeminiKey = null, model = null, onProgress = null, userAnthropicKey = null, claudeModel = null, userOpenAiKey = null, openAiModel = null, priority = ['google', 'anthropic', 'openai'], language = 'de') {
   if (onProgress) onProgress(`Initialisiere OCR-Analyse...`)
+
+  // Validate language, default to 'de'
+  const normalizedLanguage = (language === 'en') ? 'en' : 'de'
 
   // Check if file exists before attempting analysis
   const absolutePath = resolve(imagePath)
@@ -424,12 +455,12 @@ export async function analyzeDocument(imagePath, userGeminiKey = null, model = n
   }
 
   if (process.env.NODE_ENV === 'test' && process.env.PAW_MOCK_OCR === '1') {
-    return analyzeWithMockOcr(imagePath, onProgress)
+    return analyzeWithMockOcr(imagePath, onProgress, normalizedLanguage)
   }
 
   try {
-    const documentType = await classifyDocumentType(imagePath, userGeminiKey, userAnthropicKey, userOpenAiKey, priority)
-    const prompt = getPromptForDocumentType(documentType)
+    const documentType = await classifyDocumentType(imagePath, userGeminiKey, userAnthropicKey, userOpenAiKey, priority, normalizedLanguage)
+    const prompt = getPromptForDocumentType(documentType, normalizedLanguage)
 
     for (const provider of priority) {
       if (provider === 'google' && userGeminiKey) {
@@ -461,8 +492,8 @@ export async function analyzeDocument(imagePath, userGeminiKey = null, model = n
   }
 }
 
-function analyzeWithMockOcr(imagePath, onProgress) {
-  if (onProgress) onProgress('Nutze testweises Mock-OCR...')
+function analyzeWithMockOcr(imagePath, onProgress, language = 'de') {
+  if (onProgress) onProgress(`Nutze testweises Mock-OCR... (Sprache: ${language.toUpperCase()})`)
 
   const file = basename(imagePath).toLowerCase()
 
@@ -811,18 +842,19 @@ export function buildExtractedDocumentData({ combinedText, suggestedType, pageRe
 }
 
 // Two-step OCR: first classify document type, then extract with type-specific prompt
-export async function classifyDocumentType(imagePath, userGeminiKey = null, userAnthropicKey = null, userOpenAiKey = null, priority = ['google', 'anthropic', 'openai']) {
+export async function classifyDocumentType(imagePath, userGeminiKey = null, userAnthropicKey = null, userOpenAiKey = null, priority = ['google', 'anthropic', 'openai'], language = 'de') {
   try {
+    const normalizedLanguage = (language === 'en') ? 'en' : 'de'
     // First pass: classify the document type
     for (const provider of priority) {
       if (provider === 'google' && userGeminiKey) {
-        return await classifyWithGemini(imagePath, userGeminiKey)
+        return await classifyWithGemini(imagePath, userGeminiKey, normalizedLanguage)
       }
       if (provider === 'anthropic' && userAnthropicKey) {
-        return await classifyWithClaude(imagePath, userAnthropicKey)
+        return await classifyWithClaude(imagePath, userAnthropicKey, normalizedLanguage)
       }
       if (provider === 'openai' && userOpenAiKey) {
-        return await classifyWithOpenAI(imagePath, userOpenAiKey)
+        return await classifyWithOpenAI(imagePath, userOpenAiKey, normalizedLanguage)
       }
     }
     return 'general'
@@ -832,13 +864,16 @@ export async function classifyDocumentType(imagePath, userGeminiKey = null, user
   }
 }
 
-async function classifyWithGemini(imagePath, geminiKey) {
+async function classifyWithGemini(imagePath, geminiKey, language = 'de') {
   const imageData = readFileSync(imagePath)
   const base64 = imageData.toString('base64')
   let mimeType = imagePath.endsWith('.png') ? 'image/png' : 'image/jpeg'
   if (base64.startsWith('/9j/')) mimeType = 'image/jpeg'
   else if (base64.startsWith('iVBORw')) mimeType = 'image/png'
   else if (base64.startsWith('UklGRg')) mimeType = 'image/webp'
+
+  const normalizedLanguage = (language === 'en') ? 'en' : 'de'
+  const classificationPrompt = PROMPTS[normalizedLanguage].classification
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`
   const response = await fetch(url, {
@@ -847,7 +882,7 @@ async function classifyWithGemini(imagePath, geminiKey) {
     body: JSON.stringify({
       contents: [{
         parts: [
-          { text: CLASSIFICATION_PROMPT },
+          { text: classificationPrompt },
           { inlineData: { mimeType, data: base64 } }
         ]
       }]
@@ -858,17 +893,20 @@ async function classifyWithGemini(imagePath, geminiKey) {
   const result = await response.json()
   const text = result.candidates?.[0]?.content?.parts?.[0]?.text || ''
   const classified = normalizeDocumentType(text)
-  _log.debug({ classified }, 'Document classified')
+  _log.debug({ classified, language: normalizedLanguage }, 'Document classified')
   return classified
 }
 
-async function classifyWithClaude(imagePath, anthropicKey) {
+async function classifyWithClaude(imagePath, anthropicKey, language = 'de') {
   const imageData = readFileSync(imagePath)
   const base64 = imageData.toString('base64')
   let mimeType = imagePath.endsWith('.png') ? 'image/png' : 'image/jpeg'
   if (base64.startsWith('/9j/')) mimeType = 'image/jpeg'
   else if (base64.startsWith('iVBORw')) mimeType = 'image/png'
   else if (base64.startsWith('UklGRg')) mimeType = 'image/webp'
+
+  const normalizedLanguage = (language === 'en') ? 'en' : 'de'
+  const classificationPrompt = PROMPTS[normalizedLanguage].classification
 
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -884,7 +922,7 @@ async function classifyWithClaude(imagePath, anthropicKey) {
         role: 'user',
         content: [
           { type: 'image', source: { type: 'base64', media_type: mimeType, data: base64 } },
-          { type: 'text', text: CLASSIFICATION_PROMPT }
+          { type: 'text', text: classificationPrompt }
         ]
       }]
     })
@@ -894,17 +932,20 @@ async function classifyWithClaude(imagePath, anthropicKey) {
   const result = await response.json()
   const text = result.content?.[0]?.text || ''
   const classified = normalizeDocumentType(text)
-  _log.debug({ classified }, 'Document classified')
+  _log.debug({ classified, language: normalizedLanguage }, 'Document classified')
   return classified
 }
 
-async function classifyWithOpenAI(imagePath, openAiKey) {
+async function classifyWithOpenAI(imagePath, openAiKey, language = 'de') {
   const imageData = readFileSync(imagePath)
   const base64 = imageData.toString('base64')
   let mimeType = imagePath.endsWith('.png') ? 'image/png' : 'image/jpeg'
   if (base64.startsWith('/9j/')) mimeType = 'image/jpeg'
   else if (base64.startsWith('iVBORw')) mimeType = 'image/png'
   else if (base64.startsWith('UklGRg')) mimeType = 'image/webp'
+
+  const normalizedLanguage = (language === 'en') ? 'en' : 'de'
+  const classificationPrompt = PROMPTS[normalizedLanguage].classification
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -918,7 +959,7 @@ async function classifyWithOpenAI(imagePath, openAiKey) {
       messages: [{
         role: 'user',
         content: [
-          { type: 'text', text: CLASSIFICATION_PROMPT },
+          { type: 'text', text: classificationPrompt },
           { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64}` } }
         ]
       }]
@@ -929,7 +970,7 @@ async function classifyWithOpenAI(imagePath, openAiKey) {
   const result = await response.json()
   const text = result.choices?.[0]?.message?.content || ''
   const classified = normalizeDocumentType(text)
-  _log.debug({ classified }, 'Document classified')
+  _log.debug({ classified, language: normalizedLanguage }, 'Document classified')
   return classified
 }
 

@@ -33,7 +33,8 @@ async function analyzeDocumentPages(pages, options) {
       options.userClaudeModel,
       options.userOpenAiKey,
       options.userOpenAiModel,
-      options.priority
+      options.priority,
+      options.language || 'de'
     )
 
     pageResults.push(result.data)
@@ -316,7 +317,7 @@ export default async function documentRoutes(fastify) {
     const db = getDb()
     const { accountId, role } = req.user
     const docId = req.params.id
-    const { provider: requestedProvider, model: requestedModel } = req.body || {}
+    const { provider: requestedProvider, model: requestedModel, language = 'de' } = req.body || {}
 
     const doc = db.prepare(`
       SELECT d.*, a.account_id AS owner_id, uploader.name AS added_by_name, uploader.verified AS added_by_verified FROM documents d
@@ -382,6 +383,7 @@ export default async function documentRoutes(fastify) {
         userOpenAiKey,
         userOpenAiModel,
         priority,
+        language,
         onProgress: (pageNumber, message) => {
           req.log.debug({ docId, pageNumber, message }, 'Retry analysis page progress')
         }
@@ -443,7 +445,7 @@ export default async function documentRoutes(fastify) {
     const db = getDb()
     const { accountId, role } = req.user
     const docId = req.params.id
-    const { provider: requestedProvider, model: requestedModel } = req.body || {}
+    const { provider: requestedProvider, model: requestedModel, language = 'de' } = req.body || {}
 
     const doc = db.prepare(`
       SELECT d.*, a.account_id AS owner_id, uploader.name AS added_by_name, uploader.verified AS added_by_verified FROM documents d
@@ -518,6 +520,7 @@ export default async function documentRoutes(fastify) {
         userOpenAiKey,
         userOpenAiModel,
         priority,
+        language,
         onProgress: (pageNumber, message) => {
           req.log.debug({ docId, pageNumber, message }, 'Re-analysis page progress')
         }
