@@ -747,18 +747,27 @@ export default function ProfilePage() {
 
         <hr className="divider" style={{ margin: 'var(--space-6) 0' }} />
 
-        <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-          <Download size={18} color="var(--primary-500)" /> {t('profile.dataExport')}
+        {/* Main Section: Account & Data Management */}
+        <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--space-4)', color: 'var(--danger-500)' }}>
+          {t('profile.deleteAccountTitle')}
         </h3>
-        <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-4)' }}>
+
+        {/* Subsection: Data Export (Takeout) */}
+        <h4 style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: 'var(--space-2)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+          <Download size={16} /> {t('profile.dataExport')}
+        </h4>
+        <p className="text-muted" style={{ fontSize: 'var(--font-size-xs)', marginBottom: 'var(--space-3)' }}>
           {t('profile.dataExportDesc')}
         </p>
-        <button className="btn btn-secondary" onClick={handleTakeout}>
+        <button className="btn btn-secondary" onClick={handleTakeout} style={{ marginBottom: 'var(--space-6)' }}>
           {t('profile.dataExportBtn')}
         </button>
 
-        <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--space-3)', color: 'var(--danger-500)' }}>{t('profile.deleteAccountTitle')}</h3>
-        <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-4)' }}>
+        {/* Subsection: Delete Account */}
+        <h4 style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: 'var(--space-2)' }}>
+          {t('profile.deleteAccountDesc')}
+        </h4>
+        <p className="text-muted" style={{ fontSize: 'var(--font-size-xs)', marginBottom: 'var(--space-3)' }}>
           {t('profile.deleteAccountDesc')}
         </p>
         <button className="btn btn-danger" onClick={() => setShowConfirmDelete(true)}>

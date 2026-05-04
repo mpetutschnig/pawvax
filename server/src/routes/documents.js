@@ -6,6 +6,7 @@ import { decrypt } from '../utils/crypto.js'
 import { unlink } from 'fs/promises'
 import { resolve } from 'path'
 import { flagDuplicates } from '../services/dedup.js'
+import { randomUUID } from 'crypto'
 
 function getDocumentPages(db, documentId) {
   return db.prepare(`
@@ -384,6 +385,140 @@ export default async function documentRoutes(fastify) {
       db.prepare('UPDATE documents SET analysis_status = ? WHERE id = ?').run('pending_analysis', docId)
 
       // Mark as failed, but save for later retry
+      if (err.message?.includes('429') || err.message?.includes('Quota')) {
+        return reply.code(503).send({ error: 'Gemini API Quota überschritten. Bitte später versuchen.' })
+      }
+      return reply.code(500).send({ error: err.message || 'Analyse fehlgeschlagen' })
+    }
+  })
+
+  // Re-analyze a completed document with new/updated prompts (Phase 4)
+  fastify.post('/api/documents/:id/re-analyze', async (req, reply) => {
+    const db = getDb()
+    const { accountId, role } = req.user
+    const docId = req.params.id
+    const { provider: requestedProvider, model: requestedModel } = req.body || {}
+
+    const doc = db.prepare(`
+      SELECT d.*, a.account_id AS owner_id, uploader.name AS added_by_name, uploader.verified AS added_by_verified FROM documents d
+      JOIN animals a ON a.id = d.animal_id
+      LEFT JOIN accounts uploader ON uploader.id = d.added_by_account
+      WHERE d.id = ?
+    `).get(docId)
+
+    if (!doc) return reply.code(404).send({ error: 'Dokument nicht gefunden' })
+    if (doc.owner_id !== accountId && role !== 'admin') {
+      return reply.code(403).send({ error: 'Keine Berechtigung' })
+    }
+
+    if (doc.analysis_status !== 'completed') {
+      return reply.code(400).send({ error: 'Dokument muss bereits analysiert sein' })
+    }
+
+    try {
+      // Store old analysis in history (versioning)
+      const oldExtractedJson = doc.extracted_json
+      const historyId = randomUUID()
+      const maxVersion = db.prepare(`
+        SELECT COALESCE(MAX(version), 0) as maxVersion FROM analysis_history WHERE document_id = ?
+      `).get(docId).maxVersion
+
+      db.prepare(`
+        INSERT INTO analysis_history (id, document_id, extracted_json, version, ocr_provider, created_at)
+        VALUES (?, ?, ?, ?, ?, datetime('now'))
+      `).run(historyId, docId, oldExtractedJson, maxVersion + 1, doc.ocr_provider)
+
+      // Get user's keys and models
+      const acc = db.prepare('SELECT gemini_token, gemini_model, anthropic_token, claude_model, openai_token, openai_model, ai_provider_priority FROM accounts WHERE id = ?').get(accountId)
+      
+      let userGeminiKey = null
+      let userAnthropicKey = null
+      let userOpenAiKey = null
+      
+      try { userGeminiKey = acc?.gemini_token ? decrypt(acc.gemini_token) : null } catch {}
+      try { userAnthropicKey = acc?.anthropic_token ? decrypt(acc.anthropic_token) : null } catch {}
+      try { userOpenAiKey = acc?.openai_token ? decrypt(acc.openai_token) : null } catch {}
+
+      const userGeminiModel = (requestedProvider === 'google' && requestedModel) ? requestedModel : (acc?.gemini_model || 'gemini-1.5-flash')
+      const userClaudeModel = (requestedProvider === 'anthropic' && requestedModel) ? requestedModel : (acc?.claude_model || 'claude-3-5-sonnet-20241022')
+      const userOpenAiModel = (requestedProvider === 'openai' && requestedModel) ? requestedModel : (acc?.openai_model || 'gpt-4o-mini')
+
+      let priority = acc?.ai_provider_priority ? JSON.parse(acc.ai_provider_priority) : ['system', 'google', 'anthropic', 'openai']
+      if (requestedProvider) {
+        priority = [requestedProvider]
+      }
+
+      const useSystem = priority.includes('system')
+      if (useSystem) {
+        if (!userGeminiKey) userGeminiKey = process.env.GEMINI_API_KEY || null
+        if (!userAnthropicKey) userAnthropicKey = process.env.ANTHROPIC_API_KEY || null
+        if (!userOpenAiKey) userOpenAiKey = process.env.OPENAI_API_KEY || null
+      }
+
+      const pages = getDocumentPages(db, docId)
+      const analysisPages = pages.length > 0
+        ? pages
+        : [{ page_number: 1, image_path: doc.image_path }]
+
+      if (!analysisPages[0]?.image_path) {
+        throw new Error('Keine gespeicherten Dokumentseiten für die Analyse gefunden')
+      }
+
+      const result = await analyzeDocumentPages(analysisPages, {
+        userGeminiKey,
+        userGeminiModel,
+        userAnthropicKey,
+        userClaudeModel,
+        userOpenAiKey,
+        userOpenAiModel,
+        priority,
+        onProgress: (pageNumber, message) => {
+          req.log.debug({ docId, pageNumber, message }, 'Re-analysis page progress')
+        }
+      })
+      const extractedData = {
+        text: result.combinedText,
+        type: result.suggestedType,
+        pages: analysisPages.length,
+        page_results: result.pageResults
+      }
+
+      // Flag duplicate records (re-compute with new analysis)
+      flagDuplicates(db, doc.animal_id, docId, result.suggestedType, result.pageResults)
+
+      // Update document with new analysis results
+      db.prepare(`
+        UPDATE documents
+        SET extracted_json = ?, ocr_provider = ?, doc_type = ?
+        WHERE id = ?
+      `).run(
+        JSON.stringify(extractedData),
+        result.provider,
+        result.suggestedType,
+        docId
+      )
+
+      logAudit(db, {
+        accountId, role, action: 're_analyze', resource: 'document', resourceId: docId,
+        details: { ocr_provider: result.provider, pages: analysisPages.length, history_entry: historyId },
+        ip: req.ip
+      })
+
+      return reply.send({
+        success: true,
+        message: 'Dokument erfolgreich neu analysiert',
+        documentId: docId,
+        extractedData,
+        provider: result.provider,
+        previousVersion: {
+          version: maxVersion + 1,
+          savedAt: new Date().toISOString(),
+          historyId
+        }
+      })
+    } catch (err) {
+      req.log.error({ err, docId }, 'Re-analysis failed')
+
       if (err.message?.includes('429') || err.message?.includes('Quota')) {
         return reply.code(503).send({ error: 'Gemini API Quota überschritten. Bitte später versuchen.' })
       }

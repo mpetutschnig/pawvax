@@ -90,8 +90,7 @@ Wenn erfolgreich, speichere Ergebnisse in DB:
 
 ```bash
 PAW_API_UID=$(id -u paw-api)
-XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "podman run --rm --cgroup-manager=cgroupfs --security-opt label=disable --user=0 -v /git/pawvax/server:/app -v /home/paw-api/data:/data -v /tmp:/tmp -w /app docker.io/node:22-alpine sh -lc 'node scripts/persist-test-results.js /tmp/jest-raw.json /data/paw.db'"
-echo "Test-Ergebnisse in DB gespeichert"
+XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "cd /tmp && podman run --rm --cgroup-manager=cgroupfs --security-opt label=disable --user=0 -v /git/pawvax/server:/app -v /home/paw-api/data:/data -v /tmp:/tmp -w /app docker.io/node:22-alpine sh -c 'node scripts/persist-test-results.js /tmp/jest-raw.json /data/paw.db'" && echo "Test-Ergebnisse in DB gespeichert"
 ```
 
 ---
