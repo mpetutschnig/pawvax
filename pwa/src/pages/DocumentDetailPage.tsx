@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { getDocument, deleteDocument, patchDocument, getAnimalDocuments, getMe } from '../api/rest'
+import { getDocument, deleteDocument, patchDocument, getAnimalDocuments, getMe, createReminder } from '../api/rest'
 import { generateICS, downloadBlob } from '../utils/ics'
 import { PageHeader } from '../components/PageHeader'
-import { Shield, Pill, FileText, PawPrint, Landmark, Calendar, Download, Mail, Tag, Save, X, Edit2, Trash2, CheckCircle, Award, GraduationCap, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Shield, Pill, FileText, PawPrint, Landmark, Calendar, Download, Mail, Tag, Save, X, Edit2, Trash2, CheckCircle, Award, GraduationCap, ChevronLeft, ChevronRight, Bell } from 'lucide-react'
 import { TagCombobox } from '../components/TagCombobox'
 
 export default function DocumentDetailPage() {
@@ -19,6 +19,8 @@ export default function DocumentDetailPage() {
   const [reminderTitle, setReminderTitle] = useState('')
   const [reminderDate, setReminderDate] = useState('')
   const [reminderNotes, setReminderNotes] = useState('')
+  const [savedReminders, setSavedReminders] = useState<Set<string>>(new Set())
+  const [savingReminder, setSavingReminder] = useState<string | null>(null)
   
   const [tags, setTags] = useState<string[]>([])
   const [allExistingTags, setAllExistingTags] = useState<string[]>([])
@@ -178,6 +180,47 @@ export default function DocumentDetailPage() {
     setReminderTitle('')
     setReminderDate('')
     setReminderNotes('')
+  }
+
+  const handleCreateInAppReminder = async (record: any, recordKey: string) => {
+    const json = doc?.extracted_json || {}
+    const animalName = json.animal?.name || ''
+    const targetDisease = record.target_disease || record.group || ''
+    const vaccineName = record.vaccine_name || record.vaccine || ''
+    const dueDate = record.valid_until || record.nextDue || ''
+
+    if (!dueDate || !animalId) return
+    const isoDate = /^\d{4}-\d{2}-\d{2}/.test(dueDate) ? dueDate.substring(0, 10) : ''
+    if (!isoDate) return
+
+    const titleParts: string[] = []
+    if (animalName) titleParts.push(animalName)
+    if (targetDisease) titleParts.push(targetDisease)
+    if (vaccineName) titleParts.push(`(${vaccineName})`)
+    titleParts.push('auffrischen')
+    const title = titleParts.join(' \u2013 ')
+
+    const notesParts: string[] = []
+    if (record.batch_number) notesParts.push(`Charge: ${record.batch_number}`)
+    if (record.administration_date) notesParts.push(`Verabreicht: ${record.administration_date}`)
+    if (record.vet_name) notesParts.push(`Tierarzt: ${record.vet_name}`)
+    const notes = notesParts.join('\n')
+
+    setSavingReminder(recordKey)
+    try {
+      await createReminder({
+        animal_id: animalId,
+        document_id: docId,
+        title,
+        due_date: isoDate,
+        notes: notes || undefined
+      })
+      setSavedReminders(prev => new Set([...prev, recordKey]))
+    } catch {
+      // ignore silently
+    } finally {
+      setSavingReminder(null)
+    }
   }
 
   const handleEmailReminder = () => {
@@ -435,6 +478,62 @@ export default function DocumentDetailPage() {
             <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', color: 'var(--primary-900)' }}>{extracted.summary}</p>
           </div>
         )}
+
+        {doc.doc_type === 'vaccination' && (() => {
+          const records: any[] = extracted.payload?.vaccinations || extracted.vaccinations || []
+          if (records.length === 0) return null
+          return (
+            <div style={{ marginBottom: 'var(--space-6)' }}>
+              <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Shield size={18} /> {t('animal.vaccinations')}
+              </h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                {records.map((record: any, idx: number) => {
+                  const recordKey = `vax-${idx}`
+                  const vaccineName = record.vaccine_name || record.vaccine || '–'
+                  const targetDisease = record.target_disease || record.group || ''
+                  const validUntil = record.valid_until || record.nextDue || ''
+                  const today = new Date()
+                  today.setHours(0, 0, 0, 0)
+                  const dueDate = validUntil ? new Date(validUntil) : null
+                  const diffDays = dueDate ? Math.round((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) : null
+                  const dateColor = diffDays === null ? 'var(--text-secondary)' : diffDays < 0 ? 'var(--error-600)' : diffDays <= 30 ? 'var(--warning-600)' : 'var(--text-secondary)'
+                  const isSaved = savedReminders.has(recordKey)
+                  const canSetReminder = !!(animalId && validUntil && /^\d{4}-\d{2}-\d{2}/.test(validUntil))
+                  return (
+                    <div key={recordKey} className="card" style={{ padding: 'var(--space-4)', borderLeft: '4px solid var(--primary-200)' }}>
+                      <p style={{ margin: '0 0 4px 0', fontWeight: 700, fontSize: 'var(--font-size-base)' }}>{vaccineName}</p>
+                      {targetDisease && <p style={{ margin: '0 0 var(--space-3) 0', fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>{targetDisease}</p>}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)', fontSize: 'var(--font-size-xs)', marginBottom: 'var(--space-3)' }}>
+                        {record.administration_date && <div><span style={{ color: 'var(--text-tertiary)' }}>Verabreicht</span><br /><strong>{record.administration_date}</strong></div>}
+                        {validUntil && <div><span style={{ color: 'var(--text-tertiary)' }}>Gültig bis</span><br /><strong style={{ color: dateColor }}>{validUntil}</strong></div>}
+                        {record.batch_number && <div><span style={{ color: 'var(--text-tertiary)' }}>Charge</span><br /><strong>{record.batch_number}</strong></div>}
+                        {record.expiry_date && <div><span style={{ color: 'var(--text-tertiary)' }}>Ablauf Charge</span><br /><strong>{record.expiry_date}</strong></div>}
+                        {record.manufacturer && <div><span style={{ color: 'var(--text-tertiary)' }}>Hersteller</span><br /><strong>{record.manufacturer}</strong></div>}
+                        {record.vet_name && <div><span style={{ color: 'var(--text-tertiary)' }}>Tierarzt</span><br /><strong>{record.vet_name}</strong></div>}
+                      </div>
+                      {canSetReminder && (
+                        <button
+                          className={`btn ${isSaved ? 'btn-ghost' : 'btn-secondary'} btn-full`}
+                          style={{ fontSize: 'var(--font-size-sm)', padding: '8px' }}
+                          onClick={() => handleCreateInAppReminder(record, recordKey)}
+                          disabled={isSaved || savingReminder === recordKey}
+                        >
+                          {savingReminder === recordKey
+                            ? <div className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />
+                            : isSaved
+                              ? <><CheckCircle size={14} /> Erinnerung gesetzt</>
+                              : <><Bell size={14} /> Erinnerung setzen</>
+                          }
+                        </button>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })()}
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-3)' }}>
           <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0, display: 'flex', gap: '8px', alignItems: 'center' }}>
