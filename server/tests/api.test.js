@@ -1944,3 +1944,121 @@ describe('Suite 15: Multilingual OCR Prompts', () => {
     expect(normalizeDocumentType('')).toBe('general')
   })
 })
+
+// ════════════════════════════════════════════════════════════════
+// Suite 16: EU Pet Passport + Chip Tag Type
+// ════════════════════════════════════════════════════════════════
+
+describe('Suite 16: EU Pet Passport + Chip Tag Type', () => {
+  test('16a. normalizeDocumentType maps passport aliases to pet_passport', () => {
+    expect(normalizeDocumentType('passport')).toBe('pet_passport')
+    expect(normalizeDocumentType('heimtierausweis')).toBe('pet_passport')
+    expect(normalizeDocumentType('transponder')).toBe('pet_passport')
+    expect(normalizeDocumentType('microchip')).toBe('pet_passport')
+  })
+
+  test('16b. DE pet_passport prompt contains passport-specific keywords', () => {
+    const prompt = getPromptForDocumentType('pet_passport', 'de')
+    expect(prompt).toContain('EU-Heimtierausweis')
+    expect(prompt).toContain('section_type')
+    expect(prompt).toContain('chip_code')
+    expect(prompt).toContain('ownership')
+  })
+
+  test('16c. EN pet_passport prompt contains passport-specific keywords', () => {
+    const prompt = getPromptForDocumentType('pet_passport', 'en')
+    expect(prompt).toContain('EU pet passport')
+    expect(prompt).toContain('section_type')
+    expect(prompt).toContain('chip_code')
+    expect(prompt).toContain('identification')
+  })
+
+  test('16d. PROMPTS contain pet_passport in both languages', () => {
+    expect(typeof PROMPTS.de.pet_passport).toBe('string')
+    expect(typeof PROMPTS.en.pet_passport).toBe('string')
+    expect(PROMPTS.de.classification).toContain('pet_passport')
+    expect(PROMPTS.en.classification).toContain('pet_passport')
+  })
+
+  test('16e. create animal accepts chip as tag type', async () => {
+    const email = `chip-create-${Date.now()}@example.com`
+    const { data: reg } = await apiCallWithToken(null, 'POST', '/auth/register', {
+      name: 'Chip Test User',
+      email,
+      password: 'SecurePassword123!'
+    })
+
+    const { status, data } = await apiCallWithToken(reg.token, 'POST', '/animals', {
+      name: 'Chip Hund',
+      species: 'dog',
+      tagId: `CHIP-${Date.now()}`,
+      tagType: 'chip'
+    })
+
+    expect(status).toBe(201)
+    expect(data.id).toBeTruthy()
+
+    const tags = await apiCallWithToken(reg.token, 'GET', `/animals/${data.id}/tags`)
+    expect(tags.status).toBe(200)
+    expect(tags.data.some((tag) => tag.tag_type === 'chip')).toBe(true)
+  })
+
+  test('16f. database accepts documents with doc_type pet_passport', () => {
+    const db = new Database(process.env.DB_PATH)
+    const accountId = `passport-account-${Date.now()}`
+    const animalId = `passport-animal-${Date.now()}`
+    const docId = `passport-doc-${Date.now()}`
+    const imagePath = writeTinyPng(`pet-passport-db-${Date.now()}.png`)
+
+    db.prepare(`INSERT INTO accounts (id, name, email, password_hash, role, created_at) VALUES (?, 'Passport DB User', ?, 'x', 'user', datetime('now'))`)
+      .run(accountId, `passport-db-${Date.now()}@example.com`)
+    db.prepare(`INSERT INTO animals (id, account_id, name, species, created_at) VALUES (?, ?, 'Passport Dog', 'dog', datetime('now'))`)
+      .run(animalId, accountId)
+    db.prepare(`
+      INSERT INTO documents (id, animal_id, doc_type, image_path, extracted_json, analysis_status, created_at)
+      VALUES (?, ?, 'pet_passport', ?, '{}', 'completed', datetime('now'))
+    `).run(docId, animalId, imagePath)
+
+    const stored = db.prepare('SELECT doc_type FROM documents WHERE id = ?').get(docId)
+    expect(stored.doc_type).toBe('pet_passport')
+    db.close()
+  })
+
+  test('16g. retry-analysis returns pet_passport data with chip_code', async () => {
+    const db = new Database(process.env.DB_PATH)
+    const email = `passport-retry-${Date.now()}@example.com`
+    const { data: reg } = await apiCallWithToken(null, 'POST', '/auth/register', {
+      name: 'Passport Retry User',
+      email,
+      password: 'SecurePassword123!'
+    })
+
+    const { data: animal } = await apiCallWithToken(reg.token, 'POST', '/animals', {
+      name: 'Passport Retry Dog',
+      species: 'dog'
+    })
+
+    const imagePath = writeTinyPng(`heimtierausweis-passport-${Date.now()}.png`)
+    const docId = `passport-retry-doc-${Date.now()}`
+
+    db.prepare(`
+      INSERT INTO documents (id, animal_id, doc_type, image_path, analysis_status, extracted_json, ocr_provider, created_at)
+      VALUES (?, ?, 'general', ?, 'pending_analysis', '{}', 'pending', datetime('now'))
+    `).run(docId, animal.id, imagePath)
+    db.prepare(`INSERT INTO document_pages (document_id, image_path, page_number) VALUES (?, ?, 1)`).run(docId, imagePath)
+    db.close()
+
+    const { status, data } = await apiCallWithToken(reg.token, 'POST', `/documents/${docId}/retry-analysis`, {
+      language: 'de'
+    })
+
+    expect(status).toBe(200)
+    expect(data.provider).toBe('mock-ocr')
+    expect(data.extractedData.type).toBe('pet_passport')
+    expect(data.extractedData.identification.chip_code).toBe('040097200000276')
+
+    const tags = await apiCallWithToken(reg.token, 'GET', `/animals/${animal.id}/tags`)
+    expect(tags.status).toBe(200)
+    expect(tags.data.some((tag) => tag.tag_id === '040097200000276' && tag.tag_type === 'chip')).toBe(true)
+  })
+})

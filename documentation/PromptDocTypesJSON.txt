@@ -1,0 +1,11 @@
+erstelle ein strukturiertes JSON in dem alle Felder aus dem Bild extrahiert werden.
+Bei Impfungen zum Beispiel muss verweden bis, impfdatum, auffrischungsdatum, Wirkung, Name, Inhaltstoff, Zweck, und so weiter enthalten sein.
+Bei Behandlungen oder sonstigen Medizinischen Auflistungen finde wichtige Spalten und strukturier ein sinnvolles JSON.
+Ich verwende die jeweiligen JSON Files als Templates.
+Spaltennamen auf englisch.
+Wenn mehrere Impfungen, auch am gleichen Tag, vorkommen, pack alles in ein komplettes JSON Object mit Arrays von Records.
+
+Zweck: ich will wichtige Dokumente für die Tiermedizin digitalisieren anhand von scans oder fotos. und eventuell sogar Reminder für Auffrischungen versenden.
+Daher werden diese Files an generalisierte Template für multilanguage Dokumente herangezogen
+
+Dateiname des JSON Files soll der Attachementname sein

@@ -99,6 +99,8 @@ export default function DocumentScanPage() {
 
   const docTypes = [
     { id: 'vaccination', label: t('animal.docTypeVaccination'), icon: <Syringe size={14} /> },
+    { id: 'treatment', label: t('animal.docTypeTreatment'), icon: <FileText size={14} /> },
+    { id: 'pet_passport', label: t('animal.docTypePetPassport'), icon: <BookOpen size={14} /> },
     { id: 'medical_product', label: t('animal.docTypeMedicalProduct'), icon: <FileText size={14} /> },
     { id: 'pedigree', label: t('animal.docTypePedigree'), icon: <BookOpen size={14} /> },
     { id: 'dog_certificate', label: t('animal.docTypeDogCertificate'), icon: <CheckCircle size={14} /> },

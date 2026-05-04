@@ -195,7 +195,7 @@ export default async function vetApiRoutes(fastify) {
   // ─────────────────────────────────────────────────────────────
   fastify.get('/api/v1/animals/by-tag/:tagId', {
     schema: {
-      description: 'Find animal by NFC/barcode tag',
+      description: 'Find animal by chip/NFC/barcode tag',
       tags: ['VET API'],
       params: { type: 'object', properties: { tagId: { type: 'string' } } }
     }
@@ -232,7 +232,7 @@ export default async function vetApiRoutes(fastify) {
   // ──────────────────────────────────────────────────────────────────────────
   fastify.post('/api/v1/animals/:animalId/documents', {
     schema: {
-      description: 'Upload a document image for an animal. Multipart: field "file" (image) + field "doc_type" (vaccination|pedigree|dog_certificate|medical_product|general)',
+      description: 'Upload a document image for an animal. Multipart: field "file" (image) + field "doc_type" (vaccination|treatment|pet_passport|pedigree|dog_certificate|medical_product|general)',
       tags: ['VET API'],
       params: { type: 'object', properties: { animalId: { type: 'string' } } }
     }

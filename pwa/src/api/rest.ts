@@ -42,7 +42,7 @@ export const deleteAnimal = (id: string, confirmationText: string) =>
 export const getAnimalByTag = (tagId: string) => api.get(`/animals/by-tag/${tagId}`)
 export const getAnimalDocuments = (id: string) => api.get(`/animals/${id}/documents`)
 export const getAnimalTags = (id: string) => api.get(`/animals/${id}/tags`)
-export const addTag = (id: string, tagId: string, tagType: 'barcode' | 'nfc') =>
+export const addTag = (id: string, tagId: string, tagType: 'barcode' | 'nfc' | 'chip') =>
   api.post(`/animals/${id}/tags`, { tagId, tagType })
 
 // Tags

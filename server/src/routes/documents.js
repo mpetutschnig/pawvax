@@ -89,6 +89,24 @@ function canManageReanalysis(doc, accountId, role) {
   return doc.owner_id === accountId || role === 'admin'
 }
 
+function syncChipTagFromDocument(db, animalId, extractedData) {
+  if (normalizeDocumentType(extractedData?.type) !== 'pet_passport') return
+
+  const chipCode = [
+    extractedData?.identification?.chip_code,
+    extractedData?.payload?.identification?.chip_code,
+    ...(extractedData?.page_results || []).map((page) => page?.identification?.chip_code)
+  ].find((value) => typeof value === 'string' && value.trim().length > 0)?.trim()
+
+  if (!chipCode) return
+
+  const existing = db.prepare('SELECT animal_id FROM animal_tags WHERE tag_id = ?').get(chipCode)
+  if (!existing) {
+    db.prepare('INSERT INTO animal_tags (tag_id, animal_id, tag_type) VALUES (?, ?, ?)')
+      .run(chipCode, animalId, 'chip')
+  }
+}
+
 export default async function documentRoutes(fastify) {
   fastify.addHook('onRequest', fastify.authenticate)
 
@@ -399,6 +417,7 @@ export default async function documentRoutes(fastify) {
         pageResults: result.pageResults,
         pages: analysisPages.length
       })
+      syncChipTagFromDocument(db, doc.animal_id, extractedData)
 
       // Update document with analysis results
       db.prepare(`
@@ -534,6 +553,7 @@ export default async function documentRoutes(fastify) {
         pageResults: result.pageResults,
         pages: analysisPages.length
       })
+      syncChipTagFromDocument(db, doc.animal_id, extractedData)
 
       // Update document with new analysis results
       db.prepare(`

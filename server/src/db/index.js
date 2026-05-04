@@ -62,7 +62,11 @@ export function initDb(dbPath) {
 
   try {
     const documentsTableSql = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'documents'").get()?.sql || ''
-    const needsDocumentTypeMigration = documentsTableSql.includes("CHECK(doc_type IN ('vaccination', 'medication', 'other'))")
+    const needsDocumentTypeMigration = !!documentsTableSql && (
+      documentsTableSql.includes("CHECK(doc_type IN ('vaccination', 'medication', 'other'))") ||
+      !documentsTableSql.includes("'treatment'") ||
+      !documentsTableSql.includes("'pet_passport'")
+    )
 
     if (needsDocumentTypeMigration) {
       db.exec(`
@@ -70,7 +74,7 @@ export function initDb(dbPath) {
         CREATE TABLE documents_new (
           id               TEXT PRIMARY KEY,
           animal_id        TEXT NOT NULL REFERENCES animals(id) ON DELETE CASCADE,
-          doc_type         TEXT NOT NULL DEFAULT 'general' CHECK(doc_type IN ('vaccination', 'pedigree', 'dog_certificate', 'medical_product', 'general')),
+          doc_type         TEXT NOT NULL DEFAULT 'general' CHECK(doc_type IN ('vaccination', 'pedigree', 'dog_certificate', 'medical_product', 'treatment', 'pet_passport', 'general')),
           image_path       TEXT NOT NULL,
           extracted_json   TEXT NOT NULL,
           ocr_provider     TEXT,
@@ -87,6 +91,8 @@ export function initDb(dbPath) {
           animal_id,
           CASE
             WHEN doc_type = 'vaccination' THEN 'vaccination'
+            WHEN doc_type = 'treatment' THEN 'treatment'
+            WHEN doc_type = 'pet_passport' THEN 'pet_passport'
             WHEN doc_type = 'medication' THEN 'medical_product'
             ELSE 'general'
           END,
@@ -102,11 +108,51 @@ export function initDb(dbPath) {
 
         DROP TABLE documents;
         ALTER TABLE documents_new RENAME TO documents;
+        CREATE INDEX IF NOT EXISTS idx_documents_animal ON documents(animal_id);
         COMMIT;
       `)
     }
   } catch {
     /* documents table may not exist yet */
+  }
+
+  try {
+    const animalTagsTableSql = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'animal_tags'").get()?.sql || ''
+    const needsAnimalTagMigration = !!animalTagsTableSql && !animalTagsTableSql.includes("'chip'")
+
+    if (needsAnimalTagMigration) {
+      db.exec(`
+        BEGIN;
+        CREATE TABLE animal_tags_new (
+          tag_id    TEXT PRIMARY KEY,
+          animal_id TEXT NOT NULL REFERENCES animals(id) ON DELETE CASCADE,
+          tag_type  TEXT NOT NULL CHECK(tag_type IN ('barcode', 'nfc', 'chip')),
+          active    INTEGER NOT NULL DEFAULT 1,
+          added_at  TEXT DEFAULT (datetime('now'))
+        );
+
+        INSERT INTO animal_tags_new (tag_id, animal_id, tag_type, active, added_at)
+        SELECT
+          tag_id,
+          animal_id,
+          CASE
+            WHEN tag_type IN ('barcode', 'nfc', 'chip') THEN tag_type
+            WHEN tag_type = 'microchip' THEN 'chip'
+            ELSE 'barcode'
+          END,
+          active,
+          added_at
+        FROM animal_tags;
+
+        DROP TABLE animal_tags;
+        ALTER TABLE animal_tags_new RENAME TO animal_tags;
+        CREATE INDEX IF NOT EXISTS idx_tags_animal ON animal_tags(animal_id);
+        CREATE INDEX IF NOT EXISTS idx_tags_active ON animal_tags(tag_id, active);
+        COMMIT;
+      `)
+    }
+  } catch {
+    /* animal_tags table may not exist yet */
   }
 
   // Backfill unique_id for existing animals

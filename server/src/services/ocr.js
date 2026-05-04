@@ -44,7 +44,12 @@ DOKUMENTTYPEN (exakte Beschreibung):
    - Zeigt: Medikamentename, Wirkstoff, Dosierung/Einheit, Packungsgröße, Anwendungshinweise, Hersteller/Chargennummer
    - NICHT: Impfbescheinigungen, Veterinärbehandlungsberichte, Verschreibungen ohne Produktdetails
 
-5. "general" — allgemeines Tierdokument, Gesundheitsbericht, Behandlung, Laborbefund
+5. "pet_passport" — EU-Heimtierausweis, Besitzerdaten, Tierbeschreibung, Chip-/Transponder-Seite, Ausstellungsseite
+  - Zeigt: Überschriften wie "Details of Ownership", "Description of Animal", "Identification of the Animal", "Issuing of the Passport", "Ausstellung des Ausweises"
+  - Zeigt: Besitzerdaten, Züchter, Tiername/Rasse/Farbe/Geschlecht, Mikrochip-/Transpondernummer, ausstellende Tierarztpraxis
+  - NICHT: reine Impf- oder Behandlungstabellen mit mehreren Einzelzeilen
+
+6. "general" — allgemeines Tierdokument, Gesundheitsbericht, Behandlung, Laborbefund
    - Zeigt: Text und Informationen zum Tier, die keinem anderen Typ genau entsprechen
 
 Antworte NUR mit dem Dokumenttyp (z.B. "vaccination"), KEINE anderen Worte.
@@ -62,15 +67,20 @@ KRITISCHE REGELN:
    - vaccine_name: Vollständiger Name des Impfstoffs (z.B. "Nobivac SHPPI", "Eurican DAPPI-Lmulti", "Virbagen canis SHAPPi/L")
    - manufacturer: Vollständiger Herstellername (z.B. "MSD Animal Health", "Boehringer Ingelheim", "Virbac")
    - batch_number: Chargennummer / LOT-Nummer (z.B. "A628B01", "L482640", "8KMF")
+   - valid_from: Beginn der Gültigkeit in YYYY-MM-DD (z.B. auf Tollwut-Seiten "gültig ab")
    - valid_until: Gültig bis Datum in Format YYYY-MM-DD (z.B. "2022-11-30" für "11-2022", "2022-08-06" für "08/06/2022")
      * Wenn nur MM-YYYY: interpretiere als letzter Tag des Monats (z.B. "11-2022" → "2022-11-30")
      * Konvertiere alle Formate zu YYYY-MM-DD
+   - expiry_date_of_vial: Verfallsdatum der Impfstoff-Ampulle/Charge in YYYY-MM-DD, oder null
+   - components: Array mit Kürzeln/Komponenten (z.B. ["D", "A", "P", "Pi", "L4"])
    - active_substances: Array mit DETAILLIERTEN Wirkstoffdescriptionen (English + German mixture if necessary)
      * Mit Abkürzungen in Klammern: ["Canine Distemper Virus (CDV)", "Canine Adenovirus Type 2 (CAV2)", "Canine Parvovirus (CPV)"]
      * Bei Kombinationen: Alle einzelnen Komponenten auflisten ODER vereinfachte Form wenn zu komplex
      * Beispiel: ["Leptospira interrogans (Canicola, Icterohaemorrhagiae, Grippotyphosa)"]
    - vet_name: Name und Adresse des Tierarztes (z.B. "Mag. med. vet. Klaus FISCHL, 7563 Königsdorf")
+  - veterinarian: Objekt mit { name, practice, address, phone } wenn trennbar lesbar, sonst null
    - target_disease: Optional - die Zielkrankheit/Erreger (z.B. "Staupe, Parvo, Tollwut, Leptospirose")
+  - purpose: Optional - Zweck/Krankheitsliste als lesbarer String
    - notes: Optional - nur wenn explizit Anmerkungen angegeben (z.B. "Booster", "Preliminary", "Due for revision")
 
 4. Zusätzlich im Hauptobjekt:
@@ -117,6 +127,9 @@ KRITISCHE REGELN:
    - administered_at (Behandlungsdatum, YYYY-MM-DD)
    - dosage (Dosierung, z.B. "1 Tablette", "0.5 ml/kg", "eine Spritze")
    - vet_name (Name des Tierarztes)
+  - veterinarian: Objekt mit { name, practice, address, phone } wenn lesbar
+  - active_ingredient (z.B. "Milbemycin oxime / Praziquantel")
+  - treatment_subtype ("echinococcus", "parasite", "general")
    - next_due (Nächste Behandlung fällig, YYYY-MM-DD, oder null)
    - notes (optionale Notizen, z.B. "Prophylaxe", "Allergie dokumentiert")
 5. Tierinfos: name, species, breed, birthdate (YYYY-MM-DD)
@@ -128,6 +141,85 @@ DATEN-NORMALISIERUNG:
 - Unlesbare/fehlende Daten → null
 
 Gib NUR gültiges JSON aus (keine Erklärungen).
+`.trim(),
+
+    pet_passport: `
+Du bist ein spezialisierter Dokumenten-Extraktor für EU-Heimtierausweise.
+
+AUFGABE:
+1. Analysiere das hochgeladene Bild einer EU-Heimtierausweis-Seite.
+2. Erkenne, welche Sektion sichtbar ist: Besitzerdetails, Tierbeschreibung, Identifikation/Transponder oder Ausstellung.
+3. Gib NUR gültiges JSON zurück.
+
+WICHTIGE REGELN:
+1. type MUSS immer "pet_passport" sein.
+2. section_type MUSS eines von diesen Werten sein:
+   - "ownership"
+   - "animal_description"
+   - "identification"
+   - "issuing_authority"
+3. Datumsformat wenn möglich: YYYY-MM-DD.
+4. Nicht lesbare Felder: null.
+5. Namen/Adressen exakt aus dem Dokument übernehmen.
+
+Gib ein JSON-Objekt mit dieser Struktur zurück:
+{
+  "type": "pet_passport",
+  "title": "...",
+  "document_date": "YYYY-MM-DD",
+  "summary": "...",
+  "passport_number": "...",
+  "section_type": "ownership|animal_description|identification|issuing_authority",
+  "animal": {
+    "name": "...",
+    "species": "dog|cat|other",
+    "breed": "...",
+    "sex": "...",
+    "birthdate": "YYYY-MM-DD",
+    "color": "...",
+    "notable_features": null
+  },
+  "identification": {
+    "chip_code": "...",
+    "chip_date": "YYYY-MM-DD",
+    "chip_location": "...",
+    "tattoo_code": null,
+    "tattoo_date": null,
+    "tattoo_location": null
+  },
+  "issuing_authority": {
+    "name": "...",
+    "address": "...",
+    "postcode": "...",
+    "city": "...",
+    "country": "...",
+    "phone": "...",
+    "fax": "...",
+    "email": "...",
+    "date_issued": "YYYY-MM-DD"
+  },
+  "breeder": {
+    "name": "...",
+    "contact_person": "...",
+    "address": "...",
+    "postcode": "...",
+    "city": "...",
+    "country": "...",
+    "phone": "..."
+  },
+  "owner": {
+    "surname": "...",
+    "first_name": "...",
+    "address": "...",
+    "postcode": "...",
+    "city": "...",
+    "country": "...",
+    "phone": "..."
+  },
+  "suggested_tags": ["EU-Heimtierausweis", "Mikrochip", "Besitzerdaten"]
+}
+
+Gib NUR gültiges JSON aus (keine Erklärungen, keine Markdown-Code-Blöcke, kein Text davor/danach).
 `.trim(),
 
     pedigree: `
@@ -211,7 +303,12 @@ DOCUMENT TYPES (exact description):
    - Shows: medication name, active substance, dosage/unit, package size, usage instructions, manufacturer/batch number
    - NOT: vaccination certificates, veterinary treatment reports, prescriptions without product details
 
-5. "general" — general pet document, health report, treatment, lab result
+5. "pet_passport" — EU pet passport page, ownership details, animal description, chip/transponder page, passport issuing section
+  - Shows: headers like "Details of Ownership", "Description of Animal", "Identification of the Animal", "Issuing of the Passport"
+  - Shows: owner or breeder details, pet description, microchip/transponder number, issuing veterinarian practice
+  - NOT: pure vaccination tables or treatment tables with repeated line entries
+
+6. "general" — general pet document, health report, treatment, lab result
    - Shows: text and information about the pet that doesn't match another type exactly
 
 Reply ONLY with the document type (e.g., "vaccination"), NO other words.
@@ -229,15 +326,20 @@ CRITICAL RULES:
    - vaccine_name: full name of vaccine (e.g., "Nobivac SHPPI", "Eurican DAPPI-Lmulti", "Virbagen canis SHAPPi/L")
    - manufacturer: full manufacturer name (e.g., "MSD Animal Health", "Boehringer Ingelheim", "Virbac")
    - batch_number: batch/lot number (e.g., "A628B01", "L482640", "8KMF")
+   - valid_from: valid from date in YYYY-MM-DD when present
    - valid_until: valid until date in format YYYY-MM-DD (e.g., "2022-11-30" for "11-2022", "2022-08-06" for "08/06/2022")
      * If only MM-YYYY: interpret as last day of month (e.g., "11-2022" → "2022-11-30")
      * Convert all formats to YYYY-MM-DD
+   - expiry_date_of_vial: vial/batch expiration date in YYYY-MM-DD, or null
+   - components: array of short vaccine components (e.g. ["D", "A", "P", "Pi", "L4"])
    - active_substances: array with DETAILED active substance descriptions
      * With abbreviations in parentheses: ["Canine Distemper Virus (CDV)", "Canine Adenovirus Type 2 (CAV2)", "Canine Parvovirus (CPV)"]
      * For combinations: list all individual components OR simplified form if too complex
      * Example: ["Leptospira interrogans (Canicola, Icterohaemorrhagiae, Grippotyphosa)"]
    - vet_name: name and address of veterinarian (e.g., "Dr. Klaus FISCHL, 7563 Königsdorf")
+  - veterinarian: object with { name, practice, address, phone } when readable, otherwise null
    - target_disease: optional - the target disease/pathogen (e.g., "Distemper, Parvo, Rabies, Leptospirosis")
+  - purpose: optional readable purpose / disease list
    - notes: optional - only if comments are explicitly mentioned (e.g., "Booster", "Preliminary", "Due for revision")
 
 4. Additionally in main object:
@@ -275,6 +377,9 @@ CRITICAL RULES:
    - administered_at (treatment date, YYYY-MM-DD)
    - dosage (dosage, e.g., "1 tablet", "0.5 ml/kg", "one injection")
    - vet_name (name of veterinarian)
+  - veterinarian: object with { name, practice, address, phone } when readable
+  - active_ingredient (e.g., "Milbemycin oxime / Praziquantel")
+  - treatment_subtype ("echinococcus", "parasite", "general")
    - next_due (next treatment due, YYYY-MM-DD, or null)
    - notes (optional notes, e.g., "Prophylaxis", "Allergy documented")
 5. Animal info: name, species, breed, birthdate (YYYY-MM-DD)
@@ -286,6 +391,85 @@ DATA NORMALIZATION:
 - Unreadable/missing data → null
 
 Return ONLY valid JSON (no explanations).
+`.trim(),
+
+    pet_passport: `
+You are a specialized extractor for EU pet passport pages.
+
+TASK:
+1. Analyze the uploaded EU pet passport image.
+2. Identify which section is shown: ownership details, animal description, identification/transponder, or passport issuing section.
+3. Return ONLY valid JSON.
+
+IMPORTANT RULES:
+1. type MUST always be "pet_passport".
+2. section_type MUST be one of:
+   - "ownership"
+   - "animal_description"
+   - "identification"
+   - "issuing_authority"
+3. Use YYYY-MM-DD when possible.
+4. Unreadable fields must be null.
+5. Keep names and addresses exactly as written in the document.
+
+Return a JSON object with this structure:
+{
+  "type": "pet_passport",
+  "title": "...",
+  "document_date": "YYYY-MM-DD",
+  "summary": "...",
+  "passport_number": "...",
+  "section_type": "ownership|animal_description|identification|issuing_authority",
+  "animal": {
+    "name": "...",
+    "species": "dog|cat|other",
+    "breed": "...",
+    "sex": "...",
+    "birthdate": "YYYY-MM-DD",
+    "color": "...",
+    "notable_features": null
+  },
+  "identification": {
+    "chip_code": "...",
+    "chip_date": "YYYY-MM-DD",
+    "chip_location": "...",
+    "tattoo_code": null,
+    "tattoo_date": null,
+    "tattoo_location": null
+  },
+  "issuing_authority": {
+    "name": "...",
+    "address": "...",
+    "postcode": "...",
+    "city": "...",
+    "country": "...",
+    "phone": "...",
+    "fax": "...",
+    "email": "...",
+    "date_issued": "YYYY-MM-DD"
+  },
+  "breeder": {
+    "name": "...",
+    "contact_person": "...",
+    "address": "...",
+    "postcode": "...",
+    "city": "...",
+    "country": "...",
+    "phone": "..."
+  },
+  "owner": {
+    "surname": "...",
+    "first_name": "...",
+    "address": "...",
+    "postcode": "...",
+    "city": "...",
+    "country": "...",
+    "phone": "..."
+  },
+  "suggested_tags": ["EU Pet Passport", "Microchip", "Owner details"]
+}
+
+Return ONLY valid JSON (no explanations, no markdown code blocks, no text before/after).
 `.trim(),
 
     pedigree: `
@@ -342,10 +526,12 @@ Return EXACTLY this JSON structure (only valid JSON, no text before/after).
   }
 }
 
-function getPromptForDocumentType(documentType, language = 'de') {
+export function getPromptForDocumentType(documentType, language = 'de') {
   const lang = (language && PROMPTS[language]) ? language : 'de'
   return PROMPTS[lang][normalizeDocumentType(documentType)] || PROMPTS[lang].general
 }
+
+export { PROMPTS }
 
 const GEMINI_PROMPT = PROMPTS.de.general
 
@@ -426,7 +612,8 @@ function normalizeDateFields(obj) {
   const dateFieldNames = [
     'date', 'datum', 'administration_date', 'administered_at', 'valid_until', 'gueltig_bis',
     'document_date', 'birthdate', 'nextDue', 'next_due', 'expires_at', 'expiry_date',
-    'next_due_at'
+    'next_due_at', 'valid_from', 'expiry_date_of_vial', 'chip_date', 'tattoo_date',
+    'date_issued'
   ]
   
   const normalized = { ...obj }
@@ -497,6 +684,41 @@ function analyzeWithMockOcr(imagePath, onProgress, language = 'de') {
 
   const file = basename(imagePath).toLowerCase()
 
+  if (file.includes('passport') || file.includes('heimtierausweis') || file.includes('transponder')) {
+    return Promise.resolve({
+      provider: 'mock-ocr',
+      data: {
+        type: 'pet_passport',
+        title: language === 'en' ? 'EU Pet Passport - Identification' : 'EU-Heimtierausweis - Identifikation',
+        document_date: '2021-08-30',
+        summary: language === 'en' ? 'Microchip and passport data extracted from the pet passport page.' : 'Mikrochip- und Ausweisdaten aus der Heimtierausweis-Seite erkannt.',
+        passport_number: '040-0708638',
+        section_type: 'identification',
+        animal: {
+          name: 'Funny Russell Ranch OUT OF CONTROL',
+          species: 'dog',
+          breed: 'Parson Russell Terrier',
+          sex: 'Male',
+          birthdate: '2021-07-16',
+          color: 'brown & white',
+          notable_features: null
+        },
+        identification: {
+          chip_code: '040097200000276',
+          chip_date: '2021-08-30',
+          chip_location: 'linke Halsseite',
+          tattoo_code: null,
+          tattoo_date: null,
+          tattoo_location: null
+        },
+        issuing_authority: null,
+        breeder: null,
+        owner: null,
+        suggested_tags: ['EU Pet Passport', 'Microchip', '040097200000276']
+      }
+    })
+  }
+
   if (file.includes('treatment') || file.includes('behandlung') || file.includes('wurm')) {
     return Promise.resolve({
       provider: 'mock-ocr',
@@ -513,6 +735,9 @@ function analyzeWithMockOcr(imagePath, onProgress, language = 'de') {
             administered_at: '2024-03-15',
             dosage: '1 Tablette',
             vet_name: 'Dr. Mock',
+            veterinarian: { name: 'Dr. Mock', practice: 'Kleintierpraxis Mock', address: 'Mockstadt', phone: '0000/123456' },
+            active_ingredient: 'Milbemycin oxime / Praziquantel',
+            treatment_subtype: 'echinococcus',
             next_due: '2024-06-15',
             notes: 'Tabelle Zeile 1'
           },
@@ -521,6 +746,9 @@ function analyzeWithMockOcr(imagePath, onProgress, language = 'de') {
             administered_at: '2024-03-15',
             dosage: '0.5 Tablette',
             vet_name: 'Dr. Mock',
+            veterinarian: { name: 'Dr. Mock', practice: 'Kleintierpraxis Mock', address: 'Mockstadt', phone: '0000/123456' },
+            active_ingredient: 'Praziquantel',
+            treatment_subtype: 'parasite',
             next_due: null,
             notes: 'Tabelle Zeile 2'
           }
@@ -544,22 +772,32 @@ function analyzeWithMockOcr(imagePath, onProgress, language = 'de') {
           {
             vaccine_name: 'DHLPPi',
             administration_date: '2021-09-06',
+            valid_from: '2021-09-06',
             valid_until: '2024-09-06',
             batch_number: 'BATCH-001',
+            expiry_date_of_vial: '2022-11-30',
             manufacturer: 'Boehringer',
+            components: ['D', 'H', 'L', 'P', 'Pi'],
             active_substances: ['Staupevirus', 'Parvovirus'],
             vet_name: 'Dr. Mock',
-            target_disease: 'Staupe, Parvo'
+            veterinarian: { name: 'Dr. Mock', practice: 'Mock Vet Clinic', address: 'Mock Street 1', phone: '0000/123456' },
+            target_disease: 'Staupe, Parvo',
+            purpose: 'Distemper, Hepatitis, Leptospirosis, Parvovirus, Parainfluenza'
           },
           {
             vaccine_name: 'Tollwut',
             administration_date: '2021-09-06',
+            valid_from: '2021-09-28',
             valid_until: '2024-09-06',
             batch_number: 'BATCH-002',
+            expiry_date_of_vial: '2022-10-31',
             manufacturer: 'MSD',
+            components: ['Rabies'],
             active_substances: ['Tollwutvirus'],
             vet_name: 'Dr. Mock',
-            target_disease: 'Tollwut'
+            veterinarian: { name: 'Dr. Mock', practice: 'Mock Vet Clinic', address: 'Mock Street 1', phone: '0000/123456' },
+            target_disease: 'Tollwut',
+            purpose: 'Rabies'
           }
         ],
         suggested_tags: ['DHLPPi', 'Tollwut']
@@ -742,10 +980,14 @@ export function normalizeDocumentType(typeInput) {
     'wurmkur': 'treatment',
     'antiparasitär': 'treatment',
     'antiparasitaer': 'treatment',
+    'pet_passport': 'pet_passport',
+    'heimtierausweis': 'pet_passport',
+    'eu_passport': 'pet_passport',
     'vet_report': 'general',
     'report': 'general',
-    'microchip': 'general',
-    'passport': 'general',
+    'microchip': 'pet_passport',
+    'transponder': 'pet_passport',
+    'passport': 'pet_passport',
     'other': 'general',
     'allgemein': 'general',
     '': 'general'

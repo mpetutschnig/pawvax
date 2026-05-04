@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS animals (
 CREATE TABLE IF NOT EXISTS animal_tags (
   tag_id    TEXT PRIMARY KEY,
   animal_id TEXT NOT NULL REFERENCES animals(id) ON DELETE CASCADE,
-  tag_type  TEXT NOT NULL CHECK(tag_type IN ('barcode', 'nfc')),
+  tag_type  TEXT NOT NULL CHECK(tag_type IN ('barcode', 'nfc', 'chip')),
   active    INTEGER NOT NULL DEFAULT 1,
   added_at  TEXT DEFAULT (datetime('now'))
 );
@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS animal_tags (
 CREATE TABLE IF NOT EXISTS documents (
   id             TEXT PRIMARY KEY,
   animal_id      TEXT NOT NULL REFERENCES animals(id) ON DELETE CASCADE,
-  doc_type       TEXT NOT NULL DEFAULT 'general' CHECK(doc_type IN ('vaccination', 'pedigree', 'dog_certificate', 'medical_product', 'treatment', 'general')),
+  doc_type       TEXT NOT NULL DEFAULT 'general' CHECK(doc_type IN ('vaccination', 'pedigree', 'dog_certificate', 'medical_product', 'treatment', 'pet_passport', 'general')),
   image_path     TEXT NOT NULL,
   extracted_json TEXT NOT NULL,
   ocr_provider   TEXT,

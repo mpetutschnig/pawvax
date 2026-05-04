@@ -20,6 +20,8 @@ export default function AnimalPage() {
   const docTypeLabel = (type: string): string => {
     const labels: Record<string, string> = {
       vaccination: t('animal.docTypeVaccination'),
+      treatment: t('animal.docTypeTreatment'),
+      pet_passport: t('animal.docTypePetPassport'),
       medical_product: t('animal.docTypeMedicalProduct'),
       pedigree: t('animal.docTypePedigree'),
       dog_certificate: t('animal.docTypeDogCertificate'),
@@ -43,7 +45,7 @@ export default function AnimalPage() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [documentTab, setDocumentTab] = useState<'all' | 'pending'>('all')
   const [retrying, setRetrying] = useState<string | null>(null)
-  const [filterType, setFilterType] = useState<'all' | 'vaccination' | 'medical_product' | 'pedigree' | 'dog_certificate' | 'general'>('all')
+  const [filterType, setFilterType] = useState<'all' | 'vaccination' | 'treatment' | 'pet_passport' | 'medical_product' | 'pedigree' | 'dog_certificate' | 'general'>('all')
   const [filterTag, setFilterTag] = useState('')
   const [filterDateFrom, setFilterDateFrom] = useState('')
   const [filterDateTo, setFilterDateTo] = useState('')
@@ -516,7 +518,7 @@ export default function AnimalPage() {
   // Grouped: Map<doc_type, Document[]> — only when showing all types
   const groupedDocs = filterType === 'all' ? (() => {
     const map = new Map<string, Document[]>()
-    for (const type of ['vaccination', 'medical_product', 'pedigree', 'dog_certificate', 'general'] as const) {
+    for (const type of ['vaccination', 'treatment', 'pet_passport', 'medical_product', 'pedigree', 'dog_certificate', 'general'] as const) {
       const group = filteredDocs.filter(d => d.doc_type === type)
       if (group.length > 0) map.set(type, group)
     }
@@ -886,13 +888,17 @@ export default function AnimalPage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', justifyContent: 'space-between' }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: '4px' }}>
-                        {tag.tag_type === 'nfc' ? <Radio size={16} color="var(--primary-500)" /> : <Camera size={16} color="var(--primary-500)" />}
+                        {tag.tag_type === 'nfc'
+                          ? <Radio size={16} color="var(--primary-500)" />
+                          : tag.tag_type === 'chip'
+                            ? <PawPrint size={16} color="var(--primary-500)" />
+                            : <Camera size={16} color="var(--primary-500)" />}
                         <span style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', wordBreak: 'break-all' }}>
                           {tag.tag_id}
                         </span>
                       </div>
                       <p className="text-muted" style={{ margin: 0, fontSize: '12px' }}>
-                        {tag.tag_type === 'barcode' ? t('chip.barcode') : t('chip.nfc')}
+                        {tag.tag_type === 'barcode' ? t('chip.barcode') : tag.tag_type === 'chip' ? t('chip.microchip') : t('chip.nfc')}
                       </p>
                     </div>
                     {tag.active === 1 ? (
@@ -956,7 +962,7 @@ export default function AnimalPage() {
             <>
               {/* Type filter chips + sort toggle */}
               <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap', marginBottom: 'var(--space-3)' }}>
-                {(['all', 'vaccination', 'medical_product', 'pedigree', 'dog_certificate', 'general'] as const).map(type => (
+                {(['all', 'vaccination', 'treatment', 'pet_passport', 'medical_product', 'pedigree', 'dog_certificate', 'general'] as const).map(type => (
                   <button
                     key={type}
                     className={`btn ${filterType === type ? 'btn-primary' : 'btn-outline'}`}

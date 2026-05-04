@@ -64,6 +64,7 @@ export default function DocumentDetailPage() {
 
   const docTypeConfig: Record<string, { label: string; icon: React.ReactNode }> = {
     vaccination: { label: t('animal.docTypeVaccination'), icon: <Shield size={20} /> },
+    pet_passport: { label: t('animal.docTypePetPassport'), icon: <Landmark size={20} /> },
     pedigree: { label: t('animal.docTypePedigree'), icon: <Award size={20} /> },
     dog_certificate: { label: t('animal.docTypeDogCertificate'), icon: <GraduationCap size={20} /> },
     medical_product: { label: t('animal.docTypeMedicalProduct'), icon: <Pill size={20} /> },
@@ -565,6 +566,61 @@ export default function DocumentDetailPage() {
           )
         })()}
 
+        {doc.doc_type === 'pet_passport' && (() => {
+          const identification = extracted.identification || extracted.payload?.identification || {}
+          const owner = extracted.owner || extracted.payload?.owner || {}
+          const breeder = extracted.breeder || extracted.payload?.breeder || {}
+          const issuingAuthority = extracted.issuing_authority || extracted.payload?.issuing_authority || {}
+          const animal = extracted.animal || extracted.payload?.animal || {}
+          return (
+            <div style={{ marginBottom: 'var(--space-6)', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+              <div className="card" style={{ padding: 'var(--space-4)' }}>
+                <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: '0 0 var(--space-3) 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Landmark size={18} /> {t('animal.docTypePetPassport')}
+                </h3>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)', fontSize: 'var(--font-size-xs)' }}>
+                  {extracted.passport_number && <div><span style={{ color: 'var(--text-tertiary)' }}>{t('docDetail.passportNumber')}</span><br /><strong>{extracted.passport_number}</strong></div>}
+                  {extracted.section_type && <div><span style={{ color: 'var(--text-tertiary)' }}>{t('docDetail.sectionType')}</span><br /><strong>{extracted.section_type}</strong></div>}
+                  {identification.chip_code && <div><span style={{ color: 'var(--text-tertiary)' }}>{t('docDetail.chipCode')}</span><br /><strong>{identification.chip_code}</strong></div>}
+                  {identification.chip_location && <div><span style={{ color: 'var(--text-tertiary)' }}>{t('docDetail.chipLocation')}</span><br /><strong>{identification.chip_location}</strong></div>}
+                </div>
+              </div>
+              {Object.keys(animal).length > 0 && (
+                <div className="card" style={{ padding: 'var(--space-4)' }}>
+                  <strong style={{ display: 'block', marginBottom: 'var(--space-2)' }}>{t('docDetail.passportAnimal')}</strong>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)', fontSize: 'var(--font-size-xs)' }}>
+                    {animal.name && <div><span style={{ color: 'var(--text-tertiary)' }}>{t('animals.name')}</span><br /><strong>{animal.name}</strong></div>}
+                    {animal.breed && <div><span style={{ color: 'var(--text-tertiary)' }}>{t('animal.breed')}</span><br /><strong>{animal.breed}</strong></div>}
+                    {animal.birthdate && <div><span style={{ color: 'var(--text-tertiary)' }}>{t('animal.birthdate')}</span><br /><strong>{animal.birthdate}</strong></div>}
+                    {animal.color && <div><span style={{ color: 'var(--text-tertiary)' }}>Color</span><br /><strong>{animal.color}</strong></div>}
+                  </div>
+                </div>
+              )}
+              {Object.keys(owner).length > 0 && (
+                <div className="card" style={{ padding: 'var(--space-4)' }}>
+                  <strong style={{ display: 'block', marginBottom: 'var(--space-2)' }}>{t('docDetail.owner')}</strong>
+                  <div style={{ fontSize: 'var(--font-size-sm)' }}>{[owner.first_name, owner.surname].filter(Boolean).join(' ') || '—'}</div>
+                  <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>{[owner.address, owner.postcode, owner.city, owner.country].filter(Boolean).join(', ')}</div>
+                </div>
+              )}
+              {Object.keys(breeder).length > 0 && (
+                <div className="card" style={{ padding: 'var(--space-4)' }}>
+                  <strong style={{ display: 'block', marginBottom: 'var(--space-2)' }}>{t('docDetail.breeder')}</strong>
+                  <div style={{ fontSize: 'var(--font-size-sm)' }}>{breeder.name || breeder.contact_person || '—'}</div>
+                  <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>{[breeder.address, breeder.postcode, breeder.city, breeder.country].filter(Boolean).join(', ')}</div>
+                </div>
+              )}
+              {Object.keys(issuingAuthority).length > 0 && (
+                <div className="card" style={{ padding: 'var(--space-4)' }}>
+                  <strong style={{ display: 'block', marginBottom: 'var(--space-2)' }}>{t('docDetail.issuingAuthority')}</strong>
+                  <div style={{ fontSize: 'var(--font-size-sm)' }}>{issuingAuthority.name || '—'}</div>
+                  <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>{[issuingAuthority.address, issuingAuthority.postcode, issuingAuthority.city, issuingAuthority.country].filter(Boolean).join(', ')}</div>
+                </div>
+              )}
+            </div>
+          )
+        })()}
+
         {doc.doc_type === 'vaccination' && (() => {
           const allRecords: any[] = extracted.payload?.vaccinations || extracted.vaccinations || []
           if (allRecords.length === 0) return null
@@ -614,12 +670,16 @@ export default function DocumentDetailPage() {
                       {targetDisease && <p style={{ margin: '0 0 var(--space-3) 0', fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>{targetDisease}</p>}
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)', fontSize: 'var(--font-size-xs)', marginBottom: 'var(--space-3)' }}>
                         {record.administration_date && <div><span style={{ color: 'var(--text-tertiary)' }}>{t('vaccine.administrationDate')}</span><br /><strong>{record.administration_date}</strong></div>}
+                        {record.valid_from && <div><span style={{ color: 'var(--text-tertiary)' }}>{t('docDetail.validFrom')}</span><br /><strong>{record.valid_from}</strong></div>}
                         {validUntil && <div><span style={{ color: 'var(--text-tertiary)' }}>{t('vaccine.validUntil')}</span><br /><strong style={{ color: dateColor }}>{validUntil}</strong></div>}
                         {record.batch_number && <div><span style={{ color: 'var(--text-tertiary)' }}>{t('vaccine.batchNumber')}</span><br /><strong>{record.batch_number}</strong></div>}
-                        {record.expiry_date && <div><span style={{ color: 'var(--text-tertiary)' }}>{t('vaccine.expiryDate')}</span><br /><strong>{record.expiry_date}</strong></div>}
+                        {(record.expiry_date || record.expiry_date_of_vial) && <div><span style={{ color: 'var(--text-tertiary)' }}>{t('vaccine.expiryDate')}</span><br /><strong>{record.expiry_date || record.expiry_date_of_vial}</strong></div>}
                         {record.manufacturer && <div><span style={{ color: 'var(--text-tertiary)' }}>{t('vaccine.manufacturer')}</span><br /><strong>{record.manufacturer}</strong></div>}
                         {record.vet_name && <div><span style={{ color: 'var(--text-tertiary)' }}>{t('vaccine.vetName')}</span><br /><strong>{record.vet_name}</strong></div>}
                       </div>
+                      {record.components?.length > 0 && <p style={{ margin: '0 0 var(--space-2) 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}><strong>{t('docDetail.components')}:</strong> {record.components.join(', ')}</p>}
+                      {record.purpose && <p style={{ margin: '0 0 var(--space-2) 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}><strong>{t('docDetail.summary')}:</strong> {record.purpose}</p>}
+                      {record.veterinarian?.practice && <p style={{ margin: '0 0 var(--space-2) 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}><strong>{t('docDetail.practice')}:</strong> {record.veterinarian.practice}</p>}
                       {canSetReminder && (
                         <button
                           className={`btn ${isSaved ? 'btn-ghost' : 'btn-secondary'} btn-full`}
@@ -699,6 +759,8 @@ export default function DocumentDetailPage() {
                         {record.vet_name && <div><span style={{ color: 'var(--text-tertiary)' }}>Tierarzt</span><br /><strong>{record.vet_name}</strong></div>}
                         {nextDue && <div><span style={{ color: 'var(--text-tertiary)' }}>Nächste Behandlung</span><br /><strong style={{ color: dateColor }}>{nextDue}</strong></div>}
                       </div>
+                      {record.active_ingredient && <p style={{ margin: '0 0 var(--space-2) 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}><strong>{t('docDetail.activeIngredient')}:</strong> {record.active_ingredient}</p>}
+                      {record.veterinarian?.practice && <p style={{ margin: '0 0 var(--space-2) 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}><strong>{t('docDetail.practice')}:</strong> {record.veterinarian.practice}</p>}
                       {record.notes && <p style={{ margin: '0 0 var(--space-2) 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}><strong>Notizen:</strong> {record.notes}</p>}
                       {canSetReminder && (
                         <button

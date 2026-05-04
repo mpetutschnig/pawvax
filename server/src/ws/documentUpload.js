@@ -35,6 +35,24 @@ function canAccessAnimalForUpload(db, animalId, accountId, userRole) {
   return false
 }
 
+function syncChipTagFromDocument(db, animalId, extractedData) {
+  if (normalizeDocumentType(extractedData?.type) !== 'pet_passport') return
+
+  const chipCode = [
+    extractedData?.identification?.chip_code,
+    extractedData?.payload?.identification?.chip_code,
+    ...(extractedData?.page_results || []).map((page) => page?.identification?.chip_code)
+  ].find((value) => typeof value === 'string' && value.trim().length > 0)?.trim()
+
+  if (!chipCode) return
+
+  const existing = db.prepare('SELECT animal_id FROM animal_tags WHERE tag_id = ?').get(chipCode)
+  if (!existing) {
+    db.prepare('INSERT INTO animal_tags (tag_id, animal_id, tag_type) VALUES (?, ?, ?)')
+      .run(chipCode, animalId, 'chip')
+  }
+}
+
 export default async function wsDocumentUpload(fastify) {
   fastify.get('/ws', { websocket: true }, async (socket, req) => {
     let accountId, userRole, userGeminiKey = null, userGeminiModel = null, userAnthropicKey = null, userClaudeModel = null
@@ -265,6 +283,13 @@ export default async function wsDocumentUpload(fastify) {
             // Create document with combined pages
             const docId = uploadState.documentId
             const analysisStatus = analysisError ? 'pending_analysis' : 'completed'
+            const extractedData = analysisError
+              ? { pages: pages.length, error: analysisError.message }
+              : buildExtractedDocumentData({ combinedText, suggestedType, pageResults, pages: pages.length })
+
+            if (!analysisError) {
+              syncChipTagFromDocument(db, uploadState.animalId, extractedData)
+            }
 
             // Check if document already exists
             const existingDoc = db.prepare('SELECT id FROM documents WHERE id = ?').get(docId)
@@ -278,7 +303,7 @@ export default async function wsDocumentUpload(fastify) {
               `).run(
                 suggestedType,
                 pages[0].image_path,
-                analysisError ? JSON.stringify({ pages: pages.length, error: analysisError.message }) : JSON.stringify(buildExtractedDocumentData({ combinedText, suggestedType, pageResults, pages: pages.length })),
+                JSON.stringify(extractedData),
                 lastProvider,
                 accountId,
                 userRole,
@@ -296,7 +321,7 @@ export default async function wsDocumentUpload(fastify) {
                 uploadState.animalId,
                 suggestedType,
                 pages[0].image_path,
-                analysisError ? JSON.stringify({ pages: pages.length, error: analysisError.message }) : JSON.stringify(buildExtractedDocumentData({ combinedText, suggestedType, pageResults, pages: pages.length })),
+                JSON.stringify(extractedData),
                 lastProvider,
                 accountId,
                 userRole,

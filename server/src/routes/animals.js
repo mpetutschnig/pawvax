@@ -358,7 +358,7 @@ export default async function animalRoutes(fastify) {
           birthdate: { type: 'string' },
           address: { type: 'string' },
           tagId: { type: 'string' },
-          tagType: { type: 'string', enum: ['barcode', 'nfc'] }
+          tagType: { type: 'string', enum: ['barcode', 'nfc', 'chip'] }
         }
       }
     }
@@ -654,7 +654,7 @@ export default async function animalRoutes(fastify) {
         required: ['tagId', 'tagType'],
         properties: {
           tagId: { type: 'string', minLength: 1 },
-          tagType: { type: 'string', enum: ['barcode', 'nfc'] }
+          tagType: { type: 'string', enum: ['barcode', 'nfc', 'chip'] }
         }
       }
     }
