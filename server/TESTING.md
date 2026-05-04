@@ -133,10 +133,12 @@ TEST_TIMEOUT=15000
 NODE_ENV=test
 ```
 
-For production API checks:
+Remote or production-like API checks are blocked by default because the suite performs write/delete operations.
+If you intentionally need a remote target, you must opt in explicitly:
 
 ```env
-API_URL=https://paw.oxs.at/api
+ALLOW_REMOTE_API_TESTS=1
+CONFIRM_REMOTE_API_TESTS=I_UNDERSTAND_THIS_CAN_MODIFY_REAL_DATA
 ```
 
 ---

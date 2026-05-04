@@ -92,14 +92,16 @@ npm start
 npm test
 ```
 
-### Production testen
+### Sicherheitshinweis
+
+`npm test` fuehrt schreibende API-Operationen aus.
+Die Tests duerfen standardmaessig nur gegen `localhost` laufen, nicht gegen Produktiv- oder echte Arbeitsdaten.
+
+Wenn du bewusst gegen ein Remote-Ziel testen willst, musst du das explizit freischalten:
 
 ```bash
-# .env.test anpassen
-API_URL=https://paw.oxs.at/api
-
-# Tests
-npm test
+ALLOW_REMOTE_API_TESTS=1
+CONFIRM_REMOTE_API_TESTS=I_UNDERSTAND_THIS_CAN_MODIFY_REAL_DATA
 ```
 
 ---
