@@ -21,6 +21,7 @@ import wsDocumentUpload from './ws/documentUpload.js'
 import settingsRoutes from './routes/settings.js'
 import aiRoutes from './routes/ai.js'
 import vetApiRoutes from './routes/vetApi.js'
+import reminderRoutes from './routes/reminders.js'
 import { setOcrLogger } from './services/ocr.js'
 import { logAudit } from './services/audit.js'
 
@@ -201,6 +202,7 @@ await fastify.register(wsDocumentUpload)
 await fastify.register(settingsRoutes)
 await fastify.register(aiRoutes)
 await fastify.register(vetApiRoutes)
+await fastify.register(reminderRoutes)
 
 // Healthcheck
 fastify.get('/health', async () => ({ status: 'ok' }))
@@ -251,6 +253,22 @@ try {
     db.prepare("DELETE FROM animal_sharing WHERE role = 'readonly'").run()
   }
   db.prepare("UPDATE documents SET allowed_roles = REPLACE(allowed_roles, '\"readonly\"', '\"guest\"') WHERE allowed_roles IS NOT NULL").run()
+
+  // Create reminders table if not exists (new feature migration)
+  db.prepare(`CREATE TABLE IF NOT EXISTS reminders (
+    id          TEXT PRIMARY KEY,
+    account_id  TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    animal_id   TEXT NOT NULL REFERENCES animals(id) ON DELETE CASCADE,
+    document_id TEXT REFERENCES documents(id) ON DELETE SET NULL,
+    title       TEXT NOT NULL,
+    due_date    TEXT NOT NULL,
+    notes       TEXT,
+    dismissed_at TEXT,
+    created_at  TEXT DEFAULT (datetime('now'))
+  )`).run()
+  db.prepare('CREATE INDEX IF NOT EXISTS idx_reminders_account ON reminders(account_id)').run()
+  db.prepare('CREATE INDEX IF NOT EXISTS idx_reminders_due ON reminders(due_date)').run()
+  db.prepare('CREATE INDEX IF NOT EXISTS idx_reminders_animal ON reminders(animal_id)').run()
 } catch (err) {
   console.warn('Migration warnings:', err.message)
 }

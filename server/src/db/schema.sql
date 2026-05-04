@@ -177,3 +177,19 @@ CREATE INDEX IF NOT EXISTS idx_verification_requests_status ON verification_requ
 CREATE INDEX IF NOT EXISTS idx_animal_scans_animal ON animal_scans(animal_id);
 CREATE INDEX IF NOT EXISTS idx_animal_scans_account ON animal_scans(account_id);
 CREATE INDEX IF NOT EXISTS idx_animal_scans_time ON animal_scans(scanned_at);
+
+CREATE TABLE IF NOT EXISTS reminders (
+  id          TEXT PRIMARY KEY,
+  account_id  TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  animal_id   TEXT NOT NULL REFERENCES animals(id) ON DELETE CASCADE,
+  document_id TEXT REFERENCES documents(id) ON DELETE SET NULL,
+  title       TEXT NOT NULL,
+  due_date    TEXT NOT NULL,
+  notes       TEXT,
+  dismissed_at TEXT,
+  created_at  TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_reminders_account ON reminders(account_id);
+CREATE INDEX IF NOT EXISTS idx_reminders_due ON reminders(due_date);
+CREATE INDEX IF NOT EXISTS idx_reminders_animal ON reminders(animal_id);
