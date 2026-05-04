@@ -49,8 +49,15 @@ XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "cd /tmp && po
 
 ```bash
 PAW_PWA_UID=$(id -u paw-pwa)
-XDG_RUNTIME_DIR=/run/user/$PAW_PWA_UID su -s /bin/bash paw-pwa -c "cd /tmp && podman --cgroup-manager=cgroupfs build --no-cache --progress=plain -t paw-pwa:latest -f /git/pawvax/pwa/Containerfile /git/pawvax/pwa"
+XDG_RUNTIME_DIR=/run/user/$PAW_PWA_UID su -s /bin/bash paw-pwa -c "cd /git/pawvax/pwa && podman --cgroup-manager=cgroupfs build -f Containerfile -t localhost/paw-pwa:latest ."
 ```
+
+**⚠️ Hinweis zu Service Worker & Browser Cache:**
+Nach dem PWA-Build müssen alte Service-Worker-Caches im Browser gelöscht werden:
+- DevTools öffnen (F12)
+- Application → Service Workers → "Unregister"
+- Application → Storage → "Clear site data"
+- **Hard Reload**: `Ctrl+Shift+R` (oder `Cmd+Shift+R` auf Mac)
 
 ### 7 — paw-api &  Service neu starten
 
@@ -88,9 +95,27 @@ XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "cd /tmp && po
 
 Wenn erfolgreich, speichere Ergebnisse in DB:
 
+**⚠️ Bei Database Lock-Fehler: Erst API Container stoppen!**
+
 ```bash
+# API Container stoppen (wenn noch aktiv)
+su - paw-api -c "podman stop systemd-paw-api 2>/dev/null || true"
+
+# Kurze Pause für Lock-Release
+sleep 2
+
+# Test-Ergebnisse persistieren (rootless, ohne --user=0)
 PAW_API_UID=$(id -u paw-api)
-XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "cd /tmp && podman run --rm --cgroup-manager=cgroupfs --security-opt label=disable --user=0 -v /git/pawvax/server:/app -v /home/paw-api/data:/data -v /tmp:/tmp -w /app docker.io/node:22-alpine sh -c 'node scripts/persist-test-results.js /tmp/jest-raw.json /data/paw.db'" && echo "Test-Ergebnisse in DB gespeichert"
+XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "cd /tmp && podman --cgroup-manager=cgroupfs run --rm --security-opt label=disable \
+  -v /git/pawvax/server:/app \
+  -v /home/paw-api/data:/data \
+  -v /tmp:/tmp \
+  -w /app \
+  docker.io/node:22-alpine \
+  sh -c 'node scripts/persist-test-results.js /tmp/jest-raw.json /data/paw.db'" && echo "Test-Ergebnisse in DB gespeichert"
+
+# API Container neu starten
+su - paw-api -c "podman start systemd-paw-api 2>/dev/null || true"
 ```
 
 ---
@@ -110,3 +135,37 @@ su -s /bin/bash paw-api -c "sqlite3 /home/paw-api/data/paw.db \
   \"DELETE FROM accounts WHERE email = 'dedup@example.com';\""
 echo "Test-Accounts (Suiten 12-13) bereinigt."
 ```
+
+---
+
+## 🆕 EU Pet Passport (Heimtierausweis) Support
+
+Ab dieser Version unterstützt PAWvax EU-Heimtierausweise mit automatischer Chip-Code-Extraktion.
+
+### Neue Features:
+- **Document Type**: `pet_passport` (EU Heimtierausweis / Pet Passport)
+- **Tag Type**: `chip` (implantierte Mikrochip-Codes, auto-sync)
+- **OCR**: Multilingual (Deutsch & Englisch)
+- **Auto-Sync**: Chip-Codes werden automatisch als `animal_tags` registriert
+
+### Test Suite 16 - Pet Passport & Chip Tags:
+- ✅ 16a: Normalisierung von Heimtierausweis-Aliase (passport → pet_passport)
+- ✅ 16b-d: Multilingual OCR Prompts (DE/EN)
+- ✅ 16e: Chip-Tag API Erstellung
+- ✅ 16f: Pet_passport Dokumenttyp Persistenz
+- ✅ 16g: Auto-Chip-Tag Sync beim Document Analysis
+
+### Validierung:
+Nach dem Update können diese Schritte die neue Funktionalität testen:
+
+```bash
+# 1. Heimtierausweis-Bild hochladen → Dokumenttyp sollte auto-erkannt werden
+# 2. Document-Detail ansehen → pet_passport Daten angezeigt
+# 3. Animal-Seite prüfen → neuer "Chip-Code" Tag sollte erstellt sein
+# 4. API-Test: Suite 16 sollte 7/7 bestehen
+```
+
+**Hinweis für die PWA:**
+- Nach dem Update müssen Browser-Cache und Service Worker gelöscht werden
+- DevTools: F12 → Application → Service Workers → Unregister
+- Hard Reload: `Ctrl+Shift+R`

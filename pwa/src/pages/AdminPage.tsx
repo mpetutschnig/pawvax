@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import {
   adminGetStats, adminGetAccounts, adminGetAnimals,
   adminPatchAccount, adminGetAuditLog, adminDeleteAnimal, adminDeleteAccount, adminGetTestResults,
-  adminGetOrphans, adminDeleteOrphans, adminGetVerifications, adminApproveVerification, adminRejectVerification
+  adminGetOrphans, adminDeleteOrphans, adminGetVerifications, adminApproveVerification, adminRejectVerification, adminGetVersion
 } from '../api/rest'
 import { PawPrint, LogOut, LayoutDashboard, Users, Cat, ShieldCheck, FileClock, CheckCircle, Menu, X, Settings, XCircle, FlaskConical, Trash2, AlertCircle } from 'lucide-react'
 import { AdminAnimalDTO } from '../types/animal'
@@ -103,9 +103,11 @@ export default function AdminPage() {
   const [rejectingRequestId, setRejectingRequestId] = useState<string | null>(null)
   const [rejectionReason, setRejectionReason] = useState('')
   const [verificationProcessing, setVerificationProcessing] = useState<string | null>(null)
+  const [version, setVersion] = useState<any>(null)
 
   useEffect(() => {
     fetch('/api/settings').then(res => res.json()).then(data => setAppSettings(data)).catch(console.error)
+    adminGetVersion().then(res => setVersion(res.data)).catch(console.error)
   }, [])
 
   useEffect(() => {
@@ -285,6 +287,12 @@ export default function AdminPage() {
           </div>
         </div>
         <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
+          {version && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontSize: 'var(--font-size-xs)', color: 'oklch(70% 0.05 240)', padding: '4px 8px', background: 'oklch(96% 0.01 240)', borderRadius: 'var(--radius-sm)' }}>
+              <span style={{ fontWeight: 600 }}>v{version.server}</span>
+              <span style={{ color: 'oklch(65% 0.04 240)' }} title={version.buildTime}>{version.buildDate}</span>
+            </div>
+          )}
           <span style={{ fontSize: 'var(--font-size-sm)', color: 'oklch(80% 0.04 240)' }}>
             {adminName}
           </span>

@@ -229,6 +229,18 @@ export default async function adminRoutes(fastify) {
     if (!userRoles.includes('admin')) return reply.code(403).send({ error: 'Admin-Zugriff erforderlich' })
   })
 
+  // Version endpoint - Build-Informationen
+  fastify.get('/api/admin/version', async (req) => {
+    const pkgPath = join(__dirname, '..', '..', 'package.json')
+    const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'))
+    return {
+      server: pkg.version,
+      buildTime: new Date().toISOString(),
+      buildDate: new Date().toLocaleDateString('de-DE', { year: 'numeric', month: '2-digit', day: '2-digit' }),
+      buildTime24h: new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    }
+  })
+
   // Alle Accounts
   fastify.get('/api/admin/accounts', async (req) => {
     const db = getDb()
