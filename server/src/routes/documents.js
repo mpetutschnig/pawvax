@@ -419,6 +419,8 @@ export default async function documentRoutes(fastify) {
         pageResults: result.pageResults,
         pages: analysisPages.length
       })
+      const requiresRetry = extractedData?.extraction_quality?.requires_retry === true
+      const nextStatus = requiresRetry ? 'pending_analysis' : 'completed'
       syncChipTagFromDocument(db, doc.animal_id, extractedData)
 
       // Update document with analysis results
@@ -429,24 +431,26 @@ export default async function documentRoutes(fastify) {
       `).run(
         JSON.stringify(extractedData),
         provider,
-        'completed',
-        result.suggestedType,
+        nextStatus,
+        extractedData.type,
         analysisPages[0].image_path,
         docId
       )
 
       logAudit(db, {
         accountId, role, action: 'retry_analysis', resource: 'document', resourceId: docId,
-        details: { ocr_provider: provider, pages: analysisPages.length },
+        details: { ocr_provider: provider, pages: analysisPages.length, requires_retry: requiresRetry, retry_reasons: extractedData?.extraction_quality?.retry_reasons || [] },
         ip: req.ip
       })
 
       return reply.send({
-        success: true,
-        message: 'Analyse erfolgreich abgeschlossen',
+        success: !requiresRetry,
+        message: requiresRetry ? 'Analyse unvollständig. Erneuter Versuch empfohlen.' : 'Analyse erfolgreich abgeschlossen',
         documentId: docId,
         extractedData,
-        provider
+        provider,
+        analysisStatus: nextStatus,
+        requiresRetry
       })
     } catch (err) {
       req.log.error({ err, docId, accountId, requestedProvider, requestedModel, language }, 'Retry analysis failed')
@@ -557,6 +561,8 @@ export default async function documentRoutes(fastify) {
         pageResults: result.pageResults,
         pages: analysisPages.length
       })
+      const requiresRetry = extractedData?.extraction_quality?.requires_retry === true
+      const nextStatus = requiresRetry ? 'pending_analysis' : 'completed'
       syncChipTagFromDocument(db, doc.animal_id, extractedData)
 
       // Update document with new analysis results
@@ -567,23 +573,25 @@ export default async function documentRoutes(fastify) {
       `).run(
         JSON.stringify(extractedData),
         result.provider,
-        result.suggestedType,
-        'completed',
+        extractedData.type,
+        nextStatus,
         docId
       )
 
       logAudit(db, {
         accountId, role, action: 're_analyze', resource: 'document', resourceId: docId,
-        details: { ocr_provider: result.provider, pages: analysisPages.length, history_entry: historyId },
+        details: { ocr_provider: result.provider, pages: analysisPages.length, history_entry: historyId, requires_retry: requiresRetry, retry_reasons: extractedData?.extraction_quality?.retry_reasons || [] },
         ip: req.ip
       })
 
       return reply.send({
-        success: true,
-        message: 'Dokument erfolgreich neu analysiert',
+        success: !requiresRetry,
+        message: requiresRetry ? 'Neu-Analyse unvollständig. Erneuter Versuch empfohlen.' : 'Dokument erfolgreich neu analysiert',
         documentId: docId,
         extractedData,
         provider: result.provider,
+        analysisStatus: nextStatus,
+        requiresRetry,
         previousVersion: {
           version: maxVersion + 1,
           savedAt: new Date().toISOString(),

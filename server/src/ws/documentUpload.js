@@ -122,8 +122,8 @@ export default async function wsDocumentUpload(fastify) {
             fastify.log.warn({ err: decryptErr.message }, 'WS: could not decrypt anthropic_token')
             userAnthropicKey = null
           }
-          userGeminiModel = acc?.gemini_model || 'gemini-3.1-flash-lite-preview'
-          userClaudeModel = acc?.claude_model || 'claude-haiku-4-5-20251001'
+          userGeminiModel = acc?.gemini_model || 'gemini-2.0-flash'
+          userClaudeModel = acc?.claude_model || 'claude-3-5-sonnet-20241022'
 
           authenticated = true
           fastify.log.info({ accountId, role: userRole, hasGemini: !!userGeminiKey, hasAnthropic: !!userAnthropicKey }, 'WS: client authenticated')
@@ -144,7 +144,7 @@ export default async function wsDocumentUpload(fastify) {
 
       switch (msg.type) {
         case 'upload_start': {
-          const { animalId, filename, mimeType, allowedRoles, pageNumber, documentId, language = 'de' } = msg
+          const { animalId, filename, mimeType, allowedRoles, pageNumber, documentId, language = 'de', requestedDocumentType = 'auto' } = msg
           const pageNum = pageNumber ?? 1
           const normalizedAllowedRoles = normalizeAllowedRoles(allowedRoles)
 
@@ -176,6 +176,7 @@ export default async function wsDocumentUpload(fastify) {
             pageNumber: pageNum,
             documentId: docId,
             language,
+            requestedDocumentType,
             writer: saveImageChunks(safeFilename),
             isMultiPage: pageNumber !== undefined && pageNumber > 1
           }
@@ -236,7 +237,7 @@ export default async function wsDocumentUpload(fastify) {
                 const pageStartTime = Date.now()
                 const result = await analyzeDocument(page.image_path, userGeminiKey, userGeminiModel, (progressMsg) => {
                   send(socket, { type: 'status', message: `Seite ${page.page_number}: ${progressMsg}` })
-                }, userAnthropicKey, userClaudeModel, null, null, null, uploadState.language)
+                }, userAnthropicKey, userClaudeModel, null, null, null, uploadState.language, uploadState.requestedDocumentType)
                 const pageElapsed = Date.now() - pageStartTime
                 fastify.log.debug({ pageNumber: page.page_number, elapsedMs: pageElapsed, provider: result.provider }, 'WS: Page analysis completed')
                 pageResults.push(result.data)
@@ -262,8 +263,8 @@ export default async function wsDocumentUpload(fastify) {
             }
 
             // Use Gemini to suggest type and tags from combined text
-            let suggestedType = detectedTypes[0] || 'general'
-            if (!detectedTypes.length && combinedText && userGeminiKey) {
+            let suggestedType = normalizeDocumentType(uploadState.requestedDocumentType) || detectedTypes[0] || 'general'
+            if (uploadState.requestedDocumentType === 'auto' && !detectedTypes.length && combinedText && userGeminiKey) {
               try {
                 send(socket, { type: 'status', message: 'Erzeuge Vorschläge mit KI...' })
                 const typeGuess = await guessDocumentType(combinedText, userGeminiKey, userGeminiModel)
@@ -282,7 +283,7 @@ export default async function wsDocumentUpload(fastify) {
 
             // Create document with combined pages
             const docId = uploadState.documentId
-            const analysisStatus = analysisError ? 'pending_analysis' : 'completed'
+            const analysisStatus = analysisError ? 'pending_analysis' : (extractedData?.extraction_quality?.requires_retry ? 'pending_analysis' : 'completed')
             const extractedData = analysisError
               ? { pages: pages.length, error: analysisError.message }
               : buildExtractedDocumentData({ combinedText, suggestedType, pageResults, pages: pages.length })
@@ -301,7 +302,7 @@ export default async function wsDocumentUpload(fastify) {
                 SET doc_type = ?, image_path = ?, extracted_json = ?, ocr_provider = ?, added_by_account = ?, added_by_role = ?, allowed_roles = ?, analysis_status = ?
                 WHERE id = ?
               `).run(
-                suggestedType,
+                extractedData.type || suggestedType,
                 pages[0].image_path,
                 JSON.stringify(extractedData),
                 lastProvider,
@@ -319,7 +320,7 @@ export default async function wsDocumentUpload(fastify) {
               `).run(
                 docId,
                 uploadState.animalId,
-                suggestedType,
+                extractedData.type || suggestedType,
                 pages[0].image_path,
                 JSON.stringify(extractedData),
                 lastProvider,
@@ -332,7 +333,7 @@ export default async function wsDocumentUpload(fastify) {
 
             logAudit(db, {
               accountId, role: userRole, action: 'upload_document', resource: 'document', resourceId: docId,
-              details: { doc_type: suggestedType, pages: pages.length, ocr_provider: lastProvider },
+              details: { doc_type: extractedData.type || suggestedType, pages: pages.length, ocr_provider: lastProvider, requested_document_type: uploadState.requestedDocumentType },
               ip: req.ip
             })
 
@@ -350,7 +351,7 @@ export default async function wsDocumentUpload(fastify) {
 
             send(socket, {
               type: 'result',
-              data: { documentId: docId, docType: suggestedType, pages: pages.length, suggestedType, ocrProvider: lastProvider, analysisStatus }
+              data: { documentId: docId, docType: extractedData.type || suggestedType, pages: pages.length, suggestedType: extractedData.type || suggestedType, ocrProvider: lastProvider, analysisStatus }
             })
           } catch (err) {
             fastify.log.error({ err }, 'WS: OCR/Upload error')

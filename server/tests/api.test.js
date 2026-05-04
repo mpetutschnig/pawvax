@@ -1995,6 +1995,61 @@ describe('Suite 15: Multilingual OCR Prompts', () => {
     expect(parsed.vaccinations).toHaveLength(1)
     expect(parsed.vaccinations[0].vaccine).toBe('Eurican L4')
   })
+
+  test('15n2. parseStructuredModelResponse normalizes confidence values', () => {
+    const parsed = parseStructuredModelResponse('{"title":"Vaccination","confidence":"78%","vaccinations":[{"vaccine":"Eurican L4","date":"2025-12-02"}]}', 'Gemini', 'vaccination')
+
+    expect(parsed.confidence).toBe(0.78)
+  })
+
+  test('15o. buildExtractedDocumentData upgrades vaccination-like general payloads without structured rows', () => {
+    const data = buildExtractedDocumentData({
+      combinedText: 'Impfpass Eintragungen',
+      suggestedType: 'general',
+      pages: 1,
+      pageResults: [{
+        type: 'general',
+        document_date: '2023-10-30',
+        title: 'Impfpass Eintragungen',
+        summary: 'Das Dokument enthält eine Auflistung von verschiedenen Impfungen (Eurican, Nobivac) für ein Haustier, dokumentiert durch eine Tierarztpraxis.',
+        tags: ['Impfpass', 'Impfungen', 'Veterinär', 'Boehringer Ingelheim'],
+        extracted_text: 'Es handelt sich um einen Abschnitt aus einem Heimtierausweis mit Impfaufklebern von Eurican und Nobivac.'
+      }]
+    })
+
+    expect(data.type).toBe('vaccination')
+    expect(data.payload.type).toBe('vaccination')
+    expect(Array.isArray(data.vaccinations)).toBe(true)
+    expect(data.vaccinations).toHaveLength(0)
+    expect(data.extraction_quality.requires_retry).toBe(true)
+    expect(data.extraction_quality.retry_reasons).toContain('vaccination_signals_without_structured_records')
+  })
+
+  test('15p. buildExtractedDocumentData exposes confidence and stable quality for structured vaccination rows', () => {
+    const data = buildExtractedDocumentData({
+      combinedText: 'Structured vaccination page',
+      suggestedType: 'vaccination',
+      pages: 1,
+      pageResults: [{
+        type: 'vaccination',
+        confidence: 0.91,
+        title: 'Vaccination Record',
+        vaccinations: [
+          {
+            vaccine_name: 'Nobivac SHPPi',
+            administration_date: '2021-09-06',
+            batch_number: 'A628B01',
+            manufacturer: 'MSD Animal Health',
+            valid_until: '2022-09-06'
+          }
+        ]
+      }]
+    })
+
+    expect(data.confidence).toBe(0.91)
+    expect(data.extraction_quality.requires_retry).toBe(false)
+    expect(data.extraction_quality.schema_valid).toBe(true)
+  })
 })
 
 // ════════════════════════════════════════════════════════════════

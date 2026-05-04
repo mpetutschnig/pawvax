@@ -629,7 +629,7 @@ function normalizeDateFields(obj) {
   return normalized
 }
 
-export async function analyzeDocument(imagePath, userGeminiKey = null, model = null, onProgress = null, userAnthropicKey = null, claudeModel = null, userOpenAiKey = null, openAiModel = null, priority = ['google', 'anthropic', 'openai'], language = 'de') {
+export async function analyzeDocument(imagePath, userGeminiKey = null, model = null, onProgress = null, userAnthropicKey = null, claudeModel = null, userOpenAiKey = null, openAiModel = null, priority = ['google', 'anthropic', 'openai'], language = 'de', requestedDocumentType = null) {
   if (onProgress) onProgress(`Initialisiere OCR-Analyse...`)
 
   // Validate language, default to 'de'
@@ -646,8 +646,9 @@ export async function analyzeDocument(imagePath, userGeminiKey = null, model = n
   }
 
   try {
-    const documentType = await classifyDocumentType(imagePath, userGeminiKey, userAnthropicKey, userOpenAiKey, priority, normalizedLanguage)
-    const prompt = getPromptForDocumentType(documentType, normalizedLanguage)
+    const forcedDocumentType = normalizeRequestedDocumentType(requestedDocumentType)
+    const documentType = forcedDocumentType || await classifyDocumentType(imagePath, userGeminiKey, userAnthropicKey, userOpenAiKey, priority, normalizedLanguage)
+    const prompt = withConfidenceInstructions(getPromptForDocumentType(documentType, normalizedLanguage), normalizedLanguage)
 
     for (const provider of priority) {
       if (provider === 'google' && userGeminiKey) {
@@ -1062,7 +1063,7 @@ export function parseStructuredModelResponse(text, provider, documentType = 'gen
     try {
       const parsed = JSON.parse(candidate)
       if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') continue
-      return normalizeDateFields({ type: normalizeDocumentType(documentType), ...parsed })
+      return normalizeModelMetadata(normalizeDateFields({ type: normalizeDocumentType(documentType), ...parsed }))
     } catch {
       continue
     }
@@ -1101,11 +1102,139 @@ function collectListRecords(pageResults, primaryKey, fallbackKey = primaryKey) {
   })
 }
 
+function collectTextFragments(pageResults) {
+  return pageResults.flatMap((page) => {
+    const payload = page?.payload || {}
+    const tags = [
+      ...(Array.isArray(page?.tags) ? page.tags : []),
+      ...(Array.isArray(payload?.tags) ? payload.tags : []),
+      ...(Array.isArray(page?.suggested_tags) ? page.suggested_tags : []),
+      ...(Array.isArray(payload?.suggested_tags) ? payload.suggested_tags : [])
+    ]
+
+    return [
+      page?.title,
+      payload?.title,
+      page?.summary,
+      payload?.summary,
+      page?.text,
+      payload?.text,
+      page?.extracted_text,
+      payload?.extracted_text,
+      ...tags
+    ].filter(Boolean)
+  })
+}
+
+function normalizeConfidenceValue(value) {
+  if (value === null || value === undefined || value === '') return undefined
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) return undefined
+    return Number((value > 1 ? value / 100 : value).toFixed(2))
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (!trimmed) return undefined
+    const parsed = Number.parseFloat(trimmed.replace('%', '').replace(',', '.'))
+    if (!Number.isFinite(parsed)) return undefined
+    return Number(((trimmed.includes('%') || parsed > 1 ? parsed / 100 : parsed)).toFixed(2))
+  }
+  return undefined
+}
+
+function normalizeModelMetadata(record) {
+  if (!record || typeof record !== 'object') return record
+  const confidence = normalizeConfidenceValue(record.confidence)
+  return confidence === undefined ? record : { ...record, confidence }
+}
+
+function collectModelConfidences(pageResults) {
+  return pageResults
+    .flatMap((page) => [page?.confidence, page?.payload?.confidence])
+    .map(normalizeConfidenceValue)
+    .filter((value) => value !== undefined)
+}
+
+function average(values) {
+  if (!values.length) return undefined
+  return Number((values.reduce((sum, value) => sum + value, 0) / values.length).toFixed(2))
+}
+
+function calculateRecordCompleteness(record, keys) {
+  if (!record || !keys.length) return 0
+  const filled = keys.filter((key) => {
+    const value = record[key]
+    if (Array.isArray(value)) return value.length > 0
+    return value !== null && value !== undefined && value !== ''
+  }).length
+  return Number((filled / keys.length).toFixed(2))
+}
+
+function evaluateExtractionQuality(type, payload, pageResults) {
+  const modelConfidence = average(collectModelConfidences(pageResults))
+
+  if (type === 'vaccination') {
+    const vaccinations = Array.isArray(payload?.vaccinations) ? payload.vaccinations : []
+    const retryReasons = []
+    if (!vaccinations.length && isVaccinationLikeDocument(pageResults)) {
+      retryReasons.push('vaccination_signals_without_structured_records')
+    }
+    const completenessScore = vaccinations.length
+      ? average(vaccinations.map((record) => calculateRecordCompleteness(record, ['vaccine_name', 'administration_date', 'batch_number', 'valid_until'])))
+      : 0
+
+    return {
+      requires_retry: retryReasons.length > 0,
+      retry_reasons: retryReasons,
+      model_confidence: modelConfidence,
+      schema_valid: vaccinations.every((record) => record && typeof record === 'object'),
+      domain_valid: vaccinations.length > 0 || retryReasons.length === 0,
+      completeness_score: completenessScore || 0
+    }
+  }
+
+  return {
+    requires_retry: false,
+    retry_reasons: [],
+    model_confidence: modelConfidence,
+    schema_valid: true,
+    domain_valid: true,
+    completeness_score: 1
+  }
+}
+
+function isVaccinationLikeDocument(pageResults) {
+  const fragments = collectTextFragments(pageResults)
+    .map((value) => typeof value === 'string' ? value : '')
+    .join(' ')
+    .toLowerCase()
+
+  if (!fragments) return false
+
+  const strongVaccinationSignals = [
+    /impfpass/,
+    /impfungen/,
+    /vaccination/,
+    /vaccine/,
+    /heimtierausweis/,
+    /nobivac/,
+    /eurican/,
+    /boehringer/,
+    /msd animal health/,
+    /virbac/
+  ]
+
+  const matches = strongVaccinationSignals.filter((pattern) => pattern.test(fragments)).length
+  return matches >= 2
+}
+
 function inferSuggestedType(suggestedType, pageResults) {
   if (suggestedType !== 'general') return suggestedType
 
   const vaccinations = collectListRecords(pageResults, 'vaccinations')
   if (vaccinations.length > 0) return 'vaccination'
+
+  if (isVaccinationLikeDocument(pageResults)) return 'vaccination'
 
   const treatments = collectListRecords(pageResults, 'treatments', 'treatment_log')
   if (treatments.length > 0) return 'treatment'
@@ -1121,6 +1250,7 @@ export function buildExtractedDocumentData({ combinedText, suggestedType, pageRe
   const documentDate = firstDefined(...pageResults.map(page => page?.document_date), firstPage.document_date)
   const summary = firstDefined(...pageResults.map(page => page?.summary), firstPage.summary)
   const suggestedTags = uniqueStrings(pageResults.flatMap(page => page?.suggested_tags || page?.payload?.suggested_tags || []))
+  const confidence = average(collectModelConfidences(pageResults))
 
   const extracted = {
     type: effectiveSuggestedType,
@@ -1131,13 +1261,16 @@ export function buildExtractedDocumentData({ combinedText, suggestedType, pageRe
     ...(documentDate ? { document_date: documentDate } : {}),
     ...(summary ? { summary } : {}),
     ...(animal ? { animal } : {}),
+    ...(confidence !== undefined ? { confidence } : {}),
     ...(suggestedTags.length ? { suggested_tags: suggestedTags } : {})
   }
 
   if (effectiveSuggestedType === 'vaccination') {
     const vaccinations = collectListRecords(pageResults, 'vaccinations')
+    const extractionQuality = evaluateExtractionQuality(effectiveSuggestedType, { vaccinations }, pageResults)
     return {
       ...extracted,
+      extraction_quality: extractionQuality,
       vaccinations,
       payload: {
         type: effectiveSuggestedType,
@@ -1145,6 +1278,7 @@ export function buildExtractedDocumentData({ combinedText, suggestedType, pageRe
         ...(documentDate ? { document_date: documentDate } : {}),
         ...(summary ? { summary } : {}),
         ...(animal ? { animal } : {}),
+        ...(confidence !== undefined ? { confidence } : {}),
         ...(suggestedTags.length ? { suggested_tags: suggestedTags } : {}),
         vaccinations
       }
@@ -1153,8 +1287,10 @@ export function buildExtractedDocumentData({ combinedText, suggestedType, pageRe
 
   if (effectiveSuggestedType === 'treatment') {
     const treatments = collectListRecords(pageResults, 'treatments', 'treatment_log')
+    const extractionQuality = evaluateExtractionQuality(effectiveSuggestedType, { treatments }, pageResults)
     return {
       ...extracted,
+      extraction_quality: extractionQuality,
       treatments,
       payload: {
         type: effectiveSuggestedType,
@@ -1162,21 +1298,26 @@ export function buildExtractedDocumentData({ combinedText, suggestedType, pageRe
         ...(documentDate ? { document_date: documentDate } : {}),
         ...(summary ? { summary } : {}),
         ...(animal ? { animal } : {}),
+        ...(confidence !== undefined ? { confidence } : {}),
         ...(suggestedTags.length ? { suggested_tags: suggestedTags } : {}),
         treatments
       }
     }
   }
 
+  const extractionQuality = evaluateExtractionQuality(effectiveSuggestedType, firstPage, pageResults)
+
   return {
     ...firstPage,
     ...extracted,
+    extraction_quality: extractionQuality,
     payload: {
       ...firstPage,
       ...(title ? { title } : {}),
       ...(documentDate ? { document_date: documentDate } : {}),
       ...(summary ? { summary } : {}),
       ...(animal ? { animal } : {}),
+      ...(confidence !== undefined ? { confidence } : {}),
       ...(suggestedTags.length ? { suggested_tags: suggestedTags } : {})
     }
   }
@@ -1186,7 +1327,6 @@ export function buildExtractedDocumentData({ combinedText, suggestedType, pageRe
 export async function classifyDocumentType(imagePath, userGeminiKey = null, userAnthropicKey = null, userOpenAiKey = null, priority = ['google', 'anthropic', 'openai'], language = 'de') {
   try {
     const normalizedLanguage = (language === 'en') ? 'en' : 'de'
-    // First pass: classify the document type
     for (const provider of priority) {
       if (provider === 'google' && userGeminiKey) {
         return await classifyWithGemini(imagePath, userGeminiKey, normalizedLanguage)
@@ -1313,19 +1453,6 @@ async function classifyWithOpenAI(imagePath, openAiKey, language = 'de') {
   const classified = normalizeDocumentType(text)
   _log.debug({ classified, language: normalizedLanguage }, 'Document classified')
   return classified
-}
-
-function parseTesseractText(text) {
-  const lower = text.toLowerCase()
-  const classified = normalizeDocumentType(
-    (lower.includes('impf') || lower.includes('vaccin')) ? 'vaccination' :
-    (lower.includes('stammbaum') || lower.includes('pedigree') || lower.includes('zucht')) ? 'pedigree' :
-    (lower.includes('hundeführerschein') || lower.includes('sachkundenachweis')) ? 'dog_certificate' :
-    (lower.includes('medikament') || lower.includes('tablette') || lower.includes('dosierung')) ? 'medical_product' :
-    (lower.includes('entwurmung') || lower.includes('wurmkur') || lower.includes('antiparasitär') || lower.includes('antiparasitaer') || lower.includes('behandlung') && lower.includes('tierarzt')) ? 'treatment' :
-    'general'
-  )
-  return { type: classified, rawText: text }
 }
 
 async function analyzeWithOpenAI(imagePath, openAiKey, model, onProgress, prompt = GEMINI_PROMPT, documentType = 'general') {

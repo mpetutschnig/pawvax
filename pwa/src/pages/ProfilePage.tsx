@@ -54,8 +54,8 @@ export default function ProfilePage() {
     try {
       const res = await getMe()
       setProfile(res.data)
-      setGeminiModel(res.data.gemini_model || 'gemini-3.1-flash-lite-preview')
-      setClaudeModel(res.data.claude_model || 'claude-haiku-4-5-20251001')
+      setGeminiModel(res.data.gemini_model || 'gemini-2.0-flash')
+      setClaudeModel(res.data.claude_model || 'claude-3-5-sonnet-20241022')
       setOpenaiModel(res.data.openai_model || 'gpt-4o-mini')
       
       try {
@@ -83,7 +83,7 @@ export default function ProfilePage() {
     setGeminiSuccess('')
     try {
       // Validate key
-      const validateRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview?key=${geminiToken}`)
+      const validateRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash?key=${geminiToken}`)
       if (!validateRes.ok) {
         throw new Error(t('profile.geminiInvalid'))
       }
@@ -572,7 +572,7 @@ export default function ProfilePage() {
             onChange={(e) => saveGeminiModel(e.target.value)}
             disabled={modelSaving}
           >
-            <option value="gemini-3.1-flash-lite-preview">Gemini 3.1 Flash-Lite (Standard)</option>
+            <option value="gemini-2.0-flash">Gemini 2.0 Flash (Standard)</option>
             <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
             <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
             <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
@@ -638,9 +638,9 @@ export default function ProfilePage() {
             onChange={(e) => saveClaudeModel(e.target.value)}
             disabled={modelSaving}
           >
-            <option value="claude-haiku-4-5-20251001">Claude Haiku (Standard)</option>
-            <option value="claude-sonnet-4-6">Claude Sonnet</option>
-            <option value="claude-opus-4-7">Claude Opus</option>
+            <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet (Standard)</option>
+            <option value="claude-3-5-haiku-20241022">Claude 3.5 Haiku</option>
+            <option value="claude-3-opus-20240229">Claude 3 Opus</option>
           </select>
         </div>
 
@@ -696,6 +696,7 @@ export default function ProfilePage() {
           >
             <option value="gpt-4o-mini">GPT-4o Mini (Standard)</option>
             <option value="gpt-4o">GPT-4o</option>
+            <option value="gpt-4.1-mini">GPT-4.1 Mini</option>
           </select>
         </div>
 

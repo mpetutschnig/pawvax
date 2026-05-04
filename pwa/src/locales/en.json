@@ -242,6 +242,7 @@
   "docScan.camera": "Take a photo",
   "docScan.file": "Upload file",
   "docScan.docType": "Document Type",
+  "docScan.docTypeAuto": "Detect automatically / unsure",
   "docScan.vaccination": "Vaccination",
   "docScan.medication": "Medication",
   "docScan.other": "Other",

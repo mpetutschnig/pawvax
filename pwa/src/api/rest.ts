@@ -55,7 +55,7 @@ export const activateTag = (tagId: string) =>
 export const getDocument = (id: string) => api.get(`/documents/${id}`)
 export const patchDocument = (id: string, data: object) => api.patch(`/documents/${id}`, data)
 export const deleteDocument = (id: string) => api.delete(`/documents/${id}`)
-export const reanalyzeDocument = (id: string, data: { provider?: string; model?: string } = {}) => api.post(`/documents/${id}/re-analyze`, data)
+export const reanalyzeDocument = (id: string, data: { provider?: string; model?: string; requestedDocumentType?: string; language?: string } = {}) => api.post(`/documents/${id}/re-analyze`, data)
 export const getDocumentHistory = (id: string) => api.get(`/documents/${id}/history`)
 
 // Sharing

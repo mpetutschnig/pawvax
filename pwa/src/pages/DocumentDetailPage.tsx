@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next'
 import { getDocument, deleteDocument, patchDocument, getAnimalDocuments, getMe, createReminder, reanalyzeDocument, getDocumentHistory } from '../api/rest'
 import { generateICS, downloadBlob } from '../utils/ics'
 import { normalizeVaccinationRecord } from '../utils/vaccination'
+import { DocumentAnalysisForm } from '../components/DocumentAnalysisForm'
+import { DEFAULT_AVAILABLE_MODELS, DEFAULT_MODEL_BY_PROVIDER, type RequestedDocumentType } from '../utils/documentAnalysis'
 import { PageHeader } from '../components/PageHeader'
 import { Shield, Pill, FileText, PawPrint, Landmark, Calendar, Download, Mail, Tag, Save, X, Edit2, Trash2, CheckCircle, Award, GraduationCap, ChevronLeft, ChevronRight, Bell, AlertTriangle } from 'lucide-react'
 import { TagCombobox } from '../components/TagCombobox'
@@ -38,7 +40,8 @@ export default function DocumentDetailPage() {
   const [showRetryModal, setShowRetryModal] = useState(false)
   const [analysisAction, setAnalysisAction] = useState<'retry' | 'reanalyze'>('retry')
   const [retryProvider, setRetryProvider] = useState('google')
-  const [retryModel, setRetryModel] = useState('gemini-3.1-flash-lite-preview')
+  const [retryModel, setRetryModel] = useState(DEFAULT_MODEL_BY_PROVIDER.google)
+  const [requestedDocumentType, setRequestedDocumentType] = useState<RequestedDocumentType>('auto')
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
 
   const [hasGemini, setHasGemini] = useState(false)
@@ -46,22 +49,7 @@ export default function DocumentDetailPage() {
   const [hasOpenai, setHasOpenai] = useState(false)
   const [hasSystemAi, setHasSystemAi] = useState(true)
   const hasAnyKey = hasGemini || hasAnthropic || hasOpenai || hasSystemAi
-  const [availableModels] = useState<any>({
-    google: [
-      { id: 'gemini-3.1-flash-lite-preview', name: 'Gemini 3.1 Flash-Lite' },
-      { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash' },
-      { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash' },
-      { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro' }
-    ],
-    anthropic: [
-      { id: 'claude-3-7-sonnet-20250219', name: 'Claude 3.7 Sonnet' },
-      { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet' }
-    ],
-    openai: [
-      { id: 'gpt-4o-mini', name: 'GPT-4o Mini' },
-      { id: 'gpt-4o', name: 'GPT-4o' }
-    ]
-  })
+  const [availableModels, setAvailableModels] = useState<any>(DEFAULT_AVAILABLE_MODELS)
 
   const docTypeConfig: Record<string, { label: string; icon: React.ReactNode }> = {
     vaccination: { label: t('animal.docTypeVaccination'), icon: <Shield size={20} /> },
@@ -105,14 +93,23 @@ export default function DocumentDetailPage() {
 
       if (res.data.has_gemini_token) {
         setRetryProvider('google')
-        setRetryModel('gemini-3.1-flash-lite-preview')
+        setRetryModel(DEFAULT_MODEL_BY_PROVIDER.google)
       } else if (res.data.has_anthropic_token) {
         setRetryProvider('anthropic')
-        setRetryModel('claude-3-5-sonnet-20241022')
+        setRetryModel(DEFAULT_MODEL_BY_PROVIDER.anthropic)
       } else if (res.data.has_openai_token) {
         setRetryProvider('openai')
-        setRetryModel('gpt-4o-mini')
+        setRetryModel(DEFAULT_MODEL_BY_PROVIDER.openai)
       }
+
+      fetch('/api/ai/models', { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } })
+        .then(r => r.json())
+        .then(data => setAvailableModels({
+          google: data.google || DEFAULT_AVAILABLE_MODELS.google,
+          anthropic: data.anthropic || DEFAULT_AVAILABLE_MODELS.anthropic,
+          openai: data.openai || DEFAULT_AVAILABLE_MODELS.openai
+        }))
+        .catch(console.error)
     }).catch(err => console.error(err))
   }, [])
 
@@ -285,7 +282,7 @@ export default function DocumentDetailPage() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         },
-        body: JSON.stringify({ provider: retryProvider, model: retryModel })
+        body: JSON.stringify({ provider: retryProvider, model: retryModel, requestedDocumentType, language: i18n.language || 'de' })
       })
       if (!res.ok) {
         const data = await res.json()
@@ -304,7 +301,7 @@ export default function DocumentDetailPage() {
     setSaving(true)
     setError(null)
     try {
-      await reanalyzeDocument(docId!, { provider: retryProvider, model: retryModel })
+      await reanalyzeDocument(docId!, { provider: retryProvider, model: retryModel, requestedDocumentType, language: i18n.language || 'de' })
       setShowRetryModal(false)
       await loadDocument()
     } catch (err: any) {
@@ -321,9 +318,9 @@ export default function DocumentDetailPage() {
 
   const handleProviderChange = (prov: string) => {
     setRetryProvider(prov)
-    if (prov === 'google') setRetryModel('gemini-3.1-flash-lite-preview')
-    else if (prov === 'anthropic') setRetryModel('claude-3-5-sonnet-20241022')
-    else if (prov === 'openai') setRetryModel('gpt-4o-mini')
+    if (prov === 'google') setRetryModel(DEFAULT_MODEL_BY_PROVIDER.google)
+    else if (prov === 'anthropic') setRetryModel(DEFAULT_MODEL_BY_PROVIDER.anthropic)
+    else if (prov === 'openai') setRetryModel(DEFAULT_MODEL_BY_PROVIDER.openai)
   }
 
   if (loading) return <div className="container page" style={{ display: 'flex', justifyContent: 'center', paddingTop: '4rem' }}><div className="spinner spinner-lg"></div></div>
@@ -343,63 +340,28 @@ export default function DocumentDetailPage() {
   // Eigener "Screen" für die Analyse, der die Detailansicht komplett überlagert
   if (showRetryModal) {
     return (
-      <div className="container page">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-6)', marginTop: 'var(--space-2)' }}>
-          <button className="btn btn-ghost" style={{ padding: '8px', margin: '-8px' }} onClick={() => { setShowRetryModal(false); setError(null); }}>
-            <X size={24} />
-          </button>
-          <h1 style={{ margin: 0, fontSize: 'var(--font-size-xl)' }}>{analysisAction === 'reanalyze' ? t('docDetail.reanalyze') : t('docDetail.aiAnalysis')}</h1>
-        </div>
-        
-        {error && <div className="error-card" style={{ marginBottom: 'var(--space-4)' }}><p>{error}</p></div>}
-
-        <div className="card animate-slide-up" style={{ borderColor: 'var(--primary-200)' }}>
-          <p className="text-muted" style={{ marginBottom: 'var(--space-4)' }}>
-            {t('docDetail.aiSelectProvider')}
-          </p>
-          
-          {!hasAnyKey ? (
-            <div className="error-card" style={{ marginBottom: 'var(--space-4)' }}>
-              <p style={{ margin: 0 }}>{t('docDetail.noProvidersConfigured')}</p>
-            </div>
-          ) : (
-            <>
-              <div className="form-group">
-                <label className="form-label">{t('docDetail.provider')}</label>
-                <select className="form-select" value={retryProvider} onChange={e => handleProviderChange(e.target.value)}>
-                  {(hasGemini || hasSystemAi) && <option value="google">Google Gemini</option>}
-                  {(hasAnthropic || hasSystemAi) && <option value="anthropic">Anthropic Claude</option>}
-                  {(hasOpenai || hasSystemAi) && <option value="openai">OpenAI</option>}
-                </select>
-              </div>
-              <div className="form-group">
-                <label className="form-label">{t('docDetail.model')}</label>
-                <select className="form-select" value={retryModel} onChange={e => setRetryModel(e.target.value)}>
-                  {retryProvider === 'google' && (
-                    availableModels.google.map((m: any) => <option key={m.id} value={m.id}>{m.name}</option>)
-                  )}
-                  {retryProvider === 'anthropic' && (
-                    availableModels.anthropic.map((m: any) => <option key={m.id} value={m.id}>{m.name}</option>)
-                  )}
-                  {retryProvider === 'openai' && (
-                    availableModels.openai.map((m: any) => <option key={m.id} value={m.id}>{m.name}</option>)
-                  )}
-                </select>
-              </div>
-            </>
-          )}
-          <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-6)' }}>
-            {hasAnyKey && (
-              <button className="btn btn-primary flex-1" onClick={analysisAction === 'reanalyze' ? handleReanalyze : handleRetryAnalysis} disabled={saving}>
-                {saving ? (analysisAction === 'reanalyze' ? t('docDetail.reanalyzing') : t('animal.retrying')) : (analysisAction === 'reanalyze' ? t('docDetail.reanalyze') : t('animal.analyzeBtn'))}
-              </button>
-            )}
-            <button className="btn btn-ghost flex-1" onClick={() => { setShowRetryModal(false); setError(null); }} disabled={saving}>
-              {t('docScan.saveForLater')}
-            </button>
-          </div>
-        </div>
-      </div>
+      <DocumentAnalysisForm
+        title={analysisAction === 'reanalyze' ? t('docDetail.reanalyze') : t('docDetail.aiAnalysis')}
+        description={t('docDetail.aiSelectProvider')}
+        errorMessage={error}
+        hasAnyKey={hasAnyKey}
+        hasGemini={hasGemini}
+        hasAnthropic={hasAnthropic}
+        hasOpenai={hasOpenai}
+        hasSystemAi={hasSystemAi}
+        retryProvider={retryProvider}
+        retryModel={retryModel}
+        requestedDocumentType={requestedDocumentType}
+        availableModels={availableModels}
+        submitLabel={analysisAction === 'reanalyze' ? t('docDetail.reanalyze') : t('animal.analyzeBtn')}
+        cancelLabel={t('docScan.saveForLater')}
+        isSubmitting={saving}
+        onProviderChange={handleProviderChange}
+        onModelChange={setRetryModel}
+        onRequestedDocumentTypeChange={setRequestedDocumentType}
+        onSubmit={analysisAction === 'reanalyze' ? handleReanalyze : handleRetryAnalysis}
+        onCancel={() => { setShowRetryModal(false); setError(null) }}
+      />
     )
   }
 

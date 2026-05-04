@@ -4,8 +4,10 @@ import { useTranslation } from 'react-i18next'
 import i18next from 'i18next'
 import { CheckCircle, AlertCircle, Syringe, FileText, BookOpen, Camera, RefreshCw, Plus, X } from 'lucide-react'
 import { PageHeader } from '../components/PageHeader'
+import { DocumentAnalysisForm } from '../components/DocumentAnalysisForm'
 import { uploadMultiPageDocument } from '../api/ws'
 import { patchDocument, getMe, patchMe } from '../api/rest'
+import { DEFAULT_AVAILABLE_MODELS, DEFAULT_MODEL_BY_PROVIDER, type RequestedDocumentType } from '../utils/documentAnalysis'
 
 type Phase = 'capture' | 'uploading' | 'analysing' | 'done' | 'error'
 
@@ -50,69 +52,87 @@ export default function DocumentScanPage() {
   const [showModelSelection, setShowModelSelection] = useState(false)
   const [savingModel, setSavingModel] = useState(false)
   const [retryProvider, setRetryProvider] = useState('google')
-  const [retryModel, setRetryModel] = useState('gemini-3.1-flash-lite-preview')
+  const [retryModel, setRetryModel] = useState(DEFAULT_MODEL_BY_PROVIDER.google)
+  const [requestedDocumentType, setRequestedDocumentType] = useState<RequestedDocumentType>('auto')
 
   const [hasGemini, setHasGemini] = useState(false)
   const [hasAnthropic, setHasAnthropic] = useState(false)
   const [hasOpenai, setHasOpenai] = useState(false)
   const [hasSystemAi, setHasSystemAi] = useState(true)
   const hasAnyKey = hasGemini || hasAnthropic || hasOpenai || hasSystemAi
-  const [availableModels] = useState<any>({
-    google: [
-      { id: 'gemini-3.1-flash-lite-preview', name: 'Gemini 3.1 Flash-Lite' },
-      { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash' },
-      { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash' },
-      { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro' }
-    ],
-    anthropic: [
-      { id: 'claude-3-7-sonnet-20250219', name: 'Claude 3.7 Sonnet' },
-      { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet' }
-    ],
-    openai: [
-      { id: 'gpt-4o-mini', name: 'GPT-4o Mini' },
-      { id: 'gpt-4o', name: 'GPT-4o' }
-    ]
-  })
+  const [availableModels, setAvailableModels] = useState<any>(DEFAULT_AVAILABLE_MODELS)
+  const docTypes = [
+    { id: 'vaccination', label: t('animal.docTypeVaccination'), icon: <Syringe size={16} /> },
+    { id: 'treatment', label: t('animal.docTypeTreatment'), icon: <BookOpen size={16} /> },
+    { id: 'medical_product', label: t('animal.docTypeMedicalProduct'), icon: <FileText size={16} /> },
+    { id: 'pet_passport', label: t('animal.docTypePetPassport'), icon: <Camera size={16} /> },
+    { id: 'pedigree', label: t('animal.docTypePedigree'), icon: <BookOpen size={16} /> },
+    { id: 'dog_certificate', label: t('animal.docTypeDogCertificate'), icon: <FileText size={16} /> },
+    { id: 'general', label: t('animal.docTypeGeneral'), icon: <FileText size={16} /> }
+  ]
 
   useEffect(() => {
     getMe().then(res => {
       setHasGemini(res.data.has_gemini_token)
       setHasAnthropic(res.data.has_anthropic_token)
       setHasOpenai(res.data.has_openai_token)
-      
+
       let prio = ['system', 'google', 'anthropic', 'openai']
       try { if (res.data.ai_provider_priority) prio = typeof res.data.ai_provider_priority === 'string' ? JSON.parse(res.data.ai_provider_priority) : res.data.ai_provider_priority } catch {}
       setHasSystemAi(prio.includes('system'))
 
       if (res.data.has_gemini_token) {
         setRetryProvider('google')
-        setRetryModel('gemini-3.1-flash-lite-preview')
+        setRetryModel(DEFAULT_MODEL_BY_PROVIDER.google)
       } else if (res.data.has_anthropic_token) {
         setRetryProvider('anthropic')
-        setRetryModel('claude-3-5-sonnet-20241022')
+        setRetryModel(DEFAULT_MODEL_BY_PROVIDER.anthropic)
       } else if (res.data.has_openai_token) {
         setRetryProvider('openai')
-        setRetryModel('gpt-4o-mini')
+        setRetryModel(DEFAULT_MODEL_BY_PROVIDER.openai)
       }
+
+      fetch('/api/ai/models', { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } })
+        .then(r => r.json())
+        .then(data => setAvailableModels({
+          google: data.google || DEFAULT_AVAILABLE_MODELS.google,
+          anthropic: data.anthropic || DEFAULT_AVAILABLE_MODELS.anthropic,
+          openai: data.openai || DEFAULT_AVAILABLE_MODELS.openai
+        }))
+        .catch(console.error)
     }).catch(err => console.error(err))
   }, [])
 
-  const docTypes = [
-    { id: 'vaccination', label: t('animal.docTypeVaccination'), icon: <Syringe size={14} /> },
-    { id: 'treatment', label: t('animal.docTypeTreatment'), icon: <FileText size={14} /> },
-    { id: 'pet_passport', label: t('animal.docTypePetPassport'), icon: <BookOpen size={14} /> },
-    { id: 'medical_product', label: t('animal.docTypeMedicalProduct'), icon: <FileText size={14} /> },
-    { id: 'pedigree', label: t('animal.docTypePedigree'), icon: <BookOpen size={14} /> },
-    { id: 'dog_certificate', label: t('animal.docTypeDogCertificate'), icon: <CheckCircle size={14} /> },
-    { id: 'general', label: t('animal.docTypeGeneral'), icon: <FileText size={14} /> },
-  ]
-
-  useEffect(() => {
-    if (phase !== 'analysing') return
-    const interval = setInterval(() => setElapsedTime(t => t + 1), 1000)
-    return () => clearInterval(interval)
-  }, [phase])
-
+  if (showModelSelection) {
+    return (
+      <DocumentAnalysisForm
+        title={t('docDetail.aiAnalysis')}
+        description={t('docDetail.aiSelectProvider')}
+        errorMessage={errorMsg}
+        hasAnyKey={hasAnyKey}
+        hasGemini={hasGemini}
+        hasAnthropic={hasAnthropic}
+        hasOpenai={hasOpenai}
+        hasSystemAi={hasSystemAi}
+        retryProvider={retryProvider}
+        retryModel={retryModel}
+        requestedDocumentType={requestedDocumentType}
+        availableModels={availableModels}
+        submitLabel={documentId ? t('animal.analyzeBtn') : t('docScan.uploadAndAnalyze')}
+        cancelLabel={documentId ? t('docScan.saveForLater') : t('common.cancel')}
+        isSubmitting={savingModel}
+        onProviderChange={handleProviderChange}
+        onModelChange={setRetryModel}
+        onRequestedDocumentTypeChange={setRequestedDocumentType}
+        onSubmit={documentId ? handleRetryAnalysisAPI : startUploadWithModel}
+        onCancel={() => {
+          setErrorMsg(null)
+          if (documentId) navigate(`/animals/${animalId}`)
+          else setShowModelSelection(false)
+        }}
+      />
+    )
+  }
   async function processImage(f: File): Promise<{ file: File; preview: string }> {
     return new Promise((resolve, reject) => {
       try {
@@ -222,14 +242,14 @@ export default function DocumentScanPage() {
     img.src = previews[currentPageIndex]
   }
 
-  const handleProviderChange = (prov: string) => {
+  function handleProviderChange(prov: string) {
     setRetryProvider(prov)
-    if (prov === 'google') setRetryModel('gemini-3.1-flash-lite-preview')
-    else if (prov === 'anthropic') setRetryModel('claude-3-5-sonnet-20241022')
-    else if (prov === 'openai') setRetryModel('gpt-4o-mini')
+    if (prov === 'google') setRetryModel(DEFAULT_MODEL_BY_PROVIDER.google)
+    else if (prov === 'anthropic') setRetryModel(DEFAULT_MODEL_BY_PROVIDER.anthropic)
+    else if (prov === 'openai') setRetryModel(DEFAULT_MODEL_BY_PROVIDER.openai)
   }
 
-  const startUploadWithModel = async () => {
+  async function startUploadWithModel() {
     setSavingModel(true)
     try {
       const updates: any = {}
@@ -254,7 +274,7 @@ export default function DocumentScanPage() {
     }
   }
 
-  const handleRetryAnalysisAPI = async () => {
+  async function handleRetryAnalysisAPI() {
     if (!documentId) return
     setSavingModel(true)
     setErrorMsg(null)
@@ -265,7 +285,7 @@ export default function DocumentScanPage() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         },
-        body: JSON.stringify({ provider: retryProvider, model: retryModel, language: i18next.language || 'de' })
+        body: JSON.stringify({ provider: retryProvider, model: retryModel, language: i18next.language || 'de', requestedDocumentType })
       })
       const data = await res.json().catch(() => ({}))
       setShowModelSelection(false)
@@ -333,89 +353,14 @@ export default function DocumentScanPage() {
         },
         metadata: { 
           allowedRoles,
-          language: i18next.language || 'de'
+          language: i18next.language || 'de',
+          requestedDocumentType
         }
       })
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Unbekannter Fehler')
       setPhase('error')
     }
-  }
-
-  // Eigener "Screen" für die Analyse
-  if (showModelSelection) {
-    return (
-      <div className="container page">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-6)', marginTop: 'var(--space-2)' }}>
-          <button className="btn-ghost" style={{ padding: '8px', margin: '-8px' }} onClick={() => { setShowModelSelection(false); setErrorMsg(null); }}>
-            <X size={24} />
-          </button>
-          <h1 style={{ margin: 0, fontSize: 'var(--font-size-xl)' }}>{t('docDetail.aiAnalysis')}</h1>
-        </div>
-        
-        {errorMsg && <div className="error-card" style={{ marginBottom: 'var(--space-4)' }}><p>{errorMsg}</p></div>}
-
-        <div className="card animate-slide-up" style={{ borderColor: 'var(--primary-200)' }}>
-          <p className="text-muted" style={{ marginBottom: 'var(--space-4)' }}>
-            {t('docDetail.aiSelectProvider')}
-          </p>
-          
-          {!hasAnyKey ? (
-            <div className="error-card" style={{ marginBottom: 'var(--space-4)' }}>
-              <p style={{ margin: 0 }}>{t('docDetail.noProvidersConfigured')}</p>
-            </div>
-          ) : (
-            <>
-              <div className="form-group">
-                <label className="form-label">{t('docDetail.provider')}</label>
-                <select className="form-select" value={retryProvider} onChange={e => handleProviderChange(e.target.value)}>
-                  {(hasGemini || hasSystemAi) && <option value="google">Google Gemini</option>}
-                  {(hasAnthropic || hasSystemAi) && <option value="anthropic">Anthropic Claude</option>}
-                  {(hasOpenai || hasSystemAi) && <option value="openai">OpenAI</option>}
-                </select>
-              </div>
-              <div className="form-group">
-                <label className="form-label">{t('docDetail.model')}</label>
-                <select className="form-select" value={retryModel} onChange={e => setRetryModel(e.target.value)}>
-                  {retryProvider === 'google' && (
-                    availableModels.google.map((m: any) => <option key={m.id} value={m.id}>{m.name}</option>)
-                  )}
-                  {retryProvider === 'anthropic' && (
-                    availableModels.anthropic.map((m: any) => <option key={m.id} value={m.id}>{m.name}</option>)
-                  )}
-                  {retryProvider === 'openai' && (
-                    availableModels.openai.map((m: any) => <option key={m.id} value={m.id}>{m.name}</option>)
-                  )}
-                </select>
-              </div>
-            </>
-          )}
-          <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-6)' }}>
-            {hasAnyKey ? (
-              <>
-                <button className="btn btn-primary flex-1" onClick={documentId ? handleRetryAnalysisAPI : startUploadWithModel} disabled={savingModel}>
-                  {savingModel ? t('animal.retrying') : (documentId ? t('animal.analyzeBtn') : t('docScan.uploadAndAnalyze'))}
-                </button>
-                <button className="btn btn-ghost flex-1" onClick={() => documentId ? navigate(`/animals/${animalId}`) : setShowModelSelection(false)} disabled={savingModel}>
-                  {documentId ? t('docScan.saveForLater') : t('common.cancel')}
-                </button>
-              </>
-            ) : (
-              <>
-                {!documentId && (
-                  <button className="btn btn-primary flex-1" onClick={handleUpload} disabled={savingModel}>
-                    {t('docScan.upload')}
-                  </button>
-                )}
-                <button className="btn btn-ghost flex-1" onClick={() => documentId ? navigate(`/animals/${animalId}`) : setShowModelSelection(false)} disabled={savingModel}>
-                  {documentId ? t('docScan.saveForLater') : t('common.cancel')}
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-    )
   }
 
   return (

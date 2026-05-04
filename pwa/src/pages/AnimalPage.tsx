@@ -3,9 +3,11 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { getAnimal, getAnimalDocuments, getAnimalTags, updateAnimal, deleteAnimal, uploadAnimalAvatar, deleteDocument, getMe } from '../api/rest'
 import { PageHeader } from '../components/PageHeader' 
+import { DocumentAnalysisForm } from '../components/DocumentAnalysisForm'
 import { PawPrint, Cat, Edit2, Trash2, Camera, Search, Radio, ShieldAlert, AlertTriangle, RefreshCw, X, Syringe, FileText, CheckCircle, ArrowDownAZ, ArrowUpAZ, SlidersHorizontal, ArrowRightLeft, Share2 } from 'lucide-react'
 import { AnimalDTO } from '../types/animal'
 import { normalizeVaccinationRecord } from '../utils/vaccination'
+import { DEFAULT_AVAILABLE_MODELS, DEFAULT_MODEL_BY_PROVIDER, type RequestedDocumentType } from '../utils/documentAnalysis'
 interface AnimalTag {
   tag_id: string; tag_type: string; active: number; added_at: string
 }
@@ -67,7 +69,8 @@ export default function AnimalPage() {
   const [showRetryModal, setShowRetryModal] = useState(false)
   const [retryDocId, setRetryDocId] = useState<string | null>(null)
   const [retryProvider, setRetryProvider] = useState('google')
-  const [retryModel, setRetryModel] = useState('gemini-3.1-flash-lite-preview')
+  const [retryModel, setRetryModel] = useState(DEFAULT_MODEL_BY_PROVIDER.google)
+  const [requestedDocumentType, setRequestedDocumentType] = useState<RequestedDocumentType>('auto')
   const [hasGemini, setHasGemini] = useState(false)
   const [hasAnthropic, setHasAnthropic] = useState(false)
   const [hasOpenai, setHasOpenai] = useState(false)
@@ -75,22 +78,7 @@ export default function AnimalPage() {
   const [showArchiveDialog, setShowArchiveDialog] = useState(false)
   const [archiveReason, setArchiveReason] = useState<'verstorben' | 'verloren' | 'verkauft' | 'abgegeben' | 'sonstiges' | ''>('')
   const hasAnyKey = hasGemini || hasAnthropic || hasOpenai || hasSystemAi
-  const [availableModels, setAvailableModels] = useState<any>({
-    google: [
-      { id: 'gemini-3.1-flash-lite-preview', name: 'Gemini 3.1 Flash-Lite' },
-      { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash' },
-      { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash' },
-      { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro' }
-    ],
-    anthropic: [
-      { id: 'claude-3-7-sonnet-20250219', name: 'Claude 3.7 Sonnet' },
-      { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet' }
-    ],
-    openai: [
-      { id: 'gpt-4o-mini', name: 'GPT-4o Mini' },
-      { id: 'gpt-4o', name: 'GPT-4o' }
-    ]
-  })
+  const [availableModels, setAvailableModels] = useState<any>(DEFAULT_AVAILABLE_MODELS)
 
   useEffect(() => {
     getMe().then(res => {
@@ -102,9 +90,9 @@ export default function AnimalPage() {
       try { if (res.data.ai_provider_priority) prio = typeof res.data.ai_provider_priority === 'string' ? JSON.parse(res.data.ai_provider_priority) : res.data.ai_provider_priority } catch {}
       setHasSystemAi(prio.includes('system'))
 
-      if (res.data.has_gemini_token) { setRetryProvider('google'); setRetryModel('gemini-3.1-flash-lite-preview') }
-      else if (res.data.has_anthropic_token) { setRetryProvider('anthropic'); setRetryModel('claude-3-5-sonnet-20241022') }
-      else if (res.data.has_openai_token) { setRetryProvider('openai'); setRetryModel('gpt-4o-mini') }
+      if (res.data.has_gemini_token) { setRetryProvider('google'); setRetryModel(DEFAULT_MODEL_BY_PROVIDER.google) }
+      else if (res.data.has_anthropic_token) { setRetryProvider('anthropic'); setRetryModel(DEFAULT_MODEL_BY_PROVIDER.anthropic) }
+      else if (res.data.has_openai_token) { setRetryProvider('openai'); setRetryModel(DEFAULT_MODEL_BY_PROVIDER.openai) }
 
       fetch('/api/ai/models', { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } })
         .then(r => r.json())
@@ -120,9 +108,9 @@ export default function AnimalPage() {
 
   const handleProviderChange = (prov: string) => {
     setRetryProvider(prov)
-    if (prov === 'google') setRetryModel('gemini-3.1-flash-lite-preview')
-    else if (prov === 'anthropic') setRetryModel('claude-3-5-sonnet-20241022')
-    else if (prov === 'openai') setRetryModel('gpt-4o-mini')
+    if (prov === 'google') setRetryModel(DEFAULT_MODEL_BY_PROVIDER.google)
+    else if (prov === 'anthropic') setRetryModel(DEFAULT_MODEL_BY_PROVIDER.anthropic)
+    else if (prov === 'openai') setRetryModel(DEFAULT_MODEL_BY_PROVIDER.openai)
   }
 
   const handleRetryAnalysisAPI = async () => {
@@ -137,7 +125,7 @@ export default function AnimalPage() {
       const res = await fetch(`/api/documents/${retryDocId}/retry-analysis`, { 
         method: 'POST', 
         headers,
-        body: JSON.stringify({ provider: retryProvider, model: retryModel })
+        body: JSON.stringify({ provider: retryProvider, model: retryModel, requestedDocumentType, language: i18n.language || 'de' })
       })
 
       if (!res.ok) {
@@ -431,56 +419,28 @@ export default function AnimalPage() {
 
   if (showRetryModal) {
     return (
-      <div className="container page">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-6)', marginTop: 'var(--space-2)' }}>
-          <button className="btn-ghost" style={{ padding: '8px', margin: '-8px' }} onClick={() => { setShowRetryModal(false); setError(null); }}>
-            <X size={24} />
-          </button>
-          <h1 style={{ margin: 0, fontSize: 'var(--font-size-xl)' }}>{t('docDetail.aiAnalysis')}</h1>
-        </div>
-        
-        {error && <div className="error-card" style={{ marginBottom: 'var(--space-4)' }}><p>{error}</p></div>}
-
-        <div className="card animate-slide-up" style={{ borderColor: 'var(--primary-200)' }}>
-          <p className="text-muted" style={{ marginBottom: 'var(--space-4)' }}>{t('docDetail.aiSelectProvider')}</p>
-          {!hasAnyKey ? (
-            <div className="error-card" style={{ marginBottom: 'var(--space-4)' }}><p style={{ margin: 0 }}>{t('docDetail.noProvidersConfigured')}</p></div>
-          ) : (
-            <>
-              <div className="form-group">
-                <label className="form-label">{t('docDetail.provider')}</label>
-                <select className="form-select" value={retryProvider} onChange={e => handleProviderChange(e.target.value)}>
-                  {(hasGemini || hasSystemAi) && <option value="google">Google Gemini</option>}
-                  {(hasAnthropic || hasSystemAi) && <option value="anthropic">Anthropic Claude</option>}
-                  {(hasOpenai || hasSystemAi) && <option value="openai">OpenAI</option>}
-                </select>
-              </div>
-              <div className="form-group">
-                <label className="form-label">{t('docDetail.model')}</label>
-                <select className="form-select" value={retryModel} onChange={e => setRetryModel(e.target.value)}>
-                  {retryProvider === 'google' && (
-                    availableModels.google.map((m: any) => <option key={m.id} value={m.id}>{m.name}</option>)
-                  )}
-                  {retryProvider === 'anthropic' && (
-                    availableModels.anthropic.map((m: any) => <option key={m.id} value={m.id}>{m.name}</option>)
-                  )}
-                  {retryProvider === 'openai' && (
-                    availableModels.openai.map((m: any) => <option key={m.id} value={m.id}>{m.name}</option>)
-                  )}
-                </select>
-              </div>
-            </>
-          )}
-          <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-6)' }}>
-            {hasAnyKey && (
-              <button className="btn btn-primary flex-1" onClick={handleRetryAnalysisAPI} disabled={retrying !== null}>
-                {retrying !== null ? t('animal.retrying') : t('animal.analyzeBtn')}
-              </button>
-            )}
-            <button className="btn btn-ghost flex-1" onClick={() => { setShowRetryModal(false); setError(null); }} disabled={retrying !== null}>{t('common.cancel')}</button>
-          </div>
-        </div>
-      </div>
+      <DocumentAnalysisForm
+        title={t('docDetail.aiAnalysis')}
+        description={t('docDetail.aiSelectProvider')}
+        errorMessage={error}
+        hasAnyKey={hasAnyKey}
+        hasGemini={hasGemini}
+        hasAnthropic={hasAnthropic}
+        hasOpenai={hasOpenai}
+        hasSystemAi={hasSystemAi}
+        retryProvider={retryProvider}
+        retryModel={retryModel}
+        requestedDocumentType={requestedDocumentType}
+        availableModels={availableModels}
+        submitLabel={t('animal.analyzeBtn')}
+        cancelLabel={t('common.cancel')}
+        isSubmitting={retrying !== null}
+        onProviderChange={handleProviderChange}
+        onModelChange={setRetryModel}
+        onRequestedDocumentTypeChange={setRequestedDocumentType}
+        onSubmit={handleRetryAnalysisAPI}
+        onCancel={() => { setShowRetryModal(false); setError(null) }}
+      />
     )
   }
 

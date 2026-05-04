@@ -249,6 +249,7 @@
   "docScan.camera": "Mit Kamera fotografieren",
   "docScan.file": "Datei hochladen",
   "docScan.docType": "Dokumenttyp",
+  "docScan.docTypeAuto": "Automatisch erkennen / unsicher",
   "docScan.vaccination": "Impfung",
   "docScan.medication": "Medikament",
   "docScan.other": "Sonstiges",
