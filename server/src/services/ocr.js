@@ -44,68 +44,115 @@ Antworte NUR mit dem Dokumenttyp (z.B. "vaccination"), KEINE anderen Worte.
 // Type-specific extraction prompts
 const PROMPTS_BY_TYPE = {
   vaccination: `
-Du bist ein Veterinär-Dokumentenanalyst. Analysiere diesen Impfpass gründlich und extrahiere JEDEN Impfeintrag einzeln.
+Du bist ein Veterinär-Dokumentenanalyst. Analysiere diesen Impfpass gründlich und extrahiere JEDEN Impfeintrag als separates Objekt.
 
 KRITISCHE REGELN:
-1. EINE TABELLENZEILE = EIN OBJEKT in vaccinations[]
-2. Wenn 5 Impfungen auf der Seite stehen, dann 5 separate Objekte (nicht 1 pro Seite!)
-3. ALLE Datumsangaben MÜSSEN YYYY-MM-DD Format sein (z.B. "06.09.2021" → "2021-09-06", "09. NOV. 2021" → "2021-11-09")
-4. Extrahiere für JEDEN Eintrag:
-   - vaccine_name (Impfstoff-Name, z.B. "Tollwut", "DHLPPi", "Staupe+Parvo")
-   - administration_date (Impfdatum, YYYY-MM-DD)
-   - valid_until (Gültig bis / Gültigkeitsdauer, YYYY-MM-DD) — oder null wenn nicht lesbar
-   - batch_number (Chargennummer / LOT)
-   - manufacturer (Hersteller, z.B. "MSD", "Boehringer", "Virbac")
-   - active_substances (Array: ["Staupevirus", "Parvovirus", ...]) — oder Wirkstoffgruppe falls einzeln nicht lesbar
-   - vet_name (Name des Tierarztes vom Stempel/Unterschrift)
-   - target_disease (Zielkrankheit, z.B. "Staupe, Parvo, Leptospirose")
-5. Tierinfos: name, species (dog/cat/other), breed, birthdate (YYYY-MM-DD)
-6. document_date = frühestes oder Hauptimpfdatum
-7. Tags basierend auf Impfstoffen: ["Tollwut", "DHLPPi", "Staupe", "Parvo", "Leptospirose", "Zwingerhusten"]
+1. OUTPUT: Ein JSON-Objekt mit EINEM Array von Impfeinträgen in der "vaccinations" Property
+2. Wenn 5 Impfungen auf der Seite stehen, dann 5 separate Objekte im vaccinations[] Array
+3. Für JEDEN Impfeintrag extrahieren (deutsche Feldnamen, Daten in YYYY-MM-DD):
+   - datum: Impfdatum in Format YYYY-MM-DD (z.B. "2021-09-06", "2021-10-05")
+     * Konvertiere: "06.09.2021" → "2021-09-06", "5.10.2021" → "2021-10-05"
+   - impfstoff: Vollständiger Name des Impfstoffs (z.B. "Nobivac SHPPI", "Eurican DAPPI-Lmulti", "Virbagen canis SHAPPi/L")
+   - hersteller: Vollständiger Herstellername (z.B. "MSD Animal Health", "Boehringer Ingelheim", "Virbac")
+   - charge_lot: Chargennummer / LOT-Nummer (z.B. "A628B01", "L482640", "8KMF")
+   - gueltig_bis: Gültig bis Datum in Format YYYY-MM-DD (z.B. "2022-11-30" für "11-2022", "2022-08-06" für "08/06/2022")
+     * Wenn nur MM-YYYY: interpretiere als letzter Tag des Monats (z.B. "11-2022" → "2022-11-30")
+     * Konvertiere alle Formate zu YYYY-MM-DD
+   - wirkstoffe: Array mit DETAILLIERTEN und deutschen Wirkstoffdescriptionen 
+     * Mit Abkürzungen in Klammern: ["Staupevirus (CDV)", "Canines Adenovirus Typ 2 (CAV2)", "Canines Parvovirus (CPV)"]
+     * Bei Kombinationen: Alle einzelnen Komponenten auflisten ODER vereinfachte Form wenn zu komplex
+     * Beispiel: ["Leptospira interrogans (Canicola, Icterohaemorrhagiae, Grippotyphosa)"]
+   - tierarzt: Name und Adresse des Tierarztes (z.B. "Mag. med. vet. Klaus FISCHL, 7563 Königsdorf")
+   - status: Optional - nur wenn explizit angegeben (z.B. "Vorgemerkt", "Gültig", "Abgelaufen") — sonst NICHT in den Eintrag
+
+4. Zusätzlich im Hauptobjekt:
+   - type: "vaccination"
+   - title: Kurzer Titel (z.B. "Impfpass für Max")
+   - document_date: Erstes/Hauptimpfdatum in YYYY-MM-DD Format
+   - summary: 1-2 Sätze zusammenfassung
+   - animal: Objekt mit name, species (dog/cat/other), breed, birthdate (YYYY-MM-DD) — oder null wenn nicht lesbar
 
 DATEN-NORMALISIERUNG:
-- Alle Daten müssen YYYY-MM-DD sein
-- Beispiel: "06. 09. 2021" → "2021-09-06", "Sept. 25, 2023" → "2023-09-25"
+- ALLE Daten MÜSSEN im YYYY-MM-DD Format sein
+- Beispiele:
+  * "06.09.2021" → "2021-09-06"
+  * "5.10.2021" → "2021-10-05"
+  * "11-2022" → "2022-11-30" (letzter Tag des Monats)
+  * "08/06/2022" → "2022-08-06"
 - Unlesbare/fehlende Daten → null (NICHT "n.a." oder "")
+- Whitespace trimmen
 
-BEISPIEL STRUKTUR:
+AUSGABE-FORMAT (WICHTIG):
+- Gib ein JSON-Objekt mit diesen Properties zurück:
+  {
+    "type": "vaccination",
+    "title": "...",
+    "document_date": "YYYY-MM-DD",
+    "summary": "...",
+    "animal": { "name": "...", "species": "...", "breed": "...", "birthdate": "YYYY-MM-DD" },
+    "vaccinations": [ { IMPFEINTRAG }, { IMPFEINTRAG }, ... ],
+    "suggested_tags": ["tag1", "tag2", ...]
+  }
+
+BEISPIEL STRUKTUR (GENAU DIESES FORMAT):
 {
   "type": "vaccination",
-  "title": "Impfpass - Max (DHLPPi + Tollwut)",
+  "title": "Impfpass für Max",
   "document_date": "2021-09-06",
-  "summary": "Kompletter Impfpass mit 5 Einträgen",
-  "animal": { 
-    "name": "Max", 
-    "species": "dog", 
-    "breed": "Labrador Retriever", 
-    "birthdate": "2019-03-15" 
+  "summary": "Kompletter Impfpass mit 9 Einträgen von 2021-2025",
+  "animal": {
+    "name": "Max",
+    "species": "dog",
+    "breed": "Labrador Retriever",
+    "birthdate": "2019-03-15"
   },
   "vaccinations": [
     {
-      "vaccine_name": "DHLPPi (Hexadog)",
-      "administration_date": "2021-09-06",
-      "valid_until": "2024-09-06",
-      "batch_number": "ABC12345",
-      "manufacturer": "Boehringer Ingelheim",
-      "active_substances": ["Canine Distemper", "Canine Adenovirus", "Canine Parvovirus"],
-      "vet_name": "Dr. Schmidt",
-      "target_disease": "Staupe, Hepatitis, Leptospirose, Parvovirose, Parainfluenza"
+      "datum": "2021-09-06",
+      "impfstoff": "Nobivac SHPPI",
+      "hersteller": "MSD Animal Health",
+      "charge_lot": "A628B01",
+      "gueltig_bis": "2022-11-30",
+      "wirkstoffe": [
+        "Staupevirus (CDV)",
+        "Canines Adenovirus Typ 2 (CAV2)",
+        "Canines Parvovirus (CPV)",
+        "Canines Parainfluenzavirus (CPiV)"
+      ],
+      "tierarzt": "Mag. med. vet. Klaus FISCHL, 7563 Königsdorf"
     },
     {
-      "vaccine_name": "Tollwut",
-      "administration_date": "2021-09-06",
-      "valid_until": "2024-09-06",
-      "batch_number": "XYZ99999",
-      "manufacturer": "MSD",
-      "active_substances": ["Tollwutvirus"],
-      "vet_name": "Dr. Schmidt",
-      "target_disease": "Tollwut"
+      "datum": "2021-10-05",
+      "impfstoff": "Eurican DAPPI-Lmulti",
+      "hersteller": "Boehringer Ingelheim",
+      "charge_lot": "L482640",
+      "gueltig_bis": "2022-08-06",
+      "wirkstoffe": [
+        "Staupevirus (CDV)",
+        "Canines Adenovirus Typ 2 (CAV2)",
+        "Canines Parvovirus Typ 2 (CPV)",
+        "Canines Parainfluenzavirus (CPiV)",
+        "Leptospira interrogans (Canicola, Icterohaemorrhagiae, Grippotyphosa)"
+      ],
+      "tierarzt": "Dr. med. vet. Angela Wulschnig, 9546 Bad Kleinkirchheim"
+    },
+    {
+      "datum": "2025-12-02",
+      "impfstoff": "Eurican L4",
+      "hersteller": "Boehringer Ingelheim",
+      "charge_lot": "H09350",
+      "gueltig_bis": "2026-10-29",
+      "wirkstoffe": [
+        "Leptospira interrogans (Canicola, Icterohaemorrhagiae, Grippotyphosa, Australis)"
+      ],
+      "tierarzt": "Dr. med. vet. Angela Wulschnig, 9546 Bad Kleinkirchheim",
+      "status": "Vorgemerkt"
     }
   ],
-  "suggested_tags": ["DHLPPi", "Tollwut", "Boehringer", "2021-09-06"]
+  "suggested_tags": ["Impfpass", "Staupe", "Parvo", "Tollwut", "Leptospirose"]
 }
 
-Gib NUR gültiges JSON aus (keine Erklärungen, keine Markdown-Code-Blöcke).
+Gib NUR gültiges JSON aus (keine Erklärungen, keine Markdown-Code-Blöcke, kein Text davor/danach).
 `.trim(),
 
   treatment: `
@@ -342,7 +389,7 @@ function normalizeDateFields(obj) {
   }
   
   const dateFieldNames = [
-    'date', 'administration_date', 'administered_at', 'valid_until', 'gueltig_bis',
+    'date', 'datum', 'administration_date', 'administered_at', 'valid_until', 'gueltig_bis',
     'document_date', 'birthdate', 'nextDue', 'next_due', 'expires_at', 'expiry_date',
     'next_due_at'
   ]
@@ -679,6 +726,10 @@ function uniqueStrings(values = []) {
 
 function collectListRecords(pageResults, primaryKey, fallbackKey = primaryKey) {
   return pageResults.flatMap((page) => {
+    // Handle case where page itself is an array (new direct array format)
+    if (Array.isArray(page)) {
+      return page
+    }
     const payload = page?.payload || {}
     return payload[primaryKey] || page?.[primaryKey] || payload[fallbackKey] || page?.[fallbackKey] || []
   })
