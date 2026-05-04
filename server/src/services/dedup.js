@@ -61,13 +61,15 @@ export function flagDuplicates(db, animalId, currentDocId, docType, pageResults)
     for (const doc of existingDocs) {
       let ej
       try { ej = typeof doc.extracted_json === 'string' ? JSON.parse(doc.extracted_json) : doc.extracted_json } catch { continue }
-      // Support both new schema (payload.vaccinations) and legacy (vaccinations)
-      const recordKey = docType === 'vaccination' ? 'vaccinations' : 'treatments'
-      const records = (ej?.payload?.[docType === 'vaccination' ? 'vaccinations' : 'treatment_log']) ||
-                      ej?.[recordKey] || []
-      for (const rec of records) {
-        if (rec._record_hash && !rec._duplicate) {
-          existingHashes.set(rec._record_hash, doc.id)
+      // Records are stored inside page_results[i].vaccinations / .treatments
+      for (const page of (ej?.page_results || [])) {
+        const recs = (docType === 'vaccination'
+          ? (page?.vaccinations || page?.payload?.vaccinations || [])
+          : (page?.treatments || page?.treatment_log || page?.payload?.treatment_log || []))
+        for (const rec of recs) {
+          if (rec._record_hash && !rec._duplicate) {
+            existingHashes.set(rec._record_hash, doc.id)
+          }
         }
       }
     }

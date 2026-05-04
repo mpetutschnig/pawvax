@@ -103,3 +103,11 @@ su -s /bin/bash paw-api -c "sqlite3 /home/paw-api/data/paw.db \
   \"DELETE FROM accounts WHERE email LIKE 'test%@example.com' OR email LIKE 'journey%@test.com';\""
 echo "Test-Accounts bereinigt."
 ```
+
+```bash
+su -s /bin/bash paw-api -c "sqlite3 /home/paw-api/data/paw.db \
+  \"DELETE FROM accounts WHERE email LIKE 'reminder-%@example.com' OR email LIKE 'reminder-other%@example.com';\""
+su -s /bin/bash paw-api -c "sqlite3 /home/paw-api/data/paw.db \
+  \"DELETE FROM accounts WHERE email = 'dedup@example.com';\""
+echo "Test-Accounts (Suiten 12-13) bereinigt."
+```

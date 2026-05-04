@@ -17,6 +17,7 @@ import { v4 as uuid } from 'uuid'
 import Database from 'better-sqlite3'
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { computeRecordHash, flagDuplicates } from '../src/services/dedup.js'
 
 const API_URL = process.env.API_URL || 'http://localhost:3000/api'
 
@@ -1498,6 +1499,144 @@ describe('Suite 12: Reminders', () => {
   test('12k. GET /reminders — Unauthenticated gives 401', async () => {
     const { status } = await apiCallWithToken(null, 'GET', '/reminders')
     expect(status).toBe(401)
+  })
+})
+
+
+
+
+// ════════════════════════════════════════════════════════════════
+// 13. CONTENT-HASH DEDUPLICATION
+// Tests computeRecordHash and flagDuplicates logic directly via DB
+// ════════════════════════════════════════════════════════════════
+
+describe('Suite 13: Content-Hash Deduplication', () => {
+  let db13
+  let animalId13
+
+  beforeAll(async () => {
+    db13 = new Database(process.env.DB_PATH)
+    // Create a user + animal directly in DB for isolation
+    const accountId = `dedup-acct-${Date.now()}`
+    db13.prepare(`INSERT INTO accounts (id, name, email, password_hash, role, created_at) VALUES (?, 'Dedup Tester', 'dedup@example.com', 'x', 'user', datetime('now'))`).run(accountId)
+    const animalRow = db13.prepare(`INSERT INTO animals (id, account_id, name, species, created_at) VALUES (?, ?, 'Dedup-Hund', 'dog', datetime('now'))`).run(`dedup-animal-${Date.now()}`, accountId)
+    // Fetch the inserted animal id
+    animalId13 = db13.prepare(`SELECT id FROM animals WHERE account_id = ?`).get(accountId)?.id
+  })
+
+  afterAll(() => {
+    db13?.close()
+  })
+
+  // ── Unit: computeRecordHash ────────────────────────────────────
+
+  test('13a. computeRecordHash — vaccination hash is deterministic and 16 chars', () => {
+    const rec = { batch_number: 'B-123', vaccine_name: 'Nobivac Tollwut', administration_date: '2025-06-01' }
+    const h1 = computeRecordHash('vaccination', rec)
+    const h2 = computeRecordHash('vaccination', rec)
+    expect(h1).toBe(h2)
+    expect(h1).toHaveLength(16)
+    expect(/^[0-9a-f]+$/.test(h1)).toBe(true)
+  })
+
+  test('13b. computeRecordHash — different batch numbers produce different hashes', () => {
+    const r1 = { batch_number: 'B-001', vaccine_name: 'Nobivac', administration_date: '2025-06-01' }
+    const r2 = { batch_number: 'B-002', vaccine_name: 'Nobivac', administration_date: '2025-06-01' }
+    expect(computeRecordHash('vaccination', r1)).not.toBe(computeRecordHash('vaccination', r2))
+  })
+
+  test('13c. computeRecordHash — singleton uses title + document_date + issuer', () => {
+    const rec = { title: 'Stammbaum', document_date: '2024-01-01', issuer: 'ÖHZB' }
+    const h = computeRecordHash('pedigree', rec)
+    expect(h).toHaveLength(16)
+    // Field order must not matter
+    const h2 = computeRecordHash('pedigree', { issuer: 'ÖHZB', title: 'Stammbaum', document_date: '2024-01-01' })
+    expect(h).toBe(h2)
+  })
+
+  test('13d. computeRecordHash — treatment hash uses substance + administered_at', () => {
+    const rec = { substance: 'Frontline', administered_at: '2025-03-15' }
+    const h = computeRecordHash('treatment', rec)
+    expect(h).toHaveLength(16)
+    // Synonym field should match
+    const h2 = computeRecordHash('treatment', { treatment: 'Frontline', date: '2025-03-15' })
+    expect(h).toBe(h2)
+  })
+
+  // ── Integration: flagDuplicates via real DB ────────────────────
+
+  test('13e. flagDuplicates — first doc stamps _record_hash, no _duplicate flag', () => {
+    if (!animalId13) return
+    const docId1 = `dedup-doc1-${Date.now()}`
+    const pageResults = [{ vaccinations: [{ batch_number: 'B-X01', vaccine_name: 'Eurifel', administration_date: '2025-01-10' }] }]
+
+    // Call flagDuplicates with no prior docs → should stamp hash but NOT mark as duplicate
+    flagDuplicates(db13, animalId13, docId1, 'vaccination', pageResults)
+
+    const rec = pageResults[0].vaccinations[0]
+    expect(rec._record_hash).toBeTruthy()
+    expect(rec._record_hash).toHaveLength(16)
+    expect(rec._duplicate).toBeUndefined()
+    expect(rec._source_document_id).toBeUndefined()
+
+    // Persist doc1 in DB so doc2 can find it
+    db13.prepare(`INSERT INTO documents (id, animal_id, doc_type, image_path, analysis_status, extracted_json, created_at)
+      VALUES (?, ?, 'vaccination', ?, 'completed', ?, datetime('now'))`)
+      .run(docId1, animalId13, 'dedup-doc1.jpg', JSON.stringify({ page_results: pageResults }))
+  })
+
+  test('13f. flagDuplicates — second doc with identical record is flagged as duplicate', () => {
+    if (!animalId13) return
+    const docId1 = db13.prepare(`SELECT id FROM documents WHERE animal_id = ? AND analysis_status = 'completed' LIMIT 1`).get(animalId13)?.id
+    if (!docId1) return
+
+    const docId2 = `dedup-doc2-${Date.now()}`
+    const pageResults2 = [{ vaccinations: [{ batch_number: 'B-X01', vaccine_name: 'Eurifel', administration_date: '2025-01-10' }] }]
+
+    flagDuplicates(db13, animalId13, docId2, 'vaccination', pageResults2)
+
+    const rec = pageResults2[0].vaccinations[0]
+    expect(rec._record_hash).toBeTruthy()
+    expect(rec._duplicate).toBe(true)
+    expect(rec._source_document_id).toBe(docId1)
+  })
+
+  test('13g. flagDuplicates — partial overlap: only matching records flagged', () => {
+    if (!animalId13) return
+    const docId3 = `dedup-doc3-${Date.now()}`
+    const pageResults3 = [{
+      vaccinations: [
+        { batch_number: 'B-X01', vaccine_name: 'Eurifel', administration_date: '2025-01-10' }, // duplicate
+        { batch_number: 'B-NEW', vaccine_name: 'Rabipur', administration_date: '2026-01-01' }  // new
+      ]
+    }]
+
+    flagDuplicates(db13, animalId13, docId3, 'vaccination', pageResults3)
+
+    const vacs = pageResults3[0].vaccinations
+    expect(vacs[0]._duplicate).toBe(true)   // B-X01 is a duplicate
+    expect(vacs[1]._duplicate).toBeUndefined() // B-NEW is unique
+    expect(vacs[1]._record_hash).toBeTruthy()  // still gets a hash
+  })
+
+  test('13h. flagDuplicates — singleton type: second identical doc page is flagged', () => {
+    if (!animalId13) return
+    const docId4 = `dedup-doc4-${Date.now()}`
+    const existingPage = { title: 'Stammbaum', document_date: '2023-05-01', issuer: 'ÖHZB' }
+    // Stamp and persist first singleton doc
+    const pageResults4a = [{ ...existingPage }]
+    flagDuplicates(db13, animalId13, docId4, 'pedigree', pageResults4a)
+    db13.prepare(`INSERT INTO documents (id, animal_id, doc_type, image_path, analysis_status, extracted_json, created_at)
+      VALUES (?, ?, 'pedigree', ?, 'completed', ?, datetime('now'))`)
+      .run(docId4, animalId13, 'dedup-doc4.jpg', JSON.stringify({ page_results: pageResults4a }))
+
+    // Second doc with same content → should be flagged
+    const docId5 = `dedup-doc5-${Date.now()}`
+    const pageResults4b = [{ title: 'Stammbaum', document_date: '2023-05-01', issuer: 'ÖHZB' }]
+    flagDuplicates(db13, animalId13, docId5, 'pedigree', pageResults4b)
+
+    expect(pageResults4b[0]._duplicate).toBe(true)
+    expect(pageResults4b[0]._source_document_id).toBe(docId4)
   })
 })
 

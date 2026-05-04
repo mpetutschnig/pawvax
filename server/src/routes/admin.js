@@ -502,7 +502,10 @@ export default async function adminRoutes(fastify) {
     if (existsSync(TEST_RESULTS_FILE)) {
       try {
         const data = JSON.parse(readFileSync(TEST_RESULTS_FILE, 'utf-8'))
-        return data
+        return {
+          summary: data?.summary ?? null,
+          tests: data?.tests?.testResults || data?.tests?.assertionResults ? data.tests : (data?.tests ?? null),
+        }
       } catch {
         return { summary: null, tests: null }
       }
@@ -511,9 +514,11 @@ export default async function adminRoutes(fastify) {
     const db = getDb()
     const summary = db.prepare("SELECT value FROM settings WHERE key = 'last_test_run'").get()
     const details = db.prepare("SELECT value FROM settings WHERE key = 'last_test_run_details'").get()
+    const parsedSummary = summary ? JSON.parse(summary.value) : null
+    const parsedDetails = details ? JSON.parse(details.value) : null
     return {
-      summary: summary ? JSON.parse(summary.value) : null,
-      tests: details ? JSON.parse(details.value) : null
+      summary: parsedSummary ?? parsedDetails?.summary ?? null,
+      tests: parsedDetails?.tests?.testResults || parsedDetails?.tests?.assertionResults ? parsedDetails.tests : (parsedDetails?.tests ?? parsedDetails ?? null)
     }
   })
 

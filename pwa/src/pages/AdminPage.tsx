@@ -815,7 +815,10 @@ export default function AdminPage() {
 
                   const groups = new Map<string, TestCase[]>()
                   for (const test of allTests) {
-                    const groupName = test.ancestorTitles?.[1] ?? 'Other'
+                    const titles = test.ancestorTitles ?? []
+                    // nested describes (e.g. "PAWvax API Tests > 1. Authentication") → use index 1
+                    // root-level describes (e.g. "Suite 11: …") → use index 0
+                    const groupName = titles.length > 1 ? titles[1] : (titles[0] ?? 'Other')
                     if (!groups.has(groupName)) groups.set(groupName, [])
                     groups.get(groupName)!.push(test)
                   }
