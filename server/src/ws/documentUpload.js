@@ -320,10 +320,10 @@ export default async function wsDocumentUpload(fastify) {
 
             // Create document with combined pages
             const docId = uploadState.documentId
-            const analysisStatus = analysisError ? 'pending_analysis' : (extractedData?.extraction_quality?.requires_retry ? 'pending_analysis' : 'completed')
             const extractedData = analysisError
               ? { pages: pages.length, error: analysisError.message, error_type: analysisError.name || 'unknown', error_details: analysisError.message }
               : buildExtractedDocumentData({ combinedText, suggestedType, pageResults, pages: pages.length })
+            const analysisStatus = analysisError ? 'pending_analysis' : (extractedData?.extraction_quality?.requires_retry ? 'pending_analysis' : 'completed')
 
             if (!analysisError) {
               syncChipTagFromDocument(db, uploadState.animalId, extractedData)

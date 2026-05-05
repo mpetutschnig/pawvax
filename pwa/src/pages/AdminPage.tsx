@@ -293,7 +293,6 @@ export default function AdminPage() {
           {version && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontSize: 'var(--font-size-xs)', color: 'oklch(70% 0.05 240)', padding: '4px 8px', background: 'oklch(96% 0.01 240)', borderRadius: 'var(--radius-sm)' }}>
               <span style={{ fontWeight: 600 }}>v{version.server}</span>
-              <span style={{ color: 'oklch(65% 0.04 240)' }} title={version.buildTime}>{version.buildDate}</span>
             </div>
           )}
           <span style={{ fontSize: 'var(--font-size-sm)', color: 'oklch(80% 0.04 240)' }}>
