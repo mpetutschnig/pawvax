@@ -1,31 +1,52 @@
 # Caddy configuration for PAW (Tierimpfpass)
 # Reverse proxy with Let's Encrypt SSL termination
+# Runs as container in pod, proxies to API and PWA services
 
 paw.oxs.at {
   # Let's Encrypt automatic HTTPS
   encode gzip
   
-  # Reverse proxy to internal PAW pod on localhost
-  reverse_proxy localhost:80 {
-    # Preserve headers for proxied requests
-    header_up X-Real-IP {http.request.remote.host}
-    header_up X-Forwarded-For {http.request.remote.host}
-    header_up X-Forwarded-Proto {http.request.scheme}
-    header_up Host {http.request.host}
-    
-    # WebSocket support
-    header_up Connection {http.request.header.Connection}
-    header_up Upgrade {http.request.header.Upgrade}
+  # API routes - proxy to Node.js API on port 3000
+  @api {
+    path /api/* /ws*
+  }
+  handle @api {
+    reverse_proxy localhost:3000 {
+      header_up X-Real-IP {http.request.remote.host}
+      header_up X-Forwarded-For {http.request.remote.host}
+      header_up X-Forwarded-Proto {http.request.scheme}
+      header_up Host {http.request.host}
+      header_up Connection {http.request.header.Connection}
+      header_up Upgrade {http.request.header.Upgrade}
+    }
+  }
+
+  # File uploads - proxy to API on port 3000
+  @uploads {
+    path /uploads/*
+  }
+  handle @uploads {
+    reverse_proxy localhost:3000 {
+      header_up X-Real-IP {http.request.remote.host}
+      header_up X-Forwarded-For {http.request.remote.host}
+      header_up X-Forwarded-Proto {http.request.scheme}
+    }
+  }
+
+  # Default to PWA on port 8080
+  handle {
+    reverse_proxy localhost:8080 {
+      header_up X-Real-IP {http.request.remote.host}
+      header_up X-Forwarded-For {http.request.remote.host}
+      header_up X-Forwarded-Proto {http.request.scheme}
+    }
   }
 
   # Log access
   log {
-    output file /var/log/caddy/paw.oxs.at.log
+    output stdout
     format json
   }
 }
 
-# HTTP redirect to HTTPS (handled automatically by Caddy)
-http:// {
-  redir https://{host}{uri} permanent
-}
+

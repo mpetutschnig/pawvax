@@ -178,6 +178,7 @@ deploy_stack() {
 
   run_as_app "cd '$REPO_DIR'; podman build --no-cache -t localhost/paw-api:latest -f server/Dockerfile server"
   run_as_app "cd '$REPO_DIR'; podman build --no-cache -t localhost/paw-pwa:latest -f pwa/Dockerfile pwa"
+  run_as_app "cd '$REPO_DIR'; podman build --no-cache -t localhost/paw-caddy:latest -f podman/Dockerfile.caddy ."
 
   run_as_app "podman pod exists '$POD_NAME' && podman pod rm -f '$POD_NAME' || true"
   run_as_app "podman pod create --name '$POD_NAME' -p '$HTTP_PORT:80' -p '$HTTPS_PORT:443'"
@@ -207,10 +208,9 @@ deploy_stack() {
     -v '$app_home_dir/data/pwa/nginx.conf:/etc/nginx/nginx.conf:Z,ro' \
     localhost/paw-pwa:latest"
 
-  run_as_app "podman run -d --replace --name paw-proxy --pod '$POD_NAME' \
-    -v '$app_home_dir/data/proxy/default.conf:/etc/nginx/conf.d/default.conf:Z,ro' \
-    -v '$app_home_dir/data/proxy/ssl:/etc/nginx/ssl:Z,ro' \
-    docker.io/nginx:alpine"
+  run_as_app "podman run -d --replace --name paw-caddy --pod '$POD_NAME' \
+    -v '$REPO_DIR/Caddyfile:/etc/caddy/Caddyfile:Z,ro' \
+    localhost/paw-caddy:latest"
 
   run_as_app "rm -f '$app_home_dir/.config/systemd/user/'*.service"
   run_as_app "cd '$app_home_dir/.config/systemd/user' && podman generate systemd --new --files --name '$POD_NAME' --restart-policy=always"
