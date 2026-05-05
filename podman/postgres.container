@@ -1,0 +1,22 @@
+[Unit]
+Description=PAW PostgreSQL Database
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+Image=docker.io/postgres:16-alpine
+ContainerName=paw-postgres
+RestartPolicy=always
+Environment=POSTGRES_DB=pawvax
+Environment=POSTGRES_USER=pawvax
+Environment=POSTGRES_PASSWORD=${DB_PASSWORD}
+Volume=%h/data/postgres:/var/lib/postgresql/data:Z
+PublishPort=5432:5432
+HealthCmd=pg_isready -U pawvax
+HealthInterval=10s
+HealthTimeout=5s
+HealthRetries=5
+
+[Service]
+Restart=always
+RestartSec=10

@@ -1,0 +1,26 @@
+[Unit]
+Description=PAW API Server
+After=network-online.target postgres.service
+Wants=network-online.target
+Requires=postgres.service
+
+[Container]
+Image=localhost/paw-api:latest
+ContainerName=paw-api
+RestartPolicy=always
+Environment=DATABASE_URL=postgresql://pawvax:${DB_PASSWORD}@paw-postgres:5432/pawvax
+Environment=PORT=3000
+Environment=JWT_SECRET=${JWT_SECRET}
+Environment=NODE_ENV=production
+Volume=%h/data/uploads:/app/uploads:Z
+PublishPort=3000:3000
+HealthCmd=wget --quiet --tries=1 --spider http://localhost:3000/health || exit 1
+HealthInterval=10s
+HealthTimeout=5s
+HealthRetries=3
+Network=host
+
+[Service]
+Restart=always
+RestartSec=10
+Type=exec
