@@ -6,6 +6,7 @@ import { saveImageChunks } from '../services/storage.js'
 import { decrypt } from '../utils/crypto.js'
 import { logAudit } from '../services/audit.js'
 import { flagDuplicates } from '../services/dedup.js'
+import { resolveModel } from '../utils/aiModels.js'
 
 function normalizeRole(role) {
   return role === 'readonly' ? 'guest' : role
@@ -131,9 +132,9 @@ export default async function wsDocumentUpload(fastify) {
             userOpenAiKey = null
           }
           
-          userGeminiModel = acc?.gemini_model || 'gemini-2.0-flash'
-          userClaudeModel = acc?.claude_model || 'claude-3-5-sonnet-20241022'
-          userOpenAiModel = acc?.openai_model || 'gpt-4o-mini'
+          userGeminiModel = resolveModel('google', acc?.gemini_model)
+          userClaudeModel = resolveModel('anthropic', acc?.claude_model)
+          userOpenAiModel = resolveModel('openai', acc?.openai_model)
           
           try {
             if (acc?.ai_provider_priority) {
@@ -414,7 +415,7 @@ function send(socket, obj) {
   }
 }
 
-async function guessDocumentType(text, geminiKey, modelId = 'gemini-1.5-flash') {
+async function guessDocumentType(text, geminiKey, modelId = 'gemini-3.1-flash-lite-preview') {
   if (!geminiKey) return 'general'
   try {
     const { GoogleGenerativeAI } = await import('@google/generative-ai')

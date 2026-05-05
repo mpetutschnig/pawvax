@@ -1,5 +1,6 @@
 import { readFileSync, existsSync } from 'fs'
 import { basename, resolve } from 'path'
+import { DEFAULT_MODEL_BY_PROVIDER, resolveModel } from '../utils/aiModels.js'
 
 // Module-level logger — replaced by setOcrLogger() on startup
 let _log = {
@@ -643,6 +644,7 @@ export async function analyzeDocument(imagePath, userGeminiKey = null, model = n
 
   // Validate language, default to 'de'
   const normalizedLanguage = (language === 'en') ? 'en' : 'de'
+  const forcedDocumentType = normalizeRequestedDocumentType(requestedDocumentType)
 
   // Check if file exists before attempting analysis
   const absolutePath = resolve(imagePath)
@@ -651,11 +653,10 @@ export async function analyzeDocument(imagePath, userGeminiKey = null, model = n
   }
 
   if (process.env.NODE_ENV === 'test' && process.env.PAW_MOCK_OCR === '1') {
-    return analyzeWithMockOcr(imagePath, onProgress, normalizedLanguage)
+    return analyzeWithMockOcr(imagePath, onProgress, normalizedLanguage, forcedDocumentType)
   }
 
   try {
-    const forcedDocumentType = normalizeRequestedDocumentType(requestedDocumentType)
     const classificationResult = forcedDocumentType ? { type: forcedDocumentType, confidence: null } : await classifyDocumentType(imagePath, userGeminiKey, userAnthropicKey, userOpenAiKey, priority, normalizedLanguage)
     const documentType = classificationResult.type
     const typeConfidence = classificationResult.confidence
@@ -663,26 +664,26 @@ export async function analyzeDocument(imagePath, userGeminiKey = null, model = n
 
     for (const provider of priority) {
       if (provider === 'google' && userGeminiKey) {
-        const effectiveModel = model || 'gemini-1.5-flash'
+        const effectiveModel = resolveModel('google', model)
         _log.info({ provider: 'gemini', model: effectiveModel, documentType, typeConfidence }, 'OCR analysis starting')
         return await analyzeWithGemini(imagePath, userGeminiKey, effectiveModel, onProgress, prompt, documentType, typeConfidence)
       }
       if (provider === 'anthropic' && userAnthropicKey) {
-        const effectiveModel = claudeModel || 'claude-3-5-sonnet-20241022'
+        const effectiveModel = resolveModel('anthropic', claudeModel)
         _log.info({ provider: 'claude', model: effectiveModel, documentType, typeConfidence }, 'OCR analysis starting')
         return await analyzeWithClaude(imagePath, userAnthropicKey, effectiveModel, onProgress, prompt, documentType, typeConfidence)
       }
       if (provider === 'openai' && userOpenAiKey) {
-        const effectiveModel = openAiModel || 'gpt-4o-mini'
+        const effectiveModel = resolveModel('openai', openAiModel)
         _log.info({ provider: 'openai', model: effectiveModel, documentType, typeConfidence }, 'OCR analysis starting')
         return await analyzeWithOpenAI(imagePath, userOpenAiKey, effectiveModel, onProgress, prompt, documentType, typeConfidence)
       }
     }
 
     // Fallback falls die Priorisierung keine Treffer ergab, aber Keys existieren
-    if (userGeminiKey) return await analyzeWithGemini(imagePath, userGeminiKey, model || 'gemini-1.5-flash', onProgress, prompt, documentType, typeConfidence)
-    if (userAnthropicKey) return await analyzeWithClaude(imagePath, userAnthropicKey, claudeModel || 'claude-3-5-sonnet-20241022', onProgress, prompt, documentType, typeConfidence)
-    if (userOpenAiKey) return await analyzeWithOpenAI(imagePath, userOpenAiKey, openAiModel || 'gpt-4o-mini', onProgress, prompt, documentType, typeConfidence)
+    if (userGeminiKey) return await analyzeWithGemini(imagePath, userGeminiKey, resolveModel('google', model), onProgress, prompt, documentType, typeConfidence)
+    if (userAnthropicKey) return await analyzeWithClaude(imagePath, userAnthropicKey, resolveModel('anthropic', claudeModel), onProgress, prompt, documentType, typeConfidence)
+    if (userOpenAiKey) return await analyzeWithOpenAI(imagePath, userOpenAiKey, resolveModel('openai', openAiModel), onProgress, prompt, documentType, typeConfidence)
 
     throw new Error('Analyse nicht möglich. Keine Tokens hinterlegt.')
   } catch (err) {
@@ -691,15 +692,17 @@ export async function analyzeDocument(imagePath, userGeminiKey = null, model = n
   }
 }
 
-function analyzeWithMockOcr(imagePath, onProgress, language = 'de') {
+function analyzeWithMockOcr(imagePath, onProgress, language = 'de', forcedDocumentType = null) {
   if (onProgress) onProgress(`Nutze testweises Mock-OCR... (Sprache: ${language.toUpperCase()})`)
 
   const file = basename(imagePath).toLowerCase()
+  const mockResult = (data) => ({
+    provider: 'mock-ocr',
+    data: forcedDocumentType ? { ...data, type: forcedDocumentType } : data
+  })
 
   if (file.includes('passport') || file.includes('heimtierausweis') || file.includes('transponder')) {
-    return Promise.resolve({
-      provider: 'mock-ocr',
-      data: {
+    return Promise.resolve(mockResult({
         type: 'pet_passport',
         title: language === 'en' ? 'EU Pet Passport - Identification' : 'EU-Heimtierausweis - Identifikation',
         document_date: '2021-08-30',
@@ -727,14 +730,11 @@ function analyzeWithMockOcr(imagePath, onProgress, language = 'de') {
         breeder: null,
         owner: null,
         suggested_tags: ['EU Pet Passport', 'Microchip', '040097200000276']
-      }
-    })
+      }))
   }
 
   if (file.includes('treatment') || file.includes('behandlung') || file.includes('wurm')) {
-    return Promise.resolve({
-      provider: 'mock-ocr',
-      data: {
+    return Promise.resolve(mockResult({
         type: 'treatment',
         title: 'Behandlungsprotokoll - Entwurmung',
         document_date: '2024-03-15',
@@ -766,14 +766,11 @@ function analyzeWithMockOcr(imagePath, onProgress, language = 'de') {
           }
         ],
         suggested_tags: ['Entwurmung', 'Milbemax']
-      }
-    })
+      }))
   }
 
   if (file.includes('vaccination') || file.includes('impf') || file.includes('vax')) {
-    return Promise.resolve({
-      provider: 'mock-ocr',
-      data: {
+    return Promise.resolve(mockResult({
         type: 'vaccination',
         title: 'Impfpass - Mocky',
         document_date: '2021-09-06',
@@ -813,21 +810,17 @@ function analyzeWithMockOcr(imagePath, onProgress, language = 'de') {
           }
         ],
         suggested_tags: ['DHLPPi', 'Tollwut']
-      }
-    })
+      }))
   }
 
-  return Promise.resolve({
-    provider: 'mock-ocr',
-    data: {
+  return Promise.resolve(mockResult({
       type: 'general',
       title: 'Mock Dokument',
       document_date: '2024-01-01',
       summary: 'Mock OCR Ergebnis',
       raw_text: 'Mock OCR Text',
       suggested_tags: ['Mock']
-    }
-  })
+    }))
 }
 
 async function analyzeWithClaude(imagePath, anthropicKey, model, onProgress, prompt = GEMINI_PROMPT, documentType = 'general', typeConfidence = null) {
@@ -988,7 +981,7 @@ function normalizeRequestedDocumentType(typeInput) {
   if (!typeInput) return null
 
   const normalized = String(typeInput).toLowerCase().trim()
-  if (!normalized || normalized === 'auto' || normalized === 'unsure' || normalized === 'uncertain') {
+  if (!normalized || normalized === '__placeholder__' || normalized === 'auto' || normalized === 'unsure' || normalized === 'uncertain') {
     return null
   }
 
@@ -1393,7 +1386,7 @@ async function classifyWithGemini(imagePath, geminiKey, language = 'de') {
   const normalizedLanguage = (language === 'en') ? 'en' : 'de'
   const classificationPrompt = PROMPTS[normalizedLanguage].classification
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${DEFAULT_MODEL_BY_PROVIDER.google}:generateContent?key=${geminiKey}`
   const response = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -1438,7 +1431,7 @@ async function classifyWithClaude(imagePath, anthropicKey, language = 'de') {
       'anthropic-version': '2023-06-01'
     },
     body: JSON.stringify({
-      model: 'claude-3-5-sonnet-20241022',
+      model: DEFAULT_MODEL_BY_PROVIDER.anthropic,
       max_tokens: 50,
       messages: [{
         role: 'user',

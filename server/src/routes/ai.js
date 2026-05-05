@@ -1,5 +1,6 @@
 import { getDb } from '../db/index.js'
 import { decrypt } from '../utils/crypto.js'
+import { AI_MODEL_OPTIONS } from '../utils/aiModels.js'
 
 export default async function aiRoutes(fastify) {
   fastify.get('/api/ai/models', { onRequest: [fastify.authenticate] }, async (req, reply) => {
@@ -10,12 +11,7 @@ export default async function aiRoutes(fastify) {
     
     let geminiModels = []
     let openaiModels = []
-    let anthropicModels = [
-      { id: 'claude-3-7-sonnet-20250219', name: 'Claude 3.7 Sonnet' },
-      { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet' },
-      { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku' },
-      { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus' }
-    ]
+    const anthropicModels = AI_MODEL_OPTIONS.anthropic
 
     let priority = ['system', 'google', 'anthropic', 'openai']
     try { if (acc?.ai_provider_priority) priority = JSON.parse(acc.ai_provider_priority) } catch {}

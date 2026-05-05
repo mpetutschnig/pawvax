@@ -7,7 +7,7 @@ import { DocumentAnalysisForm } from '../components/DocumentAnalysisForm'
 import { PawPrint, Cat, Edit2, Trash2, Camera, Search, Radio, ShieldAlert, AlertTriangle, RefreshCw, X, Syringe, FileText, CheckCircle, ArrowDownAZ, ArrowUpAZ, SlidersHorizontal, ArrowRightLeft, Share2 } from 'lucide-react'
 import { AnimalDTO } from '../types/animal'
 import { normalizeVaccinationRecord } from '../utils/vaccination'
-import { DEFAULT_AVAILABLE_MODELS, DEFAULT_MODEL_BY_PROVIDER, type RequestedDocumentType } from '../utils/documentAnalysis'
+import { DEFAULT_AVAILABLE_MODELS, DEFAULT_MODEL_BY_PROVIDER, DOCUMENT_TYPE_PLACEHOLDER, type DocumentTypeSelectValue } from '../utils/documentAnalysis'
 interface AnimalTag {
   tag_id: string; tag_type: string; active: number; added_at: string
 }
@@ -70,7 +70,7 @@ export default function AnimalPage() {
   const [retryDocId, setRetryDocId] = useState<string | null>(null)
   const [retryProvider, setRetryProvider] = useState('google')
   const [retryModel, setRetryModel] = useState(DEFAULT_MODEL_BY_PROVIDER.google)
-  const [requestedDocumentType, setRequestedDocumentType] = useState<RequestedDocumentType>('auto')
+  const [requestedDocumentType, setRequestedDocumentType] = useState<DocumentTypeSelectValue>(DOCUMENT_TYPE_PLACEHOLDER)
   const [hasGemini, setHasGemini] = useState(false)
   const [hasAnthropic, setHasAnthropic] = useState(false)
   const [hasOpenai, setHasOpenai] = useState(false)
@@ -115,6 +115,7 @@ export default function AnimalPage() {
 
   const handleRetryAnalysisAPI = async () => {
     if (!retryDocId) return
+    if (requestedDocumentType === DOCUMENT_TYPE_PLACEHOLDER) return
     setRetrying(retryDocId)
     setError(null)
     try {
@@ -1167,7 +1168,7 @@ export default function AnimalPage() {
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button
-                  onClick={() => { setRetryDocId(doc.id); setShowRetryModal(true); }}
+                  onClick={() => { setRetryDocId(doc.id); setRequestedDocumentType(DOCUMENT_TYPE_PLACEHOLDER); setShowRetryModal(true); }}
                   disabled={retrying !== null}
                   style={{
                     padding: '8px 12px',

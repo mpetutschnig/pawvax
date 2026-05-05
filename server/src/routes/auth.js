@@ -7,6 +7,7 @@ import { getDb } from '../db/index.js'
 import { logAudit } from '../services/audit.js'
 import { saveImageChunks, getUploadPath } from '../services/storage.js'
 import { encrypt, decrypt } from '../utils/crypto.js'
+import { ALLOWED_CLAUDE_MODELS, ALLOWED_GEMINI_MODELS, ALLOWED_OPENAI_MODELS } from '../utils/aiModels.js'
 
 const UPLOADS_DIR = process.env.UPLOADS_DIR
   ? resolve(process.env.UPLOADS_DIR)
@@ -231,9 +232,6 @@ export default async function authRoutes(fastify) {
     const db = getDb()
     const { name, gemini_token, gemini_model, anthropic_token, claude_model, openai_token, openai_model, ai_provider_priority } = req.body
     const accountId = req.user.accountId
-    const ALLOWED_GEMINI_MODELS = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-3.1-flash-lite-preview', 'gemini-1.5-pro']
-    const ALLOWED_CLAUDE_MODELS = ['claude-haiku-4-5-20251001', 'claude-sonnet-4-6', 'claude-opus-4-7']
-    const ALLOWED_OPENAI_MODELS = ['gpt-4.1-mini', 'gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo']
     const updates = []
     const vals = []
     if (name !== undefined) { updates.push('name = ?'); vals.push(name) }

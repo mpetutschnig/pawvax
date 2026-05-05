@@ -158,6 +158,7 @@
   "animal.authority": "Authority",
   "animal.waitGemini": "Waiting for AI API",
   "animal.pendingNone": "No pending analyses.",
+  "docScan.docTypePlaceholder": "Select document type",
   "animal.filterAll": "All",
   "animal.sortDate": "Date",
   "animal.filterByTag": "Tag",

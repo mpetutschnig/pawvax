@@ -5,7 +5,7 @@ import { getDocument, deleteDocument, patchDocument, getAnimalDocuments, getMe, 
 import { generateICS, downloadBlob } from '../utils/ics'
 import { normalizeVaccinationRecord } from '../utils/vaccination'
 import { DocumentAnalysisForm } from '../components/DocumentAnalysisForm'
-import { DEFAULT_AVAILABLE_MODELS, DEFAULT_MODEL_BY_PROVIDER, type RequestedDocumentType } from '../utils/documentAnalysis'
+import { DEFAULT_AVAILABLE_MODELS, DEFAULT_MODEL_BY_PROVIDER, DOCUMENT_TYPE_PLACEHOLDER, type DocumentTypeSelectValue } from '../utils/documentAnalysis'
 import { PageHeader } from '../components/PageHeader'
 import { Shield, Pill, FileText, PawPrint, Landmark, Calendar, Download, Mail, Tag, Save, X, Edit2, Trash2, CheckCircle, Award, GraduationCap, ChevronLeft, ChevronRight, Bell, AlertTriangle } from 'lucide-react'
 import { TagCombobox } from '../components/TagCombobox'
@@ -42,7 +42,7 @@ export default function DocumentDetailPage() {
   const [analysisAction, setAnalysisAction] = useState<'retry' | 'reanalyze'>('retry')
   const [retryProvider, setRetryProvider] = useState('google')
   const [retryModel, setRetryModel] = useState(DEFAULT_MODEL_BY_PROVIDER.google)
-  const [requestedDocumentType, setRequestedDocumentType] = useState<RequestedDocumentType>('auto')
+  const [requestedDocumentType, setRequestedDocumentType] = useState<DocumentTypeSelectValue>(DOCUMENT_TYPE_PLACEHOLDER)
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
 
   const [hasGemini, setHasGemini] = useState(false)
@@ -274,6 +274,7 @@ export default function DocumentDetailPage() {
   }
   
   const handleRetryAnalysis = async () => {
+    if (requestedDocumentType === DOCUMENT_TYPE_PLACEHOLDER) return
     setIsAnalyzing(true)
     setError(null)
     try {
@@ -288,6 +289,7 @@ export default function DocumentDetailPage() {
   }
 
   const handleReanalyze = async () => {
+    if (requestedDocumentType === DOCUMENT_TYPE_PLACEHOLDER) return
     setIsAnalyzing(true)
     setError(null)
     try {
@@ -515,7 +517,7 @@ export default function DocumentDetailPage() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-3)' }}>
             <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0 }}>{t('docDetail.analysisHistory')}</h3>
             {canReanalyze && (
-              <button className="btn btn-secondary" onClick={() => { setAnalysisAction('reanalyze'); setShowRetryModal(true); setError(null) }} disabled={saving}>
+              <button className="btn btn-secondary" onClick={() => { setAnalysisAction('reanalyze'); setRequestedDocumentType(DOCUMENT_TYPE_PLACEHOLDER); setShowRetryModal(true); setError(null) }} disabled={saving}>
                 {t('docDetail.reanalyze')}
               </button>
             )}
@@ -937,7 +939,7 @@ export default function DocumentDetailPage() {
 
         {!rawText && doc.analysis_status === 'pending_analysis' ? (
           <div style={{ marginTop: 'var(--space-4)' }}>
-            <button className="btn btn-primary btn-full" onClick={() => { setAnalysisAction('retry'); setShowRetryModal(true) }}>
+            <button className="btn btn-primary btn-full" onClick={() => { setAnalysisAction('retry'); setRequestedDocumentType(DOCUMENT_TYPE_PLACEHOLDER); setShowRetryModal(true) }}>
               {t('animal.retry')}
             </button>
           </div>

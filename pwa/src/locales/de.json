@@ -158,6 +158,7 @@
   "animal.authority": "Behörde",
   "animal.waitGemini": "Warte auf Gemini API",
   "animal.pendingNone": "Keine ausstehenden Analysen.",
+  "docScan.docTypePlaceholder": "Dokumenttyp auswählen",
   "animal.filterAll": "Alle",
   "animal.sortDate": "Datum",
   "animal.filterByTag": "Tag",

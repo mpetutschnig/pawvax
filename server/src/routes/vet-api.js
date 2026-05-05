@@ -4,6 +4,7 @@ import { hashApiKey } from '../utils/apikey.js'
 import { logAudit } from '../services/audit.js'
 import { analyzeDocument, normalizeDocumentType } from '../services/ocr.js'
 import { decrypt } from '../utils/crypto.js'
+import { resolveModel } from '../utils/aiModels.js'
 import { writeFileSync, mkdirSync } from 'fs'
 import { resolve, join, sep } from 'path'
 import fastifyMultipart from '@fastify/multipart'
@@ -305,10 +306,10 @@ export default async function vetApiRoutes(fastify) {
 
         const result = await analyzeDocument(
           filename,
-          geminiKey, account?.gemini_model || 'gemini-1.5-flash',
+          geminiKey, resolveModel('google', account?.gemini_model),
           null,
-          anthropicKey, account?.claude_model || 'claude-3-5-sonnet-20241022',
-          openaiKey, account?.openai_model || 'gpt-4o-mini',
+          anthropicKey, resolveModel('anthropic', account?.claude_model),
+          openaiKey, resolveModel('openai', account?.openai_model),
           priority,
           language
         )

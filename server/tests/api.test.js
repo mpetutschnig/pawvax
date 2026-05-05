@@ -1901,6 +1901,37 @@ describe('Suite 15: Multilingual OCR Prompts', () => {
     expect(data.provider).toBe('mock-ocr')
   })
 
+  test('15j2. retry-analysis honors requestedDocumentType override', async () => {
+    const db = new Database(process.env.DB_PATH)
+
+    const email = `ocr-type-override-${Date.now()}@example.com`
+    const { data: reg } = await apiCallWithToken(null, 'POST', '/auth/register', {
+      name: 'OCR Type Override Tester',
+      email,
+      password: 'SecurePassword123!'
+    })
+    const token = reg.token
+
+    const { data: animal } = await apiCallWithToken(token, 'POST', '/animals', { name: 'Type Override Dog', species: 'dog' })
+    const imagePath = writeTinyPng(`override-general-${Date.now()}.png`)
+    const docId = `override-type-doc-${Date.now()}`
+
+    db.prepare(`
+      INSERT INTO documents (id, animal_id, doc_type, image_path, analysis_status, extracted_json, ocr_provider, created_at)
+      VALUES (?, ?, 'general', ?, 'pending_analysis', '{}', 'pending', datetime('now'))
+    `).run(docId, animal.id, imagePath)
+    db.prepare(`INSERT INTO document_pages (document_id, image_path, page_number) VALUES (?, ?, 1)`).run(docId, imagePath)
+    db.close()
+
+    const { status, data } = await apiCallWithToken(token, 'POST', `/documents/${docId}/retry-analysis`, {
+      language: 'de',
+      requestedDocumentType: 'vaccination'
+    })
+
+    expect(status).toBe(200)
+    expect(data.extractedData.type).toBe('vaccination')
+  })
+
   test('15k. re-analyze accepts language parameter', async () => {
     const db = new Database(process.env.DB_PATH)
 
@@ -1929,6 +1960,68 @@ describe('Suite 15: Multilingual OCR Prompts', () => {
       language: 'en'
     })
     expect(status).toBe(200)
+  })
+
+  test('15k2. re-analyze honors requestedDocumentType override', async () => {
+    const db = new Database(process.env.DB_PATH)
+
+    const email = `ocr-reanalyze-type-${Date.now()}@example.com`
+    const { data: reg } = await apiCallWithToken(null, 'POST', '/auth/register', {
+      name: 'Re-Analyze Type Tester',
+      email,
+      password: 'SecurePassword123!'
+    })
+    const token = reg.token
+
+    const { data: animal } = await apiCallWithToken(token, 'POST', '/animals', { name: 'Reanalyze Type Dog', species: 'dog' })
+    const imagePath = writeTinyPng(`reanalyze-general-${Date.now()}.png`)
+    const docId = `reanalyze-type-doc-${Date.now()}`
+
+    db.prepare(`
+      INSERT INTO documents (id, animal_id, doc_type, image_path, analysis_status, extracted_json, ocr_provider, created_at)
+      VALUES (?, ?, 'general', ?, 'completed', '{"title":"Old","summary":"Old","type":"general"}', 'system', datetime('now'))
+    `).run(docId, animal.id, imagePath)
+    db.prepare(`INSERT INTO document_pages (document_id, image_path, page_number) VALUES (?, ?, 1)`).run(docId, imagePath)
+    db.close()
+
+    const { status, data } = await apiCallWithToken(token, 'POST', `/documents/${docId}/re-analyze`, {
+      language: 'de',
+      requestedDocumentType: 'treatment'
+    })
+
+    expect(status).toBe(200)
+    expect(data.extractedData.type).toBe('treatment')
+  })
+
+  test('15k3. retry-analysis rejects unsupported model for selected provider', async () => {
+    const db = new Database(process.env.DB_PATH)
+
+    const email = `ocr-invalid-model-${Date.now()}@example.com`
+    const { data: reg } = await apiCallWithToken(null, 'POST', '/auth/register', {
+      name: 'Invalid Model Tester',
+      email,
+      password: 'SecurePassword123!'
+    })
+    const token = reg.token
+
+    const { data: animal } = await apiCallWithToken(token, 'POST', '/animals', { name: 'Invalid Model Dog', species: 'dog' })
+    const imagePath = writeTinyPng(`invalid-model-${Date.now()}.png`)
+    const docId = `invalid-model-doc-${Date.now()}`
+
+    db.prepare(`
+      INSERT INTO documents (id, animal_id, doc_type, image_path, analysis_status, extracted_json, ocr_provider, created_at)
+      VALUES (?, ?, 'general', ?, 'pending_analysis', '{}', 'pending', datetime('now'))
+    `).run(docId, animal.id, imagePath)
+    db.prepare(`INSERT INTO document_pages (document_id, image_path, page_number) VALUES (?, ?, 1)`).run(docId, imagePath)
+    db.close()
+
+    const { status, data } = await apiCallWithToken(token, 'POST', `/documents/${docId}/retry-analysis`, {
+      provider: 'anthropic',
+      model: 'claude-haiku-4-5-20251001'
+    })
+
+    expect(status).toBe(400)
+    expect(data.error).toContain('Modell nicht verfügbar')
   })
 
   test('15l. normalizeDocumentType handles all supported aliases', () => {

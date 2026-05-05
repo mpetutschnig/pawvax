@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { DEFAULT_MODEL_BY_PROVIDER, type RequestedDocumentType } from '../utils/documentAnalysis'
+import { DEFAULT_MODEL_BY_PROVIDER, DOCUMENT_TYPE_OPTIONS, DOCUMENT_TYPE_PLACEHOLDER, type DocumentTypeSelectValue, type RequestedDocumentType } from '../utils/documentAnalysis'
 
 interface ModelOption {
   id: string
@@ -17,7 +17,7 @@ interface DocumentAnalysisFormProps {
   hasSystemAi: boolean
   retryProvider: string
   retryModel: string
-  requestedDocumentType: RequestedDocumentType
+  requestedDocumentType: DocumentTypeSelectValue
   availableModels: {
     google: ModelOption[]
     anthropic: ModelOption[]
@@ -28,7 +28,7 @@ interface DocumentAnalysisFormProps {
   isSubmitting: boolean
   onProviderChange: (provider: string) => void
   onModelChange: (model: string) => void
-  onRequestedDocumentTypeChange: (documentType: RequestedDocumentType) => void
+  onRequestedDocumentTypeChange: (documentType: DocumentTypeSelectValue) => void
   onSubmit: () => void
   onCancel: () => void
 }
@@ -56,6 +56,7 @@ export function DocumentAnalysisForm({
   onCancel
 }: DocumentAnalysisFormProps) {
   const { t } = useTranslation()
+  const isPlaceholderSelected = requestedDocumentType === DOCUMENT_TYPE_PLACEHOLDER
 
   const docTypeLabel = (type: RequestedDocumentType) => {
     const labels: Record<RequestedDocumentType, string> = {
@@ -93,8 +94,9 @@ export function DocumentAnalysisForm({
 
         <div className="form-group">
           <label className="form-label">{t('docScan.docType')}</label>
-          <select className="form-select" value={requestedDocumentType} onChange={e => onRequestedDocumentTypeChange(e.target.value as RequestedDocumentType)}>
-            {(['auto', 'vaccination', 'treatment', 'pet_passport', 'medical_product', 'pedigree', 'dog_certificate', 'general'] as RequestedDocumentType[]).map((type) => (
+          <select className="form-select" value={requestedDocumentType} onChange={e => onRequestedDocumentTypeChange(e.target.value as DocumentTypeSelectValue)}>
+            <option value={DOCUMENT_TYPE_PLACEHOLDER} disabled>{t('docScan.docTypePlaceholder')}</option>
+            {DOCUMENT_TYPE_OPTIONS.map((type) => (
               <option key={type} value={type}>{docTypeLabel(type)}</option>
             ))}
           </select>
@@ -132,7 +134,7 @@ export function DocumentAnalysisForm({
 
         <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-6)' }}>
           {hasAnyKey && (
-            <button className="btn btn-primary flex-1" onClick={onSubmit} disabled={isSubmitting || requestedDocumentType === 'auto'}>
+            <button className="btn btn-primary flex-1" onClick={onSubmit} disabled={isSubmitting || isPlaceholderSelected}>
               {isSubmitting ? t('animal.retrying') : submitLabel}
             </button>
           )}

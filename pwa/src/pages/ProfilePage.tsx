@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { getMe, patchMe, deleteMe, requestVerification, getMyVerifications } from '../api/rest'
 import { PageHeader } from '../components/PageHeader'
 import { User, Shield, Stethoscope, Settings, Trash2, CheckCircle, Clock, AlertTriangle, Key, BookOpen, Download, Upload, X } from 'lucide-react'
+import { DEFAULT_AVAILABLE_MODELS, DEFAULT_MODEL_BY_PROVIDER } from '../utils/documentAnalysis'
 
 export default function ProfilePage() {
   const navigate = useNavigate()
@@ -54,9 +55,9 @@ export default function ProfilePage() {
     try {
       const res = await getMe()
       setProfile(res.data)
-      setGeminiModel(res.data.gemini_model || 'gemini-2.0-flash')
-      setClaudeModel(res.data.claude_model || 'claude-3-5-sonnet-20241022')
-      setOpenaiModel(res.data.openai_model || 'gpt-4o-mini')
+      setGeminiModel(res.data.gemini_model || DEFAULT_MODEL_BY_PROVIDER.google)
+      setClaudeModel(res.data.claude_model || DEFAULT_MODEL_BY_PROVIDER.anthropic)
+      setOpenaiModel(res.data.openai_model || DEFAULT_MODEL_BY_PROVIDER.openai)
       
       try {
         if (res.data.ai_provider_priority) {
@@ -83,7 +84,7 @@ export default function ProfilePage() {
     setGeminiSuccess('')
     try {
       // Validate key
-      const validateRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash?key=${geminiToken}`)
+      const validateRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${DEFAULT_MODEL_BY_PROVIDER.google}?key=${geminiToken}`)
       if (!validateRes.ok) {
         throw new Error(t('profile.geminiInvalid'))
       }
@@ -151,7 +152,7 @@ export default function ProfilePage() {
           'anthropic-dangerous-direct-browser-access': 'true'
         },
         body: JSON.stringify({
-          model: 'claude-haiku-4-5-20251001',
+          model: DEFAULT_MODEL_BY_PROVIDER.anthropic,
           max_tokens: 10,
           messages: [{ role: 'user', content: 'test' }]
         })
@@ -572,10 +573,9 @@ export default function ProfilePage() {
             onChange={(e) => saveGeminiModel(e.target.value)}
             disabled={modelSaving}
           >
-            <option value="gemini-2.0-flash">Gemini 2.0 Flash (Standard)</option>
-            <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
-            <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
-            <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+            {DEFAULT_AVAILABLE_MODELS.google.map((model, index) => (
+              <option key={model.id} value={model.id}>{index === 0 ? `${model.name} (Standard)` : model.name}</option>
+            ))}
           </select>
         </div>
 
@@ -638,9 +638,9 @@ export default function ProfilePage() {
             onChange={(e) => saveClaudeModel(e.target.value)}
             disabled={modelSaving}
           >
-            <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet (Standard)</option>
-            <option value="claude-3-5-haiku-20241022">Claude 3.5 Haiku</option>
-            <option value="claude-3-opus-20240229">Claude 3 Opus</option>
+            {DEFAULT_AVAILABLE_MODELS.anthropic.map((model) => (
+              <option key={model.id} value={model.id}>{model.id === DEFAULT_MODEL_BY_PROVIDER.anthropic ? `${model.name} (Standard)` : model.name}</option>
+            ))}
           </select>
         </div>
 

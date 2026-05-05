@@ -7,7 +7,7 @@ import { PageHeader } from '../components/PageHeader'
 import { DocumentAnalysisForm } from '../components/DocumentAnalysisForm'
 import { uploadMultiPageDocument } from '../api/ws'
 import { analyzeDocument, patchDocument, getMe, patchMe } from '../api/rest'
-import { DEFAULT_AVAILABLE_MODELS, DEFAULT_MODEL_BY_PROVIDER, type RequestedDocumentType } from '../utils/documentAnalysis'
+import { DEFAULT_AVAILABLE_MODELS, DEFAULT_MODEL_BY_PROVIDER, DOCUMENT_TYPE_PLACEHOLDER, type DocumentTypeSelectValue } from '../utils/documentAnalysis'
 
 type Phase = 'capture' | 'uploading' | 'analysing' | 'done' | 'error'
 
@@ -53,7 +53,7 @@ export default function DocumentScanPage() {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [retryProvider, setRetryProvider] = useState('google')
   const [retryModel, setRetryModel] = useState(DEFAULT_MODEL_BY_PROVIDER.google)
-  const [requestedDocumentType, setRequestedDocumentType] = useState<RequestedDocumentType>('auto')
+  const [requestedDocumentType, setRequestedDocumentType] = useState<DocumentTypeSelectValue>(DOCUMENT_TYPE_PLACEHOLDER)
 
   const [hasGemini, setHasGemini] = useState(false)
   const [hasAnthropic, setHasAnthropic] = useState(false)
@@ -276,6 +276,7 @@ export default function DocumentScanPage() {
 
   async function handleRetryAnalysisAPI() {
     if (!documentId) return
+    if (requestedDocumentType === DOCUMENT_TYPE_PLACEHOLDER) return
     setIsAnalyzing(true)
     setErrorMsg(null)
     try {
@@ -295,6 +296,7 @@ export default function DocumentScanPage() {
 
   async function handleUpload() {
     if (pages.length === 0 || !animalId) return
+    if (requestedDocumentType === DOCUMENT_TYPE_PLACEHOLDER) return
     setPhase('uploading')
     setUploadProgress(0)
     setElapsedTime(0)
@@ -507,7 +509,7 @@ export default function DocumentScanPage() {
                 </div>
               )}
 
-              <button className="btn btn-primary btn-full" onClick={() => setShowModelSelection(true)}>{t('docScan.uploadAndAnalyze')}</button>
+              <button className="btn btn-primary btn-full" onClick={() => { setRequestedDocumentType(DOCUMENT_TYPE_PLACEHOLDER); setShowModelSelection(true) }}>{t('docScan.uploadAndAnalyze')}</button>
               <button className="btn btn-ghost btn-full" style={{ marginTop: 'var(--space-2)' }} onClick={() => { setPreviews([]); setPages([]) }}>
                 {t('docScan.chooseAnother')}
               </button>
@@ -568,7 +570,7 @@ export default function DocumentScanPage() {
                   <p className="text-muted" style={{ marginBottom: 'var(--space-4)' }}>{errorMsg || t('common.error')}</p>
                   <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
                     {hasAnyKey && (
-                      <button className="btn btn-primary flex-1" onClick={() => setShowModelSelection(true)} type="button">
+                      <button className="btn btn-primary flex-1" onClick={() => { setRequestedDocumentType(DOCUMENT_TYPE_PLACEHOLDER); setShowModelSelection(true) }} type="button">
                         {t('animal.retry')}
                       </button>
                     )}

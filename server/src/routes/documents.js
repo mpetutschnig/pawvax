@@ -7,6 +7,7 @@ import { unlink } from 'fs/promises'
 import { resolve } from 'path'
 import { flagDuplicates } from '../services/dedup.js'
 import { randomUUID } from 'crypto'
+import { isAllowedModel, resolveModel } from '../utils/aiModels.js'
 
 function getDocumentPages(db, documentId) {
   return db.prepare(`
@@ -34,7 +35,8 @@ async function analyzeDocumentPages(pages, options) {
       options.userOpenAiKey,
       options.userOpenAiModel,
       options.priority,
-      options.language || 'de'
+      options.language || 'de',
+      options.requestedDocumentType || null
     )
 
     pageResults.push(result.data)
@@ -335,7 +337,7 @@ export default async function documentRoutes(fastify) {
     const db = getDb()
     const { accountId, role } = req.user
     const docId = req.params.id
-    const { provider: requestedProvider, model: requestedModel, language = 'de' } = req.body || {}
+    const { provider: requestedProvider, model: requestedModel, language = 'de', requestedDocumentType = null } = req.body || {}
 
     const doc = db.prepare(`
       SELECT d.*, a.account_id AS owner_id, uploader.name AS added_by_name, uploader.verified AS added_by_verified FROM documents d
@@ -353,7 +355,15 @@ export default async function documentRoutes(fastify) {
       return reply.code(400).send({ error: 'Dieses Dokument ist nicht pending' })
     }
 
-    req.log.info({ docId, accountId, requestedProvider, requestedModel, language, analysisStatus: doc.analysis_status }, 'Retry analysis requested')
+    if (requestedProvider && requestedModel && !isAllowedModel(requestedProvider, requestedModel)) {
+      return reply.code(400).send({
+        error: 'Ausgewähltes KI-Modell nicht verfügbar. Bitte ein anderes Modell wählen.',
+        requestedProvider,
+        requestedModel
+      })
+    }
+
+    req.log.info({ docId, accountId, requestedProvider, requestedModel, requestedDocumentType, language, analysisStatus: doc.analysis_status }, 'Retry analysis requested')
 
     try {
       // Get user's keys and models
@@ -367,9 +377,9 @@ export default async function documentRoutes(fastify) {
       try { userAnthropicKey = acc?.anthropic_token ? decrypt(acc.anthropic_token) : null } catch {}
       try { userOpenAiKey = acc?.openai_token ? decrypt(acc.openai_token) : null } catch {}
 
-      const userGeminiModel = (requestedProvider === 'google' && requestedModel) ? requestedModel : (acc?.gemini_model || 'gemini-1.5-flash')
-      const userClaudeModel = (requestedProvider === 'anthropic' && requestedModel) ? requestedModel : (acc?.claude_model || 'claude-3-5-sonnet-20241022')
-      const userOpenAiModel = (requestedProvider === 'openai' && requestedModel) ? requestedModel : (acc?.openai_model || 'gpt-4o-mini')
+      const userGeminiModel = requestedProvider === 'google' && requestedModel ? requestedModel : resolveModel('google', acc?.gemini_model)
+      const userClaudeModel = requestedProvider === 'anthropic' && requestedModel ? requestedModel : resolveModel('anthropic', acc?.claude_model)
+      const userOpenAiModel = requestedProvider === 'openai' && requestedModel ? requestedModel : resolveModel('openai', acc?.openai_model)
 
       let priority = ['system', 'google', 'anthropic', 'openai']
       try {
@@ -420,6 +430,7 @@ export default async function documentRoutes(fastify) {
         userOpenAiModel,
         priority,
         language,
+        requestedDocumentType,
         onProgress: (pageNumber, message) => {
           req.log.debug({ docId, pageNumber, message }, 'Retry analysis page progress')
         }
@@ -469,7 +480,7 @@ export default async function documentRoutes(fastify) {
         requiresRetry
       })
     } catch (err) {
-      req.log.error({ err: { message: err.message, stack: err.stack }, docId, accountId, requestedProvider, requestedModel, language }, 'Retry analysis failed')
+      req.log.error({ err: { message: err.message, stack: err.stack }, docId, accountId, requestedProvider, requestedModel, requestedDocumentType, language }, 'Retry analysis failed')
       
       // Log to audit with full error details
       logAudit(db, {
@@ -478,6 +489,7 @@ export default async function documentRoutes(fastify) {
           error_message: err.message, 
           requested_provider: requestedProvider, 
           requested_model: requestedModel,
+          requested_document_type: requestedDocumentType,
           language
         },
         ip: req.ip
@@ -518,7 +530,7 @@ export default async function documentRoutes(fastify) {
     const db = getDb()
     const { accountId, role } = req.user
     const docId = req.params.id
-    const { provider: requestedProvider, model: requestedModel, language = 'de' } = req.body || {}
+    const { provider: requestedProvider, model: requestedModel, language = 'de', requestedDocumentType = null } = req.body || {}
 
     const doc = db.prepare(`
       SELECT d.*, a.account_id AS owner_id, uploader.name AS added_by_name, uploader.verified AS added_by_verified FROM documents d
@@ -536,7 +548,15 @@ export default async function documentRoutes(fastify) {
       return reply.code(400).send({ error: 'Dokument muss bereits analysiert sein' })
     }
 
-    req.log.info({ docId, accountId, requestedProvider, requestedModel, language, analysisStatus: doc.analysis_status }, 'Re-analysis requested')
+    if (requestedProvider && requestedModel && !isAllowedModel(requestedProvider, requestedModel)) {
+      return reply.code(400).send({
+        error: 'Ausgewähltes KI-Modell nicht verfügbar. Bitte ein anderes Modell wählen.',
+        requestedProvider,
+        requestedModel
+      })
+    }
+
+    req.log.info({ docId, accountId, requestedProvider, requestedModel, requestedDocumentType, language, analysisStatus: doc.analysis_status }, 'Re-analysis requested')
 
     try {
       // Store old analysis in history (versioning)
@@ -562,9 +582,9 @@ export default async function documentRoutes(fastify) {
       try { userAnthropicKey = acc?.anthropic_token ? decrypt(acc.anthropic_token) : null } catch {}
       try { userOpenAiKey = acc?.openai_token ? decrypt(acc.openai_token) : null } catch {}
 
-      const userGeminiModel = (requestedProvider === 'google' && requestedModel) ? requestedModel : (acc?.gemini_model || 'gemini-1.5-flash')
-      const userClaudeModel = (requestedProvider === 'anthropic' && requestedModel) ? requestedModel : (acc?.claude_model || 'claude-3-5-sonnet-20241022')
-      const userOpenAiModel = (requestedProvider === 'openai' && requestedModel) ? requestedModel : (acc?.openai_model || 'gpt-4o-mini')
+      const userGeminiModel = requestedProvider === 'google' && requestedModel ? requestedModel : resolveModel('google', acc?.gemini_model)
+      const userClaudeModel = requestedProvider === 'anthropic' && requestedModel ? requestedModel : resolveModel('anthropic', acc?.claude_model)
+      const userOpenAiModel = requestedProvider === 'openai' && requestedModel ? requestedModel : resolveModel('openai', acc?.openai_model)
 
       let priority = ['system', 'google', 'anthropic', 'openai']
       try {
@@ -612,6 +632,7 @@ export default async function documentRoutes(fastify) {
         userOpenAiModel,
         priority,
         language,
+        requestedDocumentType,
         onProgress: (pageNumber, message) => {
           req.log.debug({ docId, pageNumber, message }, 'Re-analysis page progress')
         }
