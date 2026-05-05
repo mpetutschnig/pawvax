@@ -24,6 +24,15 @@ su -s /bin/bash paw-git -c "cd /git/pawvax && git pull"
 su -s /bin/bash paw-git -c "cd /git/pawvax && git pull"
 ```
 
+Systemd User-Linger aktivieren, damit `systemctl --user` fuer die Service-User auch ohne interaktive Login-Session funktioniert:
+
+```bash
+loginctl enable-linger paw-api
+loginctl enable-linger paw-pwa
+systemctl start user@$(id -u paw-api).service
+systemctl start user@$(id -u paw-pwa).service
+```
+
 Für paw-api User (PostgreSQL + API):
 
 ```bash
@@ -31,7 +40,7 @@ PAW_API_UID=$(id -u paw-api)
 su -s /bin/bash paw-api -c "mkdir -p ~/.config/containers/systemd"
 su -s /bin/bash paw-api -c "cp /git/pawvax/podman/postgres.container ~/.config/containers/systemd/"
 su -s /bin/bash paw-api -c "cp /git/pawvax/podman/paw-api.container ~/.config/containers/systemd/"
-su -s /bin/bash paw-api -c "systemctl --user daemon-reload"
+su -s /bin/bash paw-api -c "XDG_RUNTIME_DIR=/run/user/$PAW_API_UID DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$PAW_API_UID/bus systemctl --user daemon-reload"
 ```
 
 Für paw-pwa User (PWA):
@@ -40,7 +49,7 @@ Für paw-pwa User (PWA):
 PAW_PWA_UID=$(id -u paw-pwa)
 su -s /bin/bash paw-pwa -c "mkdir -p ~/.config/containers/systemd"
 su -s /bin/bash paw-pwa -c "cp /git/pawvax/podman/paw-pwa.container ~/.config/containers/systemd/"
-su -s /bin/bash paw-pwa -c "systemctl --user daemon-reload"
+su -s /bin/bash paw-pwa -c "XDG_RUNTIME_DIR=/run/user/$PAW_PWA_UID DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$PAW_PWA_UID/bus systemctl --user daemon-reload"
 ```
 
 Dann mit Schritt 1 unten weitermachen (immer noch auf alma.oxs.at).

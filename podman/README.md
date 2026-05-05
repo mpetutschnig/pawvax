@@ -12,13 +12,22 @@ Diese Quadlets ersetzen `podman-compose.yml` und integrieren sich direkt mit sys
 
 Quadlets müssen in `~/.config/containers/systemd/` für jeweils den ausführenden User installiert werden.
 
+Wenn die Befehle als `root` fuer andere User ausgefuehrt werden, muss der systemd User-Bus aktiv sein:
+
+```bash
+loginctl enable-linger paw-api
+loginctl enable-linger paw-pwa
+systemctl start user@$(id -u paw-api).service
+systemctl start user@$(id -u paw-pwa).service
+```
+
 ### Für paw-api User (PostgreSQL + API):
 
 ```bash
 mkdir -p ~/.config/containers/systemd
 cp postgres.container ~/.config/containers/systemd/
 cp paw-api.container ~/.config/containers/systemd/
-systemctl --user daemon-reload
+XDG_RUNTIME_DIR=/run/user/$(id -u) DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u)/bus systemctl --user daemon-reload
 ```
 
 ### Für paw-pwa User (PWA):
@@ -26,7 +35,7 @@ systemctl --user daemon-reload
 ```bash
 mkdir -p ~/.config/containers/systemd
 cp paw-pwa.container ~/.config/containers/systemd/
-systemctl --user daemon-reload
+XDG_RUNTIME_DIR=/run/user/$(id -u) DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u)/bus systemctl --user daemon-reload
 ```
 
 ## Verwendung
@@ -131,6 +140,17 @@ Systemd wartet auf "healthy" Status, bevor Dependent-Services starten.
 ```bash
 systemctl --user start user-runtime-dir@$(id -u).service
 ```
+
+### "Failed to connect to user scope bus via local transport"
+
+Der User-Bus laeuft nicht. Als `root` einmalig ausfuehren:
+
+```bash
+loginctl enable-linger <user>
+systemctl start user@$(id -u <user>).service
+```
+
+Danach fuer den jeweiligen User mit gesetztem `XDG_RUNTIME_DIR` und `DBUS_SESSION_BUS_ADDRESS` erneut `systemctl --user ...` ausfuehren.
 
 ### "XDG_RUNTIME_DIR not found"
 
