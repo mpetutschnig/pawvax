@@ -2,8 +2,7 @@
 # Reverse proxy with Let's Encrypt SSL termination
 # Runs as container in pod, proxies to API and PWA services
 
-paw.oxs.at {
-  # Let's Encrypt automatic HTTPS
+paw.oxs.at, vetzsucht.oxs.at {
   encode gzip
   
   # API routes - proxy to Node.js API on port 3000
