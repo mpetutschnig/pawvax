@@ -87,9 +87,11 @@ async function applySharing(db, animal, requestRole, ownerName, ownerEmail, effe
   if (sharing.share_dynamic_fields) result.dynamic_fields = animal.dynamic_fields
 
   const { rows: docs } = await db.query(`
-    SELECT * FROM documents
-    WHERE animal_id = $1
-    ORDER BY created_at DESC
+    SELECT d.*, uploader.name AS added_by_name, uploader.verified AS added_by_verified
+    FROM documents d
+    LEFT JOIN accounts uploader ON uploader.id = d.added_by_account
+    WHERE d.animal_id = $1
+    ORDER BY d.created_at DESC
   `, [animal.id])
 
   const docRoles = effectiveRoles || [requestRole]
@@ -205,9 +207,11 @@ export default async function animalRoutes(fastify) {
     if (sharing.share_address) result.address = row.address
 
     const { rows: docs } = await db.query(`
-      SELECT * FROM documents
-      WHERE animal_id = $1
-      ORDER BY created_at DESC
+      SELECT d.*, uploader.name AS added_by_name, uploader.verified AS added_by_verified
+      FROM documents d
+      LEFT JOIN accounts uploader ON uploader.id = d.added_by_account
+      WHERE d.animal_id = $1
+      ORDER BY d.created_at DESC
     `, [row.id])
 
     result.documents = docs.filter(d => {
@@ -626,7 +630,13 @@ export default async function animalRoutes(fastify) {
 
     // Eigentümer: voller Zugriff
     if (animal.account_id === accountId) {
-      const { rows } = await db.query('SELECT * FROM documents WHERE animal_id = $1 ORDER BY created_at DESC', [id])
+      const { rows } = await db.query(`
+        SELECT d.*, uploader.name AS added_by_name, uploader.verified AS added_by_verified 
+        FROM documents d
+        LEFT JOIN accounts uploader ON uploader.id = d.added_by_account
+        WHERE d.animal_id = $1 
+        ORDER BY d.created_at DESC
+      `, [id])
       return parseDocs(rows)
     }
 
@@ -639,7 +649,13 @@ export default async function animalRoutes(fastify) {
 
     if (!sharing) return []
 
-    const { rows: docs } = await db.query('SELECT * FROM documents WHERE animal_id = $1 ORDER BY created_at DESC', [id])
+    const { rows: docs } = await db.query(`
+      SELECT d.*, uploader.name AS added_by_name, uploader.verified AS added_by_verified
+      FROM documents d
+      LEFT JOIN accounts uploader ON uploader.id = d.added_by_account
+      WHERE d.animal_id = $1 
+      ORDER BY d.created_at DESC
+    `, [id])
 
     return parseDocs(docs.filter(d => {
       return canRoleSeeDocument(d.allowed_roles, requestRole)
