@@ -14,15 +14,25 @@ Wichtig:
 
 Auf dem lokalen Entwicklungsrechner:
 
+```bash
+git add .
+git commit -m "Deployment Update"
+git push
+
+ssh hetzner
+```
 
 ```bash
 usermod -s /bin/bash paw-git
 usermod -s /bin/bash paw-api
 usermod -s /bin/bash paw-pwa
 
-su -s /bin/bash paw-git -c "cd /tmp && git -C /git/pawvax pull"
+# Fix Git ownership (Falls Repo als root erstellt)
+chown -R paw-git:paw-git /git/pawvax
 chmod -R a+rX /git/pawvax
 chmod -R a+w /git/pawvax/server /git/pawvax/pwa
+
+su -s /bin/bash paw-git -c "cd /tmp && git -C /git/pawvax pull"
 ```
 
 ---
