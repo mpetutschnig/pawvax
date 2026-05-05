@@ -130,7 +130,7 @@ console.log(`\n4. Checking for archived animals without archive reason...`)
 const { rows: archived_no_reason } = await client.query(`
   SELECT a.id, a.name, a.is_archived, a.archive_reason
   FROM animals a
-  WHERE a.is_archived = 1 AND (a.archive_reason IS NULL OR trim(a.archive_reason) = '')
+  WHERE a.is_archived = TRUE AND (a.archive_reason IS NULL OR trim(a.archive_reason) = '')
 `)
 
 if (archived_no_reason.length > 0) {

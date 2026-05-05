@@ -37,9 +37,9 @@ Für paw-api User (PostgreSQL + API):
 
 ```bash
 PAW_API_UID=$(id -u paw-api)
-su -s /bin/bash paw-api -c "mkdir -p ~/.config/containers/systemd"
-su -s /bin/bash paw-api -c "cp /git/pawvax/podman/postgres.container ~/.config/containers/systemd/"
-su -s /bin/bash paw-api -c "cp /git/pawvax/podman/paw-api.container ~/.config/containers/systemd/"
+su -s /bin/bash paw-api -c "cd /tmp && mkdir -p /home/paw-api/.config/containers/systemd"
+su -s /bin/bash paw-api -c "cd /tmp && cp /git/pawvax/podman/postgres.container /home/paw-api/.config/containers/systemd/"
+su -s /bin/bash paw-api -c "cd /tmp && cp /git/pawvax/podman/paw-api.container /home/paw-api/.config/containers/systemd/"
 su -s /bin/bash paw-api -c "XDG_RUNTIME_DIR=/run/user/$PAW_API_UID DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$PAW_API_UID/bus systemctl --user daemon-reload"
 ```
 
@@ -47,10 +47,22 @@ Für paw-pwa User (PWA):
 
 ```bash
 PAW_PWA_UID=$(id -u paw-pwa)
-su -s /bin/bash paw-pwa -c "mkdir -p ~/.config/containers/systemd"
-su -s /bin/bash paw-pwa -c "cp /git/pawvax/podman/paw-pwa.container ~/.config/containers/systemd/"
+su -s /bin/bash paw-pwa -c "cd /tmp && mkdir -p /home/paw-pwa/.config/containers/systemd"
+su -s /bin/bash paw-pwa -c "cd /tmp && cp /git/pawvax/podman/paw-pwa.container /home/paw-pwa/.config/containers/systemd/"
 su -s /bin/bash paw-pwa -c "XDG_RUNTIME_DIR=/run/user/$PAW_PWA_UID DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$PAW_PWA_UID/bus systemctl --user daemon-reload"
 ```
+
+Generierte User-Units direkt pruefen, bevor du mit Schritt 1 weitermachst:
+
+```bash
+su -s /bin/bash paw-api -c "cd /tmp && ls -l /home/paw-api/.config/containers/systemd/"
+su -s /bin/bash paw-api -c "cd /tmp && XDG_RUNTIME_DIR=/run/user/$PAW_API_UID DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$PAW_API_UID/bus systemctl --user list-unit-files | grep -E '^(postgres|paw-api)\.service'"
+
+su -s /bin/bash paw-pwa -c "cd /tmp && ls -l /home/paw-pwa/.config/containers/systemd/"
+su -s /bin/bash paw-pwa -c "cd /tmp && XDG_RUNTIME_DIR=/run/user/$PAW_PWA_UID DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$PAW_PWA_UID/bus systemctl --user list-unit-files | grep -E '^paw-pwa\.service'"
+```
+
+Wenn hier kein `postgres.service`, `paw-api.service` oder `paw-pwa.service` erscheint, nicht mit `start` weitermachen. Dann zuerst `daemon-reload` erneut ausfuehren und den Output von `systemctl --user list-unit-files` pruefen.
 
 Dann mit Schritt 1 unten weitermachen (immer noch auf alma.oxs.at).
 
@@ -87,6 +99,15 @@ XDG_RUNTIME_DIR=/run/user/$PAW_PWA_UID su -s /bin/bash paw-pwa -c "cd /tmp && po
 ## Schritt 3: PostgreSQL-Container starten (einmalig beim ersten Deployment)
 
 Einmalig nach Update auf PostgreSQL-Version: PostgreSQL-Container mit Quadlets starten.
+
+Vor dem Start einmal pruefen, dass die Unit wirklich vorhanden ist:
+
+```bash
+PAW_API_UID=$(id -u paw-api)
+su -s /bin/bash paw-api -c "cd /tmp && XDG_RUNTIME_DIR=/run/user/$PAW_API_UID DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$PAW_API_UID/bus systemctl --user list-unit-files | grep -E '^(postgres|paw-api)\.service'"
+```
+
+Wenn `postgres.service` hier fehlt, erst zur Vorbereitung oben zurueckgehen und die Quadlet-Installation pruefen.
 
 ```bash
 PAW_API_UID=$(id -u paw-api)
@@ -255,68 +276,6 @@ Nach einem Frontend-Deploy muss die PWA im Browser hart aktualisiert werden:
 
 - Dashboard zeigt Teststatus gruen.
 - Testdetails zeigen `123/123`.
-- Versionsanzeige in der Admin-Seite ist sichtbar.
-
-### OCR / Dokumente pruefen
-
-- Bereits falsch klassifizierte Impfpass-Dokumente einmal neu analysieren.
-- Impfpass-Tabellen muessen danach als `vaccination` erscheinen.
-- Die Impftabelle muss auf der Tierseite wieder sichtbar sein.
-
-### EU Pet Passport pruefen
-
-- Heimtierausweis hochladen.
-- Dokumenttyp sollte als `pet_passport` erkannt werden.
-- Chip-Code sollte automatisch als Tag angelegt werden.
-- Die Detailseite muss Pass- und Chipdaten anzeigen.
-
----
-
-## Schritt 11: Shells wieder sperren
-
-```bash
-usermod -s /sbin/nologin paw-git
-usermod -s /sbin/nologin paw-api
-usermod -s /sbin/nologin paw-pwa
-echo "PAW Update erfolgreich abgeschlossen."
-```
-
-Das Script loescht bekannte Test-Accounts mit aktivierten Foreign Keys und raeumt zusaetzlich bereits vorhandene Orphans auf.
-
-### 8.4 API-Service wieder starten
-
-```bash
-PAW_API_UID=$(id -u paw-api)
-su -s /bin/bash paw-api -c "cd /tmp && XDG_RUNTIME_DIR=/run/user/$PAW_API_UID DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$PAW_API_UID/bus systemctl --user start paw-api"
-su -s /bin/bash paw-api -c "cd /tmp && XDG_RUNTIME_DIR=/run/user/$PAW_API_UID DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$PAW_API_UID/bus systemctl --user status paw-api --no-pager"
-```
-
-### 8.5 Ergebnis pruefen
-
-Im Admin-Dashboard sollte jetzt sichtbar sein:
-- Teststatus: erfolgreich
-- Testdetails: `115/115`
-- Admin-Version: aktuelle deployte Version
-
----
-
-## Schritt 9: PWA im Browser aktualisieren
-
-Nach einem Frontend-Deploy muss die PWA im Browser hart aktualisiert werden:
-
-1. DevTools oeffnen.
-2. Application -> Service Workers -> Unregister.
-3. Application -> Storage -> Clear site data.
-4. Hard Reload mit `Ctrl+Shift+R`.
-
----
-
-## Schritt 10: Funktional pruefen
-
-### Admin pruefen
-
-- Dashboard zeigt Teststatus gruen.
-- Testdetails zeigen `115/115`.
 - Versionsanzeige in der Admin-Seite ist sichtbar.
 
 ### OCR / Dokumente pruefen
