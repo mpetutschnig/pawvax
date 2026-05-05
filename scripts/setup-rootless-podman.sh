@@ -147,12 +147,13 @@ prepare_host() {
   app_home_dir="$(app_home)"
   app_uid_value="$(app_uid)"
 
-  install -d -o "$APP_USER" -g "$APP_USER" "$app_home_dir/data/postgres"
-  install -d -o "$APP_USER" -g "$APP_USER" "$app_home_dir/data/uploads"
-  install -d -o "$APP_USER" -g "$APP_USER" "$app_home_dir/.config/systemd/user"
+  mkdir -p "$app_home_dir/data/postgres" "$app_home_dir/data/uploads"
+  chown "$APP_USER:$APP_USER" "$app_home_dir/data/postgres" "$app_home_dir/data/uploads"
+  chmod 755 "$app_home_dir/data/postgres" "$app_home_dir/data/uploads"
 
-  loginctl enable-linger "$APP_USER"
-  systemctl start "user@$app_uid_value.service"
+  loginctl enable-linger "$APP_USER" 2>/dev/null || true
+  systemctl start "user@$app_uid_value.service" 2>/dev/null || true
+  sleep 1  # Wait for systemd user bus to initialize and create ~/.config
 
   chown -R "$GIT_USER:$GIT_USER" "$REPO_DIR"
   chmod -R a+rX "$REPO_DIR"
