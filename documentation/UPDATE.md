@@ -76,10 +76,10 @@ su -s /bin/bash paw-git -c "cd /git/pawvax && git pull"
 
 ```bash
 PAW_API_UID=$(id -u paw-api)
-XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "podman container prune -f && podman image prune -af && podman builder prune -af"
+XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "cd /tmp && podman container prune -f && podman image prune -af && podman builder prune -af"
 
 PAW_PWA_UID=$(id -u paw-pwa)
-XDG_RUNTIME_DIR=/run/user/$PAW_PWA_UID su -s /bin/bash paw-pwa -c "podman container prune -f && podman image prune -af && podman builder prune -af"
+XDG_RUNTIME_DIR=/run/user/$PAW_PWA_UID su -s /bin/bash paw-pwa -c "cd /tmp && podman container prune -f && podman image prune -af && podman builder prune -af"
 ```
 
 ---
@@ -91,9 +91,9 @@ Einmalig nach Update auf PostgreSQL-Version: PostgreSQL-Container mit Quadlets s
 ```bash
 PAW_API_UID=$(id -u paw-api)
 DB_PASSWORD=$(grep DB_PASSWORD /git/pawvax/.env.podman | cut -d= -f2)
-su -s /bin/bash paw-api -c "XDG_RUNTIME_DIR=/run/user/$PAW_API_UID DB_PASSWORD=$DB_PASSWORD systemctl --user start postgres.service"
+su -s /bin/bash paw-api -c "cd /tmp && XDG_RUNTIME_DIR=/run/user/$PAW_API_UID DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$PAW_API_UID/bus DB_PASSWORD=$DB_PASSWORD systemctl --user start postgres.service"
 sleep 5
-su -s /bin/bash paw-api -c "XDG_RUNTIME_DIR=/run/user/$PAW_API_UID systemctl --user status postgres.service --no-pager"
+su -s /bin/bash paw-api -c "cd /tmp && XDG_RUNTIME_DIR=/run/user/$PAW_API_UID DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$PAW_API_UID/bus systemctl --user status postgres.service --no-pager"
 ```
 
 ---
@@ -138,25 +138,25 @@ PostgreSQL, API und PWA neu starten mit Quadlets:
 # PostgreSQL starten (wenn nicht bereits aktiv)
 PAW_API_UID=$(id -u paw-api)
 DB_PASSWORD=$(grep DB_PASSWORD /git/pawvax/.env.podman | cut -d= -f2)
-su -s /bin/bash paw-api -c "XDG_RUNTIME_DIR=/run/user/$PAW_API_UID DB_PASSWORD=$DB_PASSWORD systemctl --user start postgres.service"
+su -s /bin/bash paw-api -c "cd /tmp && XDG_RUNTIME_DIR=/run/user/$PAW_API_UID DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$PAW_API_UID/bus DB_PASSWORD=$DB_PASSWORD systemctl --user start postgres.service"
 sleep 3
 
 # API neustarten
-su -s /bin/bash paw-api -c "XDG_RUNTIME_DIR=/run/user/$PAW_API_UID systemctl --user restart paw-api.service"
+su -s /bin/bash paw-api -c "cd /tmp && XDG_RUNTIME_DIR=/run/user/$PAW_API_UID DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$PAW_API_UID/bus systemctl --user restart paw-api.service"
 
 # PWA neustarten
 PAW_PWA_UID=$(id -u paw-pwa)
-su -s /bin/bash paw-pwa -c "XDG_RUNTIME_DIR=/run/user/$PAW_PWA_UID systemctl --user restart paw-pwa.service"
+su -s /bin/bash paw-pwa -c "cd /tmp && XDG_RUNTIME_DIR=/run/user/$PAW_PWA_UID DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$PAW_PWA_UID/bus systemctl --user restart paw-pwa.service"
 ```
 
 Status pruefen:
 
 ```bash
 PAW_API_UID=$(id -u paw-api)
-su -s /bin/bash paw-api -c "XDG_RUNTIME_DIR=/run/user/$PAW_API_UID systemctl --user status postgres.service paw-api.service --no-pager"
+su -s /bin/bash paw-api -c "cd /tmp && XDG_RUNTIME_DIR=/run/user/$PAW_API_UID DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$PAW_API_UID/bus systemctl --user status postgres.service paw-api.service --no-pager"
 
 PAW_PWA_UID=$(id -u paw-pwa)
-su -s /bin/bash paw-pwa -c "XDG_RUNTIME_DIR=/run/user/$PAW_PWA_UID systemctl --user status paw-pwa.service --no-pager"
+su -s /bin/bash paw-pwa -c "cd /tmp && XDG_RUNTIME_DIR=/run/user/$PAW_PWA_UID DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$PAW_PWA_UID/bus systemctl --user status paw-pwa.service --no-pager"
 ```
 
 Optional rootless Container pruefen:
@@ -193,14 +193,14 @@ Wichtig:
 
 ```bash
 PAW_API_UID=$(id -u paw-api)
-su -s /bin/bash paw-api -c "XDG_RUNTIME_DIR=/run/user/$PAW_API_UID systemctl --user stop paw-api.service"
+su -s /bin/bash paw-api -c "cd /tmp && XDG_RUNTIME_DIR=/run/user/$PAW_API_UID DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$PAW_API_UID/bus systemctl --user stop paw-api.service"
 sleep 2
 ```
 
 Optional pruefen, dass kein API-Container mehr laeuft:
 
 ```bash
-su -s /bin/bash paw-api -c "XDG_RUNTIME_DIR=/run/user/$(id -u paw-api) podman ps"
+su -s /bin/bash paw-api -c "cd /tmp && XDG_RUNTIME_DIR=/run/user/$(id -u paw-api) podman ps"
 ```
 
 ### 8.2 Testergebnisse in DB speichern
@@ -225,8 +225,8 @@ Das Script loescht bekannte Test-Accounts mit aktivierten Foreign Keys und raeum
 
 ```bash
 PAW_API_UID=$(id -u paw-api)
-su -s /bin/bash paw-api -c "XDG_RUNTIME_DIR=/run/user/$PAW_API_UID systemctl --user start paw-api.service"
-su -s /bin/bash paw-api -c "XDG_RUNTIME_DIR=/run/user/$PAW_API_UID systemctl --user status paw-api.service --no-pager"
+su -s /bin/bash paw-api -c "cd /tmp && XDG_RUNTIME_DIR=/run/user/$PAW_API_UID DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$PAW_API_UID/bus systemctl --user start paw-api.service"
+su -s /bin/bash paw-api -c "cd /tmp && XDG_RUNTIME_DIR=/run/user/$PAW_API_UID DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$PAW_API_UID/bus systemctl --user status paw-api.service --no-pager"
 ```
 
 ### 8.5 Ergebnis pruefen
