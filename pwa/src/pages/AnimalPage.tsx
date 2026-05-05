@@ -208,7 +208,7 @@ export default function AnimalPage() {
     document.addEventListener('visibilitychange', handleVisibilityChange)
 
     // Slow poll (30s) while page is visible
-    let pollInterval: NodeJS.Timeout | null = null
+    let pollInterval: number | null = null
     const startPolling = () => {
       if (document.hidden) return
       pollInterval = setInterval(() => {
