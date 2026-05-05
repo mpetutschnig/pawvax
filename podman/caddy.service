@@ -1,0 +1,22 @@
+[Unit]
+Description=Caddy Web Server (PAW Reverse Proxy)
+Documentation=https://caddyserver.com/docs/
+After=network.target
+
+[Service]
+User=caddy
+Group=caddy
+Type=notify
+ExecStart=/usr/bin/caddy run --config /etc/caddy/Caddyfile
+ExecReload=/usr/bin/caddy reload --config /etc/caddy/Caddyfile --force
+TimeoutStopSec=5s
+LimitNOFILE=1048576
+LimitNPROC=512
+PrivateTmp=yes
+ProtectSystem=full
+ProtectHome=yes
+NoNewPrivileges=yes
+KillMode=mixed
+
+[Install]
+WantedBy=multi-user.target

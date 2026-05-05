@@ -1,0 +1,31 @@
+# Caddy configuration for PAW (Tierimpfpass)
+# Reverse proxy with Let's Encrypt SSL termination
+
+paw.oxs.at {
+  # Let's Encrypt automatic HTTPS
+  encode gzip
+  
+  # Reverse proxy to internal PAW pod on localhost
+  reverse_proxy localhost:80 {
+    # Preserve headers for proxied requests
+    header_up X-Real-IP {http.request.remote.host}
+    header_up X-Forwarded-For {http.request.remote.host}
+    header_up X-Forwarded-Proto {http.request.scheme}
+    header_up Host {http.request.host}
+    
+    # WebSocket support
+    header_up Connection {http.request.header.Connection}
+    header_up Upgrade {http.request.header.Upgrade}
+  }
+
+  # Log access
+  log {
+    output file /var/log/caddy/paw.oxs.at.log
+    format json
+  }
+}
+
+# HTTP redirect to HTTPS (handled automatically by Caddy)
+http:// {
+  redir https://{host}{uri} permanent
+}
