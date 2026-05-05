@@ -8,7 +8,6 @@ Wichtig:
 - Bei rootless Podman immer als passender User arbeiten.
 - Diese Version nutzt Quadlets statt podman-compose für bessere systemd-Integration.
 
----
 
 ## VORBEREITUNG: Quadlets installieren (einmalig beim ERSTEN Deployment auf alma.oxs.at)
 
@@ -16,6 +15,13 @@ Wichtig:
 
 ```bash
 ssh hetzner
+```
+
+Repo aktualisieren:
+
+```bash
+su -s /bin/bash paw-git -c "cd /git/pawvax && git pull"
+su -s /bin/bash paw-git -c "cd /git/pawvax && git pull"
 ```
 
 Für paw-api User (PostgreSQL + API):
