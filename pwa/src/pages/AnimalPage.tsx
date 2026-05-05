@@ -145,11 +145,26 @@ export default function AnimalPage() {
     }
   }
 
+  const loadPendingDocuments = async (animalId: string) => {
+    try {
+      const token = localStorage.getItem('token')
+      const headers: Record<string, string> = {}
+      if (token) headers['Authorization'] = `Bearer ${token}`
+      const response = await fetch(`/api/animals/${animalId}/documents/pending`, { headers })
+      const pendingDocs = await response.json()
+      setPendingDocuments(Array.isArray(pendingDocs) ? pendingDocs : [])
+    } catch (err) {
+      console.error('Fehler beim Laden von pending Dokumenten:', err)
+      setPendingDocuments([])
+    }
+  }
+
   const handleDeletePendingDoc = async (docId: string) => {
     if (!confirm(t('docDetail.deleteConfirm'))) return
     try {
       await deleteDocument(docId)
-      setPendingDocuments(prev => prev.filter(d => d.id !== docId))
+      // Reload pending documents to ensure consistency with DB
+      if (id) await loadPendingDocuments(id)
     } catch (err: any) {
       setError(err.response?.data?.error || t('common.deleteError'))
     }
@@ -163,20 +178,8 @@ export default function AnimalPage() {
         setEditData(a.data as any)
         setDocuments(Array.isArray(d.data) ? d.data : [])
         setTags(Array.isArray(t.data) ? t.data : [])
-        // Load pending documents with JWT token
-        const token = localStorage.getItem('token')
-        const headers: Record<string, string> = {}
-        if (token) headers['Authorization'] = `Bearer ${token}`
-        fetch(`/api/animals/${id}/documents/pending`, { headers })
-          .then(r => r.json())
-          .then(pendingDocs => {
-            console.log('Pending documents loaded:', pendingDocs)
-            setPendingDocuments(Array.isArray(pendingDocs) ? pendingDocs : [])
-          })
-          .catch(err => {
-            console.error('Fehler beim Laden von pending Dokumenten:', err)
-            setPendingDocuments([])
-          })
+        // Load pending documents
+        loadPendingDocuments(id)
       })
       .catch(() => setError(t('error.notFound')))
       .finally(() => setLoading(false))
