@@ -186,6 +186,45 @@ export default function AnimalPage() {
       .finally(() => setLoading(false))
   }, [id])
 
+  // Auto-refresh pending documents when page is visible
+  // On focus: immediate refresh + 30s polling
+  // On blur: stop polling (preserve bandwidth)
+  useEffect(() => {
+    if (!id) return
+
+    const handleVisibilityChange = async () => {
+      if (document.hidden) {
+        // Page went to background — stop polling
+        return
+      }
+      // Page came back to foreground — immediate refresh
+      await loadPendingDocuments(id)
+    }
+
+    // Immediate refresh on mount
+    loadPendingDocuments(id)
+
+    // Listen for page visibility changes
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    // Slow poll (30s) while page is visible
+    let pollInterval: NodeJS.Timeout | null = null
+    const startPolling = () => {
+      if (document.hidden) return
+      pollInterval = setInterval(() => {
+        if (!document.hidden) {
+          loadPendingDocuments(id)
+        }
+      }, 30000)
+    }
+    startPolling()
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      if (pollInterval) clearInterval(pollInterval)
+    }
+  }, [id])
+
   const handleEdit = async () => {
     if (!editData || !id) return
     try {
