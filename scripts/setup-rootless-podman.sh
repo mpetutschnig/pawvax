@@ -109,12 +109,17 @@ EOF
 prepare_proxy_assets() {
   local app_home_dir
   app_home_dir="$(app_home)"
-  install -d -o "$APP_USER" -g "$APP_USER" "$app_home_dir/data/proxy"
-  install -d -o "$APP_USER" -g "$APP_USER" "$app_home_dir/data/proxy/ssl"
-  install -d -o "$APP_USER" -g "$APP_USER" "$app_home_dir/data/pwa"
+  
+  # Create directories with proper ownership
+  mkdir -p "$app_home_dir/data/proxy/ssl" "$app_home_dir/data/pwa"
+  chown -R "$APP_USER:$APP_USER" "$app_home_dir/data/proxy" "$app_home_dir/data/pwa"
+  chmod 755 "$app_home_dir/data/proxy" "$app_home_dir/data/proxy/ssl" "$app_home_dir/data/pwa"
 
-  install -o "$APP_USER" -g "$APP_USER" -m 644 "$REPO_DIR/podman/proxy.nginx.conf" "$app_home_dir/data/proxy/default.conf"
-  install -o "$APP_USER" -g "$APP_USER" -m 644 "$REPO_DIR/pwa/nginx.pod.conf" "$app_home_dir/data/pwa/nginx.conf"
+  # Copy config files with proper ownership
+  cp "$REPO_DIR/podman/proxy.nginx.conf" "$app_home_dir/data/proxy/default.conf"
+  cp "$REPO_DIR/pwa/nginx.pod.conf" "$app_home_dir/data/pwa/nginx.conf"
+  chown "$APP_USER:$APP_USER" "$app_home_dir/data/proxy/default.conf" "$app_home_dir/data/pwa/nginx.conf"
+  chmod 644 "$app_home_dir/data/proxy/default.conf" "$app_home_dir/data/pwa/nginx.conf"
 
   if [[ ! -f "$app_home_dir/data/proxy/ssl/fullchain.pem" || ! -f "$app_home_dir/data/proxy/ssl/privkey.pem" ]]; then
     openssl req -x509 -nodes -newkey rsa:2048 -days 365 \
