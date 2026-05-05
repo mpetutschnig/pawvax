@@ -20,9 +20,7 @@ COPY nginx.conf /etc/nginx/nginx.conf
 # Copy built app from builder
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Copy SSL certificates if they exist (optional)
-# Adjust the path if your SSL certs are elsewhere
-COPY ssl /etc/nginx/ssl 2>/dev/null || true
+# SSL certs are mounted at runtime via pod volume (managed by proxy container)
 
 EXPOSE 80 443
 
