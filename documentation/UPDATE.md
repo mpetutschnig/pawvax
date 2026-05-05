@@ -14,13 +14,6 @@ Wichtig:
 
 Auf dem lokalen Entwicklungsrechner:
 
-```bash
-git add .
-git commit -m "Deployment Update"
-git push
-
-ssh hetzner
-```
 
 ```bash
 usermod -s /bin/bash paw-git
