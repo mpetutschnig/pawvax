@@ -39,7 +39,7 @@ const fastify = Fastify({
 const REDACTED_KEYS = ['password', 'token', 'authorization', 'cookie', 'secret', 'api_key', 'apikey', 'x-api-key', 'jwt']
 
 function shouldSkipHttpAudit(url = '') {
-  return url === '/health' || url.startsWith('/uploads/') || url.startsWith('/documentation')
+  return (url === '/health' || url === '/api/health' || url.startsWith('/uploads/') || url.startsWith('/documentation'))
 }
 
 function isSensitiveKey(key = '') {
@@ -301,6 +301,7 @@ await fastify.register(reminderRoutes)
 
 // Healthcheck
 fastify.get('/health', async () => ({ status: 'ok' }))
+fastify.get('/api/health', async () => ({ status: 'ok' }))
 
 // Start
 const port = parseInt(process.env.PORT ?? '3000')

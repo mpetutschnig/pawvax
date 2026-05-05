@@ -913,6 +913,14 @@ describe('API Health Checks', () => {
     expect(response.status).toBe(200)
     expect(data.status).toBe('ok')
   })
+
+  test('Health Check – API Proxy Route läuft?', async () => {
+    const response = await fetch(`${API_URL}/health`)
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.status).toBe('ok')
+  })
 })
 
 // ════════════════════════════════════════════════════════════════

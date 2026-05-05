@@ -39,6 +39,9 @@ async function runTests() {
   // 1. Health & Settings
   let res = await request('/health', 'GET', null, false);
   assert(res.status === 200, 'Server Healthcheck läuft');
+
+  res = await request('/api/health', 'GET', null, false);
+  assert(res.status === 200, 'Proxy-kompatibler API-Healthcheck läuft');
   
   res = await request('/api/settings', 'GET', null, false);
   assert(res.status === 200 && res.data.app_name, 'Public Settings Route erreichbar');
