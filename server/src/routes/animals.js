@@ -602,6 +602,11 @@ export default async function animalRoutes(fastify) {
 
   // Dokumentliste eines Tieres (mit Rollenfilter)
   fastify.get('/api/animals/:id/documents', async (req, reply) => {
+    // Prevent caching — document list can change (uploads, deletes, analysis status)
+    reply.header('Cache-Control', 'no-cache, no-store, must-revalidate')
+    reply.header('Pragma', 'no-cache')
+    reply.header('Expires', '0')
+
     const db = getDb()
     const { accountId, role, roles, verified } = req.user
     const { id } = req.params

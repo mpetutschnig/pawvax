@@ -114,6 +114,11 @@ export default async function documentRoutes(fastify) {
 
   // Einzelnes Dokument abrufen
   fastify.get('/api/documents/:id', async (req, reply) => {
+    // Prevent caching — documents can be updated/deleted/re-analyzed
+    reply.header('Cache-Control', 'no-cache, no-store, must-revalidate')
+    reply.header('Pragma', 'no-cache')
+    reply.header('Expires', '0')
+
     const db = getDb()
     const { accountId, role } = req.user
 
@@ -159,6 +164,11 @@ export default async function documentRoutes(fastify) {
   })
 
   fastify.get('/api/documents/:id/history', async (req, reply) => {
+    // Prevent caching — history can be updated
+    reply.header('Cache-Control', 'no-cache, no-store, must-revalidate')
+    reply.header('Pragma', 'no-cache')
+    reply.header('Expires', '0')
+
     const db = getDb()
     const { accountId, role } = req.user
     const docId = req.params.id
@@ -311,6 +321,11 @@ export default async function documentRoutes(fastify) {
 
   // Nicht analysierte Dokumente abrufen (pending_analysis)
   fastify.get('/api/animals/:animalId/documents/pending', async (req, reply) => {
+    // Prevent browser/proxy caching — pending documents are real-time critical
+    reply.header('Cache-Control', 'no-cache, no-store, must-revalidate')
+    reply.header('Pragma', 'no-cache')
+    reply.header('Expires', '0')
+
     const db = getDb()
     const { accountId } = req.user
     const { animalId } = req.params
