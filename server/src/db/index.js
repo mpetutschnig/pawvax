@@ -290,5 +290,14 @@ export function initDb(dbPath) {
   const now = Math.floor(Date.now() / 1000)
   db.prepare('DELETE FROM jwt_blacklist WHERE expires_at < ?').run(now)
 
+  // Clean up stale upload stubs: documents stuck in 'uploading' status are from
+  // WebSocket sessions that never completed (connection dropped, server restart, etc.).
+  // They are invisible to the user but would appear as ghost entries if the status
+  // ever leaked. Safe to delete unconditionally — the image files (if any) are orphaned
+  // but they carry UUID-based names so they cause no naming conflicts.
+  try {
+    db.prepare("DELETE FROM documents WHERE analysis_status = 'uploading'").run()
+  } catch { /* column may not exist on very old schemas */ }
+
   return db
 }

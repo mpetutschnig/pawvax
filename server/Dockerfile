@@ -20,6 +20,10 @@ RUN mkdir -p /app/data /app/uploads
 # Expose port
 EXPOSE 3000
 
+# Default DB path inside the container (override via DB_PATH env var in the systemd unit / compose file)
+ENV DB_PATH=/app/data/paw.db
+ENV UPLOADS_DIR=/app/uploads
+
 # Health check endpoint needs to be added to your app
 HEALTHCHECK --interval=10s --timeout=5s --retries=3 \
   CMD node -e "require('http').get('http://localhost:3000/health', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"

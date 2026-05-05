@@ -176,9 +176,11 @@ export default async function wsDocumentUpload(fastify) {
           const db = getDb()
           const existingCheck = db.prepare('SELECT id FROM documents WHERE id = ?').get(docId)
           if (!existingCheck) {
+            // Use 'uploading' status — not 'pending_analysis' — so incomplete stubs
+            // never appear in the "pending analysis" list and are auto-cleaned on restart
             db.prepare(`
-              INSERT INTO documents (id, animal_id, doc_type, image_path, extracted_json, ocr_provider, added_by_account, added_by_role, allowed_roles)
-              VALUES (?, ?, 'general', '', '{}', 'pending', ?, ?, ?)
+              INSERT INTO documents (id, animal_id, doc_type, image_path, extracted_json, ocr_provider, added_by_account, added_by_role, allowed_roles, analysis_status)
+              VALUES (?, ?, 'general', '', '{}', 'pending', ?, ?, ?, 'uploading')
             `).run(docId, animalId, accountId, userRole, JSON.stringify(normalizedAllowedRoles))
           }
 
