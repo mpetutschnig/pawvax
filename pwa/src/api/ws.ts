@@ -3,7 +3,7 @@ export type WsMessage =
   | { type: 'ready'; documentId?: string }
   | { type: 'page_saved'; documentId: string; pageNumber: number; message: string }
   | { type: 'status'; message: string }
-  | { type: 'result'; data: { documentId: string; docType: string; pages?: number; suggestedType?: string; content?: unknown } }
+  | { type: 'result'; data: { documentId: string; docType: string; pages?: number; suggestedType?: string; content?: unknown; analysisStatus?: string; ocrProvider?: string; analysisError?: string | null } }
   | { type: 'error'; message: string }
 
 export interface UploadCallbacks {

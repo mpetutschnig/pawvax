@@ -391,7 +391,15 @@ export default async function wsDocumentUpload(fastify) {
 
             send(socket, {
               type: 'result',
-              data: { documentId: docId, docType: extractedData.type || suggestedType, pages: pages.length, suggestedType: extractedData.type || suggestedType, ocrProvider: lastProvider, analysisStatus }
+              data: {
+                documentId: docId,
+                docType: extractedData.type || suggestedType,
+                pages: pages.length,
+                suggestedType: extractedData.type || suggestedType,
+                ocrProvider: lastProvider,
+                analysisStatus,
+                analysisError: analysisError ? (extractedData.error_details || extractedData.error || analysisError.message) : null
+              }
             })
           } catch (err) {
             fastify.log.error({ err }, 'WS: OCR/Upload error')

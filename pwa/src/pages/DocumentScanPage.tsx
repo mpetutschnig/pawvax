@@ -11,6 +11,24 @@ import { DEFAULT_AVAILABLE_MODELS, DEFAULT_MODEL_BY_PROVIDER, DOCUMENT_TYPE_PLAC
 
 type Phase = 'capture' | 'uploading' | 'analysing' | 'done' | 'error'
 
+function getAnalysisErrorMessage(rawError: unknown, fallback: string) {
+  if (!rawError) return fallback
+  if (typeof rawError === 'string') return rawError
+  if (rawError instanceof Error) return rawError.message || fallback
+  if (typeof rawError === 'object') {
+    const candidate = rawError as { response?: { data?: { error?: unknown } }, message?: string }
+    const nestedError = candidate.response?.data?.error
+    if (typeof nestedError === 'string') return nestedError
+    if (nestedError && typeof nestedError === 'object') {
+      const details = nestedError as { error_details?: string; error?: string; message?: string }
+      if (details.error_details) return details.error_details
+      if (details.error) return details.error
+      if (details.message) return details.message
+    }
+    if (candidate.message) return candidate.message
+  }
+  return fallback
+}
 export default function DocumentScanPage() {
   const { id: animalId } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -285,10 +303,8 @@ export default function DocumentScanPage() {
       navigate(`/animals/${animalId}/documents/${documentId}`, { replace: true })
     } catch (err: any) {
       setShowModelSelection(false)
-      navigate(`/animals/${animalId}/documents/${documentId}`, {
-        replace: true,
-        state: { analysisError: err.response?.data?.error || err.message || t('animal.documentFailed') }
-      })
+      setErrorMsg(getAnalysisErrorMessage(err, t('animal.documentFailed')))
+      setPhase('error')
     } finally {
       setIsAnalyzing(false)
     }
@@ -323,10 +339,8 @@ export default function DocumentScanPage() {
           setAutoSavedAt(new Date())
 
           if (data.data.analysisStatus === 'pending_analysis') {
-            navigate(`/animals/${animalId}/documents/${nextDocumentId}`, {
-              replace: true,
-              state: { analysisError: t('docScan.analyzeFailedRetry') }
-            })
+            setErrorMsg(data.data.analysisError || t('docScan.analyzeFailedRetry'))
+            setPhase('error')
             return
           }
 
