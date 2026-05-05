@@ -188,6 +188,8 @@ deploy_stack() {
 
   run_as_app "podman pod exists '$POD_NAME' && podman pod rm -f '$POD_NAME' || true"
   run_as_app "podman pod create --name '$POD_NAME' -p '$HTTP_PORT:80' -p '$HTTPS_PORT:443'"
+  sleep 1
+  run_as_app "podman pod exists '$POD_NAME' || { echo 'Pod creation failed' >&2; exit 1; }"
 
   run_as_app "source '$app_home_dir/.config/pawvax/paw.env'; podman run -d --replace --name paw-postgres --pod '$POD_NAME' \
     -e POSTGRES_DB='$DB_NAME' \
