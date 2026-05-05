@@ -93,7 +93,9 @@ EOF
 prepare_env_file() {
   local app_home_dir
   app_home_dir="$(app_home)"
-  install -d -o "$APP_USER" -g "$APP_USER" "$app_home_dir/.config/pawvax"
+  mkdir -p "$app_home_dir/.config/pawvax"
+  chown "$APP_USER:$APP_USER" "$app_home_dir/.config/pawvax"
+  chmod 755 "$app_home_dir/.config/pawvax"
 
   if [[ ! -f "$ENV_SOURCE" ]]; then
     cat >&2 <<EOF
@@ -103,7 +105,9 @@ EOF
     exit 1
   fi
 
-  install -o "$APP_USER" -g "$APP_USER" -m 600 "$ENV_SOURCE" "$app_home_dir/.config/pawvax/paw.env"
+  cp "$ENV_SOURCE" "$app_home_dir/.config/pawvax/paw.env"
+  chown "$APP_USER:$APP_USER" "$app_home_dir/.config/pawvax/paw.env"
+  chmod 600 "$app_home_dir/.config/pawvax/paw.env"
 }
 
 prepare_proxy_assets() {
