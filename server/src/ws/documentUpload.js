@@ -26,10 +26,9 @@ async function canAccessAnimalForUpload(db, animalId, accountId, userRole) {
     return true
   }
   
-  // Vet/Authority can access animals if sharing is configured
+  // Vet/Authority can access ANY animal (to add documents)
   if (userRole === 'vet' || userRole === 'authority') {
-    const { rows: [sharing] } = await db.query('SELECT 1 FROM animal_sharing WHERE animal_id = $1 AND role = $2', [animalId, userRole])
-    return !!sharing
+    return true
   }
   
   // Guests cannot upload
