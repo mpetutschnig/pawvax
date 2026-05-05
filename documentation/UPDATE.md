@@ -1,4 +1,4 @@
-# PAW - Update-Ablauf
+# PAW - Update-Ablauf (PostgreSQL Edition)
 
 Dieses Dokument ist als Runbook gedacht: von oben nach unten ausfuehren, ohne Schritte zu mischen.
 
@@ -6,6 +6,7 @@ Wichtig:
 - Die Befehle fuer `stop`, `persist`, `cleanup` und `start` getrennt nacheinander ausfuehren.
 - Den API-Container nicht vor dem Persistieren der Testergebnisse wieder starten.
 - Bei rootless Podman immer als passender User arbeiten.
+- Ab dieser Version: PostgreSQL statt SQLite (bessere Datenpersistenz in rootless Podman).
 
 ---
 
@@ -17,29 +18,15 @@ Auf dem lokalen Entwicklungsrechner:
 git add .
 git commit -m "Deployment Update"
 git push
-```
 
-Dann auf den Server verbinden:
-
-```bash
 ssh hetzner
 ```
-
----
-
-## Schritt 2: Server vorbereiten
-
-Temporär Login-Shells aktivieren:
 
 ```bash
 usermod -s /bin/bash paw-git
 usermod -s /bin/bash paw-api
 usermod -s /bin/bash paw-pwa
-```
 
-Code aktualisieren und Rechte setzen:
-
-```bash
 su -s /bin/bash paw-git -c "cd /tmp && git -C /git/pawvax pull"
 chmod -R a+rX /git/pawvax
 chmod -R a+w /git/pawvax/server /git/pawvax/pwa
@@ -47,25 +34,33 @@ chmod -R a+w /git/pawvax/server /git/pawvax/pwa
 
 ---
 
-## Schritt 3: Rootless Podman aufraeumen
+## Schritt 3: PostgreSQL-Container starten (einmalig beim ersten Deployment)
 
-API-User:
+Einmalig nach Update auf PostgreSQL-Version: PostgreSQL-Container mit Volumen starten.
 
 ```bash
 PAW_API_UID=$(id -u paw-api)
-XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "cd /tmp && podman --cgroup-manager=cgroupfs container prune -f && podman --cgroup-manager=cgroupfs image prune -af && podman --cgroup-manager=cgroupfs builder prune -af"
-```
-
-PWA-User:
-
-```bash
-PAW_PWA_UID=$(id -u paw-pwa)
-XDG_RUNTIME_DIR=/run/user/$PAW_PWA_UID su -s /bin/bash paw-pwa -c "cd /tmp && podman --cgroup-manager=cgroupfs container prune -f && podman --cgroup-manager=cgroupfs image prune -af && podman --cgroup-manager=cgroupfs builder prune -af"
+XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "cd /git/pawvax && podman-compose up -d postgres"
+sleep 5
+echo "PostgreSQL-Container ist aktiv."
 ```
 
 ---
 
-## Schritt 4: Images bauen
+## Schritt 4: SQLite → PostgreSQL Datenmigration (einmalig beim ersten Deployment)
+
+Wenn altes SQLite-Backup vorhanden ist, Daten migrieren:
+
+```bash
+PAW_API_UID=$(id -u paw-api)
+XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "cd /git/pawvax && DATABASE_URL='postgresql://pawvax:${DB_PASSWORD}@localhost:5432/pawvax' node server/src/db/migrate-sqlite-to-pg.js /home/paw-api/data/paw.db"
+```
+
+Wenn kein altes Backup existiert, DB bleibt leer (neue Installation).
+
+---
+
+## Schritt 5: Images bauen
 
 Backend-Image bauen:
 
@@ -83,14 +78,20 @@ XDG_RUNTIME_DIR=/run/user/$PAW_PWA_UID su -s /bin/bash paw-pwa -c "cd /git/pawva
 
 ---
 
-## Schritt 5: Services neu starten
+## Schritt 6: Services neu starten
 
-API und PWA neu starten:
+PostgreSQL, API und PWA neu starten:
 
 ```bash
+# PostgreSQL Container sicherstellen
 PAW_API_UID=$(id -u paw-api)
+XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "cd /git/pawvax && podman-compose up -d postgres"
+sleep 3
+
+# API neustarten
 su -s /bin/bash paw-api -c "cd /tmp && XDG_RUNTIME_DIR=/run/user/$PAW_API_UID DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$PAW_API_UID/bus systemctl --user restart paw-api"
 
+# PWA neustarten
 PAW_PWA_UID=$(id -u paw-pwa)
 su -s /bin/bash paw-pwa -c "cd /tmp && XDG_RUNTIME_DIR=/run/user/$PAW_PWA_UID DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$PAW_PWA_UID/bus systemctl --user restart paw-pwa"
 ```
@@ -114,27 +115,27 @@ su - paw-pwa -c "podman ps"
 
 ---
 
-## Schritt 6: Isolierte API-Tests ausfuehren
+## Schritt 7: Isolierte API-Tests ausfuehren
 
-Die Tests laufen isoliert im Container gegen den aktuellen Code und die produktive DB.
+Die Tests laufen isoliert im Container gegen eine Test-PostgreSQL-Instanz.
 
 ```bash
 PAW_API_UID=$(id -u paw-api)
-XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "cd /tmp && podman run --rm --cgroup-manager=cgroupfs --security-opt label=disable -v /git/pawvax/server:/app -v /home/paw-api/data:/data -v /tmp:/tmp -w /app docker.io/node:22-alpine sh -lc 'apk add --no-cache python3 make g++ cairo-dev jpeg-dev pango-dev giflib-dev && npm ci && npm test && echo \"Tests erfolgreich\"'"
+DB_PASSWORD=test-pwd-change-in-prod XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "cd /git/pawvax && DATABASE_URL='postgresql://pawvax:test-pwd-change-in-prod@localhost:5432/pawvax_test' npm test"
 ```
 
 Wenn hier alles gruen ist, dann erst die Testergebnisse persistieren.
 
 ---
 
-## Schritt 7: Testergebnisse persistieren und Test-Accounts bereinigen
+## Schritt 8: Testergebnisse persistieren und Test-Accounts bereinigen
 
 Wichtig:
 - Diesen Abschnitt Block fuer Block ausfuehren.
 - Nicht `start` vor `persist` ausfuehren.
-- Die DB muss fuer `persist` und `sqlite3 cleanup` frei sein.
+- Die DB muss fuer `persist` und `cleanup` frei sein.
 
-### 7.1 API-Service stoppen
+### 8.1 API-Service stoppen
 
 ```bash
 PAW_API_UID=$(id -u paw-api)
@@ -148,22 +149,24 @@ Optional pruefen, dass kein API-Container mehr laeuft:
 su - paw-api -c "podman ps"
 ```
 
-### 7.2 Testergebnisse in DB speichern
+### 8.2 Testergebnisse in DB speichern
 
 ```bash
 PAW_API_UID=$(id -u paw-api)
-XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "cd /tmp && podman --cgroup-manager=cgroupfs run --rm --security-opt label=disable -v /git/pawvax/server:/app -v /home/paw-api/data:/data -v /tmp:/tmp -w /app docker.io/node:22-alpine sh -c 'node scripts/persist-test-results.js /tmp/jest-raw.json /data/paw.db'"
+DB_PASSWORD=$(grep DB_PASSWORD /git/pawvax/.env.podman | cut -d= -f2)
+XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "cd /git/pawvax && DATABASE_URL='postgresql://pawvax:${DB_PASSWORD}@localhost:5432/pawvax' node server/scripts/persist-test-results.js /tmp/jest-raw.json"
 ```
-### 7.3 Test-Accounts aufraeumen
+### 8.3 Test-Accounts aufraeumen
 
 ```bash
 PAW_API_UID=$(id -u paw-api)
-XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "cd /tmp && podman --cgroup-manager=cgroupfs run --rm --security-opt label=disable -v /git/pawvax/server:/app -v /home/paw-api/data:/data -w /app docker.io/node:22-alpine sh -c 'node scripts/cleanup-test-data.js /data/paw.db'"
+DB_PASSWORD=$(grep DB_PASSWORD /git/pawvax/.env.podman | cut -d= -f2)
+XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "cd /git/pawvax && DATABASE_URL='postgresql://pawvax:${DB_PASSWORD}@localhost:5432/pawvax' node server/scripts/cleanup-test-data.js"
 ```
 
-Das Script loescht bekannte Test-Accounts mit aktivierten Foreign Keys und raeumt zusaetzlich bereits vorhandene Orphans auf, die durch fruehere direkte `sqlite3 DELETE`-Befehle entstanden sind.
+Das Script loescht bekannte Test-Accounts mit aktivierten Foreign Keys und raeumt zusaetzlich bereits vorhandene Orphans auf.
 
-### 7.4 API-Service wieder starten
+### 8.4 API-Service wieder starten
 
 ```bash
 PAW_API_UID=$(id -u paw-api)
@@ -171,7 +174,7 @@ su -s /bin/bash paw-api -c "cd /tmp && XDG_RUNTIME_DIR=/run/user/$PAW_API_UID DB
 su -s /bin/bash paw-api -c "cd /tmp && XDG_RUNTIME_DIR=/run/user/$PAW_API_UID DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$PAW_API_UID/bus systemctl --user status paw-api --no-pager"
 ```
 
-### 7.5 Ergebnis pruefen
+### 8.5 Ergebnis pruefen
 
 Im Admin-Dashboard sollte jetzt sichtbar sein:
 - Teststatus: erfolgreich
@@ -180,7 +183,7 @@ Im Admin-Dashboard sollte jetzt sichtbar sein:
 
 ---
 
-## Schritt 8: PWA im Browser aktualisieren
+## Schritt 9: PWA im Browser aktualisieren
 
 Nach einem Frontend-Deploy muss die PWA im Browser hart aktualisiert werden:
 
@@ -191,7 +194,7 @@ Nach einem Frontend-Deploy muss die PWA im Browser hart aktualisiert werden:
 
 ---
 
-## Schritt 9: Funktional pruefen
+## Schritt 10: Funktional pruefen
 
 ### Admin pruefen
 
@@ -214,7 +217,7 @@ Nach einem Frontend-Deploy muss die PWA im Browser hart aktualisiert werden:
 
 ---
 
-## Schritt 10: Shells wieder sperren
+## Schritt 11: Shells wieder sperren
 
 ```bash
 usermod -s /sbin/nologin paw-git
