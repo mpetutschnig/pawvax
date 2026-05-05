@@ -37,6 +37,13 @@ export default function ProfilePage() {
   const [verificationRequests, setVerificationRequests] = useState<any[]>([])
   const [showVerificationForm, setShowVerificationForm] = useState(false)
 
+  const renderModelHint = (message: string) => (
+    <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-3)', padding: 'var(--space-3)', background: 'color-mix(in oklch, var(--info-500) 10%, var(--surface))', borderRadius: 'var(--radius-md)', border: '1px solid color-mix(in oklch, var(--info-500) 28%, transparent)' }}>
+      <AlertTriangle size={16} color="var(--info-600)" style={{ flexShrink: 0, marginTop: '2px' }} />
+      <p style={{ fontSize: 'var(--font-size-xs)', margin: 0, color: 'var(--text-primary)' }}>{message}</p>
+    </div>
+  )
+
   useEffect(() => {
     loadProfile()
     loadVerificationRequests()
@@ -578,6 +585,7 @@ export default function ProfilePage() {
             ))}
           </select>
         </div>
+        {renderModelHint(t('profile.geminiModelHint'))}
 
         {profile.has_gemini_token && (
           <p style={{ color: 'var(--success-600)', marginBottom: 'var(--space-3)', marginTop: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontWeight: 500 }}><CheckCircle size={16} /> {t('profile.geminiSaved')}</p>
@@ -643,6 +651,7 @@ export default function ProfilePage() {
             ))}
           </select>
         </div>
+        {renderModelHint(t('profile.claudeModelHint'))}
 
         {profile.has_anthropic_token && (
           <p style={{ color: 'var(--success-600)', marginBottom: 'var(--space-3)', marginTop: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontWeight: 500 }}><CheckCircle size={16} /> {t('profile.claudeSaved')}</p>
@@ -685,8 +694,12 @@ export default function ProfilePage() {
         <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginTop: 'var(--space-6)', marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
           <Key size={18} color="var(--primary-500)" /> OpenAI
         </h3>
+        <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-4)' }}>
+          {t('profile.openaiDesc')}
+        </p>
         
         <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginTop: 'var(--space-4)', marginBottom: 'var(--space-3)' }}>{t('profile.model')}</h4>
+        <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-4)' }}>{t('profile.modelDesc')}</p>
         <div className="form-group">
           <select
             className="form-select"
@@ -694,11 +707,12 @@ export default function ProfilePage() {
             onChange={(e) => saveOpenaiModel(e.target.value)}
             disabled={modelSaving}
           >
-            <option value="gpt-4o-mini">GPT-4o Mini (Standard)</option>
-            <option value="gpt-4o">GPT-4o</option>
-            <option value="gpt-4.1-mini">GPT-4.1 Mini</option>
+            {DEFAULT_AVAILABLE_MODELS.openai.map((model) => (
+              <option key={model.id} value={model.id}>{model.id === DEFAULT_MODEL_BY_PROVIDER.openai ? `${model.name} (Standard)` : model.name}</option>
+            ))}
           </select>
         </div>
+        {renderModelHint(t('profile.openaiModelHint'))}
 
         {profile.has_openai_token && (
           <p style={{ color: 'var(--success-600)', marginBottom: 'var(--space-3)', marginTop: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontWeight: 500 }}><CheckCircle size={16} /> {t('profile.openaiSaved')}</p>
