@@ -535,6 +535,16 @@ export { PROMPTS }
 
 const GEMINI_PROMPT = PROMPTS.de.general
 
+const CONFIDENCE_INSTRUCTIONS = {
+  de: '\n\nWICHTIG: Gib im JSON nach Moeglichkeit auch ein Feld "confidence" zurueck. Erlaubt sind Werte zwischen 0 und 1 oder Prozentangaben wie "78%".',
+  en: '\n\nIMPORTANT: If possible, include a "confidence" field in the JSON output. Allowed formats are values between 0 and 1 or percentages like "78%".'
+}
+
+function withConfidenceInstructions(prompt, language = 'de') {
+  const normalizedLanguage = language === 'en' ? 'en' : 'de'
+  return `${prompt}${CONFIDENCE_INSTRUCTIONS[normalizedLanguage]}`
+}
+
 // Helper: Parse and normalize date to YYYY-MM-DD
 function normalizeDate(dateStr) {
   if (!dateStr || typeof dateStr !== 'string') return null

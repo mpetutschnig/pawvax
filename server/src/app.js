@@ -36,6 +36,48 @@ const fastify = Fastify({
   bodyLimit: 10 * 1024 * 1024 // 10MB für Bild-Uploads
 })
 
+const REDACTED_KEYS = ['password', 'token', 'authorization', 'cookie', 'secret', 'api_key', 'apikey', 'x-api-key', 'jwt']
+
+function shouldSkipHttpAudit(url = '') {
+  return url === '/health' || url.startsWith('/uploads/') || url.startsWith('/documentation')
+}
+
+function isSensitiveKey(key = '') {
+  const normalizedKey = String(key).toLowerCase()
+  return REDACTED_KEYS.some((sensitiveKey) => normalizedKey.includes(sensitiveKey))
+}
+
+function sanitizeForAudit(value, depth = 0) {
+  if (value === null || value === undefined) return value
+  if (depth > 4) return '[max-depth]'
+  if (typeof value === 'string') return value.length > 1500 ? `${value.slice(0, 1500)}...[truncated]` : value
+  if (typeof value === 'number' || typeof value === 'boolean') return value
+  if (typeof value === 'bigint') return String(value)
+  if (typeof value === 'function') return '[function]'
+  if (Buffer.isBuffer(value)) return `[buffer:${value.length}]`
+  if (Array.isArray(value)) return value.slice(0, 20).map((item) => sanitizeForAudit(item, depth + 1))
+  if (typeof value === 'object') {
+    const normalized = {}
+    for (const [key, nestedValue] of Object.entries(value).slice(0, 40)) {
+      normalized[key] = isSensitiveKey(key) ? '[redacted]' : sanitizeForAudit(nestedValue, depth + 1)
+    }
+    return normalized
+  }
+  return String(value)
+}
+
+function parseAuditPayload(payload) {
+  if (payload === null || payload === undefined) return null
+  if (typeof payload === 'string') {
+    try {
+      return sanitizeForAudit(JSON.parse(payload))
+    } catch {
+      return sanitizeForAudit(payload)
+    }
+  }
+  return sanitizeForAudit(payload)
+}
+
 // Inject structured logger into OCR service
 setOcrLogger(fastify.log.child({ name: 'ocr' }))
 
@@ -137,14 +179,15 @@ fastify.addHook('preHandler', async (req, reply) => {
 })
 
 fastify.addHook('onRequest', async (req) => {
-  if (req.url === '/health' || req.url.startsWith('/uploads/') || req.url.startsWith('/documentation')) {
+  if (shouldSkipHttpAudit(req.url)) {
     return
   }
-  req.log.info({ method: req.method, url: req.url, ip: req.ip }, 'request_started')
+  req.log.info({ method: req.method, url: req.url, ip: req.ip, requestId: req.id }, 'request_started')
 })
 
-// Capture error body for structured logging
+// Capture response body for structured logging and admin debugging
 fastify.addHook('onSend', async (req, reply, payload) => {
+  req.auditResponseBody = parseAuditPayload(payload)
   if (reply.statusCode >= 400) {
     try {
       const body = typeof payload === 'string' ? JSON.parse(payload) : payload
@@ -157,11 +200,11 @@ fastify.addHook('onSend', async (req, reply, payload) => {
 // Structured request/response logging for every REST call
 fastify.addHook('onResponse', (req, reply, done) => {
   const statusCode = reply.statusCode
-  // Skip health checks and static assets to reduce noise
-  if (req.url === '/health' || req.url.startsWith('/uploads/') || req.url.startsWith('/documentation')) {
+  if (shouldSkipHttpAudit(req.url)) {
     done()
     return
   }
+  const requestPath = req.url.split('?')[0]
   const level = statusCode >= 500 ? 'error' : statusCode >= 400 ? 'warn' : 'info'
   const entry = {
     method: req.method,
@@ -171,11 +214,38 @@ fastify.addHook('onResponse', (req, reply, done) => {
     ip: req.ip,
     userId: req.user?.accountId ?? null,
     role: req.user?.role ?? null,
+    requestId: req.id,
   }
   if (statusCode >= 400 && req.errorMessage) entry.errorMessage = req.errorMessage
   req.log[level](entry, 'request')
 
-  // Log significant HTTP errors to audit log for debugging
+  try {
+    const db = getDb()
+    logAudit(db, {
+      accountId: req.user?.accountId ?? null,
+      role: req.user?.role ?? null,
+      action: 'http_request',
+      resource: `${req.method} ${requestPath}`,
+      resourceId: req.id,
+      details: {
+        method: req.method,
+        url: req.url,
+        route: requestPath,
+        statusCode,
+        responseTimeMs: Math.round(reply.elapsedTime),
+        request: {
+          headers: sanitizeForAudit(req.headers),
+          query: sanitizeForAudit(req.query),
+          params: sanitizeForAudit(req.params),
+          body: sanitizeForAudit(req.body)
+        },
+        response: req.auditResponseBody,
+        errorMessage: req.errorMessage ?? null
+      },
+      ip: req.ip
+    })
+  } catch { /* audit logging failed, continue */ }
+
   if (statusCode >= 400 && req.user?.accountId) {
     try {
       const db = getDb()
@@ -183,9 +253,14 @@ fastify.addHook('onResponse', (req, reply, done) => {
         accountId: req.user.accountId,
         role: req.user.role ?? null,
         action: 'http_error',
-        resource: req.method + ' ' + req.url.split('?')[0],
-        resourceId: req.url,
-        details: { statusCode, errorMessage: req.errorMessage, method: req.method },
+        resource: `${req.method} ${requestPath}`,
+        resourceId: req.id,
+        details: {
+          statusCode,
+          errorMessage: req.errorMessage,
+          method: req.method,
+          url: req.url
+        },
         ip: req.ip
       })
     } catch { /* audit logging failed, continue */ }

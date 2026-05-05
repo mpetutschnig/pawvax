@@ -467,7 +467,15 @@ export default async function adminRoutes(fastify) {
 
     let sql = `
       SELECT
-        al.*,
+        al.id,
+        al.account_id,
+        al.account_role,
+        al.action,
+        al.resource,
+        al.resource_id,
+        al.details,
+        al.ip_address as ip,
+        al.created_at,
         a.email as account_email,
         a.name as account_name
       FROM audit_log al
