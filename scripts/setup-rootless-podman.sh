@@ -120,15 +120,16 @@ prepare_proxy_assets() {
   chmod 755 "$app_home_dir/.cache" "$app_home_dir/.local" "$app_home_dir/.local/share"
 
   # Create directories with proper ownership
-  mkdir -p "$app_home_dir/data/proxy/ssl" "$app_home_dir/data/pwa"
-  chown -R "$APP_USER:$APP_USER" "$app_home_dir/data/proxy" "$app_home_dir/data/pwa"
-  chmod 755 "$app_home_dir/data/proxy" "$app_home_dir/data/proxy/ssl" "$app_home_dir/data/pwa"
+  mkdir -p "$app_home_dir/data/proxy/ssl" "$app_home_dir/data/pwa" "$app_home_dir/data/caddy"
+  chown -R "$APP_USER:$APP_USER" "$app_home_dir/data/proxy" "$app_home_dir/data/pwa" "$app_home_dir/data/caddy"
+  chmod 755 "$app_home_dir/data/proxy" "$app_home_dir/data/proxy/ssl" "$app_home_dir/data/pwa" "$app_home_dir/data/caddy"
 
   # Copy config files with proper ownership
   cp "$REPO_DIR/podman/proxy.nginx.conf" "$app_home_dir/data/proxy/default.conf"
   cp "$REPO_DIR/pwa/nginx.pod.conf" "$app_home_dir/data/pwa/nginx.conf"
-  chown "$APP_USER:$APP_USER" "$app_home_dir/data/proxy/default.conf" "$app_home_dir/data/pwa/nginx.conf"
-  chmod 644 "$app_home_dir/data/proxy/default.conf" "$app_home_dir/data/pwa/nginx.conf"
+  cp "$REPO_DIR/Caddyfile" "$app_home_dir/data/caddy/Caddyfile"
+  chown "$APP_USER:$APP_USER" "$app_home_dir/data/proxy/default.conf" "$app_home_dir/data/pwa/nginx.conf" "$app_home_dir/data/caddy/Caddyfile"
+  chmod 644 "$app_home_dir/data/proxy/default.conf" "$app_home_dir/data/pwa/nginx.conf" "$app_home_dir/data/caddy/Caddyfile"
 
   if [[ ! -f "$app_home_dir/data/proxy/ssl/fullchain.pem" || ! -f "$app_home_dir/data/proxy/ssl/privkey.pem" ]]; then
     openssl req -x509 -nodes -newkey rsa:2048 -days 365 \
@@ -214,7 +215,7 @@ deploy_stack() {
     localhost/paw-pwa:latest"
 
   run_as_app "podman run -d --replace --name paw-caddy --pod '$POD_NAME' \
-    -v '$REPO_DIR/Caddyfile:/etc/caddy/Caddyfile:Z,ro' \
+    -v '$app_home_dir/data/caddy/Caddyfile:/etc/caddy/Caddyfile:ro' \
     localhost/paw-caddy:latest"
 
   run_as_app "rm -f '$app_home_dir/.config/systemd/user/'*.service"
