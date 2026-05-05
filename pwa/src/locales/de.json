@@ -420,6 +420,7 @@
   "admin.totalAnimals": "Tiere insgesamt",
   "admin.totalDocuments": "Dokumente insgesamt",
   "admin.auditEntries": "Audit-Einträge",
+  "admin.audit": "Audit-Log",
   "admin.pendingVerifications": "Ausstehende Verifikationen",
   "admin.accountManagement": "Account-Verwaltung",
   "admin.noAccounts": "Keine Accounts gefunden",

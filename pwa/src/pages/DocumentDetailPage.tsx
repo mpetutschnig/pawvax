@@ -354,7 +354,7 @@ export default function DocumentDetailPage() {
         requestedDocumentType={requestedDocumentType}
         availableModels={availableModels}
         submitLabel={analysisAction === 'reanalyze' ? t('docDetail.reanalyze') : t('animal.analyzeBtn')}
-        cancelLabel={t('docScan.saveForLater')}
+        cancelLabel={t('docDetail.cancel')}
         isSubmitting={saving}
         onProviderChange={handleProviderChange}
         onModelChange={setRetryModel}
