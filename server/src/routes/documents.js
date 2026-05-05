@@ -371,9 +371,25 @@ export default async function documentRoutes(fastify) {
       const userClaudeModel = (requestedProvider === 'anthropic' && requestedModel) ? requestedModel : (acc?.claude_model || 'claude-3-5-sonnet-20241022')
       const userOpenAiModel = (requestedProvider === 'openai' && requestedModel) ? requestedModel : (acc?.openai_model || 'gpt-4o-mini')
 
-      let priority = acc?.ai_provider_priority ? JSON.parse(acc.ai_provider_priority) : ['system', 'google', 'anthropic', 'openai']
-      if (requestedProvider) {
+      let priority = ['system', 'google', 'anthropic', 'openai']
+      try {
+        if (acc?.ai_provider_priority) {
+          const parsed = JSON.parse(acc.ai_provider_priority)
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            priority = parsed
+          }
+        }
+      } catch (parseErr) {
+        req.log.warn({ err: parseErr.message }, 'Retry: Could not parse ai_provider_priority')
+      }
+      
+      if (requestedProvider && typeof requestedProvider === 'string') {
         priority = [requestedProvider]
+      }
+
+      // Ensure priority is always an array for safe iteration
+      if (!Array.isArray(priority)) {
+        priority = ['system', 'google', 'anthropic', 'openai']
       }
 
       const useSystem = priority.includes('system')
@@ -453,15 +469,47 @@ export default async function documentRoutes(fastify) {
         requiresRetry
       })
     } catch (err) {
-      req.log.error({ err, docId, accountId, requestedProvider, requestedModel, language }, 'Retry analysis failed')
+      req.log.error({ err: { message: err.message, stack: err.stack }, docId, accountId, requestedProvider, requestedModel, language }, 'Retry analysis failed')
+      
+      // Log to audit with full error details
+      logAudit(db, {
+        accountId, role, action: 'retry_analysis_failed', resource: 'document', resourceId: docId,
+        details: { 
+          error_message: err.message, 
+          requested_provider: requestedProvider, 
+          requested_model: requestedModel,
+          language
+        },
+        ip: req.ip
+      })
+      
       // Reset status back to pending_analysis on error
       db.prepare('UPDATE documents SET analysis_status = ? WHERE id = ?').run('pending_analysis', docId)
 
       // Mark as failed, but save for later retry
       if (err.message?.includes('429') || err.message?.includes('Quota')) {
-        return reply.code(503).send({ error: 'Gemini API Quota überschritten. Bitte später versuchen.' })
+        return reply.code(503).send({ 
+          error: 'Gemini API Quota überschritten. Bitte später versuchen.',
+          details: err.message
+        })
       }
-      return reply.code(500).send({ error: err.message || 'Analyse fehlgeschlagen' })
+      
+      // For model not found errors, provide specific message
+      if (err.message?.includes('Model not found') || err.message?.includes('model') || err.message?.includes('404')) {
+        return reply.code(400).send({ 
+          error: 'Ausgewähltes KI-Modell nicht verfügbar. Bitte ein anderes Modell wählen.',
+          details: err.message,
+          requestedProvider,
+          requestedModel
+        })
+      }
+      
+      return reply.code(500).send({ 
+        error: err.message || 'Analyse fehlgeschlagen',
+        details: err.message,
+        requestedProvider,
+        requestedModel
+      })
     }
   })
 
@@ -518,9 +566,25 @@ export default async function documentRoutes(fastify) {
       const userClaudeModel = (requestedProvider === 'anthropic' && requestedModel) ? requestedModel : (acc?.claude_model || 'claude-3-5-sonnet-20241022')
       const userOpenAiModel = (requestedProvider === 'openai' && requestedModel) ? requestedModel : (acc?.openai_model || 'gpt-4o-mini')
 
-      let priority = acc?.ai_provider_priority ? JSON.parse(acc.ai_provider_priority) : ['system', 'google', 'anthropic', 'openai']
-      if (requestedProvider) {
+      let priority = ['system', 'google', 'anthropic', 'openai']
+      try {
+        if (acc?.ai_provider_priority) {
+          const parsed = JSON.parse(acc.ai_provider_priority)
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            priority = parsed
+          }
+        }
+      } catch (parseErr) {
+        req.log.warn({ err: parseErr.message }, 'Re-analyze: Could not parse ai_provider_priority')
+      }
+      
+      if (requestedProvider && typeof requestedProvider === 'string') {
         priority = [requestedProvider]
+      }
+
+      // Ensure priority is always an array for safe iteration
+      if (!Array.isArray(priority)) {
+        priority = ['system', 'google', 'anthropic', 'openai']
       }
 
       const useSystem = priority.includes('system')
@@ -599,12 +663,43 @@ export default async function documentRoutes(fastify) {
         }
       })
     } catch (err) {
-      req.log.error({ err, docId, accountId, requestedProvider, requestedModel, language }, 'Re-analysis failed')
+      req.log.error({ err: { message: err.message, stack: err.stack }, docId, accountId, requestedProvider, requestedModel, language }, 'Re-analysis failed')
+      
+      // Log to audit with full error details
+      logAudit(db, {
+        accountId, role, action: 're_analyze_failed', resource: 'document', resourceId: docId,
+        details: { 
+          error_message: err.message, 
+          requested_provider: requestedProvider, 
+          requested_model: requestedModel,
+          language
+        },
+        ip: req.ip
+      })
 
       if (err.message?.includes('429') || err.message?.includes('Quota')) {
-        return reply.code(503).send({ error: 'Gemini API Quota überschritten. Bitte später versuchen.' })
+        return reply.code(503).send({ 
+          error: 'Gemini API Quota überschritten. Bitte später versuchen.',
+          details: err.message
+        })
       }
-      return reply.code(500).send({ error: err.message || 'Analyse fehlgeschlagen' })
+      
+      // For model not found errors, provide specific message
+      if (err.message?.includes('Model not found') || err.message?.includes('model') || err.message?.includes('404')) {
+        return reply.code(400).send({ 
+          error: 'Ausgewähltes KI-Modell nicht verfügbar. Bitte ein anderes Modell wählen.',
+          details: err.message,
+          requestedProvider,
+          requestedModel
+        })
+      }
+      
+      return reply.code(500).send({ 
+        error: err.message || 'Analyse fehlgeschlagen',
+        details: err.message,
+        requestedProvider,
+        requestedModel
+      })
     }
   })
 }

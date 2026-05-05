@@ -109,7 +109,11 @@ export default async function wsDocumentUpload(fastify) {
                    : 'user'
 
           const db = getDb()
-          const acc = db.prepare('SELECT gemini_token, gemini_model, anthropic_token, claude_model FROM accounts WHERE id = ?').get(accountId)
+          const acc = db.prepare('SELECT gemini_token, gemini_model, anthropic_token, claude_model, openai_token, openai_model, ai_provider_priority FROM accounts WHERE id = ?').get(accountId)
+          let userOpenAiKey = null
+          let userOpenAiModel = 'gpt-4o-mini'
+          let userPriority = ['system', 'google', 'anthropic', 'openai']
+          
           try {
             userGeminiKey = acc?.gemini_token ? decrypt(acc.gemini_token) : null
           } catch (decryptErr) {
@@ -122,8 +126,27 @@ export default async function wsDocumentUpload(fastify) {
             fastify.log.warn({ err: decryptErr.message }, 'WS: could not decrypt anthropic_token')
             userAnthropicKey = null
           }
+          try {
+            userOpenAiKey = acc?.openai_token ? decrypt(acc.openai_token) : null
+          } catch (decryptErr) {
+            fastify.log.warn({ err: decryptErr.message }, 'WS: could not decrypt openai_token')
+            userOpenAiKey = null
+          }
+          
           userGeminiModel = acc?.gemini_model || 'gemini-2.0-flash'
           userClaudeModel = acc?.claude_model || 'claude-3-5-sonnet-20241022'
+          userOpenAiModel = acc?.openai_model || 'gpt-4o-mini'
+          
+          try {
+            if (acc?.ai_provider_priority) {
+              const parsed = JSON.parse(acc.ai_provider_priority)
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                userPriority = parsed
+              }
+            }
+          } catch (parseErr) {
+            fastify.log.warn({ err: parseErr.message }, 'WS: could not parse ai_provider_priority')
+          }
 
           authenticated = true
           fastify.log.info({ accountId, role: userRole, hasGemini: !!userGeminiKey, hasAnthropic: !!userAnthropicKey }, 'WS: client authenticated')
@@ -237,7 +260,7 @@ export default async function wsDocumentUpload(fastify) {
                 const pageStartTime = Date.now()
                 const result = await analyzeDocument(page.image_path, userGeminiKey, userGeminiModel, (progressMsg) => {
                   send(socket, { type: 'status', message: `Seite ${page.page_number}: ${progressMsg}` })
-                }, userAnthropicKey, userClaudeModel, null, null, null, uploadState.language, uploadState.requestedDocumentType)
+                }, userAnthropicKey, userClaudeModel, userOpenAiKey, userOpenAiModel, userPriority, uploadState.language, uploadState.requestedDocumentType)
                 const pageElapsed = Date.now() - pageStartTime
                 fastify.log.debug({ pageNumber: page.page_number, elapsedMs: pageElapsed, provider: result.provider }, 'WS: Page analysis completed')
                 pageResults.push(result.data)
@@ -255,10 +278,26 @@ export default async function wsDocumentUpload(fastify) {
                 combinedText += (combinedText && pageText ? '\n---\n' : '') + pageText
                 lastProvider = result.provider
               } catch (err) {
-                fastify.log.error({ err, pageNumber: page.page_number }, 'WS: Error analyzing page')
+                const db = getDb()
+                fastify.log.error({ err: { message: err.message, stack: err.stack }, pageNumber: page.page_number, documentId: uploadState.documentId }, 'WS: Error analyzing page')
                 analysisError = err
                 // Store error but continue - will save as pending_analysis
-                send(socket, { type: 'status', message: `⚠️ ${err.message}` })
+                send(socket, { type: 'status', message: `⚠️ Fehler bei Analyse: ${err.message}` })
+                
+                // Log to audit with full error details
+                try {
+                  logAudit(db, {
+                    accountId, role: userRole, action: 'ws_ocr_error', resource: 'document', resourceId: uploadState.documentId,
+                    details: { 
+                      error_message: err.message,
+                      page_number: page.page_number,
+                      requested_document_type: uploadState.requestedDocumentType
+                    },
+                    ip: req.ip
+                  })
+                } catch (auditErr) {
+                  fastify.log.warn({ err: auditErr }, 'Failed to log WS OCR error to audit')
+                }
               }
             }
 
@@ -285,7 +324,7 @@ export default async function wsDocumentUpload(fastify) {
             const docId = uploadState.documentId
             const analysisStatus = analysisError ? 'pending_analysis' : (extractedData?.extraction_quality?.requires_retry ? 'pending_analysis' : 'completed')
             const extractedData = analysisError
-              ? { pages: pages.length, error: analysisError.message }
+              ? { pages: pages.length, error: analysisError.message, error_type: analysisError.name || 'unknown', error_details: analysisError.message }
               : buildExtractedDocumentData({ combinedText, suggestedType, pageResults, pages: pages.length })
 
             if (!analysisError) {
