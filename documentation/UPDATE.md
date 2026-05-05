@@ -10,9 +10,13 @@ Wichtig:
 
 ---
 
-## Vorbereitung: Quadlets installieren (einmalig beim ersten Deployment)
+## VORBEREITUNG: Quadlets installieren (einmalig beim ERSTEN Deployment auf alma.oxs.at)
 
-Die Quadlet-Dateien müssen in das User-Config-Verzeichnis kopiert werden.
+**LÄUFT AUF DEM HETZNER SERVER!** Diese Schritte nur einmalig ausführen, nachdem Quadlet-Dateien im Repo committed sind.
+
+```bash
+ssh hetzner
+```
 
 Für paw-api User (PostgreSQL + API):
 
@@ -33,19 +37,7 @@ su -s /bin/bash paw-pwa -c "cp /git/pawvax/podman/paw-pwa.container ~/.config/co
 su -s /bin/bash paw-pwa -c "systemctl --user daemon-reload"
 ```
 
----
-
-## Schritt 1: Code lokal pushen
-
-Auf dem lokalen Entwicklungsrechner:
-
-```bash
-git add .
-git commit -m "Deployment Update"
-git push
-
-ssh hetzner
-```
+Dann mit Schritt 1 unten weitermachen (immer noch auf alma.oxs.at).
 
 ```bash
 usermod -s /bin/bash paw-git
