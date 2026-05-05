@@ -58,6 +58,9 @@ chmod -R a+rX /git/pawvax
 chmod -R a+w /git/pawvax/server /git/pawvax/pwa
 
 su -s /bin/bash paw-git -c "cd /git/pawvax && git pull"
+
+# Sicherstellen, dass alle Commits gehoelt wurden (inklusive Quadlets)
+su -s /bin/bash paw-git -c "cd /git/pawvax && git pull"
 ```
 
 ---
