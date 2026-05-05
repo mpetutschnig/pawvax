@@ -8,11 +8,13 @@ import { PawPrint, Cat, Edit2, Trash2, Camera, Search, Radio, ShieldAlert, Alert
 import { AnimalDTO } from '../types/animal'
 import { normalizeVaccinationRecord } from '../utils/vaccination'
 import { DEFAULT_AVAILABLE_MODELS, DEFAULT_MODEL_BY_PROVIDER, DOCUMENT_TYPE_PLACEHOLDER, type DocumentTypeSelectValue } from '../utils/documentAnalysis'
+import { VerifiedBadge } from '../components/VerifiedBadge'
+
 interface AnimalTag {
   tag_id: string; tag_type: string; active: number; added_at: string
 }
 interface Document {
-  id: string; doc_type: string; created_at: string; ocr_provider: string; added_by_role?: string; analysis_status?: string; extracted_json?: any
+  id: string; doc_type: string; created_at: string; ocr_provider: string; added_by_role?: string; added_by_name?: string; added_by_verified?: number; analysis_status?: string; extracted_json?: any
 }
 
 export default function AnimalPage() {
@@ -1112,7 +1114,12 @@ export default function AnimalPage() {
                             {doc.doc_type === 'vaccination' ? <Syringe size={16} color={doc.added_by_role === 'vet' ? "var(--success-600)" : "var(--primary-600)"} strokeWidth={2} /> : <FileText size={16} color={doc.added_by_role === 'vet' ? "var(--success-600)" : "var(--primary-600)"} strokeWidth={2} />}
                           </div>
                           <div style={{ flex: 1 }}>
-                            <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)' }}>{doc.extracted_json?.title || (doc.doc_type ? docTypeLabel(doc.doc_type) : 'Dokument')}</div>
+                            <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+                              {doc.extracted_json?.title || (doc.doc_type ? docTypeLabel(doc.doc_type) : 'Dokument')}
+                              {doc.added_by_role === 'vet' && doc.added_by_verified && (
+                                <VerifiedBadge name={doc.added_by_name || 'Tierarzt'} verified={!!doc.added_by_verified} role="vet" />
+                              )}
+                            </div>
                             <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
                               {doc.created_at ? new Date(doc.created_at).toLocaleString(i18n.language === 'de' ? 'de-AT' : 'en-GB') : '—'}
                             </div>
@@ -1145,7 +1152,12 @@ export default function AnimalPage() {
                         {doc.doc_type === 'vaccination' ? <Syringe size={16} color={doc.added_by_role === 'vet' ? "var(--success-600)" : "var(--primary-600)"} strokeWidth={2} /> : <FileText size={16} color={doc.added_by_role === 'vet' ? "var(--success-600)" : "var(--primary-600)"} strokeWidth={2} />}
                       </div>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)' }}>{doc.extracted_json?.title || (doc.doc_type ? docTypeLabel(doc.doc_type) : 'Dokument')}</div>
+                        <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+                          {doc.extracted_json?.title || (doc.doc_type ? docTypeLabel(doc.doc_type) : 'Dokument')}
+                          {doc.added_by_role === 'vet' && doc.added_by_verified && (
+                            <VerifiedBadge name={doc.added_by_name || 'Tierarzt'} verified={!!doc.added_by_verified} role="vet" />
+                          )}
+                        </div>
                         <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
                           {doc.created_at ? new Date(doc.created_at).toLocaleString(i18n.language === 'de' ? 'de-AT' : 'en-GB') : '—'}
                         </div>
