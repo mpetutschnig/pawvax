@@ -74,7 +74,6 @@ async function stopProcess(child) {
 async function main() {
   const passthroughArgs = process.argv.slice(2)
   const tempRoot = mkdtempSync(join(tmpdir(), 'pawvax-api-tests-'))
-  const dbPath = join(tempRoot, 'paw.test.db')
   const uploadsDir = join(tempRoot, 'uploads')
   const jestJsonOutput = join(tempRoot, 'jest-results.json')
   mkdirSync(uploadsDir, { recursive: true })
@@ -86,7 +85,7 @@ async function main() {
     ...process.env,
     NODE_ENV: 'test',
     PORT: String(port),
-    DB_PATH: dbPath,
+    DATABASE_URL: process.env.DATABASE_URL || 'postgresql://pawvax:pawvax@localhost:5432/pawvax_test',
     UPLOADS_DIR: uploadsDir,
     JWT_SECRET: process.env.JWT_SECRET || 'test-secret',
     PAW_MOCK_OCR: process.env.PAW_MOCK_OCR || '1',
@@ -96,7 +95,7 @@ async function main() {
     ...process.env,
     NODE_ENV: 'test',
     API_URL: apiUrl,
-    DB_PATH: dbPath,
+    DATABASE_URL: process.env.DATABASE_URL || 'postgresql://pawvax:pawvax@localhost:5432/pawvax_test',
     UPLOADS_DIR: uploadsDir,
     TEST_TIMEOUT: process.env.TEST_TIMEOUT || '15000',
     PAW_MOCK_OCR: process.env.PAW_MOCK_OCR || '1',

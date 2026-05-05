@@ -19,16 +19,16 @@ function normalizeAllowedRoles(allowedRoles) {
   return [...new Set(allowedRoles.map(normalizeRole))]
 }
 
-function canAccessAnimalForUpload(db, animalId, accountId, userRole) {
+async function canAccessAnimalForUpload(db, animalId, accountId, userRole) {
   // Owner can always access their own animals
-  if (db.prepare('SELECT 1 FROM animals WHERE id = ? AND account_id = ?').get(animalId, accountId)) {
+  const { rows: [ownerCheck] } = await db.query('SELECT 1 FROM animals WHERE id = $1 AND account_id = $2', [animalId, accountId])
+  if (ownerCheck) {
     return true
   }
   
   // Vet/Authority can access animals if sharing is configured
   if (userRole === 'vet' || userRole === 'authority') {
-    const sharing = db.prepare('SELECT 1 FROM animal_sharing WHERE animal_id = ? AND role = ?')
-      .get(animalId, userRole)
+    const { rows: [sharing] } = await db.query('SELECT 1 FROM animal_sharing WHERE animal_id = $1 AND role = $2', [animalId, userRole])
     return !!sharing
   }
   
@@ -36,7 +36,7 @@ function canAccessAnimalForUpload(db, animalId, accountId, userRole) {
   return false
 }
 
-function syncChipTagFromDocument(db, animalId, extractedData) {
+async function syncChipTagFromDocument(db, animalId, extractedData) {
   if (normalizeDocumentType(extractedData?.type) !== 'pet_passport') return
 
   const chipCode = [
@@ -47,10 +47,9 @@ function syncChipTagFromDocument(db, animalId, extractedData) {
 
   if (!chipCode) return
 
-  const existing = db.prepare('SELECT animal_id FROM animal_tags WHERE tag_id = ?').get(chipCode)
+  const { rows: [existing] } = await db.query('SELECT animal_id FROM animal_tags WHERE tag_id = $1', [chipCode])
   if (!existing) {
-    db.prepare('INSERT INTO animal_tags (tag_id, animal_id, tag_type) VALUES (?, ?, ?)')
-      .run(chipCode, animalId, 'chip')
+    await db.query('INSERT INTO animal_tags (tag_id, animal_id, tag_type) VALUES ($1, $2, $3)', [chipCode, animalId, 'chip'])
   }
 }
 
@@ -111,7 +110,7 @@ export default async function wsDocumentUpload(fastify) {
                    : 'user'
 
           const db = getDb()
-          const acc = db.prepare('SELECT gemini_token, gemini_model, anthropic_token, claude_model, openai_token, openai_model, ai_provider_priority FROM accounts WHERE id = ?').get(accountId)
+          const { rows: [acc] } = await db.query('SELECT gemini_token, gemini_model, anthropic_token, claude_model, openai_token, openai_model, ai_provider_priority FROM accounts WHERE id = $1', [accountId])
           
           try {
             userGeminiKey = acc?.gemini_token ? decrypt(acc.gemini_token) : null
@@ -174,18 +173,18 @@ export default async function wsDocumentUpload(fastify) {
           const docId = documentId || uuid()
           fastify.log.debug({ docId, animalId, filename, page: pageNum }, 'WS: upload start')
           const db = getDb()
-          const existingCheck = db.prepare('SELECT id FROM documents WHERE id = ?').get(docId)
+          const { rows: [existingCheck] } = await db.query('SELECT id FROM documents WHERE id = $1', [docId])
           if (!existingCheck) {
             // Use 'uploading' status — not 'pending_analysis' — so incomplete stubs
             // never appear in the "pending analysis" list and are auto-cleaned on restart
-            db.prepare(`
+            await db.query(`
               INSERT INTO documents (id, animal_id, doc_type, image_path, extracted_json, ocr_provider, added_by_account, added_by_role, allowed_roles, analysis_status)
-              VALUES (?, ?, 'general', '', '{}', 'pending', ?, ?, ?, 'uploading')
-            `).run(docId, animalId, accountId, userRole, JSON.stringify(normalizedAllowedRoles))
+              VALUES ($1, $2, 'general', '', '{}', 'pending', $3, $4, $5, 'uploading')
+            `, [docId, animalId, accountId, userRole, JSON.stringify(normalizedAllowedRoles)])
           }
 
           // sicherstellen, dass der Benutzer (Owner, Vet oder Authority) das Tier uploaden darf
-          if (!canAccessAnimalForUpload(db, animalId, accountId, userRole)) {
+          if (!await canAccessAnimalForUpload(db, animalId, accountId, userRole)) {
             fastify.log.error({ animalId, accountId, userRole }, '[WS] Access denied')
             send(socket, { type: 'error', message: 'Zugriff verweigert' })
             return
@@ -222,10 +221,10 @@ export default async function wsDocumentUpload(fastify) {
             const db = getDb()
 
             // Save page to document_pages table
-            db.prepare(`
+            await db.query(`
               INSERT INTO document_pages (document_id, page_number, image_path)
-              VALUES (?, ?, ?)
-            `).run(uploadState.documentId, uploadState.pageNumber, imagePath)
+              VALUES ($1, $2, $3)
+            `, [uploadState.documentId, uploadState.pageNumber, imagePath])
 
             const isLast = msg.is_last === true
             if (!isLast) {
@@ -244,11 +243,11 @@ export default async function wsDocumentUpload(fastify) {
             send(socket, { type: 'status', message: 'Analysiere alle Seiten...' })
 
             // Get all pages for this document
-            const pages = db.prepare(`
+            const { rows: pages } = await db.query(`
               SELECT page_number, image_path FROM document_pages
-              WHERE document_id = ?
+              WHERE document_id = $1
               ORDER BY page_number ASC
-            `).all(uploadState.documentId)
+            `, [uploadState.documentId])
 
             // Analyze each page and combine text
             let combinedText = ''
@@ -287,7 +286,7 @@ export default async function wsDocumentUpload(fastify) {
                 
                 // Log to audit with full error details
                 try {
-                  logAudit(db, {
+                  await logAudit(db, {
                     accountId, role: userRole, action: 'ws_ocr_error', resource: 'document', resourceId: uploadState.documentId,
                     details: { 
                       error_message: err.message,
@@ -318,7 +317,7 @@ export default async function wsDocumentUpload(fastify) {
 
             // Flag duplicate records across existing documents of the same animal
             if (!analysisError) {
-              flagDuplicates(db, uploadState.animalId, uploadState.documentId, suggestedType, pageResults)
+              await flagDuplicates(db, uploadState.animalId, uploadState.documentId, suggestedType, pageResults)
             }
 
             // Create document with combined pages
@@ -329,19 +328,19 @@ export default async function wsDocumentUpload(fastify) {
             const analysisStatus = analysisError ? 'pending_analysis' : (extractedData?.extraction_quality?.requires_retry ? 'pending_analysis' : 'completed')
 
             if (!analysisError) {
-              syncChipTagFromDocument(db, uploadState.animalId, extractedData)
+              await syncChipTagFromDocument(db, uploadState.animalId, extractedData)
             }
 
             // Check if document already exists
-            const existingDoc = db.prepare('SELECT id FROM documents WHERE id = ?').get(docId)
+            const { rows: [existingDoc] } = await db.query('SELECT id FROM documents WHERE id = $1', [docId])
 
             if (existingDoc) {
               // Update existing document
-              db.prepare(`
+              await db.query(`
                 UPDATE documents
-                SET doc_type = ?, image_path = ?, extracted_json = ?, ocr_provider = ?, added_by_account = ?, added_by_role = ?, allowed_roles = ?, analysis_status = ?
-                WHERE id = ?
-              `).run(
+                SET doc_type = $1, image_path = $2, extracted_json = $3, ocr_provider = $4, added_by_account = $5, added_by_role = $6, allowed_roles = $7, analysis_status = $8
+                WHERE id = $9
+              `, [
                 extractedData.type || suggestedType,
                 pages[0].image_path,
                 JSON.stringify(extractedData),
@@ -351,13 +350,13 @@ export default async function wsDocumentUpload(fastify) {
                 JSON.stringify(uploadState.allowedRoles),
                 analysisStatus,
                 docId
-              )
+              ])
             } else {
               // Insert new document
-              db.prepare(`
+              await db.query(`
                 INSERT INTO documents (id, animal_id, doc_type, image_path, extracted_json, ocr_provider, added_by_account, added_by_role, allowed_roles, analysis_status)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-              `).run(
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+              `, [
                 docId,
                 uploadState.animalId,
                 extractedData.type || suggestedType,
@@ -368,10 +367,10 @@ export default async function wsDocumentUpload(fastify) {
                 userRole,
                 JSON.stringify(uploadState.allowedRoles),
                 analysisStatus
-              )
+              ])
             }
 
-            logAudit(db, {
+            await logAudit(db, {
               accountId, role: userRole, action: 'upload_document', resource: 'document', resourceId: docId,
               details: { doc_type: extractedData.type || suggestedType, pages: pages.length, ocr_provider: lastProvider, requested_document_type: uploadState.requestedDocumentType },
               ip: req.ip
@@ -380,10 +379,10 @@ export default async function wsDocumentUpload(fastify) {
             // Track animal scan for vets/authorities
             if ((userRole === 'vet' || userRole === 'authority') && uploadState.animalId) {
               try {
-                db.prepare(`
+                await db.query(`
                   INSERT INTO animal_scans (id, animal_id, account_id, scanned_at)
-                  VALUES (?, ?, ?, datetime('now'))
-                `).run(uuid(), uploadState.animalId, accountId)
+                  VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+                `, [uuid(), uploadState.animalId, accountId])
               } catch (err) {
                 fastify.log.warn({ err }, 'WS: Failed to track animal scan')
               }

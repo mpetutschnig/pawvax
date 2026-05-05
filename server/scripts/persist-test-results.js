@@ -1,18 +1,15 @@
 import { randomUUID } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
-import Database from 'better-sqlite3'
-
-const SQLITE_BUSY_RETRIES = 5
-const SQLITE_BUSY_DELAY_MS = 750
+import pg from 'pg'
 
 function parseArgs(argv) {
-  const [resultsPath, dbPath] = argv.slice(2)
+  const [resultsPath, connectionString] = argv.slice(2)
 
-  if (!resultsPath || !dbPath) {
-    throw new Error('Usage: node scripts/persist-test-results.js <results-json-path> <sqlite-db-path>')
+  if (!resultsPath) {
+    throw new Error('Usage: node scripts/persist-test-results.js <results-json-path> [connection-string]')
   }
 
-  return { resultsPath, dbPath }
+  return { resultsPath, connectionString: connectionString || process.env.DATABASE_URL }
 }
 
 function buildSummary(results) {
@@ -36,20 +33,17 @@ function buildSummary(results) {
   }
 }
 
-function wait(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
-function persistResults(dbPath, summary, detailsRaw) {
-  const db = new Database(dbPath)
+async function persistResults(connectionString, summary, detailsRaw) {
+  const client = new pg.Client({ connectionString })
+  await client.connect()
 
   try {
-    db.pragma('journal_mode = WAL')
-    db.pragma('foreign_keys = ON')
-    db.pragma('busy_timeout = 5000')
+    const summaryJson = JSON.stringify(summary)
+    const testTimestamp = Date.parse(summary.date)
 
-    const upsert = db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value')
-    const insertTestResult = db.prepare(`
+    await client.query('BEGIN')
+
+    await client.query(`
       INSERT INTO test_results (
         id,
         test_timestamp,
@@ -59,54 +53,46 @@ function persistResults(dbPath, summary, detailsRaw) {
         fail_count,
         total_count,
         status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `)
-    const summaryJson = JSON.stringify(summary)
-    const testTimestamp = Date.parse(summary.date)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    `, [
+      randomUUID(),
+      Number.isFinite(testTimestamp) ? testTimestamp : Date.now(),
+      summaryJson,
+      detailsRaw,
+      summary.passedTests,
+      summary.failedTests,
+      summary.totalTests,
+      summary.status,
+    ])
 
-    db.transaction(() => {
-      insertTestResult.run(
-        randomUUID(),
-        Number.isFinite(testTimestamp) ? testTimestamp : Date.now(),
-        summaryJson,
-        detailsRaw,
-        summary.passedTests,
-        summary.failedTests,
-        summary.totalTests,
-        summary.status,
-      )
-      upsert.run('last_test_run', summaryJson)
-      upsert.run('last_test_run_details', detailsRaw)
-    })()
+    await client.query(
+      'INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+      ['last_test_run', summaryJson]
+    )
+
+    await client.query(
+      'INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+      ['last_test_run_details', detailsRaw]
+    )
+
+    await client.query('COMMIT')
+  } catch (error) {
+    await client.query('ROLLBACK')
+    throw error
   } finally {
-    db.close()
-  }
-}
-
-async function persistResultsWithRetry(dbPath, summary, detailsRaw) {
-  for (let attempt = 1; attempt <= SQLITE_BUSY_RETRIES; attempt += 1) {
-    try {
-      persistResults(dbPath, summary, detailsRaw)
-      return
-    } catch (error) {
-      const isBusy = error && typeof error === 'object' && error.code === 'SQLITE_BUSY'
-      if (!isBusy || attempt === SQLITE_BUSY_RETRIES) {
-        throw error
-      }
-      await wait(SQLITE_BUSY_DELAY_MS * attempt)
-    }
+    await client.end()
   }
 }
 
 async function main() {
-  const { resultsPath, dbPath } = parseArgs(process.argv)
+  const { resultsPath, connectionString } = parseArgs(process.argv)
+
+  if (!connectionString) {
+    throw new Error('Connection string required: pass as second argument or set DATABASE_URL')
+  }
 
   if (!existsSync(resultsPath)) {
     throw new Error(`Test results file not found: ${resultsPath}`)
-  }
-
-  if (!existsSync(dbPath)) {
-    throw new Error(`SQLite database not found: ${dbPath}`)
   }
 
   const detailsRaw = readFileSync(resultsPath, 'utf8')
@@ -123,7 +109,7 @@ async function main() {
   }
 
   const summary = buildSummary(details)
-  await persistResultsWithRetry(dbPath, summary, normalizedDetailsRaw)
+  await persistResults(connectionString, summary, normalizedDetailsRaw)
   process.stdout.write(`Persisted deploy test results (${summary.status}, ${summary.passedTests}/${summary.totalTests} passed)\n`)
 }
 

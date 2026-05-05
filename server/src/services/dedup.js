@@ -49,11 +49,11 @@ const LIST_TYPES = new Set(['vaccination', 'treatment'])
  * @param {string} docType
  * @param {any[]}  pageResults   array of per-page AI results
  */
-export function flagDuplicates(db, animalId, currentDocId, docType, pageResults) {
-  const existingDocs = db.prepare(`
+export async function flagDuplicates(db, animalId, currentDocId, docType, pageResults) {
+  const { rows: existingDocs } = await db.query(`
     SELECT id, extracted_json FROM documents
-    WHERE animal_id = ? AND id != ? AND doc_type = ? AND analysis_status = 'completed'
-  `).all(animalId, currentDocId, docType)
+    WHERE animal_id = $1 AND id != $2 AND doc_type = $3 AND analysis_status = 'completed'
+  `, [animalId, currentDocId, docType])
 
   if (LIST_TYPES.has(docType)) {
     // Build hash → source_document_id map from all existing records

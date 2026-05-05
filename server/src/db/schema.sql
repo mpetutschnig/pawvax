@@ -3,14 +3,18 @@ CREATE TABLE IF NOT EXISTS accounts (
   name          TEXT NOT NULL,
   email         TEXT UNIQUE NOT NULL,
   password_hash TEXT NOT NULL,
+  role          TEXT NOT NULL DEFAULT 'user',
+  verified      INTEGER NOT NULL DEFAULT 0,
+  verification_status TEXT NOT NULL DEFAULT 'none',
+  verification_note TEXT,
   gemini_token  TEXT,
-  gemini_model  TEXT,
+  gemini_model  TEXT DEFAULT 'gemini-3.1-flash-lite-preview',
   anthropic_token TEXT,
-  claude_model  TEXT,
+  claude_model  TEXT DEFAULT 'claude-3-5-sonnet-20241022',
   openai_token  TEXT,
-  openai_model  TEXT,
+  openai_model  TEXT DEFAULT 'gpt-4o-mini',
   ai_provider_priority TEXT DEFAULT '["google", "anthropic", "openai"]',
-  created_at    TEXT DEFAULT (datetime('now'))
+  created_at    TEXT DEFAULT (CURRENT_TIMESTAMP)
 );
 
 CREATE TABLE IF NOT EXISTS animals (
@@ -21,9 +25,10 @@ CREATE TABLE IF NOT EXISTS animals (
   breed      TEXT,
   birthdate  TEXT,
   address    TEXT,
-  dynamic_fields TEXT,
+  dynamic_fields TEXT DEFAULT '{}',
   avatar_path TEXT,
-  created_at TEXT DEFAULT (datetime('now')),
+  unique_id  TEXT UNIQUE,
+  created_at TEXT DEFAULT (CURRENT_TIMESTAMP),
   is_archived INTEGER DEFAULT 0 NOT NULL,
   archive_reason TEXT CHECK(archive_reason IN ('verstorben', 'verloren', 'verkauft', 'abgegeben', 'sonstiges')),
   archived_at TEXT
@@ -34,7 +39,7 @@ CREATE TABLE IF NOT EXISTS animal_tags (
   animal_id TEXT NOT NULL REFERENCES animals(id) ON DELETE CASCADE,
   tag_type  TEXT NOT NULL CHECK(tag_type IN ('barcode', 'nfc', 'chip')),
   active    INTEGER NOT NULL DEFAULT 1,
-  added_at  TEXT DEFAULT (datetime('now'))
+  added_at  TEXT DEFAULT (CURRENT_TIMESTAMP)
 );
 
 CREATE TABLE IF NOT EXISTS documents (
@@ -46,15 +51,18 @@ CREATE TABLE IF NOT EXISTS documents (
   ocr_provider   TEXT,
   added_by_role  TEXT,
   added_by_account TEXT,
-  allowed_roles  TEXT,
-  created_at     TEXT DEFAULT (datetime('now'))
+  allowed_roles  TEXT DEFAULT '["vet", "authority", "guest"]',
+  created_at     TEXT DEFAULT (CURRENT_TIMESTAMP),
+  analysis_status TEXT DEFAULT 'pending_analysis'
 );
 
 CREATE TABLE IF NOT EXISTS document_pages (
-  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  id          SERIAL PRIMARY KEY,
   document_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
   image_path  TEXT NOT NULL,
-  page_number INTEGER NOT NULL DEFAULT 1
+  page_number INTEGER NOT NULL DEFAULT 1,
+  ocr_text    TEXT,
+  created_at  INTEGER DEFAULT (EXTRACT(EPOCH FROM CURRENT_TIMESTAMP)::INTEGER)
 );
 
 CREATE TABLE IF NOT EXISTS analysis_history (
@@ -63,7 +71,7 @@ CREATE TABLE IF NOT EXISTS analysis_history (
   extracted_json TEXT NOT NULL,
   version        INTEGER NOT NULL DEFAULT 1,
   ocr_provider   TEXT,
-  created_at     TEXT DEFAULT (datetime('now'))
+  created_at     TEXT DEFAULT (CURRENT_TIMESTAMP)
 );
 
 CREATE TABLE IF NOT EXISTS audit_log (
@@ -75,7 +83,7 @@ CREATE TABLE IF NOT EXISTS audit_log (
   resource_id  TEXT NOT NULL,
   details      TEXT,
   ip_address   TEXT,
-  created_at   TEXT DEFAULT (datetime('now'))
+  created_at   TEXT DEFAULT (CURRENT_TIMESTAMP)
 );
 
 CREATE TABLE IF NOT EXISTS animal_sharing (
@@ -95,14 +103,84 @@ CREATE TABLE IF NOT EXISTS animal_public_shares (
   animal_id TEXT NOT NULL REFERENCES animals(id) ON DELETE CASCADE,
   link_name TEXT,
   expires_at INTEGER NOT NULL,
-  created_at INTEGER DEFAULT (unixepoch())
+  created_at INTEGER DEFAULT (EXTRACT(EPOCH FROM CURRENT_TIMESTAMP)::INTEGER)
 );
+
+CREATE TABLE IF NOT EXISTS jwt_blacklist (
+  jti TEXT PRIMARY KEY,
+  expires_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS settings (
+  key   TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS organizations (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  type TEXT DEFAULT 'family',
+  owner_id TEXT NOT NULL REFERENCES accounts(id),
+  verified INTEGER DEFAULT 0,
+  created_at INTEGER DEFAULT (EXTRACT(EPOCH FROM CURRENT_TIMESTAMP)::INTEGER)
+);
+
+CREATE TABLE IF NOT EXISTS org_memberships (
+  org_id TEXT NOT NULL REFERENCES organizations(id),
+  account_id TEXT NOT NULL REFERENCES accounts(id),
+  role TEXT DEFAULT 'member',
+  invited_by TEXT REFERENCES accounts(id),
+  accepted INTEGER DEFAULT 0,
+  created_at INTEGER DEFAULT (EXTRACT(EPOCH FROM CURRENT_TIMESTAMP)::INTEGER),
+  PRIMARY KEY (org_id, account_id)
+);
+
+CREATE TABLE IF NOT EXISTS verification_requests (
+  id TEXT PRIMARY KEY,
+  account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  type TEXT NOT NULL DEFAULT 'vet',
+  status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'approved', 'rejected')),
+  notes TEXT,
+  document_path TEXT,
+  rejection_reason TEXT,
+  created_at TEXT DEFAULT (CURRENT_TIMESTAMP),
+  updated_at TEXT DEFAULT (CURRENT_TIMESTAMP)
+);
+
+CREATE TABLE IF NOT EXISTS reminders (
+  id          TEXT PRIMARY KEY,
+  account_id  TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  animal_id   TEXT NOT NULL REFERENCES animals(id) ON DELETE CASCADE,
+  document_id TEXT REFERENCES documents(id) ON DELETE SET NULL,
+  title       TEXT NOT NULL,
+  due_date    TEXT NOT NULL,
+  notes       TEXT,
+  dismissed_at TEXT,
+  created_at  TEXT DEFAULT (CURRENT_TIMESTAMP)
+);
+
+CREATE TABLE IF NOT EXISTS animal_scans (
+  id TEXT PRIMARY KEY,
+  animal_id TEXT NOT NULL REFERENCES animals(id) ON DELETE CASCADE,
+  account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  scanned_at TEXT DEFAULT (CURRENT_TIMESTAMP)
+);
+
+CREATE INDEX IF NOT EXISTS idx_documents_animal ON documents(animal_id);
+CREATE INDEX IF NOT EXISTS idx_tags_animal ON animal_tags(animal_id);
+CREATE INDEX IF NOT EXISTS idx_tags_active ON animal_tags(tag_id, active);
+CREATE INDEX IF NOT EXISTS idx_reminders_account ON reminders(account_id);
+CREATE INDEX IF NOT EXISTS idx_reminders_due ON reminders(due_date);
+CREATE INDEX IF NOT EXISTS idx_reminders_animal ON reminders(animal_id);
+CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log(created_at);
+CREATE INDEX IF NOT EXISTS idx_animal_scans_animal ON animal_scans(animal_id);
+CREATE INDEX IF NOT EXISTS idx_animal_scans_account ON animal_scans(account_id);
 
 CREATE TABLE IF NOT EXISTS animal_transfers (
   code       TEXT PRIMARY KEY,
   animal_id  TEXT NOT NULL REFERENCES animals(id) ON DELETE CASCADE,
   expires_at TEXT NOT NULL,
-  created_at TEXT DEFAULT (datetime('now'))
+  created_at TEXT DEFAULT (CURRENT_TIMESTAMP)
 );
 
 CREATE TABLE IF NOT EXISTS api_keys (
@@ -110,7 +188,9 @@ CREATE TABLE IF NOT EXISTS api_keys (
   account_id    TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
   key_hash      TEXT NOT NULL UNIQUE,
   description   TEXT,
-  created_at    TEXT DEFAULT (datetime('now'))
+  rate_limit    INTEGER DEFAULT 100,
+  last_used_at  TEXT,
+  created_at    TEXT DEFAULT (CURRENT_TIMESTAMP)
 );
 
 CREATE INDEX IF NOT EXISTS idx_animals_account ON animals(account_id);
@@ -142,7 +222,7 @@ CREATE TABLE IF NOT EXISTS medical_administrations (
   next_due_at      TEXT,
   notes            TEXT,
   ocr_source       INTEGER DEFAULT 0,
-  created_at       TEXT DEFAULT (datetime('now'))
+  created_at       TEXT DEFAULT (CURRENT_TIMESTAMP)
 );
 
 CREATE TABLE IF NOT EXISTS test_results (
@@ -154,7 +234,7 @@ CREATE TABLE IF NOT EXISTS test_results (
   fail_count       INTEGER DEFAULT 0,
   total_count      INTEGER DEFAULT 0,
   status           TEXT NOT NULL CHECK(status IN ('passed', 'failed', 'incomplete')),
-  created_at       INTEGER DEFAULT (unixepoch())
+  created_at       INTEGER DEFAULT (EXTRACT(EPOCH FROM CURRENT_TIMESTAMP)::INTEGER)
 );
 
 CREATE INDEX IF NOT EXISTS idx_medical_admin_animal ON medical_administrations(animal_id);
@@ -171,15 +251,15 @@ CREATE TABLE IF NOT EXISTS verification_requests (
   notes         TEXT,
   document_path TEXT,
   rejection_reason TEXT,
-  created_at    TEXT DEFAULT (datetime('now')),
-  updated_at    TEXT DEFAULT (datetime('now'))
+  created_at    TEXT DEFAULT (CURRENT_TIMESTAMP),
+  updated_at    TEXT DEFAULT (CURRENT_TIMESTAMP)
 );
 
 CREATE TABLE IF NOT EXISTS animal_scans (
   id        TEXT PRIMARY KEY,
   animal_id TEXT NOT NULL REFERENCES animals(id) ON DELETE CASCADE,
   account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
-  scanned_at TEXT DEFAULT (datetime('now'))
+  scanned_at TEXT DEFAULT (CURRENT_TIMESTAMP)
 );
 
 CREATE INDEX IF NOT EXISTS idx_verification_requests_account ON verification_requests(account_id);
@@ -197,7 +277,7 @@ CREATE TABLE IF NOT EXISTS reminders (
   due_date    TEXT NOT NULL,
   notes       TEXT,
   dismissed_at TEXT,
-  created_at  TEXT DEFAULT (datetime('now'))
+  created_at  TEXT DEFAULT (CURRENT_TIMESTAMP)
 );
 
 CREATE INDEX IF NOT EXISTS idx_reminders_account ON reminders(account_id);

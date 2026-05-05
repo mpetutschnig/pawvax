@@ -5,7 +5,7 @@ export default async function settingsRoutes(fastify) {
   // Public Route: Wird beim Start der App geladen
   fastify.get('/api/settings', async (req, reply) => {
     const db = getDb()
-    const rows = db.prepare('SELECT key, value FROM settings').all()
+    const { rows } = await db.query('SELECT key, value FROM settings')
     
     // Default Fallbacks, falls noch nichts gespeichert wurde
     const settings = {
@@ -26,15 +26,22 @@ export default async function settingsRoutes(fastify) {
 
     const db = getDb()
     const updates = req.body
-    const stmt = db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value')
     
-    db.transaction((entries) => {
-      for (const [key, value] of Object.entries(entries)) {
-         stmt.run(key, String(value))
+    const client = await db.connect()
+    try {
+      await client.query('BEGIN')
+      for (const [key, value] of Object.entries(updates)) {
+        await client.query('INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT(key) DO UPDATE SET value=excluded.value', [key, String(value)])
       }
-    })(updates)
+      await client.query('COMMIT')
+    } catch (e) {
+      await client.query('ROLLBACK')
+      throw e
+    } finally {
+      client.release()
+    }
 
-    logAudit(db, { accountId, role, action: 'update_settings', resource: 'settings', resourceId: 'global', details: updates, ip: req.ip })
+    await logAudit(db, { accountId, role, action: 'update_settings', resource: 'settings', resourceId: 'global', details: updates, ip: req.ip })
     return { success: true }
   })
 }

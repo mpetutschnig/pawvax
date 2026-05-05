@@ -30,7 +30,7 @@ export default async function authRoutes(fastify) {
     const { name, email, password } = req.body
     const db = getDb()
 
-    const existing = db.prepare('SELECT id FROM accounts WHERE email = ?').get(email)
+    const { rows: [existing] } = await db.query('SELECT id FROM accounts WHERE email = $1', [email])
     if (existing) {
       return reply.code(409).send({ error: 'E-Mail bereits registriert' })
     }
@@ -38,10 +38,9 @@ export default async function authRoutes(fastify) {
     const password_hash = await bcrypt.hash(password, 10)
     const id = uuid()
 
-    db.prepare('INSERT INTO accounts (id, name, email, password_hash) VALUES (?, ?, ?, ?)')
-      .run(id, name, email, password_hash)
+    await db.query('INSERT INTO accounts (id, name, email, password_hash) VALUES ($1, $2, $3, $4)', [id, name, email, password_hash])
 
-    logAudit(db, { accountId: id, role: 'user', action: 'register', resource: 'account', resourceId: id, ip: req.ip })
+    await logAudit(db, { accountId: id, role: 'user', action: 'register', resource: 'account', resourceId: id, ip: req.ip })
 
     const roles = ['user']
     const jti = crypto.randomUUID()
@@ -70,7 +69,7 @@ export default async function authRoutes(fastify) {
     const { email, password } = req.body
     const db = getDb()
 
-    const account = db.prepare('SELECT * FROM accounts WHERE email = ?').get(email)
+    const { rows: [account] } = await db.query('SELECT * FROM accounts WHERE email = $1', [email])
     if (!account) {
       return reply.code(401).send({ error: 'Ungültige Anmeldedaten' })
     }
@@ -85,7 +84,7 @@ export default async function authRoutes(fastify) {
     const role = roles[0]
     const verified = account.verified ?? 0
 
-    logAudit(db, { accountId: account.id, role, action: 'login', resource: 'account', resourceId: account.id, ip: req.ip })
+    await logAudit(db, { accountId: account.id, role, action: 'login', resource: 'account', resourceId: account.id, ip: req.ip })
 
     const jti = crypto.randomUUID()
     const token = fastify.jwt.sign({ accountId: account.id, name: account.name, email: account.email, role, roles, verified, jti })
@@ -99,9 +98,9 @@ export default async function authRoutes(fastify) {
     if (!jti) return reply.code(400).send({ error: 'Invalid token' })
 
     const expiresAt = Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60)
-    db.prepare('INSERT OR IGNORE INTO jwt_blacklist (jti, expires_at) VALUES (?, ?)').run(jti, expiresAt)
+    await db.query('INSERT INTO jwt_blacklist (jti, expires_at) VALUES ($1, $2) ON CONFLICT DO NOTHING', [jti, expiresAt])
 
-    logAudit(db, { accountId: req.user.accountId, role: req.user.role, action: 'logout', resource: 'account', resourceId: req.user.accountId, ip: req.ip })
+    await logAudit(db, { accountId: req.user.accountId, role: req.user.role, action: 'logout', resource: 'account', resourceId: req.user.accountId, ip: req.ip })
     return reply.code(204).send()
   })
 
@@ -112,14 +111,14 @@ export default async function authRoutes(fastify) {
     const db = getDb()
     const { accountId, role } = req.user
 
-    const account = db.prepare('SELECT * FROM accounts WHERE id = ?').get(accountId)
+    const { rows: [account] } = await db.query('SELECT * FROM accounts WHERE id = $1', [accountId])
     if (!account) return reply.code(404).send({ error: 'Account nicht gefunden' })
 
     // Check for existing pending/approved requests
-    const existingRequest = db.prepare(`
+    const { rows: [existingRequest] } = await db.query(`
       SELECT id, status FROM verification_requests 
-      WHERE account_id = ? AND status IN ('pending', 'approved')
-    `).get(accountId)
+      WHERE account_id = $1 AND status IN ('pending', 'approved')
+    `, [accountId])
     if (existingRequest) {
       return reply.code(409).send({ 
         error: existingRequest.status === 'pending' 
@@ -179,15 +178,15 @@ export default async function authRoutes(fastify) {
     const verificationId = uuid()
 
     // Create verification request
-    db.prepare(`
+    await db.query(`
       INSERT INTO verification_requests (id, account_id, type, status, notes, document_path, created_at, updated_at)
-      VALUES (?, ?, ?, 'pending', ?, ?, datetime('now'), datetime('now'))
-    `).run(verificationId, accountId, verType, notes, documentPath)
+      VALUES ($1, $2, $3, 'pending', $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    `, [verificationId, accountId, verType, notes, documentPath])
 
     // Also update old accounts table for backward compatibility
-    db.prepare(`UPDATE accounts SET verification_status = 'pending' WHERE id = ?`).run(accountId)
+    await db.query(`UPDATE accounts SET verification_status = 'pending' WHERE id = $1`, [accountId])
 
-    logAudit(db, { 
+    await logAudit(db, { 
       accountId, 
       role, 
       action: 'request_verification', 
@@ -204,12 +203,12 @@ export default async function authRoutes(fastify) {
     const db = getDb()
     const { accountId } = req.user
 
-    const requests = db.prepare(`
+    const { rows: requests } = await db.query(`
       SELECT id, type, status, notes, document_path, rejection_reason, created_at, updated_at
       FROM verification_requests
-      WHERE account_id = ?
+      WHERE account_id = $1
       ORDER BY created_at DESC
-    `).all(accountId)
+    `, [accountId])
 
     return { requests }
   })
@@ -217,10 +216,10 @@ export default async function authRoutes(fastify) {
   // Eigenes Profil lesen
   fastify.get('/api/accounts/me', { onRequest: [fastify.authenticate] }, async (req) => {
     const db = getDb()
-    const account = db.prepare('SELECT id, name, email, role, verified, verification_status, gemini_model, claude_model, created_at FROM accounts WHERE id = ?').get(req.user.accountId)
+    const { rows: [account] } = await db.query('SELECT id, name, email, role, verified, verification_status, gemini_model, claude_model, created_at FROM accounts WHERE id = $1', [req.user.accountId])
     if (!account) return { error: 'Account nicht gefunden' }
     const roles = (account.role ?? 'user').split(',').map(r => r.trim())
-    const fullAccount = db.prepare('SELECT gemini_token, anthropic_token FROM accounts WHERE id = ?').get(account.id)
+    const { rows: [fullAccount] } = await db.query('SELECT gemini_token, anthropic_token FROM accounts WHERE id = $1', [account.id])
     return { ...account, roles,
       has_gemini_token: !!fullAccount?.gemini_token,
       has_anthropic_token: !!fullAccount?.anthropic_token
@@ -234,48 +233,48 @@ export default async function authRoutes(fastify) {
     const accountId = req.user.accountId
     const updates = []
     const vals = []
-    if (name !== undefined) { updates.push('name = ?'); vals.push(name) }
+    if (name !== undefined) { vals.push(name); updates.push(`name = $${vals.length}`) }
     if (gemini_token !== undefined) {
-      updates.push('gemini_token = ?')
       vals.push(gemini_token ? encrypt(gemini_token) : null)
+      updates.push(`gemini_token = $${vals.length}`)
     }
     if (gemini_model !== undefined) {
       if (!ALLOWED_GEMINI_MODELS.includes(gemini_model)) {
         return reply.code(400).send({ error: 'Ungültiges Gemini-Modell' })
       }
-      updates.push('gemini_model = ?')
       vals.push(gemini_model)
+      updates.push(`gemini_model = $${vals.length}`)
     }
     if (anthropic_token !== undefined) {
-      updates.push('anthropic_token = ?')
       vals.push(anthropic_token ? encrypt(anthropic_token) : null)
+      updates.push(`anthropic_token = $${vals.length}`)
     }
     if (claude_model !== undefined) {
       if (!ALLOWED_CLAUDE_MODELS.includes(claude_model)) {
         return reply.code(400).send({ error: 'Ungültiges Claude-Modell' })
       }
-      updates.push('claude_model = ?')
       vals.push(claude_model)
+      updates.push(`claude_model = $${vals.length}`)
     }
     if (openai_token !== undefined) {
-      updates.push('openai_token = ?')
       vals.push(openai_token ? encrypt(openai_token) : null)
+      updates.push(`openai_token = $${vals.length}`)
     }
     if (openai_model !== undefined) {
       if (!ALLOWED_OPENAI_MODELS.includes(openai_model)) {
         return reply.code(400).send({ error: 'Ungültiges OpenAI-Modell' })
       }
-      updates.push('openai_model = ?')
       vals.push(openai_model)
+      updates.push(`openai_model = $${vals.length}`)
     }
     if (ai_provider_priority !== undefined) {
-      updates.push('ai_provider_priority = ?')
       vals.push(typeof ai_provider_priority === 'string' ? ai_provider_priority : JSON.stringify(ai_provider_priority))
+      updates.push(`ai_provider_priority = $${vals.length}`)
     }
     if (!updates.length) return reply.code(400).send({ error: 'Keine Änderungen' })
     vals.push(accountId)
-    db.prepare(`UPDATE accounts SET ${updates.join(', ')} WHERE id = ?`).run(...vals)
-    logAudit(db, { accountId, role: req.user.role, action: 'update_profile', resource: 'account', resourceId: accountId, ip: req.ip })
+    await db.query(`UPDATE accounts SET ${updates.join(', ')} WHERE id = $${vals.length}`, vals)
+    await logAudit(db, { accountId, role: req.user.role, action: 'update_profile', resource: 'account', resourceId: accountId, ip: req.ip })
     return { message: 'Profil aktualisiert' }
   })
 
@@ -286,17 +285,17 @@ export default async function authRoutes(fastify) {
     const { role } = req.user
 
     if (role === 'admin') {
-      const otherAdmins = db.prepare("SELECT COUNT(*) as c FROM accounts WHERE role='admin' AND id != ?").get(accountId).c
+      const { rows: [{ c: otherAdmins }] } = await db.query("SELECT COUNT(*)::int as c FROM accounts WHERE role='admin' AND id != $1", [accountId])
       if (otherAdmins === 0) {
         return reply.code(403).send({ error: 'Cannot delete the last admin account' })
       }
     }
 
-    db.prepare('DELETE FROM org_memberships WHERE account_id = ? OR invited_by = ?').run(accountId, accountId)
-    db.prepare('DELETE FROM organizations WHERE owner_id = ?').run(accountId)
-    db.prepare('UPDATE documents SET added_by_account = NULL WHERE added_by_account = ?').run(accountId)
-    db.prepare('DELETE FROM audit_log WHERE account_id = ?').run(accountId)
-    db.prepare('DELETE FROM accounts WHERE id = ?').run(accountId)
+    await db.query('DELETE FROM org_memberships WHERE account_id = $1 OR invited_by = $2', [accountId, accountId])
+    await db.query('DELETE FROM organizations WHERE owner_id = $1', [accountId])
+    await db.query('UPDATE documents SET added_by_account = NULL WHERE added_by_account = $1', [accountId])
+    await db.query('DELETE FROM audit_log WHERE account_id = $1', [accountId])
+    await db.query('DELETE FROM accounts WHERE id = $1', [accountId])
     return reply.code(204).send()
   })
 
@@ -305,10 +304,10 @@ export default async function authRoutes(fastify) {
     const db = getDb()
     const { accountId } = req.user
 
-    const account = db.prepare('SELECT id, name, email, created_at FROM accounts WHERE id = ?').get(accountId)
+    const { rows: [account] } = await db.query('SELECT id, name, email, created_at FROM accounts WHERE id = $1', [accountId])
     if (!account) return reply.code(404).send({ error: 'Account nicht gefunden' })
 
-    const animals = db.prepare('SELECT * FROM animals WHERE account_id = ?').all(accountId)
+    const { rows: animals } = await db.query('SELECT * FROM animals WHERE account_id = $1', [accountId])
 
     const archiver = (await import('archiver')).default
     const archive = archiver('zip', { zlib: { level: 6 } })
@@ -327,7 +326,7 @@ export default async function authRoutes(fastify) {
 
     for (const animal of animals) {
       const prefix = `animals/${animal.id}/`
-      const docs = db.prepare('SELECT * FROM documents WHERE animal_id = ?').all(animal.id)
+      const { rows: docs } = await db.query('SELECT * FROM documents WHERE animal_id = $1', [animal.id])
 
       // animal.json (ohne sensitive DB-Felder)
       const parsedDocs = docs.map(d => ({
@@ -354,7 +353,7 @@ export default async function authRoutes(fastify) {
           }
         }
         // Zusätzliche Seiten
-        const pages = db.prepare('SELECT * FROM document_pages WHERE document_id = ?').all(doc.id)
+        const { rows: pages } = await db.query('SELECT * FROM document_pages WHERE document_id = $1', [doc.id])
         for (const page of pages) {
           if (page.image_path) {
             const pagePath = resolve(UPLOADS_DIR, page.image_path)
@@ -366,7 +365,7 @@ export default async function authRoutes(fastify) {
       }
     }
 
-    logAudit(db, {
+    await logAudit(db, {
       accountId,
       role: req.user.role,
       action: 'data_export',

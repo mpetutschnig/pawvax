@@ -14,11 +14,17 @@
  */
 
 import { v4 as uuid } from 'uuid'
-import Database from 'better-sqlite3'
+import pg from 'pg'
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { computeRecordHash, flagDuplicates } from '../src/services/dedup.js'
 import { buildExtractedDocumentData, getPromptForDocumentType, normalizeDocumentType, parseStructuredModelResponse, PROMPTS } from '../src/services/ocr.js'
+
+async function getTestDb() {
+  const client = new pg.Client({ connectionString: process.env.DATABASE_URL || 'postgresql://pawvax:pawvax@localhost:5432/pawvax_test' })
+  await client.connect()
+  return client
+}
 
 const API_URL = process.env.API_URL || 'http://localhost:3000/api'
 
@@ -472,13 +478,13 @@ describe('PAWvax API Tests', () => {
 
     test('4e. Vet-only document returns 403 for regular user', async () => {
       // Insert a vet-only document directly via DB to ensure allowed_roles is strictly ['vet']
-      const db = new Database(process.env.DB_PATH)
+      const db = await getTestDb()
       const restrictedDocId = uuid()
-      db.prepare(`
+      await db.query(`
         INSERT INTO documents (id, animal_id, doc_type, image_path, extracted_json, ocr_provider, added_by_account, added_by_role, allowed_roles, analysis_status)
-        VALUES (?, ?, 'general', '', '{}', 'pending', ?, 'user', '["vet"]', 'completed')
-      `).run(restrictedDocId, ownerAnimalId, ownerAnimalId)
-      db.close()
+        VALUES ($1, $2, 'general', '', '{}', 'pending', $3, 'user', '["vet"]', 'completed')
+      `, [restrictedDocId, ownerAnimalId, ownerAnimalId])
+      await db.end()
 
       // Regular authenticated user (not vet) cannot access vet-only document → 403
       const { status } = await apiCallWithToken(foreignToken, 'GET', `/documents/${restrictedDocId}`)
@@ -945,10 +951,10 @@ describe('9. Extended Regression Tests', () => {
     })
     expect(adminReg.status).toBe(201)
 
-    adminDb9 = new Database(process.env.DB_PATH)
+    adminDb9 = await getTestDb()
     const adminAccountId = adminReg.data.account?.id || adminReg.data.userId || adminReg.data.id
     expect(adminAccountId).toBeTruthy()
-    adminDb9.prepare('UPDATE accounts SET role = ? WHERE id = ?').run('user,admin', adminAccountId)
+    await adminDb9.query('UPDATE accounts SET role = $1 WHERE id = $2', ['user,admin', adminAccountId])
 
     const adminLogin = await apiCallWithToken(null, 'POST', '/auth/login', {
       email: adminEmail,
@@ -958,8 +964,8 @@ describe('9. Extended Regression Tests', () => {
     adminToken9 = adminLogin.data.token
   })
 
-  afterAll(() => {
-    adminDb9?.close()
+  afterAll(async () => {
+    await adminDb9?.end()
   })
 
   test('9a. Archive with valid reason succeeds', async () => {
@@ -1081,18 +1087,19 @@ describe('9. Extended Regression Tests', () => {
   })
 
   test('9k. GET /documents/:id returns all stored document pages', async () => {
-    const db = new Database(process.env.DB_PATH)
+    const db = await getTestDb()
     const docId = uuid()
     const page1 = writeTinyPng(`page-1-${Date.now()}.png`)
     const page2 = writeTinyPng(`page-2-${Date.now()}.png`)
-    const ownerId = db.prepare('SELECT id FROM accounts WHERE email LIKE ? LIMIT 1').get('reg9-%@example.com')?.id
+    const { rows: [ownerRow] } = await db.query('SELECT id FROM accounts WHERE email LIKE $1 LIMIT 1', ['reg9-%@example.com'])
+    const ownerId = ownerRow?.id
 
-    db.prepare(`
+    await db.query(`
       INSERT INTO documents (id, animal_id, doc_type, image_path, extracted_json, ocr_provider, added_by_account, added_by_role, allowed_roles, analysis_status)
-      VALUES (?, ?, 'general', ?, '{}', 'pending', ?, 'user', '["guest"]', 'completed')
-    `).run(docId, animalId9, page1, ownerId)
-    db.prepare('INSERT INTO document_pages (document_id, page_number, image_path) VALUES (?, 1, ?)').run(docId, page1)
-    db.prepare('INSERT INTO document_pages (document_id, page_number, image_path) VALUES (?, 2, ?)').run(docId, page2)
+      VALUES ($1, $2, 'general', $3, '{}', 'pending', $4, 'user', '["guest"]', 'completed')
+    `, [docId, animalId9, page1, ownerId])
+    await db.query('INSERT INTO document_pages (document_id, page_number, image_path) VALUES ($1, 1, $2)', [docId, page1])
+    await db.query('INSERT INTO document_pages (document_id, page_number, image_path) VALUES ($1, 2, $2)', [docId, page2])
 
     const { status, data } = await apiCallWithToken(token9, 'GET', `/documents/${docId}`)
     expect(status).toBe(200)
@@ -1101,22 +1108,23 @@ describe('9. Extended Regression Tests', () => {
     expect(data.pages[0]).toBe(page1)
     expect(data.pages[1]).toBe(page2)
 
-    db.close()
+    await db.end()
   })
 
   test('9l. Retry analysis uses stored pages instead of empty document image_path', async () => {
-    const db = new Database(process.env.DB_PATH)
+    const db = await getTestDb()
     const docId = uuid()
     const page1 = writeTinyPng(`retry-page-1-${Date.now()}.png`)
     const page2 = writeTinyPng(`retry-page-2-${Date.now()}.png`)
-    const ownerId = db.prepare('SELECT id FROM accounts WHERE email LIKE ? LIMIT 1').get('reg9-%@example.com')?.id
+    const { rows: [ownerRow] } = await db.query('SELECT id FROM accounts WHERE email LIKE $1 LIMIT 1', ['reg9-%@example.com'])
+    const ownerId = ownerRow?.id
 
-    db.prepare(`
+    await db.query(`
       INSERT INTO documents (id, animal_id, doc_type, image_path, extracted_json, ocr_provider, added_by_account, added_by_role, allowed_roles, analysis_status)
-      VALUES (?, ?, 'general', '', '{}', 'pending', ?, 'user', '["guest"]', 'pending_analysis')
-    `).run(docId, animalId9, ownerId)
-    db.prepare('INSERT INTO document_pages (document_id, page_number, image_path) VALUES (?, 1, ?)').run(docId, page1)
-    db.prepare('INSERT INTO document_pages (document_id, page_number, image_path) VALUES (?, 2, ?)').run(docId, page2)
+      VALUES ($1, $2, 'general', '', '{}', 'pending', $3, 'user', '["guest"]', 'pending_analysis')
+    `, [docId, animalId9, ownerId])
+    await db.query('INSERT INTO document_pages (document_id, page_number, image_path) VALUES ($1, 1, $2)', [docId, page1])
+    await db.query('INSERT INTO document_pages (document_id, page_number, image_path) VALUES ($1, 2, $2)', [docId, page2])
 
     const { status, data } = await apiCallWithToken(token9, 'POST', `/documents/${docId}/retry-analysis`, {})
     expect(status).toBe(200)
@@ -1124,14 +1132,14 @@ describe('9. Extended Regression Tests', () => {
     expect(Array.isArray(data.extractedData.page_results)).toBe(true)
     expect(data.extractedData.page_results.length).toBe(2)
 
-    const refreshed = db.prepare('SELECT analysis_status FROM documents WHERE id = ?').get(docId)
+    const { rows: [refreshed] } = await db.query('SELECT analysis_status FROM documents WHERE id = $1', [docId])
     expect(refreshed.analysis_status).toBe('completed')
 
-    db.close()
+    await db.end()
   })
 
   test('9k. Admin can list and bulk delete orphaned records', async () => {
-    adminDb9.pragma('foreign_keys = OFF')
+    // PostgreSQL: no need to toggle foreign_keys pragma
 
     const orphanAnimalId = uuid().slice(0, 8).toUpperCase()
     const orphanDocumentId = uuid().slice(0, 8).toUpperCase()
@@ -1139,22 +1147,20 @@ describe('9. Extended Regression Tests', () => {
     const missingAnimalRef = `MISSING-ANIMAL-${Date.now()}`
     const missingAccountRef = `MISSING-ACCOUNT-${Date.now()}`
 
-    adminDb9.prepare(`
+    await adminDb9.query(`
       INSERT INTO animals (id, account_id, name, species, breed, dynamic_fields)
-      VALUES (?, ?, ?, 'dog', 'Test', '{}')
-    `).run(orphanAnimalId, missingAccountRef, 'Orphan Animal')
+      VALUES ($1, $2, $3, 'dog', 'Test', '{}')
+    `, [orphanAnimalId, missingAccountRef, 'Orphan Animal'])
 
-    adminDb9.prepare(`
+    await adminDb9.query(`
       INSERT INTO documents (id, animal_id, doc_type, image_path, extracted_json, allowed_roles)
-      VALUES (?, ?, 'general', '/tmp/orphan.jpg', '{"title":"Orphan Document"}', '["guest"]')
-    `).run(orphanDocumentId, missingAnimalRef)
+      VALUES ($1, $2, 'general', '/tmp/orphan.jpg', '{"title":"Orphan Document"}', '["guest"]')
+    `, [orphanDocumentId, missingAnimalRef])
 
-    adminDb9.prepare(`
+    await adminDb9.query(`
       INSERT INTO animal_tags (tag_id, animal_id, tag_type, active)
-      VALUES (?, ?, 'barcode', 1)
-    `).run(orphanTagId, missingAnimalRef)
-
-    adminDb9.pragma('foreign_keys = ON')
+      VALUES ($1, $2, 'barcode', 1)
+    `, [orphanTagId, missingAnimalRef])
 
     const listResponse = await apiCallWithToken(adminToken9, 'GET', '/admin/orphans')
     expect(listResponse.status).toBe(200)
@@ -1176,9 +1182,12 @@ describe('9. Extended Regression Tests', () => {
     expect(deleteResponse.data.deleted.documents).toBeGreaterThanOrEqual(1)
     expect(deleteResponse.data.deleted.animal_tags).toBeGreaterThanOrEqual(1)
 
-    expect(adminDb9.prepare('SELECT id FROM animals WHERE id = ?').get(orphanAnimalId)).toBeUndefined()
-    expect(adminDb9.prepare('SELECT id FROM documents WHERE id = ?').get(orphanDocumentId)).toBeUndefined()
-    expect(adminDb9.prepare('SELECT tag_id FROM animal_tags WHERE tag_id = ?').get(orphanTagId)).toBeUndefined()
+    const { rows: animalsCheck } = await adminDb9.query('SELECT id FROM animals WHERE id = $1', [orphanAnimalId])
+    expect(animalsCheck[0]).toBeUndefined()
+    const { rows: documentsCheck } = await adminDb9.query('SELECT id FROM documents WHERE id = $1', [orphanDocumentId])
+    expect(documentsCheck[0]).toBeUndefined()
+    const { rows: tagsCheck } = await adminDb9.query('SELECT tag_id FROM animal_tags WHERE tag_id = $1', [orphanTagId])
+    expect(tagsCheck[0]).toBeUndefined()
   })
 
   // ════════════════════════════════════════════════════════════════
@@ -1230,18 +1239,18 @@ describe('9. Extended Regression Tests', () => {
 
   test('10c. Verification request stored in database', async () => {
     // Just verify the database table exists and has data
-    const result = adminDb9.prepare(`
+    const { rows: [result] } = await adminDb9.query(`
       SELECT COUNT(*) as count FROM verification_requests WHERE type = 'vet'
-    `).get()
+    `)
 
-    expect(result.count).toBeGreaterThanOrEqual(1)
+    expect(parseInt(result.count)).toBeGreaterThanOrEqual(1)
   })
 
   test('10d. Admin can approve verification (via database)', async () => {
     // Get first pending verification and approve it via API
-    const pending = adminDb9.prepare(`
+    const { rows: [pending] } = await adminDb9.query(`
       SELECT id FROM verification_requests WHERE status = 'pending' LIMIT 1
-    `).get()
+    `)
 
     if (pending) {
       const { status } = await apiCallWithToken(adminToken9, 'POST', `/admin/verifications/${pending.id}/approve`)
@@ -1265,10 +1274,10 @@ describe('Suite 11: Animal Scan Tracking', () => {
   let animalId11
 
   beforeAll(async () => {
-    db11 = new Database(process.env.DB_PATH)
+    db11 = await getTestDb()
 
     // Find the reg9 user created in Suite 9 – no new registration needed
-    const account = db11.prepare(`SELECT id, email FROM accounts WHERE email LIKE 'reg9-%@example.com' AND email NOT LIKE '%admin%' LIMIT 1`).get()
+    const { rows: [account] } = await db11.query(`SELECT id, email FROM accounts WHERE email LIKE 'reg9-%@example.com' AND email NOT LIKE '%admin%' LIMIT 1`)
     if (!account) return
 
     const loginRes = await apiCall('POST', '/auth/login', {
@@ -1286,8 +1295,8 @@ describe('Suite 11: Animal Scan Tracking', () => {
     }
   })
 
-  afterAll(() => {
-    db11?.close()
+  afterAll(async () => {
+    await db11?.end()
   })
 
   test('11a. GET /animals/recently-scanned returns list (auth required)', async () => {
@@ -1517,17 +1526,18 @@ describe('Suite 13: Content-Hash Deduplication', () => {
   let animalId13
 
   beforeAll(async () => {
-    db13 = new Database(process.env.DB_PATH)
+    db13 = await getTestDb()
     // Create a user + animal directly in DB for isolation
     const accountId = `dedup-acct-${Date.now()}`
-    db13.prepare(`INSERT INTO accounts (id, name, email, password_hash, role, created_at) VALUES (?, 'Dedup Tester', 'dedup@example.com', 'x', 'user', datetime('now'))`).run(accountId)
-    const animalRow = db13.prepare(`INSERT INTO animals (id, account_id, name, species, created_at) VALUES (?, ?, 'Dedup-Hund', 'dog', datetime('now'))`).run(`dedup-animal-${Date.now()}`, accountId)
+    await db13.query(`INSERT INTO accounts (id, name, email, password_hash, role, created_at) VALUES ($1, 'Dedup Tester', 'dedup@example.com', 'x', 'user', CURRENT_TIMESTAMP)`, [accountId])
+    await db13.query(`INSERT INTO animals (id, account_id, name, species, created_at) VALUES ($1, $2, 'Dedup-Hund', 'dog', CURRENT_TIMESTAMP)`, [`dedup-animal-${Date.now()}`, accountId])
     // Fetch the inserted animal id
-    animalId13 = db13.prepare(`SELECT id FROM animals WHERE account_id = ?`).get(accountId)?.id
+    const { rows: [animalRow] } = await db13.query(`SELECT id FROM animals WHERE account_id = $1`, [accountId])
+    animalId13 = animalRow?.id
   })
 
-  afterAll(() => {
-    db13?.close()
+  afterAll(async () => {
+    await db13?.end()
   })
 
   // ── Unit: computeRecordHash ────────────────────────────────────
@@ -1567,7 +1577,7 @@ describe('Suite 13: Content-Hash Deduplication', () => {
 
   // ── Integration: flagDuplicates via real DB ────────────────────
 
-  test('13e. flagDuplicates — first doc stamps _record_hash, no _duplicate flag', () => {
+  test('13e. flagDuplicates — first doc stamps _record_hash, no _duplicate flag', async () => {
     if (!animalId13) return
     const docId1 = `dedup-doc1-${Date.now()}`
     const pageResults = [{ vaccinations: [{ batch_number: 'B-X01', vaccine_name: 'Eurifel', administration_date: '2025-01-10' }] }]
@@ -1582,14 +1592,15 @@ describe('Suite 13: Content-Hash Deduplication', () => {
     expect(rec._source_document_id).toBeUndefined()
 
     // Persist doc1 in DB so doc2 can find it
-    db13.prepare(`INSERT INTO documents (id, animal_id, doc_type, image_path, analysis_status, extracted_json, created_at)
-      VALUES (?, ?, 'vaccination', ?, 'completed', ?, datetime('now'))`)
-      .run(docId1, animalId13, 'dedup-doc1.jpg', JSON.stringify({ page_results: pageResults }))
+    await db13.query(`INSERT INTO documents (id, animal_id, doc_type, image_path, analysis_status, extracted_json, created_at)
+      VALUES ($1, $2, 'vaccination', $3, 'completed', $4, CURRENT_TIMESTAMP)`,
+      [docId1, animalId13, 'dedup-doc1.jpg', JSON.stringify({ page_results: pageResults })])
   })
 
-  test('13f. flagDuplicates — second doc with identical record is flagged as duplicate', () => {
+  test('13f. flagDuplicates — second doc with identical record is flagged as duplicate', async () => {
     if (!animalId13) return
-    const docId1 = db13.prepare(`SELECT id FROM documents WHERE animal_id = ? AND analysis_status = 'completed' LIMIT 1`).get(animalId13)?.id
+    const { rows: [docRow] } = await db13.query(`SELECT id FROM documents WHERE animal_id = $1 AND analysis_status = 'completed' LIMIT 1`, [animalId13])
+    const docId1 = docRow?.id
     if (!docId1) return
 
     const docId2 = `dedup-doc2-${Date.now()}`
@@ -1621,16 +1632,16 @@ describe('Suite 13: Content-Hash Deduplication', () => {
     expect(vacs[1]._record_hash).toBeTruthy()  // still gets a hash
   })
 
-  test('13h. flagDuplicates — singleton type: second identical doc page is flagged', () => {
+  test('13h. flagDuplicates — singleton type: second identical doc page is flagged', async () => {
     if (!animalId13) return
     const docId4 = `dedup-doc4-${Date.now()}`
     const existingPage = { title: 'Stammbaum', document_date: '2023-05-01', issuer: 'ÖHZB' }
     // Stamp and persist first singleton doc
     const pageResults4a = [{ ...existingPage }]
     flagDuplicates(db13, animalId13, docId4, 'pedigree', pageResults4a)
-    db13.prepare(`INSERT INTO documents (id, animal_id, doc_type, image_path, analysis_status, extracted_json, created_at)
-      VALUES (?, ?, 'pedigree', ?, 'completed', ?, datetime('now'))`)
-      .run(docId4, animalId13, 'dedup-doc4.jpg', JSON.stringify({ page_results: pageResults4a }))
+    await db13.query(`INSERT INTO documents (id, animal_id, doc_type, image_path, analysis_status, extracted_json, created_at)
+      VALUES ($1, $2, 'pedigree', $3, 'completed', $4, CURRENT_TIMESTAMP)`,
+      [docId4, animalId13, 'dedup-doc4.jpg', JSON.stringify({ page_results: pageResults4a })])
 
     // Second doc with same content → should be flagged
     const docId5 = `dedup-doc5-${Date.now()}`
@@ -1652,7 +1663,7 @@ describe('Suite 14: Re-Analysis (Phase 4)', () => {
   let db14
 
   beforeAll(async () => {
-    db14 = new Database(process.env.DB_PATH)
+    db14 = await getTestDb()
     
     // Register and login user for Suite 14
     const regRes = await apiCall('POST', '/auth/register', {
@@ -1673,36 +1684,36 @@ describe('Suite 14: Re-Analysis (Phase 4)', () => {
     treatmentImagePath14 = writeTinyPng(`treatment-table-14-${Date.now()}.png`)
 
     vaccinationDocId14 = `vaccination-doc-14-${Date.now()}`
-    db14.prepare(`
+    await db14.query(`
       INSERT INTO documents (id, animal_id, doc_type, image_path, analysis_status, extracted_json, ocr_provider, created_at)
-      VALUES (?, ?, 'vaccination', ?, 'completed', ?, 'system', datetime('now'))
-    `).run(vaccinationDocId14, testAnimalId14, vaccinationImagePath14, JSON.stringify({
+      VALUES ($1, $2, 'vaccination', $3, 'completed', $4, 'system', CURRENT_TIMESTAMP)
+    `, [vaccinationDocId14, testAnimalId14, vaccinationImagePath14, JSON.stringify({
       type: 'vaccination',
       title: 'Original Analysis',
       vaccinations: [{ vaccine_name: 'Legacy Tollwut' }],
       page_results: [{ vaccinations: [{ vaccine_name: 'Legacy Tollwut' }] }]
-    }))
+    })])
 
-    db14.prepare(`
+    await db14.query(`
       INSERT INTO document_pages (document_id, image_path, page_number)
-      VALUES (?, ?, 1)
-    `).run(vaccinationDocId14, vaccinationImagePath14)
+      VALUES ($1, $2, 1)
+    `, [vaccinationDocId14, vaccinationImagePath14])
 
     treatmentDocId14 = `treatment-doc-14-${Date.now()}`
-    db14.prepare(`
+    await db14.query(`
       INSERT INTO documents (id, animal_id, doc_type, image_path, analysis_status, extracted_json, ocr_provider, created_at)
-      VALUES (?, ?, 'treatment', ?, 'completed', ?, 'system', datetime('now'))
-    `).run(treatmentDocId14, testAnimalId14, treatmentImagePath14, JSON.stringify({
+      VALUES ($1, $2, 'treatment', $3, 'completed', $4, 'system', CURRENT_TIMESTAMP)
+    `, [treatmentDocId14, testAnimalId14, treatmentImagePath14, JSON.stringify({
       type: 'treatment',
       title: 'Original Treatment Analysis',
       treatments: [{ substance: 'Legacy Treatment' }],
       page_results: [{ treatments: [{ substance: 'Legacy Treatment' }] }]
-    }))
+    })])
 
-    db14.prepare(`
+    await db14.query(`
       INSERT INTO document_pages (document_id, image_path, page_number)
-      VALUES (?, ?, 1)
-    `).run(treatmentDocId14, treatmentImagePath14)
+      VALUES ($1, $2, 1)
+    `, [treatmentDocId14, treatmentImagePath14])
   })
 
   test('14a. POST /documents/:id/re-analyze re-analyzes vaccination tables into structured records', async () => {
@@ -1717,7 +1728,7 @@ describe('Suite 14: Re-Analysis (Phase 4)', () => {
     expect(res.data.extractedData.vaccinations[0].vaccine_name).toBe('DHLPPi')
     expect(res.data.extractedData.vaccinations[0].administration_date).toBe('2021-09-06')
 
-    const stored = db14.prepare('SELECT extracted_json, ocr_provider FROM documents WHERE id = ?').get(vaccinationDocId14)
+    const { rows: [stored] } = await db14.query('SELECT extracted_json, ocr_provider FROM documents WHERE id = $1', [vaccinationDocId14])
     const parsed = JSON.parse(stored.extracted_json)
     expect(stored.ocr_provider).toBe('mock-ocr')
     expect(parsed.vaccinations.length).toBe(2)
@@ -1753,10 +1764,10 @@ describe('Suite 14: Re-Analysis (Phase 4)', () => {
     const pendingImagePath = writeTinyPng(`vaccination-pending-14-${Date.now()}.png`)
     const pendingDocId = `status-test-${Date.now()}`
 
-    db14.prepare(`
+    await db14.query(`
       INSERT INTO documents (id, animal_id, doc_type, image_path, analysis_status, extracted_json, created_at)
-      VALUES (?, ?, 'general', ?, 'pending_analysis', '{}', datetime('now'))
-    `).run(pendingDocId, testAnimalId14, pendingImagePath)
+      VALUES ($1, $2, 'general', $3, 'pending_analysis', '{}', CURRENT_TIMESTAMP)
+    `, [pendingDocId, testAnimalId14, pendingImagePath])
 
     const res = await apiCallWithToken(testUser14Token, 'POST', `/documents/${pendingDocId}/re-analyze`, {})
     expect(res.status).toBe(400)
@@ -1839,7 +1850,7 @@ describe('Suite 15: Multilingual OCR Prompts', () => {
   // ── Integration: retry-analysis with language parameter ────────
 
   test('15i. retry-analysis accepts language=de and returns 200', async () => {
-    const db = new Database(process.env.DB_PATH)
+    const db = await getTestDb()
 
     // Create a user + animal + document for this test
     const email = `ocr-lang-de-${Date.now()}@example.com`
@@ -1856,12 +1867,12 @@ describe('Suite 15: Multilingual OCR Prompts', () => {
     const imagePath = writeTinyPng(`lang-de-test-${Date.now()}.png`)
     const docId = `lang-de-doc-${Date.now()}`
 
-    db.prepare(`
+    await db.query(`
       INSERT INTO documents (id, animal_id, doc_type, image_path, analysis_status, extracted_json, ocr_provider, created_at)
-      VALUES (?, ?, 'vaccination', ?, 'pending_analysis', '{}', 'pending', datetime('now'))
-    `).run(docId, animalId15, imagePath)
-    db.prepare(`INSERT INTO document_pages (document_id, image_path, page_number) VALUES (?, ?, 1)`).run(docId, imagePath)
-    db.close()
+      VALUES ($1, $2, 'vaccination', $3, 'pending_analysis', '{}', 'pending', CURRENT_TIMESTAMP)
+    `, [docId, animalId15, imagePath])
+    await db.query(`INSERT INTO document_pages (document_id, image_path, page_number) VALUES ($1, $2, 1)`, [docId, imagePath])
+    await db.end()
 
     const { status, data } = await apiCallWithToken(token15, 'POST', `/documents/${docId}/retry-analysis`, {
       language: 'de'
@@ -1871,7 +1882,7 @@ describe('Suite 15: Multilingual OCR Prompts', () => {
   })
 
   test('15j. retry-analysis accepts language=en and returns 200', async () => {
-    const db = new Database(process.env.DB_PATH)
+    const db = await getTestDb()
 
     const email = `ocr-lang-en-${Date.now()}@example.com`
     const { data: reg } = await apiCallWithToken(null, 'POST', '/auth/register', {
@@ -1887,12 +1898,12 @@ describe('Suite 15: Multilingual OCR Prompts', () => {
     const imagePath = writeTinyPng(`lang-en-test-${Date.now()}.png`)
     const docId = `lang-en-doc-${Date.now()}`
 
-    db.prepare(`
+    await db.query(`
       INSERT INTO documents (id, animal_id, doc_type, image_path, analysis_status, extracted_json, ocr_provider, created_at)
-      VALUES (?, ?, 'vaccination', ?, 'pending_analysis', '{}', 'pending', datetime('now'))
-    `).run(docId, animalId15en, imagePath)
-    db.prepare(`INSERT INTO document_pages (document_id, image_path, page_number) VALUES (?, ?, 1)`).run(docId, imagePath)
-    db.close()
+      VALUES ($1, $2, 'vaccination', $3, 'pending_analysis', '{}', 'pending', CURRENT_TIMESTAMP)
+    `, [docId, animalId15en, imagePath])
+    await db.query(`INSERT INTO document_pages (document_id, image_path, page_number) VALUES ($1, $2, 1)`, [docId, imagePath])
+    await db.end()
 
     const { status, data } = await apiCallWithToken(token15en, 'POST', `/documents/${docId}/retry-analysis`, {
       language: 'en'
@@ -1902,7 +1913,7 @@ describe('Suite 15: Multilingual OCR Prompts', () => {
   })
 
   test('15j2. retry-analysis honors requestedDocumentType override', async () => {
-    const db = new Database(process.env.DB_PATH)
+    const db = await getTestDb()
 
     const email = `ocr-type-override-${Date.now()}@example.com`
     const { data: reg } = await apiCallWithToken(null, 'POST', '/auth/register', {
@@ -1916,12 +1927,12 @@ describe('Suite 15: Multilingual OCR Prompts', () => {
     const imagePath = writeTinyPng(`override-general-${Date.now()}.png`)
     const docId = `override-type-doc-${Date.now()}`
 
-    db.prepare(`
+    await db.query(`
       INSERT INTO documents (id, animal_id, doc_type, image_path, analysis_status, extracted_json, ocr_provider, created_at)
-      VALUES (?, ?, 'general', ?, 'pending_analysis', '{}', 'pending', datetime('now'))
-    `).run(docId, animal.id, imagePath)
-    db.prepare(`INSERT INTO document_pages (document_id, image_path, page_number) VALUES (?, ?, 1)`).run(docId, imagePath)
-    db.close()
+      VALUES ($1, $2, 'general', $3, 'pending_analysis', '{}', 'pending', CURRENT_TIMESTAMP)
+    `, [docId, animal.id, imagePath])
+    await db.query(`INSERT INTO document_pages (document_id, image_path, page_number) VALUES ($1, $2, 1)`, [docId, imagePath])
+    await db.end()
 
     const { status, data } = await apiCallWithToken(token, 'POST', `/documents/${docId}/retry-analysis`, {
       language: 'de',
@@ -1933,7 +1944,7 @@ describe('Suite 15: Multilingual OCR Prompts', () => {
   })
 
   test('15k. re-analyze accepts language parameter', async () => {
-    const db = new Database(process.env.DB_PATH)
+    const db = await getTestDb()
 
     const email = `ocr-reanalyze-${Date.now()}@example.com`
     const { data: reg } = await apiCallWithToken(null, 'POST', '/auth/register', {
@@ -1949,12 +1960,12 @@ describe('Suite 15: Multilingual OCR Prompts', () => {
     const imagePath = writeTinyPng(`reanalyze-lang-${Date.now()}.png`)
     const docId = `reanalyze-lang-doc-${Date.now()}`
 
-    db.prepare(`
+    await db.query(`
       INSERT INTO documents (id, animal_id, doc_type, image_path, analysis_status, extracted_json, ocr_provider, created_at)
-      VALUES (?, ?, 'vaccination', ?, 'completed', '{"title":"Old","vaccinations":[]}', 'system', datetime('now'))
-    `).run(docId, animalId15k, imagePath)
-    db.prepare(`INSERT INTO document_pages (document_id, image_path, page_number) VALUES (?, ?, 1)`).run(docId, imagePath)
-    db.close()
+      VALUES ($1, $2, 'vaccination', $3, 'completed', '{"title":"Old","vaccinations":[]}', 'system', CURRENT_TIMESTAMP)
+    `, [docId, animalId15k, imagePath])
+    await db.query(`INSERT INTO document_pages (document_id, image_path, page_number) VALUES ($1, $2, 1)`, [docId, imagePath])
+    await db.end()
 
     const { status } = await apiCallWithToken(token15k, 'POST', `/documents/${docId}/re-analyze`, {
       language: 'en'
@@ -1963,7 +1974,7 @@ describe('Suite 15: Multilingual OCR Prompts', () => {
   })
 
   test('15k2. re-analyze honors requestedDocumentType override', async () => {
-    const db = new Database(process.env.DB_PATH)
+    const db = await getTestDb()
 
     const email = `ocr-reanalyze-type-${Date.now()}@example.com`
     const { data: reg } = await apiCallWithToken(null, 'POST', '/auth/register', {
@@ -1977,12 +1988,12 @@ describe('Suite 15: Multilingual OCR Prompts', () => {
     const imagePath = writeTinyPng(`reanalyze-general-${Date.now()}.png`)
     const docId = `reanalyze-type-doc-${Date.now()}`
 
-    db.prepare(`
+    await db.query(`
       INSERT INTO documents (id, animal_id, doc_type, image_path, analysis_status, extracted_json, ocr_provider, created_at)
-      VALUES (?, ?, 'general', ?, 'completed', '{"title":"Old","summary":"Old","type":"general"}', 'system', datetime('now'))
-    `).run(docId, animal.id, imagePath)
-    db.prepare(`INSERT INTO document_pages (document_id, image_path, page_number) VALUES (?, ?, 1)`).run(docId, imagePath)
-    db.close()
+      VALUES ($1, $2, 'general', $3, 'completed', '{"title":"Old","summary":"Old","type":"general"}', 'system', CURRENT_TIMESTAMP)
+    `, [docId, animal.id, imagePath])
+    await db.query(`INSERT INTO document_pages (document_id, image_path, page_number) VALUES ($1, $2, 1)`, [docId, imagePath])
+    await db.end()
 
     const { status, data } = await apiCallWithToken(token, 'POST', `/documents/${docId}/re-analyze`, {
       language: 'de',
@@ -1994,7 +2005,7 @@ describe('Suite 15: Multilingual OCR Prompts', () => {
   })
 
   test('15k3. retry-analysis rejects unsupported model for selected provider', async () => {
-    const db = new Database(process.env.DB_PATH)
+    const db = await getTestDb()
 
     const email = `ocr-invalid-model-${Date.now()}@example.com`
     const { data: reg } = await apiCallWithToken(null, 'POST', '/auth/register', {
@@ -2008,12 +2019,12 @@ describe('Suite 15: Multilingual OCR Prompts', () => {
     const imagePath = writeTinyPng(`invalid-model-${Date.now()}.png`)
     const docId = `invalid-model-doc-${Date.now()}`
 
-    db.prepare(`
+    await db.query(`
       INSERT INTO documents (id, animal_id, doc_type, image_path, analysis_status, extracted_json, ocr_provider, created_at)
-      VALUES (?, ?, 'general', ?, 'pending_analysis', '{}', 'pending', datetime('now'))
-    `).run(docId, animal.id, imagePath)
-    db.prepare(`INSERT INTO document_pages (document_id, image_path, page_number) VALUES (?, ?, 1)`).run(docId, imagePath)
-    db.close()
+      VALUES ($1, $2, 'general', $3, 'pending_analysis', '{}', 'pending', CURRENT_TIMESTAMP)
+    `, [docId, animal.id, imagePath])
+    await db.query(`INSERT INTO document_pages (document_id, image_path, page_number) VALUES ($1, $2, 1)`, [docId, imagePath])
+    await db.end()
 
     const { status, data } = await apiCallWithToken(token, 'POST', `/documents/${docId}/retry-analysis`, {
       provider: 'anthropic',
@@ -2203,29 +2214,29 @@ describe('Suite 16: EU Pet Passport + Chip Tag Type', () => {
     expect(tags.data.some((tag) => tag.tag_type === 'chip')).toBe(true)
   })
 
-  test('16f. database accepts documents with doc_type pet_passport', () => {
-    const db = new Database(process.env.DB_PATH)
+  test('16f. database accepts documents with doc_type pet_passport', async () => {
+    const db = await getTestDb()
     const accountId = `passport-account-${Date.now()}`
     const animalId = `passport-animal-${Date.now()}`
     const docId = `passport-doc-${Date.now()}`
     const imagePath = writeTinyPng(`pet-passport-db-${Date.now()}.png`)
 
-    db.prepare(`INSERT INTO accounts (id, name, email, password_hash, role, created_at) VALUES (?, 'Passport DB User', ?, 'x', 'user', datetime('now'))`)
-      .run(accountId, `passport-db-${Date.now()}@example.com`)
-    db.prepare(`INSERT INTO animals (id, account_id, name, species, created_at) VALUES (?, ?, 'Passport Dog', 'dog', datetime('now'))`)
-      .run(animalId, accountId)
-    db.prepare(`
+    await db.query(`INSERT INTO accounts (id, name, email, password_hash, role, created_at) VALUES ($1, 'Passport DB User', $2, 'x', 'user', CURRENT_TIMESTAMP)`,
+      [accountId, `passport-db-${Date.now()}@example.com`])
+    await db.query(`INSERT INTO animals (id, account_id, name, species, created_at) VALUES ($1, $2, 'Passport Dog', 'dog', CURRENT_TIMESTAMP)`,
+      [animalId, accountId])
+    await db.query(`
       INSERT INTO documents (id, animal_id, doc_type, image_path, extracted_json, analysis_status, created_at)
-      VALUES (?, ?, 'pet_passport', ?, '{}', 'completed', datetime('now'))
-    `).run(docId, animalId, imagePath)
+      VALUES ($1, $2, 'pet_passport', $3, '{}', 'completed', CURRENT_TIMESTAMP)
+    `, [docId, animalId, imagePath])
 
-    const stored = db.prepare('SELECT doc_type FROM documents WHERE id = ?').get(docId)
+    const { rows: [stored] } = await db.query('SELECT doc_type FROM documents WHERE id = $1', [docId])
     expect(stored.doc_type).toBe('pet_passport')
-    db.close()
+    await db.end()
   })
 
   test('16g. retry-analysis returns pet_passport data with chip_code', async () => {
-    const db = new Database(process.env.DB_PATH)
+    const db = await getTestDb()
     const email = `passport-retry-${Date.now()}@example.com`
     const { data: reg } = await apiCallWithToken(null, 'POST', '/auth/register', {
       name: 'Passport Retry User',
@@ -2241,12 +2252,12 @@ describe('Suite 16: EU Pet Passport + Chip Tag Type', () => {
     const imagePath = writeTinyPng(`heimtierausweis-passport-${Date.now()}.png`)
     const docId = `passport-retry-doc-${Date.now()}`
 
-    db.prepare(`
+    await db.query(`
       INSERT INTO documents (id, animal_id, doc_type, image_path, analysis_status, extracted_json, ocr_provider, created_at)
-      VALUES (?, ?, 'general', ?, 'pending_analysis', '{}', 'pending', datetime('now'))
-    `).run(docId, animal.id, imagePath)
-    db.prepare(`INSERT INTO document_pages (document_id, image_path, page_number) VALUES (?, ?, 1)`).run(docId, imagePath)
-    db.close()
+      VALUES ($1, $2, 'general', $3, 'pending_analysis', '{}', 'pending', CURRENT_TIMESTAMP)
+    `, [docId, animal.id, imagePath])
+    await db.query(`INSERT INTO document_pages (document_id, image_path, page_number) VALUES ($1, $2, 1)`, [docId, imagePath])
+    await db.end()
 
     const { status, data } = await apiCallWithToken(reg.token, 'POST', `/documents/${docId}/retry-analysis`, {
       language: 'de'

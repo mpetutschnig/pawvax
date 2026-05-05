@@ -14,18 +14,18 @@ export default async function organizationRoutes(fastify) {
     const orgId = uuid()
     const now = Math.floor(Date.now() / 1000)
 
-    db.prepare(`
+    await db.query(`
       INSERT INTO organizations (id, name, type, owner_id, created_at)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(orgId, name, type ?? 'family', accountId, now)
+      VALUES ($1, $2, $3, $4, $5)
+    `, [orgId, name, type ?? 'family', accountId, now])
 
     // Add owner to org
-    db.prepare(`
+    await db.query(`
       INSERT INTO org_memberships (org_id, account_id, role, accepted, created_at)
-      VALUES (?, ?, 'owner', 1, ?)
-    `).run(orgId, accountId, now)
+      VALUES ($1, $2, 'owner', 1, $3)
+    `, [orgId, accountId, now])
 
-    logAudit(db, {
+    await logAudit(db, {
       accountId, role, action: 'create_organization', resource: 'organization', resourceId: orgId,
       ip: req.ip
     })
@@ -38,12 +38,13 @@ export default async function organizationRoutes(fastify) {
     const db = getDb()
     const { accountId } = req.user
 
-    return db.prepare(`
+    const { rows } = await db.query(`
       SELECT DISTINCT o.* FROM organizations o
       JOIN org_memberships om ON o.id = om.org_id
-      WHERE om.account_id = ?
+      WHERE om.account_id = $1
       ORDER BY o.created_at DESC
-    `).all(accountId)
+    `, [accountId])
+    return rows
   })
 
   // Get organization members
@@ -52,19 +53,20 @@ export default async function organizationRoutes(fastify) {
     const { id } = req.params
     const { accountId } = req.user
 
-    const org = db.prepare('SELECT * FROM organizations WHERE id = ?').get(id)
+    const { rows: [org] } = await db.query('SELECT * FROM organizations WHERE id = $1', [id])
     if (!org) return reply.code(404).send({ error: 'Organisation nicht gefunden' })
 
     // Only owner can list members
     if (org.owner_id !== accountId) return reply.code(403).send({ error: 'Nur der Owner kann Mitglieder sehen' })
 
-    return db.prepare(`
+    const { rows } = await db.query(`
       SELECT om.account_id, om.role, om.accepted, om.created_at, a.name, a.email
       FROM org_memberships om
       JOIN accounts a ON om.account_id = a.id
-      WHERE om.org_id = ?
+      WHERE om.org_id = $1
       ORDER BY om.created_at DESC
-    `).all(id)
+    `, [id])
+    return rows
   })
 
   // Invite user to organization
@@ -74,25 +76,25 @@ export default async function organizationRoutes(fastify) {
     const { email } = req.body
     const { accountId, role } = req.user
 
-    const org = db.prepare('SELECT * FROM organizations WHERE id = ?').get(id)
+    const { rows: [org] } = await db.query('SELECT * FROM organizations WHERE id = $1', [id])
     if (!org) return reply.code(404).send({ error: 'Organisation nicht gefunden' })
 
     if (org.owner_id !== accountId) return reply.code(403).send({ error: 'Nur der Owner kann einladen' })
 
-    const invitee = db.prepare('SELECT id FROM accounts WHERE email = ?').get(email)
+    const { rows: [invitee] } = await db.query('SELECT id FROM accounts WHERE email = $1', [email])
     if (!invitee) return reply.code(200).send({ message: 'Einladung gesendet (wenn Benutzer existiert)' })
 
     // Check if already a member
-    const existing = db.prepare('SELECT * FROM org_memberships WHERE org_id = ? AND account_id = ?').get(id, invitee.id)
+    const { rows: [existing] } = await db.query('SELECT * FROM org_memberships WHERE org_id = $1 AND account_id = $2', [id, invitee.id])
     if (existing) return reply.code(200).send({ message: 'Einladung gesendet (wenn Benutzer existiert)' })
 
     const now = Math.floor(Date.now() / 1000)
-    db.prepare(`
+    await db.query(`
       INSERT INTO org_memberships (org_id, account_id, role, invited_by, accepted, created_at)
-      VALUES (?, ?, 'member', ?, 0, ?)
-    `).run(id, invitee.id, accountId, now)
+      VALUES ($1, $2, 'member', $3, 0, $4)
+    `, [id, invitee.id, accountId, now])
 
-    logAudit(db, {
+    await logAudit(db, {
       accountId, role, action: 'invite_to_organization', resource: 'organization', resourceId: id,
       details: { invitee_id: invitee.id },
       ip: req.ip
@@ -107,14 +109,14 @@ export default async function organizationRoutes(fastify) {
     const { id } = req.params
     const { accountId, role } = req.user
 
-    const membership = db.prepare('SELECT * FROM org_memberships WHERE org_id = ? AND account_id = ?').get(id, accountId)
+    const { rows: [membership] } = await db.query('SELECT * FROM org_memberships WHERE org_id = $1 AND account_id = $2', [id, accountId])
     if (!membership) return reply.code(404).send({ error: 'Einladung nicht gefunden' })
 
     if (membership.accepted) return reply.code(409).send({ error: 'Bereits akzeptiert' })
 
-    db.prepare('UPDATE org_memberships SET accepted = 1 WHERE org_id = ? AND account_id = ?').run(id, accountId)
+    await db.query('UPDATE org_memberships SET accepted = 1 WHERE org_id = $1 AND account_id = $2', [id, accountId])
 
-    logAudit(db, {
+    await logAudit(db, {
       accountId, role, action: 'accept_organization_invite', resource: 'organization', resourceId: id,
       ip: req.ip
     })
@@ -128,16 +130,16 @@ export default async function organizationRoutes(fastify) {
     const { id, memberId } = req.params
     const { accountId, role } = req.user
 
-    const org = db.prepare('SELECT * FROM organizations WHERE id = ?').get(id)
+    const { rows: [org] } = await db.query('SELECT * FROM organizations WHERE id = $1', [id])
     if (!org) return reply.code(404).send({ error: 'Organisation nicht gefunden' })
 
     if (org.owner_id !== accountId) return reply.code(403).send({ error: 'Nur der Owner kann Mitglieder entfernen' })
 
     if (memberId === accountId) return reply.code(403).send({ error: 'Cannot remove yourself' })
 
-    db.prepare('DELETE FROM org_memberships WHERE org_id = ? AND account_id = ?').run(id, memberId)
+    await db.query('DELETE FROM org_memberships WHERE org_id = $1 AND account_id = $2', [id, memberId])
 
-    logAudit(db, {
+    await logAudit(db, {
       accountId, role, action: 'remove_from_organization', resource: 'organization', resourceId: id,
       details: { removed_member_id: memberId },
       ip: req.ip

@@ -12,20 +12,21 @@
  * Default is --dry-run mode.
  */
 
-import Database from 'better-sqlite3'
-import { dirname, join } from 'path'
-import { fileURLToPath } from 'url'
-import { readFileSync } from 'fs'
-
-const __dir = dirname(fileURLToPath(import.meta.url))
-const dbPath = process.env.DB_PATH || join(__dir, '..', 'paw.db')
+import pg from 'pg'
 
 const args = process.argv.slice(2)
 const isDryRun = !args.includes('--apply')
 const isVerbose = args.includes('--verbose') || args.includes('-v')
 
+const connectionString = process.env.DATABASE_URL || process.argv.find(a => a.startsWith('--db='))?.slice(5)
+
+if (!connectionString) {
+  console.error('Error: No database connection string. Set DATABASE_URL or pass --db=<connection_string>')
+  process.exit(1)
+}
+
 console.log(`\n=== Paw Vax Animal Cleanup Script ===\n`)
-console.log(`Database: ${dbPath}`)
+console.log(`Database: ${connectionString.replace(/:[^:@]+@/, ':***@')}`)
 console.log(`Mode: ${isDryRun ? 'DRY RUN (no changes)' : 'APPLY (will delete data)'}`)
 console.log(`\n`)
 
@@ -36,9 +37,8 @@ if (!isDryRun) {
   console.log(`Proceeding...\n`)
 }
 
-const db = new Database(dbPath)
-db.pragma('journal_mode = WAL')
-db.pragma('foreign_keys = ON')
+const client = new pg.Client({ connectionString })
+await client.connect()
 
 const issues = {
   orphaned_animals: [],
@@ -59,11 +59,11 @@ console.log(`Scanning for issues...\n`)
 
 // 1. Animals without valid account reference
 console.log(`1. Checking for animals without valid account...`)
-const orphaned = db.prepare(`
+const { rows: orphaned } = await client.query(`
   SELECT a.id, a.name, a.account_id
   FROM animals a
   WHERE a.account_id NOT IN (SELECT id FROM accounts)
-`).all()
+`)
 
 if (orphaned.length > 0) {
   console.log(`   Found ${orphaned.length} animals with no valid account:`)
@@ -71,8 +71,8 @@ if (orphaned.length > 0) {
     console.log(`     - ${animal.id} (${animal.name}) [account: ${animal.account_id}]`)
     issues.animals_without_account.push(animal.id)
     if (isVerbose) {
-      const docs = db.prepare('SELECT COUNT(*) as cnt FROM documents WHERE animal_id = ?').get(animal.id).cnt
-      const tags = db.prepare('SELECT COUNT(*) as cnt FROM animal_tags WHERE animal_id = ?').get(animal.id).cnt
+      const docs = (await client.query('SELECT COUNT(*) as cnt FROM documents WHERE animal_id = $1', [animal.id])).rows[0].cnt
+      const tags = (await client.query('SELECT COUNT(*) as cnt FROM animal_tags WHERE animal_id = $1', [animal.id])).rows[0].cnt
       console.log(`     ├─ Documents: ${docs}, Tags: ${tags}`)
     }
   }
@@ -84,11 +84,11 @@ if (orphaned.length > 0) {
 
 // 2. Tags without valid animal reference
 console.log(`\n2. Checking for tags without valid animal...`)
-const orphaned_tags = db.prepare(`
+const { rows: orphaned_tags } = await client.query(`
   SELECT t.tag_id, t.animal_id, t.tag_type
   FROM animal_tags t
   WHERE t.animal_id NOT IN (SELECT id FROM animals)
-`).all()
+`)
 
 if (orphaned_tags.length > 0) {
   console.log(`   Found ${orphaned_tags.length} orphaned tags:`)
@@ -104,11 +104,11 @@ if (orphaned_tags.length > 0) {
 
 // 3. Documents without valid animal reference
 console.log(`\n3. Checking for documents without valid animal...`)
-const orphaned_docs = db.prepare(`
+const { rows: orphaned_docs } = await client.query(`
   SELECT d.id, d.animal_id
   FROM documents d
   WHERE d.animal_id NOT IN (SELECT id FROM animals)
-`).all()
+`)
 
 if (orphaned_docs.length > 0) {
   console.log(`   Found ${orphaned_docs.length} orphaned documents:`)
@@ -127,11 +127,11 @@ if (orphaned_docs.length > 0) {
 
 // 4. Archived animals without archive reason
 console.log(`\n4. Checking for archived animals without archive reason...`)
-const archived_no_reason = db.prepare(`
+const { rows: archived_no_reason } = await client.query(`
   SELECT a.id, a.name, a.is_archived, a.archive_reason
   FROM animals a
   WHERE a.is_archived = 1 AND (a.archive_reason IS NULL OR trim(a.archive_reason) = '')
-`).all()
+`)
 
 if (archived_no_reason.length > 0) {
   console.log(`   Found ${archived_no_reason.length} archived animals without reason:`)
@@ -158,6 +158,7 @@ for (const [category, count] of Object.entries(report.by_category)) {
 
 if (report.total_issues === 0) {
   console.log(`\n✓ Database is clean!`)
+  await client.end()
   process.exit(0)
 }
 
@@ -165,35 +166,34 @@ if (isDryRun) {
   console.log(`\n📋 DRY RUN: No changes made.`)
   console.log(`To apply these deletions, run:`)
   console.log(`   node scripts/cleanup-orphaned-animals.js --apply`)
+  await client.end()
   process.exit(0)
 }
 
 // ===== APPLY MODE =====
 console.log(`\n⚙️  APPLYING CLEANUP...\n`)
 
-const deleteTransaction = db.transaction(() => {
+try {
+  await client.query('BEGIN')
   let deleted = 0
 
   // Delete orphaned tags
   if (issues.inconsistent_tags.length > 0) {
-    const placeholders = issues.inconsistent_tags.map(() => '?').join(',')
-    const delCount = db.prepare(`DELETE FROM animal_tags WHERE tag_id IN (${placeholders})`).run(...issues.inconsistent_tags).changes
+    const { rowCount: delCount } = await client.query('DELETE FROM animal_tags WHERE tag_id = ANY($1::text[])', [issues.inconsistent_tags])
     console.log(`✓ Deleted ${delCount} orphaned tags`)
     deleted += delCount
   }
 
   // Delete orphaned documents (cascade deletes document_pages)
   if (issues.inconsistent_documents.length > 0) {
-    const placeholders = issues.inconsistent_documents.map(() => '?').join(',')
-    const delCount = db.prepare(`DELETE FROM documents WHERE id IN (${placeholders})`).run(...issues.inconsistent_documents).changes
+    const { rowCount: delCount } = await client.query('DELETE FROM documents WHERE id = ANY($1::text[])', [issues.inconsistent_documents])
     console.log(`✓ Deleted ${delCount} orphaned documents`)
     deleted += delCount
   }
 
   // Delete animals without account
   if (issues.animals_without_account.length > 0) {
-    const placeholders = issues.animals_without_account.map(() => '?').join(',')
-    const delCount = db.prepare(`DELETE FROM animals WHERE id IN (${placeholders})`).run(...issues.animals_without_account).changes
+    const { rowCount: delCount } = await client.query('DELETE FROM animals WHERE id = ANY($1::text[])', [issues.animals_without_account])
     console.log(`✓ Deleted ${delCount} animals without valid account`)
     deleted += delCount
   }
@@ -203,26 +203,28 @@ const deleteTransaction = db.transaction(() => {
     console.log(`⚠️  ${issues.archived_without_reason.length} archived animals have no archive reason (manual review recommended)`)
   }
 
-  return deleted
-})
-
-try {
-  const deletedCount = deleteTransaction()
-  report.deleted = deletedCount
-  console.log(`\n✅ Cleanup complete! Deleted ${deletedCount} inconsistent records.`)
+  await client.query('COMMIT')
+  report.deleted = deleted
+  console.log(`\n✅ Cleanup complete! Deleted ${deleted} inconsistent records.`)
 } catch (err) {
+  await client.query('ROLLBACK')
   console.error(`\n❌ Cleanup failed:`, err.message)
+  await client.end()
   process.exit(1)
 }
 
 // Save report
 try {
   const settingsKey = 'last_cleanup_report'
-  db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(settingsKey, JSON.stringify(report))
+  await client.query(
+    'INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = excluded.value',
+    [settingsKey, JSON.stringify(report)]
+  )
   console.log(`Report saved to database.`)
 } catch (err) {
   console.log(`Warning: Could not save report to database: ${err.message}`)
 }
 
+await client.end()
 console.log(`\n`)
 process.exit(0)

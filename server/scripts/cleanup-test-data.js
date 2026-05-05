@@ -1,6 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
-import Database from 'better-sqlite3'
+import pg from 'pg'
 
 const TEST_EMAIL_PATTERNS = [
   'test%@example.com',
@@ -162,20 +160,15 @@ const ORPHAN_DEFINITIONS = [
 ]
 
 function parseArgs(argv) {
-  const dbPath = argv[2] || process.env.DB_PATH
-  if (!dbPath) {
-    throw new Error('Usage: node scripts/cleanup-test-data.js <sqlite-db-path>')
+  const connectionString = argv[2] || process.env.DATABASE_URL
+  if (!connectionString) {
+    throw new Error('Usage: node scripts/cleanup-test-data.js [connection-string]  (or set DATABASE_URL)')
   }
 
-  const resolved = resolve(dbPath)
-  if (!existsSync(resolved)) {
-    throw new Error(`SQLite database not found: ${resolved}`)
-  }
-
-  return resolved
+  return connectionString
 }
 
-function deleteRows(db, definition, rows) {
+async function deleteRows(client, definition, rows) {
   if (rows.length === 0) return 0
 
   const values = definition.deleteColumn
@@ -185,23 +178,23 @@ function deleteRows(db, definition, rows) {
   const uniqueValues = [...new Set(values.filter((value) => value !== null && value !== undefined))]
   if (uniqueValues.length === 0) return 0
 
-  const placeholders = uniqueValues.map(() => '?').join(', ')
+  const placeholders = uniqueValues.map((_, i) => '$' + (i + 1)).join(', ')
   const whereSql = definition.deleteWhereSql ?? `${definition.deleteColumn} IN (${placeholders})`
   const sql = `DELETE FROM ${definition.deleteTable} WHERE ${whereSql.replace('%PLACEHOLDERS%', placeholders)}`
-  return db.prepare(sql).run(...uniqueValues).changes
+  return (await client.query(sql, uniqueValues)).rowCount
 }
 
-function cleanupOrphans(db) {
+async function cleanupOrphans(client) {
   const deleted = {}
 
   for (const definition of ORPHAN_DEFINITIONS) {
     let rows
     try {
-      rows = db.prepare(definition.selectSql).all()
+      rows = (await client.query(definition.selectSql)).rows
     } catch {
       continue
     }
-    const changes = deleteRows(db, definition, rows)
+    const changes = await deleteRows(client, definition, rows)
     if (changes > 0) {
       deleted[definition.key] = changes
     }
@@ -210,37 +203,40 @@ function cleanupOrphans(db) {
   return deleted
 }
 
-function cleanupTestData(dbPath) {
-  const db = new Database(dbPath)
+async function cleanupTestData(connectionString) {
+  const client = new pg.Client({ connectionString })
+  await client.connect()
 
   try {
-    db.pragma('journal_mode = WAL')
-    db.pragma('foreign_keys = ON')
-    db.pragma('busy_timeout = 5000')
-
-    const likeClause = TEST_EMAIL_PATTERNS.map(() => 'email LIKE ?').join(' OR ')
-    const exactClause = TEST_EMAIL_EXACT.map(() => 'email = ?').join(' OR ')
+    const likeClause = TEST_EMAIL_PATTERNS.map((_, i) => `email LIKE $${i + 1}`).join(' OR ')
+    const exactClause = TEST_EMAIL_EXACT.map((_, i) => `email = $${TEST_EMAIL_PATTERNS.length + i + 1}`).join(' OR ')
     const whereClause = [likeClause, exactClause].filter(Boolean).join(' OR ')
     const params = [...TEST_EMAIL_PATTERNS, ...TEST_EMAIL_EXACT]
 
-    const summary = db.transaction(() => {
-      const accountIds = db.prepare(`SELECT id FROM accounts WHERE ${whereClause}`).all(...params).map((row) => row.id)
-      const deletedAccounts = accountIds.length > 0
-        ? db.prepare(`DELETE FROM accounts WHERE id IN (${accountIds.map(() => '?').join(', ')})`).run(...accountIds).changes
-        : 0
+    await client.query('BEGIN')
 
-      const deletedOrphans = cleanupOrphans(db)
+    const accountRows = (await client.query(`SELECT id FROM accounts WHERE ${whereClause}`, params)).rows
+    const accountIds = accountRows.map((row) => row.id)
+    const deletedAccounts = accountIds.length > 0
+      ? (await client.query('DELETE FROM accounts WHERE id = ANY($1::text[])', [accountIds])).rowCount
+      : 0
 
-      return {
-        deletedAccounts,
-        deletedOrphans,
-      }
-    })()
+    const deletedOrphans = await cleanupOrphans(client)
+
+    await client.query('COMMIT')
+
+    const summary = {
+      deletedAccounts,
+      deletedOrphans,
+    }
 
     process.stdout.write(`${JSON.stringify(summary)}\n`)
+  } catch (error) {
+    await client.query('ROLLBACK')
+    throw error
   } finally {
-    db.close()
+    await client.end()
   }
 }
 
-cleanupTestData(parseArgs(process.argv))
+cleanupTestData(parseArgs(process.argv)).catch(err => { console.error(err); process.exit(1) })

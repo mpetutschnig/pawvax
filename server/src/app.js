@@ -171,7 +171,7 @@ fastify.decorate('authenticate', async function (req, reply) {
 fastify.addHook('preHandler', async (req, reply) => {
   if (req.user?.jti) {
     const db = getDb()
-    const blacklisted = db.prepare('SELECT jti FROM jwt_blacklist WHERE jti = ?').get(req.user.jti)
+    const { rows: [blacklisted] } = await db.query('SELECT jti FROM jwt_blacklist WHERE jti = $1', [req.user.jti])
     if (blacklisted) {
       return reply.code(401).send({ error: 'Token has been revoked' })
     }
@@ -221,7 +221,7 @@ fastify.addHook('onResponse', (req, reply, done) => {
 
   try {
     const db = getDb()
-    logAudit(db, {
+    await logAudit(db, {
       accountId: req.user?.accountId ?? null,
       role: req.user?.role ?? null,
       action: 'http_request',
@@ -249,7 +249,7 @@ fastify.addHook('onResponse', (req, reply, done) => {
   if (statusCode >= 400 && req.user?.accountId) {
     try {
       const db = getDb()
-      logAudit(db, {
+      await logAudit(db, {
         accountId: req.user.accountId,
         role: req.user.role ?? null,
         action: 'http_error',
@@ -306,85 +306,22 @@ fastify.get('/health', async () => ({ status: 'ok' }))
 
 // Start
 const port = parseInt(process.env.PORT ?? '3000')
-initDb(process.env.DB_PATH ?? './paw.db')
-
-// Auto-Migration: Stelle sicher, dass neuere Spalten existieren
-try {
-  const db = getDb()
-  const aCols = db.prepare('PRAGMA table_info(animals)').all().map(c => c.name)
-  if (!aCols.includes('address')) db.prepare('ALTER TABLE animals ADD COLUMN address TEXT').run()
-  if (!aCols.includes('dynamic_fields')) db.prepare('ALTER TABLE animals ADD COLUMN dynamic_fields TEXT').run()
-  if (!aCols.includes('avatar_path')) db.prepare('ALTER TABLE animals ADD COLUMN avatar_path TEXT').run()
-  if (!aCols.includes('is_archived')) db.prepare('ALTER TABLE animals ADD COLUMN is_archived INTEGER DEFAULT 0 NOT NULL').run()
-  
-  const sCols = db.prepare('PRAGMA table_info(animal_sharing)').all().map(c => c.name)
-  if (!sCols.includes('share_address')) db.prepare('ALTER TABLE animal_sharing ADD COLUMN share_address INTEGER NOT NULL DEFAULT 0').run()
-  if (!sCols.includes('share_dynamic_fields')) db.prepare('ALTER TABLE animal_sharing ADD COLUMN share_dynamic_fields INTEGER NOT NULL DEFAULT 0').run()
-
-  const dCols = db.prepare('PRAGMA table_info(documents)').all().map(c => c.name)
-  if (!dCols.includes('added_by_role')) db.prepare('ALTER TABLE documents ADD COLUMN added_by_role TEXT').run()
-  if (!dCols.includes('added_by_account')) db.prepare('ALTER TABLE documents ADD COLUMN added_by_account TEXT').run()
-  if (!dCols.includes('allowed_roles')) db.prepare('ALTER TABLE documents ADD COLUMN allowed_roles TEXT').run()
-
-  const animalSharingTableSql = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'animal_sharing'").get()?.sql || ''
-  const supportsGuestRole = animalSharingTableSql.includes("'guest'")
-  const publicSharingRole = supportsGuestRole ? 'guest' : 'readonly'
-
-  db.prepare(`
-    INSERT OR IGNORE INTO animal_sharing (id, animal_id, role, share_contact, share_breed, share_birthdate, share_address, share_dynamic_fields)
-    SELECT lower(hex(randomblob(16))), a.id, ?, 0, 1, 1, 0, 0
-    FROM animals a
-    WHERE NOT EXISTS (
-      SELECT 1 FROM animal_sharing s WHERE s.animal_id = a.id AND s.role = ?
-    )
-  `).run(publicSharingRole, publicSharingRole)
-
-  // Role rename migration: readonly -> guest.
-  if (supportsGuestRole) {
-    db.prepare(`
-      INSERT OR IGNORE INTO animal_sharing (id, animal_id, role, share_contact, share_breed, share_birthdate, share_address, share_dynamic_fields)
-      SELECT id, animal_id, 'guest', share_contact, share_breed, share_birthdate, share_address, share_dynamic_fields
-      FROM animal_sharing
-      WHERE role = 'readonly'
-    `).run()
-    db.prepare("DELETE FROM animal_sharing WHERE role = 'readonly'").run()
-  }
-  db.prepare("UPDATE documents SET allowed_roles = REPLACE(allowed_roles, '\"readonly\"', '\"guest\"') WHERE allowed_roles IS NOT NULL").run()
-
-  // Create reminders table if not exists (new feature migration)
-  db.prepare(`CREATE TABLE IF NOT EXISTS reminders (
-    id          TEXT PRIMARY KEY,
-    account_id  TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
-    animal_id   TEXT NOT NULL REFERENCES animals(id) ON DELETE CASCADE,
-    document_id TEXT REFERENCES documents(id) ON DELETE SET NULL,
-    title       TEXT NOT NULL,
-    due_date    TEXT NOT NULL,
-    notes       TEXT,
-    dismissed_at TEXT,
-    created_at  TEXT DEFAULT (datetime('now'))
-  )`).run()
-  db.prepare('CREATE INDEX IF NOT EXISTS idx_reminders_account ON reminders(account_id)').run()
-  db.prepare('CREATE INDEX IF NOT EXISTS idx_reminders_due ON reminders(due_date)').run()
-  db.prepare('CREATE INDEX IF NOT EXISTS idx_reminders_animal ON reminders(animal_id)').run()
-} catch (err) {
-  console.warn('Migration warnings:', err.message)
-}
+await initDb(process.env.DATABASE_URL ?? 'postgresql://pawvax:pawvax@localhost:5432/pawvax')
 
 // Bootstrap: ADMIN_EMAIL aus .env als Admin setzen
 if (process.env.ADMIN_EMAIL) {
   const db = getDb()
-  db.prepare('UPDATE accounts SET role = ?, verified = 1 WHERE email = ?')
-    .run('admin', process.env.ADMIN_EMAIL)
+  await db.query('UPDATE accounts SET role = $1, verified = 1 WHERE email = $2', ['admin', process.env.ADMIN_EMAIL])
   fastify.log.info({ email: process.env.ADMIN_EMAIL }, 'Admin-Rolle gesetzt')
 }
 
 // 90-Tage Audit-Log Retention Policy (täglicher Cleanup)
-setInterval(() => {
+setInterval(async () => {
   try {
     const db = getDb()
-    const result = db.prepare("DELETE FROM audit_log WHERE created_at < datetime('now', '-90 days')").run()
-    if (result.changes > 0) {
-      fastify.log.info(`Retention: ${result.changes} alte Audit-Logs gelöscht (> 90 Tage)`)
+    const result = await db.query("DELETE FROM audit_log WHERE created_at < CURRENT_TIMESTAMP - INTERVAL '90 days'")
+    if (result.rowCount > 0) {
+      fastify.log.info(`Retention: ${result.rowCount} alte Audit-Logs gelöscht (> 90 Tage)`)
     }
   } catch (err) {
     fastify.log.error({ err }, 'Fehler beim Cleanup der Audit-Logs')

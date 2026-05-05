@@ -9,13 +9,14 @@ import { flagDuplicates } from '../services/dedup.js'
 import { randomUUID } from 'crypto'
 import { isAllowedModel, resolveModel } from '../utils/aiModels.js'
 
-function getDocumentPages(db, documentId) {
-  return db.prepare(`
+async function getDocumentPages(db, documentId) {
+  const { rows } = await db.query(`
     SELECT page_number, image_path
     FROM document_pages
-    WHERE document_id = ?
+    WHERE document_id = $1
     ORDER BY page_number ASC
-  `).all(documentId)
+  `, [documentId])
+  return rows
 }
 
 async function analyzeDocumentPages(pages, options) {
@@ -91,7 +92,7 @@ function canManageReanalysis(doc, accountId, role) {
   return doc.owner_id === accountId || role === 'admin'
 }
 
-function syncChipTagFromDocument(db, animalId, extractedData) {
+async function syncChipTagFromDocument(db, animalId, extractedData) {
   if (normalizeDocumentType(extractedData?.type) !== 'pet_passport') return
 
   const chipCode = [
@@ -102,10 +103,9 @@ function syncChipTagFromDocument(db, animalId, extractedData) {
 
   if (!chipCode) return
 
-  const existing = db.prepare('SELECT animal_id FROM animal_tags WHERE tag_id = ?').get(chipCode)
+  const { rows: [existing] } = await db.query('SELECT animal_id FROM animal_tags WHERE tag_id = $1', [chipCode])
   if (!existing) {
-    db.prepare('INSERT INTO animal_tags (tag_id, animal_id, tag_type) VALUES (?, ?, ?)')
-      .run(chipCode, animalId, 'chip')
+    await db.query('INSERT INTO animal_tags (tag_id, animal_id, tag_type) VALUES ($1, $2, $3)', [chipCode, animalId, 'chip'])
   }
 }
 
@@ -122,12 +122,12 @@ export default async function documentRoutes(fastify) {
     const db = getDb()
     const { accountId, role } = req.user
 
-    const doc = db.prepare(`
+    const { rows: [doc] } = await db.query(`
       SELECT d.*, a.account_id AS owner_id, uploader.name AS added_by_name, uploader.verified AS added_by_verified FROM documents d
       JOIN animals a ON a.id = d.animal_id
       LEFT JOIN accounts uploader ON uploader.id = d.added_by_account
-      WHERE d.id = ?
-    `).get(req.params.id)
+      WHERE d.id = $1
+    `, [req.params.id])
 
     if (!doc) return reply.code(404).send({ error: 'Dokument nicht gefunden' })
 
@@ -151,7 +151,7 @@ export default async function documentRoutes(fastify) {
 
     const isUploader = doc.added_by_account === accountId
 
-    const pages = getDocumentPages(db, doc.id)
+    const pages = await getDocumentPages(db, doc.id)
 
     return {
       ...doc,
@@ -173,29 +173,30 @@ export default async function documentRoutes(fastify) {
     const { accountId, role } = req.user
     const docId = req.params.id
 
-    const doc = db.prepare(`
+    const { rows: [doc] } = await db.query(`
       SELECT d.id, d.created_at, d.ocr_provider, d.extracted_json, a.account_id AS owner_id
       FROM documents d
       JOIN animals a ON a.id = d.animal_id
-      WHERE d.id = ?
-    `).get(docId)
+      WHERE d.id = $1
+    `, [docId])
 
     if (!doc) return reply.code(404).send({ error: 'Dokument nicht gefunden' })
     if (!canManageReanalysis(doc, accountId, role)) {
       return reply.code(403).send({ error: 'Keine Berechtigung' })
     }
 
-    const history = db.prepare(`
+    const { rows: history } = await db.query(`
       SELECT id, document_id, extracted_json, version, ocr_provider, created_at
       FROM analysis_history
-      WHERE document_id = ?
+      WHERE document_id = $1
       ORDER BY version DESC, created_at DESC
-    `).all(docId).map((entry) => ({
+    `, [docId])
+    const historyParsed = history.map((entry) => ({
       ...entry,
       extracted_json: JSON.parse(entry.extracted_json)
     }))
 
-    const currentVersion = history.reduce((max, entry) => Math.max(max, entry.version), 0) + 1
+    const currentVersion = historyParsed.reduce((max, entry) => Math.max(max, entry.version), 0) + 1
 
     return {
       documentId: docId,
@@ -205,7 +206,7 @@ export default async function documentRoutes(fastify) {
         created_at: doc.created_at,
         extracted_json: JSON.parse(doc.extracted_json)
       },
-      history
+      history: historyParsed
     }
   })
 
@@ -215,12 +216,12 @@ export default async function documentRoutes(fastify) {
     const { accountId, role } = req.user
     const { allowed_roles, extracted_json, doc_type } = req.body
 
-    const doc = db.prepare(`
+    const { rows: [doc] } = await db.query(`
       SELECT d.*, a.account_id AS owner_id, uploader.name AS added_by_name, uploader.verified AS added_by_verified FROM documents d
       JOIN animals a ON a.id = d.animal_id
       LEFT JOIN accounts uploader ON uploader.id = d.added_by_account
-      WHERE d.id = ?
-    `).get(req.params.id)
+      WHERE d.id = $1
+    `, [req.params.id])
 
     if (!doc) return reply.code(404).send({ error: 'Dokument nicht gefunden' })
 
@@ -236,9 +237,8 @@ export default async function documentRoutes(fastify) {
       const normalizedRoles = Array.isArray(allowed_roles)
         ? [...new Set(allowed_roles.map(normalizeRole))]
         : []
-      db.prepare('UPDATE documents SET allowed_roles = ? WHERE id = ?')
-        .run(JSON.stringify(normalizedRoles), doc.id)
-      logAudit(db, { accountId, role, action: 'update_document_sharing', resource: 'document', resourceId: doc.id,
+      await db.query('UPDATE documents SET allowed_roles = $1 WHERE id = $2', [JSON.stringify(normalizedRoles), doc.id])
+      await logAudit(db, { accountId, role, action: 'update_document_sharing', resource: 'document', resourceId: doc.id,
         details: { allowed_roles: normalizedRoles }, ip: req.ip })
     }
 
@@ -246,17 +246,15 @@ export default async function documentRoutes(fastify) {
       if (doc.added_by_role === 'vet' && !isUploader) {
         return reply.code(403).send({ error: 'Dieses verifizierte Dokument kann nur vom Tierarzt geändert werden' })
       }
-      db.prepare('UPDATE documents SET extracted_json = ? WHERE id = ?')
-        .run(JSON.stringify(extracted_json), doc.id)
-      logAudit(db, { accountId, role, action: 'update_document_text', resource: 'document', resourceId: doc.id,
+      await db.query('UPDATE documents SET extracted_json = $1 WHERE id = $2', [JSON.stringify(extracted_json), doc.id])
+      await logAudit(db, { accountId, role, action: 'update_document_text', resource: 'document', resourceId: doc.id,
         ip: req.ip })
     }
 
     if (doc_type !== undefined) {
       const normalizedDocType = normalizeDocumentType(doc_type)
-      db.prepare('UPDATE documents SET doc_type = ? WHERE id = ?')
-        .run(normalizedDocType, doc.id)
-      logAudit(db, { accountId, role, action: 'update_document_type', resource: 'document', resourceId: doc.id,
+      await db.query('UPDATE documents SET doc_type = $1 WHERE id = $2', [normalizedDocType, doc.id])
+      await logAudit(db, { accountId, role, action: 'update_document_type', resource: 'document', resourceId: doc.id,
         details: { doc_type: normalizedDocType }, ip: req.ip })
     }
 
@@ -268,12 +266,12 @@ export default async function documentRoutes(fastify) {
     const db = getDb()
     const { accountId, role } = req.user
 
-    const doc = db.prepare(`
+    const { rows: [doc] } = await db.query(`
       SELECT d.*, a.account_id AS owner_id, uploader.name AS added_by_name, uploader.verified AS added_by_verified FROM documents d
       JOIN animals a ON a.id = d.animal_id
       LEFT JOIN accounts uploader ON uploader.id = d.added_by_account
-      WHERE d.id = ?
-    `).get(req.params.id)
+      WHERE d.id = $1
+    `, [req.params.id])
 
     if (!doc) return reply.code(404).send({ error: 'Dokument nicht gefunden' })
 
@@ -289,13 +287,13 @@ export default async function documentRoutes(fastify) {
     }
 
     // Get all page image paths before deletion
-    const pages = db.prepare('SELECT image_path FROM document_pages WHERE document_id = ?').all(doc.id)
+    const { rows: pages } = await db.query('SELECT image_path FROM document_pages WHERE document_id = $1', [doc.id])
 
     // Delete document pages first (foreign key constraint)
-    db.prepare('DELETE FROM document_pages WHERE document_id = ?').run(doc.id)
+    await db.query('DELETE FROM document_pages WHERE document_id = $1', [doc.id])
 
     // Delete document from DB
-    db.prepare('DELETE FROM documents WHERE id = ?').run(doc.id)
+    await db.query('DELETE FROM documents WHERE id = $1', [doc.id])
 
     // Delete all image files (non-blocking, don't block response on file deletion failure)
     if (doc.image_path) {
@@ -313,7 +311,7 @@ export default async function documentRoutes(fastify) {
       }
     })
 
-    logAudit(db, { accountId, role, action: 'delete_document', resource: 'document', resourceId: doc.id,
+    await logAudit(db, { accountId, role, action: 'delete_document', resource: 'document', resourceId: doc.id,
       details: { doc_type: doc.doc_type, animal_id: doc.animal_id }, ip: req.ip })
 
     return reply.code(204).send()
@@ -330,14 +328,14 @@ export default async function documentRoutes(fastify) {
     const { accountId } = req.user
     const { animalId } = req.params
 
-    const animal = db.prepare('SELECT account_id FROM animals WHERE id = ?').get(animalId)
+    const { rows: [animal] } = await db.query('SELECT account_id FROM animals WHERE id = $1', [animalId])
     if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden' })
 
-    const docs = db.prepare(`
+    const { rows: docs } = await db.query(`
       SELECT * FROM documents
-      WHERE animal_id = ? AND analysis_status = 'pending_analysis'
+      WHERE animal_id = $1 AND analysis_status = 'pending_analysis'
       ORDER BY created_at DESC
-    `).all(animalId)
+    `, [animalId])
 
     // Vets sehen nur ihre eigenen fehlerhaften OCR Uploads, Besitzer sehen alle
     if (animal.account_id !== accountId) {
@@ -354,12 +352,12 @@ export default async function documentRoutes(fastify) {
     const docId = req.params.id
     const { provider: requestedProvider, model: requestedModel, language = 'de', requestedDocumentType = null } = req.body || {}
 
-    const doc = db.prepare(`
+    const { rows: [doc] } = await db.query(`
       SELECT d.*, a.account_id AS owner_id, uploader.name AS added_by_name, uploader.verified AS added_by_verified FROM documents d
       JOIN animals a ON a.id = d.animal_id
       LEFT JOIN accounts uploader ON uploader.id = d.added_by_account
-      WHERE d.id = ?
-    `).get(docId)
+      WHERE d.id = $1
+    `, [docId])
 
     if (!doc) return reply.code(404).send({ error: 'Dokument nicht gefunden' })
     if (doc.owner_id !== accountId && doc.added_by_account !== accountId) {
@@ -382,7 +380,7 @@ export default async function documentRoutes(fastify) {
 
     try {
       // Get user's keys and models
-      const acc = db.prepare('SELECT gemini_token, gemini_model, anthropic_token, claude_model, openai_token, openai_model, ai_provider_priority FROM accounts WHERE id = ?').get(accountId)
+      const { rows: [acc] } = await db.query('SELECT gemini_token, gemini_model, anthropic_token, claude_model, openai_token, openai_model, ai_provider_priority FROM accounts WHERE id = $1', [accountId])
       
       let userGeminiKey = null
       let userAnthropicKey = null
@@ -425,9 +423,9 @@ export default async function documentRoutes(fastify) {
       }
 
       // Setze status auf 'analyzing'
-      db.prepare('UPDATE documents SET analysis_status = ? WHERE id = ?').run('analyzing', docId)
+      await db.query('UPDATE documents SET analysis_status = $1 WHERE id = $2', ['analyzing', docId])
 
-      const pages = getDocumentPages(db, docId)
+      const pages = await getDocumentPages(db, docId)
       const analysisPages = pages.length > 0
         ? pages
         : [{ page_number: 1, image_path: doc.image_path }]
@@ -453,7 +451,7 @@ export default async function documentRoutes(fastify) {
       const provider = result.provider
 
       // Flag duplicate records across existing documents of the same animal
-      flagDuplicates(db, doc.animal_id, docId, result.suggestedType, result.pageResults)
+      await flagDuplicates(db, doc.animal_id, docId, result.suggestedType, result.pageResults)
 
       const extractedData = buildExtractedDocumentData({
         combinedText: result.combinedText,
@@ -463,23 +461,23 @@ export default async function documentRoutes(fastify) {
       })
       const requiresRetry = extractedData?.extraction_quality?.requires_retry === true
       const nextStatus = requiresRetry ? 'pending_analysis' : 'completed'
-      syncChipTagFromDocument(db, doc.animal_id, extractedData)
+      await syncChipTagFromDocument(db, doc.animal_id, extractedData)
 
       // Update document with analysis results
-      db.prepare(`
+      await db.query(`
         UPDATE documents
-        SET extracted_json = ?, ocr_provider = ?, analysis_status = ?, doc_type = ?, image_path = ?
-        WHERE id = ?
-      `).run(
+        SET extracted_json = $1, ocr_provider = $2, analysis_status = $3, doc_type = $4, image_path = $5
+        WHERE id = $6
+      `, [
         JSON.stringify(extractedData),
         provider,
         nextStatus,
         extractedData.type,
         analysisPages[0].image_path,
         docId
-      )
+      ])
 
-      logAudit(db, {
+      await logAudit(db, {
         accountId, role, action: 'retry_analysis', resource: 'document', resourceId: docId,
         details: { ocr_provider: provider, pages: analysisPages.length, requires_retry: requiresRetry, retry_reasons: extractedData?.extraction_quality?.retry_reasons || [] },
         ip: req.ip
@@ -498,7 +496,7 @@ export default async function documentRoutes(fastify) {
       req.log.error({ err: { message: err.message, stack: err.stack }, docId, accountId, requestedProvider, requestedModel, requestedDocumentType, language }, 'Retry analysis failed')
       
       // Log to audit with full error details
-      logAudit(db, {
+      await logAudit(db, {
         accountId, role, action: 'retry_analysis_failed', resource: 'document', resourceId: docId,
         details: { 
           error_message: err.message, 
@@ -511,7 +509,7 @@ export default async function documentRoutes(fastify) {
       })
       
       // Reset status back to pending_analysis on error
-      db.prepare('UPDATE documents SET analysis_status = ? WHERE id = ?').run('pending_analysis', docId)
+      await db.query('UPDATE documents SET analysis_status = $1 WHERE id = $2', ['pending_analysis', docId])
 
       // Mark as failed, but save for later retry
       if (err.message?.includes('429') || err.message?.includes('Quota')) {
@@ -547,12 +545,12 @@ export default async function documentRoutes(fastify) {
     const docId = req.params.id
     const { provider: requestedProvider, model: requestedModel, language = 'de', requestedDocumentType = null } = req.body || {}
 
-    const doc = db.prepare(`
+    const { rows: [doc] } = await db.query(`
       SELECT d.*, a.account_id AS owner_id, uploader.name AS added_by_name, uploader.verified AS added_by_verified FROM documents d
       JOIN animals a ON a.id = d.animal_id
       LEFT JOIN accounts uploader ON uploader.id = d.added_by_account
-      WHERE d.id = ?
-    `).get(docId)
+      WHERE d.id = $1
+    `, [docId])
 
     if (!doc) return reply.code(404).send({ error: 'Dokument nicht gefunden' })
     if (!canManageReanalysis(doc, accountId, role)) {
@@ -577,17 +575,17 @@ export default async function documentRoutes(fastify) {
       // Store old analysis in history (versioning)
       const oldExtractedJson = doc.extracted_json
       const historyId = randomUUID()
-      const maxVersion = db.prepare(`
-        SELECT COALESCE(MAX(version), 0) as maxVersion FROM analysis_history WHERE document_id = ?
-      `).get(docId).maxVersion
+      const { rows: [{ maxversion }] } = await db.query(`
+        SELECT COALESCE(MAX(version), 0) as maxversion FROM analysis_history WHERE document_id = $1
+      `, [docId])
 
-      db.prepare(`
+      await db.query(`
         INSERT INTO analysis_history (id, document_id, extracted_json, version, ocr_provider, created_at)
-        VALUES (?, ?, ?, ?, ?, datetime('now'))
-      `).run(historyId, docId, oldExtractedJson, maxVersion + 1, doc.ocr_provider)
+        VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
+      `, [historyId, docId, oldExtractedJson, maxversion + 1, doc.ocr_provider])
 
       // Get user's keys and models
-      const acc = db.prepare('SELECT gemini_token, gemini_model, anthropic_token, claude_model, openai_token, openai_model, ai_provider_priority FROM accounts WHERE id = ?').get(accountId)
+      const { rows: [acc] } = await db.query('SELECT gemini_token, gemini_model, anthropic_token, claude_model, openai_token, openai_model, ai_provider_priority FROM accounts WHERE id = $1', [accountId])
       
       let userGeminiKey = null
       let userAnthropicKey = null
@@ -629,7 +627,7 @@ export default async function documentRoutes(fastify) {
         if (!userOpenAiKey) userOpenAiKey = process.env.OPENAI_API_KEY || null
       }
 
-      const pages = getDocumentPages(db, docId)
+      const pages = await getDocumentPages(db, docId)
       const analysisPages = pages.length > 0
         ? pages
         : [{ page_number: 1, image_path: doc.image_path }]
@@ -653,7 +651,7 @@ export default async function documentRoutes(fastify) {
         }
       })
       // Flag duplicate records (re-compute with new analysis)
-      flagDuplicates(db, doc.animal_id, docId, result.suggestedType, result.pageResults)
+      await flagDuplicates(db, doc.animal_id, docId, result.suggestedType, result.pageResults)
 
       const extractedData = buildExtractedDocumentData({
         combinedText: result.combinedText,
@@ -663,22 +661,22 @@ export default async function documentRoutes(fastify) {
       })
       const requiresRetry = extractedData?.extraction_quality?.requires_retry === true
       const nextStatus = requiresRetry ? 'pending_analysis' : 'completed'
-      syncChipTagFromDocument(db, doc.animal_id, extractedData)
+      await syncChipTagFromDocument(db, doc.animal_id, extractedData)
 
       // Update document with new analysis results
-      db.prepare(`
+      await db.query(`
         UPDATE documents
-        SET extracted_json = ?, ocr_provider = ?, doc_type = ?, analysis_status = ?
-        WHERE id = ?
-      `).run(
+        SET extracted_json = $1, ocr_provider = $2, doc_type = $3, analysis_status = $4
+        WHERE id = $5
+      `, [
         JSON.stringify(extractedData),
         result.provider,
         extractedData.type,
         nextStatus,
         docId
-      )
+      ])
 
-      logAudit(db, {
+      await logAudit(db, {
         accountId, role, action: 're_analyze', resource: 'document', resourceId: docId,
         details: { ocr_provider: result.provider, pages: analysisPages.length, history_entry: historyId, requires_retry: requiresRetry, retry_reasons: extractedData?.extraction_quality?.retry_reasons || [] },
         ip: req.ip
@@ -693,7 +691,7 @@ export default async function documentRoutes(fastify) {
         analysisStatus: nextStatus,
         requiresRetry,
         previousVersion: {
-          version: maxVersion + 1,
+          version: maxversion + 1,
           savedAt: new Date().toISOString(),
           historyId
         }
@@ -702,7 +700,7 @@ export default async function documentRoutes(fastify) {
       req.log.error({ err: { message: err.message, stack: err.stack }, docId, accountId, requestedProvider, requestedModel, language }, 'Re-analysis failed')
       
       // Log to audit with full error details
-      logAudit(db, {
+      await logAudit(db, {
         accountId, role, action: 're_analyze_failed', resource: 'document', resourceId: docId,
         details: { 
           error_message: err.message, 

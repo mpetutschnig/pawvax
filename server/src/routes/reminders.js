@@ -7,13 +7,13 @@ export default async function reminderRoutes(fastify) {
     const db = getDb()
     const accountId = req.user.accountId
 
-    const reminders = db.prepare(`
+    const { rows: reminders } = await db.query(`
       SELECT r.*, a.name as animal_name
       FROM reminders r
       JOIN animals a ON a.id = r.animal_id
-      WHERE r.account_id = ? AND r.dismissed_at IS NULL
+      WHERE r.account_id = $1 AND r.dismissed_at IS NULL
       ORDER BY r.due_date ASC
-    `).all(accountId)
+    `, [accountId])
 
     return reply.send(reminders)
   })
@@ -33,26 +33,26 @@ export default async function reminderRoutes(fastify) {
     }
 
     // Ensure animal belongs to this account
-    const animal = db.prepare('SELECT id FROM animals WHERE id = ? AND account_id = ?').get(animal_id, accountId)
+    const { rows: [animal] } = await db.query('SELECT id FROM animals WHERE id = $1 AND account_id = $2', [animal_id, accountId])
     if (!animal) {
       return reply.code(403).send({ error: 'Kein Zugriff auf dieses Tier' })
     }
 
     // If document_id provided, validate it belongs to this animal
     if (document_id) {
-      const doc = db.prepare('SELECT id FROM documents WHERE id = ? AND animal_id = ?').get(document_id, animal_id)
+      const { rows: [doc] } = await db.query('SELECT id FROM documents WHERE id = $1 AND animal_id = $2', [document_id, animal_id])
       if (!doc) {
         return reply.code(400).send({ error: 'Dokument nicht gefunden' })
       }
     }
 
     const id = randomUUID()
-    db.prepare(`
+    await db.query(`
       INSERT INTO reminders (id, account_id, animal_id, document_id, title, due_date, notes)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(id, accountId, animal_id, document_id || null, title, due_date, notes || null)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `, [id, accountId, animal_id, document_id || null, title, due_date, notes || null])
 
-    const reminder = db.prepare('SELECT * FROM reminders WHERE id = ?').get(id)
+    const { rows: [reminder] } = await db.query('SELECT * FROM reminders WHERE id = $1', [id])
     return reply.code(201).send(reminder)
   })
 
@@ -62,7 +62,7 @@ export default async function reminderRoutes(fastify) {
     const accountId = req.user.accountId
     const { id } = req.params
 
-    const reminder = db.prepare('SELECT * FROM reminders WHERE id = ?').get(id)
+    const { rows: [reminder] } = await db.query('SELECT * FROM reminders WHERE id = $1', [id])
     if (!reminder) {
       return reply.code(404).send({ error: 'Reminder nicht gefunden' })
     }
@@ -70,7 +70,7 @@ export default async function reminderRoutes(fastify) {
       return reply.code(403).send({ error: 'Kein Zugriff' })
     }
 
-    db.prepare("UPDATE reminders SET dismissed_at = datetime('now') WHERE id = ?").run(id)
+    await db.query("UPDATE reminders SET dismissed_at = CURRENT_TIMESTAMP WHERE id = $1", [id])
     return reply.send({ success: true })
   })
 }

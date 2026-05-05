@@ -34,22 +34,23 @@ async function authenticateApiKey(req, reply) {
   const db = getDb()
   const keyHash = hashApiKey(apiKey)
 
-  const keyRow = db.prepare(
-    'SELECT id, account_id, name, permissions, rate_limit, active FROM api_keys WHERE key_hash = ?'
-  ).get(keyHash)
+  const { rows: [keyRow] } = await db.query(
+    'SELECT id, account_id, name, permissions, rate_limit, active FROM api_keys WHERE key_hash = $1',
+    [keyHash]
+  )
 
   if (!keyRow || !keyRow.active) {
     return reply.code(401).send({ error: 'Invalid or inactive API key' })
   }
 
   // Live role verification (Plan 6d — Zero Trust)
-  const account = db.prepare('SELECT role, verified FROM accounts WHERE id = ?').get(keyRow.account_id)
+  const { rows: [account] } = await db.query('SELECT role, verified FROM accounts WHERE id = $1', [keyRow.account_id])
   if (!account || !account.verified || !account.role.includes('vet')) {
     return reply.code(403).send({ error: 'Associated account is not a verified veterinarian' })
   }
 
   // Update last_used_at
-  db.prepare('UPDATE api_keys SET last_used_at = datetime(\'now\') WHERE id = ?').run(keyRow.id)
+  await db.query('UPDATE api_keys SET last_used_at = CURRENT_TIMESTAMP WHERE id = $1', [keyRow.id])
 
   req.apiKeyAccount = {
     id: keyRow.id,
@@ -73,11 +74,11 @@ export default async function vetApiRoutes(fastify) {
 
   // Additional rate-limit check per API key (60 req/min default)
   await fastify.register(import('@fastify/rate-limit'), {
-    max: (req) => {
+    max: async (req) => {
       // Look up the key's rate_limit (already authenticated at this point)
       if (req.apiKeyAccount) {
         const db = getDb()
-        const keyRow = db.prepare('SELECT rate_limit FROM api_keys WHERE id = ?').get(req.apiKeyAccount.id)
+        const { rows: [keyRow] } = await db.query('SELECT rate_limit FROM api_keys WHERE id = $1', [req.apiKeyAccount.id])
         return keyRow?.rate_limit || 60
       }
       return 60
@@ -116,15 +117,15 @@ export default async function vetApiRoutes(fastify) {
     }
 
     const db = getDb()
-    const animal = db.prepare('SELECT id, name, species, breed, birthdate, avatar_path, is_archived FROM animals WHERE id = ?')
-      .get(req.params.animalId)
+    const { rows: [animal] } = await db.query('SELECT id, name, species, breed, birthdate, avatar_path, is_archived FROM animals WHERE id = $1',
+      [req.params.animalId])
 
     if (!animal) return reply.code(404).send({ error: 'Animal not found' })
 
-    const tags = db.prepare('SELECT tag_id, tag_type, active FROM animal_tags WHERE animal_id = ?')
-      .all(animal.id)
+    const { rows: tags } = await db.query('SELECT tag_id, tag_type, active FROM animal_tags WHERE animal_id = $1',
+      [animal.id])
 
-    logAudit(db, {
+    await logAudit(db, {
       accountId: req.apiKeyAccount.accountId,
       role: 'vet_api',
       action: 'read_animal',
@@ -152,15 +153,15 @@ export default async function vetApiRoutes(fastify) {
     }
 
     const db = getDb()
-    const animal = db.prepare('SELECT id FROM animals WHERE id = ?').get(req.params.animalId)
+    const { rows: [animal] } = await db.query('SELECT id FROM animals WHERE id = $1', [req.params.animalId])
     if (!animal) return reply.code(404).send({ error: 'Animal not found' })
 
-    const docs = db.prepare(`
+    const { rows: docs } = await db.query(`
       SELECT id, doc_type, created_at, ocr_provider, added_by_role, analysis_status, extracted_json, allowed_roles
       FROM documents
-      WHERE animal_id = ? AND analysis_status = 'completed'
+      WHERE animal_id = $1 AND analysis_status = 'completed'
       ORDER BY created_at DESC
-    `).all(animal.id)
+    `, [animal.id])
 
     const result = docs
       .filter(d => {
@@ -178,7 +179,7 @@ export default async function vetApiRoutes(fastify) {
         extracted_json: (() => { try { return JSON.parse(d.extracted_json) } catch { return {} } })()
       }))
 
-    logAudit(db, {
+    await logAudit(db, {
       accountId: req.apiKeyAccount.accountId,
       role: 'vet_api',
       action: 'list_documents',
@@ -206,16 +207,16 @@ export default async function vetApiRoutes(fastify) {
     }
 
     const db = getDb()
-    const row = db.prepare(`
+    const { rows: [row] } = await db.query(`
       SELECT a.id, a.name, a.species, a.breed, a.birthdate, a.avatar_path, a.is_archived
       FROM animals a
       JOIN animal_tags t ON t.animal_id = a.id
-      WHERE t.tag_id = ? AND t.active = 1
-    `).get(req.params.tagId)
+      WHERE t.tag_id = $1 AND t.active = 1
+    `, [req.params.tagId])
 
     if (!row) return reply.code(404).send({ error: 'No animal found for this tag' })
 
-    logAudit(db, {
+    await logAudit(db, {
       accountId: req.apiKeyAccount.accountId,
       role: 'vet_api',
       action: 'lookup_by_tag',
@@ -243,7 +244,7 @@ export default async function vetApiRoutes(fastify) {
     }
 
     const db = getDb()
-    const animal = db.prepare('SELECT id, is_archived FROM animals WHERE id = ?').get(req.params.animalId)
+    const { rows: [animal] } = await db.query('SELECT id, is_archived FROM animals WHERE id = $1', [req.params.animalId])
     if (!animal) return reply.code(404).send({ error: 'Animal not found' })
     if (animal.is_archived) return reply.code(400).send({ error: 'Animal is archived — no new documents allowed' })
 
@@ -275,22 +276,22 @@ export default async function vetApiRoutes(fastify) {
     writeFileSync(filepath, buffer)
 
     // Insert document record
-    db.prepare(`
+    await db.query(`
       INSERT INTO documents (id, animal_id, doc_type, image_path, extracted_json, added_by_account, added_by_role, allowed_roles, analysis_status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    `, [
       docId, animal.id, docType, filename,
       JSON.stringify({}), // placeholder until OCR completes
       req.apiKeyAccount.accountId, 'vet',
       JSON.stringify(['vet', 'authority', 'guest']),
       'pending_analysis'
-    )
+    ])
 
     // Trigger OCR analysis asynchronously
     setImmediate(async () => {
       try {
-        const account = db.prepare('SELECT gemini_token, gemini_model, anthropic_token, claude_model, openai_token, openai_model, ai_provider_priority FROM accounts WHERE id = ?')
-          .get(req.apiKeyAccount.accountId)
+        const { rows: [account] } = await db.query('SELECT gemini_token, gemini_model, anthropic_token, claude_model, openai_token, openai_model, ai_provider_priority FROM accounts WHERE id = $1',
+          [req.apiKeyAccount.accountId])
 
         let geminiKey = null, anthropicKey = null, openaiKey = null
         try { geminiKey = account?.gemini_token ? decrypt(account.gemini_token) : null } catch {}
@@ -314,15 +315,15 @@ export default async function vetApiRoutes(fastify) {
           language
         )
 
-        db.prepare('UPDATE documents SET extracted_json = ?, ocr_provider = ?, analysis_status = ? WHERE id = ?')
-          .run(JSON.stringify(result.data), result.provider, 'completed', docId)
+        await db.query('UPDATE documents SET extracted_json = $1, ocr_provider = $2, analysis_status = $3 WHERE id = $4',
+          [JSON.stringify(result.data), result.provider, 'completed', docId])
       } catch (err) {
         fastify.log.error({ err, docId }, 'VET-API: OCR analysis failed')
-        db.prepare('UPDATE documents SET analysis_status = ? WHERE id = ?').run('pending_analysis', docId)
+        await db.query('UPDATE documents SET analysis_status = $1 WHERE id = $2', ['pending_analysis', docId])
       }
     })
 
-    logAudit(db, {
+    await logAudit(db, {
       accountId: req.apiKeyAccount.accountId,
       role: 'vet_api',
       action: 'upload_document',
@@ -369,7 +370,7 @@ export default async function vetApiRoutes(fastify) {
     }
 
     const db = getDb()
-    const animal = db.prepare('SELECT id, is_archived FROM animals WHERE id = ?').get(req.params.animalId)
+    const { rows: [animal] } = await db.query('SELECT id, is_archived FROM animals WHERE id = $1', [req.params.animalId])
     if (!animal) return reply.code(404).send({ error: 'Animal not found' })
     if (animal.is_archived) return reply.code(400).send({ error: 'Animal is archived — no new records allowed' })
 
@@ -393,18 +394,18 @@ export default async function vetApiRoutes(fastify) {
       source: 'vet_api_structured'
     }
 
-    db.prepare(`
+    await db.query(`
       INSERT INTO documents (id, animal_id, doc_type, image_path, extracted_json, ocr_provider, added_by_account, added_by_role, allowed_roles, analysis_status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+    `, [
       docId, animal.id, 'vaccination', '',
       JSON.stringify(extractedJson), 'vet_api',
       req.apiKeyAccount.accountId, 'vet',
       JSON.stringify(['vet', 'authority', 'guest']),
       'completed'
-    )
+    ])
 
-    logAudit(db, {
+    await logAudit(db, {
       accountId: req.apiKeyAccount.accountId,
       role: 'vet_api',
       action: 'create_vaccination',

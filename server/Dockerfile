@@ -2,8 +2,8 @@ FROM docker.io/node:22-alpine
 
 WORKDIR /app
 
-# Install system dependencies
-RUN apk add --no-cache python3 make g++ cairo-dev jpeg-dev pango-dev giflib-dev
+# Install system dependencies (sharp needs cairo/jpeg/pango/giflib)
+RUN apk add --no-cache cairo-dev jpeg-dev pango-dev giflib-dev python3 make g++
 
 # Copy package files
 COPY package*.json ./
@@ -14,14 +14,14 @@ RUN npm install --omit=dev
 # Copy application
 COPY src ./src
 
-# Create data directories
-RUN mkdir -p /app/data /app/uploads
+# Create upload directory
+RUN mkdir -p /app/uploads
 
 # Expose port
 EXPOSE 3000
 
-# Default DB path inside the container (override via DB_PATH env var in the systemd unit / compose file)
-ENV DB_PATH=/app/data/paw.db
+# PostgreSQL connection string (override in systemd unit / compose file)
+ENV DATABASE_URL=postgresql://pawvax:pawvax@localhost:5432/pawvax
 ENV UPLOADS_DIR=/app/uploads
 
 # Health check endpoint needs to be added to your app

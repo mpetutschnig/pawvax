@@ -7,7 +7,7 @@ export default async function aiRoutes(fastify) {
     const db = getDb()
     const { accountId } = req.user
 
-    const acc = db.prepare('SELECT gemini_token, anthropic_token, openai_token, ai_provider_priority FROM accounts WHERE id = ?').get(accountId)
+    const { rows: [acc] } = await db.query('SELECT gemini_token, anthropic_token, openai_token, ai_provider_priority FROM accounts WHERE id = $1', [accountId])
     
     let geminiModels = []
     let openaiModels = []

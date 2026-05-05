@@ -1,12 +1,33 @@
 version: '3.9'
 
 services:
+  postgres:
+    image: docker.io/postgres:16-alpine
+    container_name: paw-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: pawvax
+      POSTGRES_USER: pawvax
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-change-this-in-production}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pawvax"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - paw_network
+
   server:
     build:
       context: ./server
       dockerfile: Dockerfile
     container_name: paw-server
     restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
     ports:
       - "3000:3000"
     environment:
@@ -14,8 +35,8 @@ services:
       JWT_SECRET: ${JWT_SECRET:-change-this-in-production}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       NODE_ENV: ${NODE_ENV:-production}
+      DATABASE_URL: postgresql://pawvax:${DB_PASSWORD:-change-this-in-production}@postgres:5432/pawvax
     volumes:
-      - db_data:/app/data
       - uploads_data:/app/uploads
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/health"]
@@ -43,7 +64,7 @@ services:
       - paw_network
 
 volumes:
-  db_data:
+  postgres_data:
     driver: local
   uploads_data:
     driver: local
