@@ -13,19 +13,50 @@ echo -e "${BLUE}=== Setting up Caddy for paw.oxs.at ===${NC}"
 # 1. Install Caddy if not present
 if ! command -v caddy &> /dev/null; then
   echo -e "${BLUE}Installing Caddy from official release...${NC}"
-  CADDY_VERSION=$(curl -s https://api.github.com/repos/caddyserver/caddy/releases/latest | grep tag_name | cut -d'"' -f4 | sed 's/v//')
-  CADDY_URL="https://github.com/caddyserver/caddy/releases/download/v${CADDY_VERSION}/caddy_${CADDY_VERSION}_linux_amd64.tar.gz"
   
+  # Detect architecture
+  ARCH=$(uname -m)
+  case $ARCH in
+    x86_64) CADDY_ARCH="amd64" ;;
+    aarch64) CADDY_ARCH="arm64" ;;
+    armv7l) CADDY_ARCH="armv7" ;;
+    *) echo "Unsupported architecture: $ARCH"; exit 1 ;;
+  esac
+  
+  echo -e "${BLUE}Detected architecture: $ARCH ($CADDY_ARCH)${NC}"
+  
+  CADDY_VERSION=$(curl -s https://api.github.com/repos/caddyserver/caddy/releases/latest | grep tag_name | cut -d'"' -f4 | sed 's/v//')
+  CADDY_URL="https://github.com/caddyserver/caddy/releases/download/v${CADDY_VERSION}/caddy_${CADDY_VERSION}_linux_${CADDY_ARCH}.tar.gz"
+  
+  echo -e "${BLUE}Downloading: $CADDY_URL${NC}"
   mkdir -p /tmp/caddy-install
   cd /tmp/caddy-install
-  curl -L -o caddy.tar.gz "$CADDY_URL"
+  
+  if ! curl -L -f -o caddy.tar.gz "$CADDY_URL"; then
+    echo "Error: Failed to download Caddy"
+    exit 1
+  fi
+  
   tar -xzf caddy.tar.gz
+  if [[ ! -f caddy ]]; then
+    echo "Error: caddy binary not found in archive"
+    exit 1
+  fi
+  
   mv caddy /usr/bin/caddy
   chmod +x /usr/bin/caddy
+  
+  # Verify binary works
+  if ! /usr/bin/caddy version &>/dev/null; then
+    echo "Error: Caddy binary is not functional"
+    rm /usr/bin/caddy
+    exit 1
+  fi
+  
   cd -
   rm -rf /tmp/caddy-install
   
-  echo -e "${GREEN}Caddy installed: $(caddy version)${NC}"
+  echo -e "${GREEN}Caddy installed: $(/usr/bin/caddy version)${NC}"
 else
   echo -e "${GREEN}Caddy already installed: $(caddy version)${NC}"
 fi
