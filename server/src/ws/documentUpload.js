@@ -56,6 +56,7 @@ function syncChipTagFromDocument(db, animalId, extractedData) {
 export default async function wsDocumentUpload(fastify) {
   fastify.get('/ws', { websocket: true }, async (socket, req) => {
     let accountId, userRole, userGeminiKey = null, userGeminiModel = null, userAnthropicKey = null, userClaudeModel = null
+    let userOpenAiKey = null, userOpenAiModel = null, userPriority = ['system', 'google', 'anthropic', 'openai']
     let authenticated = false
     let uploadState = null
     const MAX_UPLOAD_SIZE = 15 * 1024 * 1024 // 15MB per document
@@ -110,9 +111,6 @@ export default async function wsDocumentUpload(fastify) {
 
           const db = getDb()
           const acc = db.prepare('SELECT gemini_token, gemini_model, anthropic_token, claude_model, openai_token, openai_model, ai_provider_priority FROM accounts WHERE id = ?').get(accountId)
-          let userOpenAiKey = null
-          let userOpenAiModel = 'gpt-4o-mini'
-          let userPriority = ['system', 'google', 'anthropic', 'openai']
           
           try {
             userGeminiKey = acc?.gemini_token ? decrypt(acc.gemini_token) : null

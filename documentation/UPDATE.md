@@ -154,13 +154,6 @@ su - paw-api -c "podman ps"
 PAW_API_UID=$(id -u paw-api)
 XDG_RUNTIME_DIR=/run/user/$PAW_API_UID su -s /bin/bash paw-api -c "cd /tmp && podman --cgroup-manager=cgroupfs run --rm --security-opt label=disable -v /git/pawvax/server:/app -v /home/paw-api/data:/data -v /tmp:/tmp -w /app docker.io/node:22-alpine sh -c 'node scripts/persist-test-results.js /tmp/jest-raw.json /data/paw.db'"
 ```
-
-Erwartete Erfolgsmeldung:
-
-```bash
-Persisted deploy test results (passed, 115/115 passed)
-```
-
 ### 7.3 Test-Accounts aufraeumen
 
 ```bash
