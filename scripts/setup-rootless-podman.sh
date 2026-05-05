@@ -114,6 +114,11 @@ prepare_proxy_assets() {
   local app_home_dir
   app_home_dir="$(app_home)"
   
+  # Create Podman cache and config directories with proper ownership
+  mkdir -p "$app_home_dir/.cache" "$app_home_dir/.local/share"
+  chown -R "$APP_USER:$APP_USER" "$app_home_dir/.cache" "$app_home_dir/.local"
+  chmod 755 "$app_home_dir/.cache" "$app_home_dir/.local" "$app_home_dir/.local/share"
+
   # Create directories with proper ownership
   mkdir -p "$app_home_dir/data/proxy/ssl" "$app_home_dir/data/pwa"
   chown -R "$APP_USER:$APP_USER" "$app_home_dir/data/proxy" "$app_home_dir/data/pwa"
