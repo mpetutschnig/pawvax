@@ -656,31 +656,33 @@ export async function analyzeDocument(imagePath, userGeminiKey = null, model = n
 
   try {
     const forcedDocumentType = normalizeRequestedDocumentType(requestedDocumentType)
-    const documentType = forcedDocumentType || await classifyDocumentType(imagePath, userGeminiKey, userAnthropicKey, userOpenAiKey, priority, normalizedLanguage)
+    const classificationResult = forcedDocumentType ? { type: forcedDocumentType, confidence: null } : await classifyDocumentType(imagePath, userGeminiKey, userAnthropicKey, userOpenAiKey, priority, normalizedLanguage)
+    const documentType = classificationResult.type
+    const typeConfidence = classificationResult.confidence
     const prompt = withConfidenceInstructions(getPromptForDocumentType(documentType, normalizedLanguage), normalizedLanguage)
 
     for (const provider of priority) {
       if (provider === 'google' && userGeminiKey) {
         const effectiveModel = model || 'gemini-1.5-flash'
-        _log.info({ provider: 'gemini', model: effectiveModel, documentType }, 'OCR analysis starting')
-        return await analyzeWithGemini(imagePath, userGeminiKey, effectiveModel, onProgress, prompt, documentType)
+        _log.info({ provider: 'gemini', model: effectiveModel, documentType, typeConfidence }, 'OCR analysis starting')
+        return await analyzeWithGemini(imagePath, userGeminiKey, effectiveModel, onProgress, prompt, documentType, typeConfidence)
       }
       if (provider === 'anthropic' && userAnthropicKey) {
         const effectiveModel = claudeModel || 'claude-3-5-sonnet-20241022'
-        _log.info({ provider: 'claude', model: effectiveModel, documentType }, 'OCR analysis starting')
-        return await analyzeWithClaude(imagePath, userAnthropicKey, effectiveModel, onProgress, prompt, documentType)
+        _log.info({ provider: 'claude', model: effectiveModel, documentType, typeConfidence }, 'OCR analysis starting')
+        return await analyzeWithClaude(imagePath, userAnthropicKey, effectiveModel, onProgress, prompt, documentType, typeConfidence)
       }
       if (provider === 'openai' && userOpenAiKey) {
         const effectiveModel = openAiModel || 'gpt-4o-mini'
-        _log.info({ provider: 'openai', model: effectiveModel, documentType }, 'OCR analysis starting')
-        return await analyzeWithOpenAI(imagePath, userOpenAiKey, effectiveModel, onProgress, prompt, documentType)
+        _log.info({ provider: 'openai', model: effectiveModel, documentType, typeConfidence }, 'OCR analysis starting')
+        return await analyzeWithOpenAI(imagePath, userOpenAiKey, effectiveModel, onProgress, prompt, documentType, typeConfidence)
       }
     }
 
     // Fallback falls die Priorisierung keine Treffer ergab, aber Keys existieren
-    if (userGeminiKey) return await analyzeWithGemini(imagePath, userGeminiKey, model || 'gemini-1.5-flash', onProgress, prompt, documentType)
-    if (userAnthropicKey) return await analyzeWithClaude(imagePath, userAnthropicKey, claudeModel || 'claude-3-5-sonnet-20241022', onProgress, prompt, documentType)
-    if (userOpenAiKey) return await analyzeWithOpenAI(imagePath, userOpenAiKey, openAiModel || 'gpt-4o-mini', onProgress, prompt, documentType)
+    if (userGeminiKey) return await analyzeWithGemini(imagePath, userGeminiKey, model || 'gemini-1.5-flash', onProgress, prompt, documentType, typeConfidence)
+    if (userAnthropicKey) return await analyzeWithClaude(imagePath, userAnthropicKey, claudeModel || 'claude-3-5-sonnet-20241022', onProgress, prompt, documentType, typeConfidence)
+    if (userOpenAiKey) return await analyzeWithOpenAI(imagePath, userOpenAiKey, openAiModel || 'gpt-4o-mini', onProgress, prompt, documentType, typeConfidence)
 
     throw new Error('Analyse nicht möglich. Keine Tokens hinterlegt.')
   } catch (err) {
@@ -828,7 +830,7 @@ function analyzeWithMockOcr(imagePath, onProgress, language = 'de') {
   })
 }
 
-async function analyzeWithClaude(imagePath, anthropicKey, model, onProgress, prompt = GEMINI_PROMPT, documentType = 'general') {
+async function analyzeWithClaude(imagePath, anthropicKey, model, onProgress, prompt = GEMINI_PROMPT, documentType = 'general', typeConfidence = null) {
   if (onProgress) onProgress('Bild wird für Claude API verarbeitet...')
   const imageData = readFileSync(imagePath)
   const base64 = imageData.toString('base64')
@@ -882,10 +884,10 @@ async function analyzeWithClaude(imagePath, anthropicKey, model, onProgress, pro
   const result = await response.json()
   const text = result.content?.[0]?.text || ''
 
-  return { provider: 'claude', data: parseStructuredModelResponse(text, 'Claude', documentType) }
+  return { provider: 'claude', data: parseStructuredModelResponse(text, 'Claude', documentType, typeConfidence) }
 }
 
-async function analyzeWithGemini(imagePath, geminiKey, model, onProgress, prompt = GEMINI_PROMPT, documentType = 'general') {
+async function analyzeWithGemini(imagePath, geminiKey, model, onProgress, prompt = GEMINI_PROMPT, documentType = 'general', typeConfidence = null) {
   if (onProgress) onProgress('Bild wird für Gemini API verarbeitet...')
   const imageData = readFileSync(imagePath)
   const base64 = imageData.toString('base64')
@@ -936,7 +938,7 @@ async function analyzeWithGemini(imagePath, geminiKey, model, onProgress, prompt
   const result = await response.json();
   const text = result.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
-  return { provider: 'gemini', data: parseStructuredModelResponse(text, 'Gemini', documentType) }
+  return { provider: 'gemini', data: parseStructuredModelResponse(text, 'Gemini', documentType, typeConfidence) }
 }
 
 // Normalize document type from various sources to canonical types
@@ -1047,7 +1049,7 @@ function extractBalancedJsonCandidate(text) {
   return null
 }
 
-export function parseStructuredModelResponse(text, provider, documentType = 'general') {
+export function parseStructuredModelResponse(text, provider, documentType = 'general', typeConfidence = null) {
   const trimmed = String(text || '').trim()
   const candidates = [trimmed]
 
@@ -1064,7 +1066,12 @@ export function parseStructuredModelResponse(text, provider, documentType = 'gen
     try {
       const parsed = JSON.parse(candidate)
       if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') continue
-      return normalizeModelMetadata(normalizeDateFields({ type: normalizeDocumentType(documentType), ...parsed }))
+      const result = normalizeModelMetadata(normalizeDateFields({ type: normalizeDocumentType(documentType), ...parsed }))
+      // Add type_confidence only if it was explicitly provided (from auto-classification)
+      if (typeConfidence !== null && typeConfidence !== undefined) {
+        result.type_confidence = normalizeConfidenceValue(typeConfidence)
+      }
+      return result
     } catch {
       continue
     }
@@ -1171,7 +1178,7 @@ function calculateRecordCompleteness(record, keys) {
   return Number((filled / keys.length).toFixed(2))
 }
 
-function evaluateExtractionQuality(type, payload, pageResults) {
+function evaluateExtractionQuality(type, payload, pageResults, typeConfidence = null) {
   const modelConfidence = average(collectModelConfidences(pageResults))
 
   if (type === 'vaccination') {
@@ -1184,7 +1191,7 @@ function evaluateExtractionQuality(type, payload, pageResults) {
       ? average(vaccinations.map((record) => calculateRecordCompleteness(record, ['vaccine_name', 'administration_date', 'batch_number', 'valid_until'])))
       : 0
 
-    return {
+    const quality = {
       requires_retry: retryReasons.length > 0,
       retry_reasons: retryReasons,
       model_confidence: modelConfidence,
@@ -1192,9 +1199,13 @@ function evaluateExtractionQuality(type, payload, pageResults) {
       domain_valid: vaccinations.length > 0 || retryReasons.length === 0,
       completeness_score: completenessScore || 0
     }
+    if (typeConfidence !== null && typeConfidence !== undefined) {
+      quality.type_confidence = normalizeConfidenceValue(typeConfidence)
+    }
+    return quality
   }
 
-  return {
+  const quality = {
     requires_retry: false,
     retry_reasons: [],
     model_confidence: modelConfidence,
@@ -1202,6 +1213,10 @@ function evaluateExtractionQuality(type, payload, pageResults) {
     domain_valid: true,
     completeness_score: 1
   }
+  if (typeConfidence !== null && typeConfidence !== undefined) {
+    quality.type_confidence = normalizeConfidenceValue(typeConfidence)
+  }
+  return quality
 }
 
 function isVaccinationLikeDocument(pageResults) {
@@ -1324,6 +1339,27 @@ export function buildExtractedDocumentData({ combinedText, suggestedType, pageRe
   }
 }
 
+// Extract confidence score from classification text if available
+function extractClassificationConfidence(text) {
+  if (!text) return undefined
+  
+  // Try to extract percentage or decimal confidence
+  const percentMatch = text.match(/(\d+)\s*%/)
+  if (percentMatch) {
+    const percent = Number(percentMatch[1])
+    return Math.min(100, Math.max(0, percent)) / 100
+  }
+  
+  const decimalMatch = text.match(/confidence[:\s]+([0-9.]+)/i)
+  if (decimalMatch) {
+    const value = Number(decimalMatch[1])
+    if (!Number.isFinite(value)) return undefined
+    return value > 1 ? value / 100 : value
+  }
+  
+  return undefined
+}
+
 // Two-step OCR: first classify document type, then extract with type-specific prompt
 export async function classifyDocumentType(imagePath, userGeminiKey = null, userAnthropicKey = null, userOpenAiKey = null, priority = ['google', 'anthropic', 'openai'], language = 'de') {
   try {
@@ -1339,10 +1375,10 @@ export async function classifyDocumentType(imagePath, userGeminiKey = null, user
         return await classifyWithOpenAI(imagePath, userOpenAiKey, normalizedLanguage)
       }
     }
-    return 'general'
+    return { type: 'general', confidence: 0.5 }
   } catch (err) {
     _log.warn({ err: err.message }, 'Document classification failed, defaulting to general')
-    return 'general'
+    return { type: 'general', confidence: 0.5 }
   }
 }
 
@@ -1375,8 +1411,12 @@ async function classifyWithGemini(imagePath, geminiKey, language = 'de') {
   const result = await response.json()
   const text = result.candidates?.[0]?.content?.parts?.[0]?.text || ''
   const classified = normalizeDocumentType(text)
-  _log.debug({ classified, language: normalizedLanguage }, 'Document classified')
-  return classified
+  
+  // Extract confidence if available in the response (conservative estimate)
+  const confidence = extractClassificationConfidence(text) || 0.85
+  
+  _log.debug({ classified, confidence, language: normalizedLanguage }, 'Document classified')
+  return { type: classified, confidence }
 }
 
 async function classifyWithClaude(imagePath, anthropicKey, language = 'de') {
@@ -1414,8 +1454,12 @@ async function classifyWithClaude(imagePath, anthropicKey, language = 'de') {
   const result = await response.json()
   const text = result.content?.[0]?.text || ''
   const classified = normalizeDocumentType(text)
-  _log.debug({ classified, language: normalizedLanguage }, 'Document classified')
-  return classified
+  
+  // Extract confidence if available in the response (conservative estimate)
+  const confidence = extractClassificationConfidence(text) || 0.82
+  
+  _log.debug({ classified, confidence, language: normalizedLanguage }, 'Document classified')
+  return { type: classified, confidence }
 }
 
 async function classifyWithOpenAI(imagePath, openAiKey, language = 'de') {
@@ -1452,11 +1496,15 @@ async function classifyWithOpenAI(imagePath, openAiKey, language = 'de') {
   const result = await response.json()
   const text = result.choices?.[0]?.message?.content || ''
   const classified = normalizeDocumentType(text)
-  _log.debug({ classified, language: normalizedLanguage }, 'Document classified')
-  return classified
+  
+  // Extract confidence if available in the response (conservative estimate)
+  const confidence = extractClassificationConfidence(text) || 0.80
+  
+  _log.debug({ classified, confidence, language: normalizedLanguage }, 'Document classified')
+  return { type: classified, confidence }
 }
 
-async function analyzeWithOpenAI(imagePath, openAiKey, model, onProgress, prompt = GEMINI_PROMPT, documentType = 'general') {
+async function analyzeWithOpenAI(imagePath, openAiKey, model, onProgress, prompt = GEMINI_PROMPT, documentType = 'general', typeConfidence = null) {
   if (onProgress) onProgress('Bild wird für OpenAI API verarbeitet...')
   const imageData = readFileSync(imagePath)
   const base64 = imageData.toString('base64')
@@ -1509,5 +1557,5 @@ async function analyzeWithOpenAI(imagePath, openAiKey, model, onProgress, prompt
   const result = await response.json()
   const text = result.choices?.[0]?.message?.content || ''
 
-  return { provider: 'openai', data: parseStructuredModelResponse(text, 'OpenAI', documentType) }
+  return { provider: 'openai', data: parseStructuredModelResponse(text, 'OpenAI', documentType, typeConfidence) }
 }

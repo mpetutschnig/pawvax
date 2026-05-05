@@ -462,6 +462,55 @@ export default function DocumentDetailPage() {
           </div>
         )}
 
+        {doc.extraction_quality && (
+          <div style={{ marginBottom: 'var(--space-6)' }}>
+            <h4 style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: 'var(--space-3)', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>
+              {t('docDetail.qualityMetrics')}
+            </h4>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
+              {doc.extraction_quality.type_confidence !== undefined && (
+                <div className="card" style={{ padding: 'var(--space-3)', textAlign: 'center' }}>
+                  <p style={{ margin: 0, fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', marginBottom: 'var(--space-2)' }}>
+                    {t('docDetail.typeConfidence')}
+                  </p>
+                  <p style={{ margin: 0, fontSize: 'var(--font-size-lg)', fontWeight: 700, color: 'var(--primary-600)' }}>
+                    {Math.round((doc.extraction_quality.type_confidence || 0) * 100)}%
+                  </p>
+                  <div style={{ marginTop: 'var(--space-2)', height: '4px', background: 'var(--border)', borderRadius: 'var(--radius-sm)', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', background: 'var(--primary-500)', width: `${(doc.extraction_quality.type_confidence || 0) * 100}%` }} />
+                  </div>
+                </div>
+              )}
+              {doc.extraction_quality.model_confidence !== undefined && (
+                <div className="card" style={{ padding: 'var(--space-3)', textAlign: 'center' }}>
+                  <p style={{ margin: 0, fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', marginBottom: 'var(--space-2)' }}>
+                    {t('docDetail.modelConfidence')}
+                  </p>
+                  <p style={{ margin: 0, fontSize: 'var(--font-size-lg)', fontWeight: 700, color: 'var(--success-600)' }}>
+                    {Math.round((doc.extraction_quality.model_confidence || 0) * 100)}%
+                  </p>
+                  <div style={{ marginTop: 'var(--space-2)', height: '4px', background: 'var(--border)', borderRadius: 'var(--radius-sm)', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', background: 'var(--success-500)', width: `${(doc.extraction_quality.model_confidence || 0) * 100}%` }} />
+                  </div>
+                </div>
+              )}
+              {doc.extraction_quality.completeness_score !== undefined && (
+                <div className="card" style={{ padding: 'var(--space-3)', textAlign: 'center' }}>
+                  <p style={{ margin: 0, fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', marginBottom: 'var(--space-2)' }}>
+                    {t('docDetail.completeness')}
+                  </p>
+                  <p style={{ margin: 0, fontSize: 'var(--font-size-lg)', fontWeight: 700, color: 'var(--info-600)' }}>
+                    {Math.round((doc.extraction_quality.completeness_score || 0) * 100)}%
+                  </p>
+                  <div style={{ marginTop: 'var(--space-2)', height: '4px', background: 'var(--border)', borderRadius: 'var(--radius-sm)', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', background: 'var(--info-500)', width: `${(doc.extraction_quality.completeness_score || 0) * 100}%` }} />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         <div style={{ marginBottom: 'var(--space-6)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-3)' }}>
             <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0 }}>{t('docDetail.analysisHistory')}</h3>
