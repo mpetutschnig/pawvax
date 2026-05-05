@@ -151,18 +151,13 @@ prepare_host() {
   app_home_dir="$(app_home)"
   app_uid_value="$(app_uid)"
 
-  mkdir -p "$app_home_dir/data/postgres" "$app_home_dir/data/uploads"
-  chown "$APP_USER:$APP_USER" "$app_home_dir/data/postgres" "$app_home_dir/data/uploads"
-  chmod 755 "$app_home_dir/data/postgres" "$app_home_dir/data/uploads"
+  mkdir -p "$app_home_dir/data/postgres" "$app_home_dir/data/uploads" "$app_home_dir/.config/systemd/user"
+  chown -R "$APP_USER:$APP_USER" "$app_home_dir/data" "$app_home_dir/.config"
+  chmod 755 "$app_home_dir/data" "$app_home_dir/data/postgres" "$app_home_dir/data/uploads" "$app_home_dir/.config"
 
   loginctl enable-linger "$APP_USER" 2>/dev/null || true
   systemctl start "user@$app_uid_value.service" 2>/dev/null || true
-  sleep 2  # Wait for systemd user bus to initialize and create ~/.config
-  
-  # Ensure .config directory is owned by paw-app (systemd creates it as root)
-  if [[ -d "$app_home_dir/.config" ]]; then
-    chown -R "$APP_USER:$APP_USER" "$app_home_dir/.config"
-  fi
+  sleep 1  # Wait for systemd user bus to initialize
 
   chown -R "$GIT_USER:$GIT_USER" "$REPO_DIR"
   chmod -R a+rX "$REPO_DIR"
