@@ -1,4 +1,3 @@
-import { createWorker } from 'tesseract.js'
 import { readFileSync, existsSync } from 'fs'
 import { basename, resolve } from 'path'
 
@@ -938,25 +937,6 @@ async function analyzeWithGemini(imagePath, geminiKey, model, onProgress, prompt
   const text = result.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
   return { provider: 'gemini', data: parseStructuredModelResponse(text, 'Gemini', documentType) }
-}
-
-async function analyzeWithTesseract(imagePath, onProgress) {
-  const worker = await createWorker('deu+eng', 1, {
-    logger: m => {
-      if (onProgress && m.status === 'recognizing text') {
-        onProgress(`Tesseract liest Text... ${Math.round(m.progress * 100)}%`)
-      } else if (onProgress) {
-        onProgress(`Tesseract: ${m.status}`)
-      }
-    }
-  })
-  try {
-    const { data: { text } } = await worker.recognize(imagePath)
-    const parsed = parseTesseractText(text)
-    return { provider: 'tesseract', data: parsed }
-  } finally {
-    await worker.terminate()
-  }
 }
 
 // Normalize document type from various sources to canonical types

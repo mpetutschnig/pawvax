@@ -53,7 +53,7 @@ Die App muss `OkHttp` WebSockets (oder Ktor) verwenden und exakt diesen Flow ein
 ### C. WebSocket Status-Listener (UI Updates)
 Während der Analyse sendet das Backend kontinuierlich Status-Updates. Die Android UI muss diese abhören und anzeigen (z.B. in einer `TextView` unter einem ProgressBar):
 - Lausche auf: `{"type": "status", "message": "..."}`
-- Der Text enthält Infos wie *"Anmeldung bei Google API erfolgreich!..."* oder *"Lokales Tesseract OCR wird gestartet"*.
+- Der Text enthält Infos wie *"Anmeldung bei Google API erfolgreich!..."* oder *"KI analysiert Dokument..."*.
 
 ### D. NFC / QR-Code URL Handling
 Wenn der Android Barcode-Scanner oder NFC-Reader getriggert wird:

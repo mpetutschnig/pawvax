@@ -39,7 +39,7 @@ cp .env.example .env
 ```env
 PORT=3000
 JWT_SECRET=super_secret_key_123
-GEMINI_API_KEY=                    # Leer = Tesseract Fallback
+GEMINI_API_KEY=
 DB_PATH=./paw.db
 UPLOADS_DIR=./uploads
 ADMIN_EMAIL=admin@example.com      # Erste Admin-Email
@@ -142,7 +142,7 @@ Tabs:
 ### Aktivierung
 - **Server-weit**: `GEMINI_API_KEY` in `server/.env`
 - **Pro User**: Im Profil eigenen API-Key hinterlegen → wird für diesen User verwendet
-- **Fallback**: Ohne Key → Tesseract.js lokal
+- **API-Key erforderlich**: Kein lokaler Fallback vorhanden
 
 ### API-Key Validierung
 Beim Speichern im Profil wird der Key live gegen `GET https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview?key=...` geprüft. Nur bei HTTP 200 wird gespeichert.
@@ -599,7 +599,7 @@ https://deine-domain.com/#/admin
 # server/.env
 PORT=3000
 JWT_SECRET=changeme_to_something_secure
-GEMINI_API_KEY=                          # Leer = Tesseract fallback
+GEMINI_API_KEY=
 DB_PATH=./paw.db
 UPLOADS_DIR=./uploads
 ADMIN_EMAIL=admin@example.com

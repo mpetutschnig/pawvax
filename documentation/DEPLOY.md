@@ -614,7 +614,7 @@ Der Foto-Upload verwendet WebSockets. Um dies tiefgehend zu debuggen:
    - Du siehst den initialen JSON-Startframe.
    - Du siehst die gesendeten Binärpakete (Bild-Chunks).
    - Du siehst den `upload_end` Text-Frame.
-   - Du siehst live die Statusmeldungen (`Tesseract liest Text... 45%`) und das fertige JSON.
+   - Du siehst die Statusmeldungen der KI-Analyse und das fertige JSON.
 
 Sollte die OCR fehlschlagen, findest du im Server-Log (`journalctl --user -u paw-api`) zudem immer den exakten Stacktrace.
 

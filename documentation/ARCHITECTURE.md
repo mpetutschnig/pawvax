@@ -288,7 +288,6 @@ Der OCR-Service ist aktuell als Adapter-artige Integrationsschicht aufgebaut:
 - Google/Gemini
 - Anthropic/Claude
 - OpenAI
-- Tesseract-Fallback fuer lokale OCR
 - deterministisches Mock-OCR fuer Tests
 
 ### Besondere Architekturentscheidung
