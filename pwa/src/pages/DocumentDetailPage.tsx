@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { getDocument, deleteDocument, patchDocument, getAnimalDocuments, getMe, createReminder, reanalyzeDocument, getDocumentHistory } from '../api/rest'
+import { getDocument, deleteDocument, patchDocument, getAnimalDocuments, getMe, createReminder, analyzeDocument, getDocumentHistory } from '../api/rest'
 import { generateICS, downloadBlob } from '../utils/ics'
 import { normalizeVaccinationRecord } from '../utils/vaccination'
 import { DocumentAnalysisForm } from '../components/DocumentAnalysisForm'
@@ -31,6 +31,7 @@ export default function DocumentDetailPage() {
   const [editMode, setEditMode] = useState(false)
   const [editedTitle, setEditedTitle] = useState('')
   const [saving, setSaving] = useState(false)
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [visibility, setVisibility] = useState<string[]>([])
   const [showJsonDetails, setShowJsonDetails] = useState(false)
   const [roles, setRoles] = useState<string[]>([])
@@ -273,41 +274,30 @@ export default function DocumentDetailPage() {
   }
   
   const handleRetryAnalysis = async () => {
-    setSaving(true)
+    setIsAnalyzing(true)
     setError(null)
     try {
-      const res = await fetch(`/api/documents/${docId}/retry-analysis`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({ provider: retryProvider, model: retryModel, requestedDocumentType, language: i18n.language || 'de' })
-      })
-      if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.error || t('animal.documentFailed'))
-      }
+      await analyzeDocument(docId!, 'retry', { provider: retryProvider, model: retryModel, requestedDocumentType, language: i18n.language || 'de' })
       setShowRetryModal(false)
       loadDocument()
     } catch (err: any) {
-      setError(err.message)
+      setError(err.response?.data?.error || err.message || t('animal.documentFailed'))
     } finally {
-      setSaving(false)
+      setIsAnalyzing(false)
     }
   }
 
   const handleReanalyze = async () => {
-    setSaving(true)
+    setIsAnalyzing(true)
     setError(null)
     try {
-      await reanalyzeDocument(docId!, { provider: retryProvider, model: retryModel, requestedDocumentType, language: i18n.language || 'de' })
+      await analyzeDocument(docId!, 'reanalyze', { provider: retryProvider, model: retryModel, requestedDocumentType, language: i18n.language || 'de' })
       setShowRetryModal(false)
       await loadDocument()
     } catch (err: any) {
-      setError(err.response?.data?.error || t('common.error'))
+      setError(err.response?.data?.error || err.message || t('common.error'))
     } finally {
-      setSaving(false)
+      setIsAnalyzing(false)
     }
   }
 
@@ -355,7 +345,7 @@ export default function DocumentDetailPage() {
         availableModels={availableModels}
         submitLabel={analysisAction === 'reanalyze' ? t('docDetail.reanalyze') : t('animal.analyzeBtn')}
         cancelLabel={t('docDetail.cancel')}
-        isSubmitting={saving}
+        isSubmitting={isAnalyzing}
         onProviderChange={handleProviderChange}
         onModelChange={setRetryModel}
         onRequestedDocumentTypeChange={setRequestedDocumentType}

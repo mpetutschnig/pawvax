@@ -98,6 +98,11 @@ export function DocumentAnalysisForm({
               <option key={type} value={type}>{docTypeLabel(type)}</option>
             ))}
           </select>
+          {requestedDocumentType === 'auto' && (
+            <div style={{ marginTop: 'var(--space-2)', padding: 'var(--space-3)', background: 'var(--warning-50)', border: '1px solid var(--warning-200)', borderRadius: 'var(--radius-sm)', fontSize: 'var(--font-size-sm)', color: 'var(--warning-700)' }}>
+              ⚠️ {t('docScan.autoCostWarning')}
+            </div>
+          )}
         </div>
 
         {!hasAnyKey ? (
@@ -127,7 +132,7 @@ export function DocumentAnalysisForm({
 
         <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-6)' }}>
           {hasAnyKey && (
-            <button className="btn btn-primary flex-1" onClick={onSubmit} disabled={isSubmitting}>
+            <button className="btn btn-primary flex-1" onClick={onSubmit} disabled={isSubmitting || requestedDocumentType === 'auto'}>
               {isSubmitting ? t('animal.retrying') : submitLabel}
             </button>
           )}

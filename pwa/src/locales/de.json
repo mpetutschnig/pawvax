@@ -250,6 +250,7 @@
   "docScan.file": "Datei hochladen",
   "docScan.docType": "Dokumenttyp",
   "docScan.docTypeAuto": "Automatisch erkennen / unsicher",
+  "docScan.autoCostWarning": "Auto-Erkennung kostet 2x API-Aufrufe - du zahlst für beide Versuche",
   "docScan.vaccination": "Impfung",
   "docScan.medication": "Medikament",
   "docScan.other": "Sonstiges",

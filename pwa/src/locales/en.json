@@ -243,6 +243,7 @@
   "docScan.file": "Upload file",
   "docScan.docType": "Document Type",
   "docScan.docTypeAuto": "Detect automatically / unsure",
+  "docScan.autoCostWarning": "Auto-detection requires 2x API calls - you pay for both attempts",
   "docScan.vaccination": "Vaccination",
   "docScan.medication": "Medication",
   "docScan.other": "Other",

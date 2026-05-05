@@ -6,7 +6,7 @@ import { CheckCircle, AlertCircle, Syringe, FileText, BookOpen, Camera, RefreshC
 import { PageHeader } from '../components/PageHeader'
 import { DocumentAnalysisForm } from '../components/DocumentAnalysisForm'
 import { uploadMultiPageDocument } from '../api/ws'
-import { patchDocument, getMe, patchMe } from '../api/rest'
+import { analyzeDocument, patchDocument, getMe, patchMe } from '../api/rest'
 import { DEFAULT_AVAILABLE_MODELS, DEFAULT_MODEL_BY_PROVIDER, type RequestedDocumentType } from '../utils/documentAnalysis'
 
 type Phase = 'capture' | 'uploading' | 'analysing' | 'done' | 'error'
@@ -50,7 +50,7 @@ export default function DocumentScanPage() {
   const [documentId, setDocumentId] = useState<string | null>(null)
   const [savingDocType, setSavingDocType] = useState(false)
   const [showModelSelection, setShowModelSelection] = useState(false)
-  const [savingModel, setSavingModel] = useState(false)
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [retryProvider, setRetryProvider] = useState('google')
   const [retryModel, setRetryModel] = useState(DEFAULT_MODEL_BY_PROVIDER.google)
   const [requestedDocumentType, setRequestedDocumentType] = useState<RequestedDocumentType>('auto')
@@ -120,7 +120,7 @@ export default function DocumentScanPage() {
         availableModels={availableModels}
         submitLabel={documentId ? t('animal.analyzeBtn') : t('docScan.uploadAndAnalyze')}
         cancelLabel={documentId ? t('docScan.saveForLater') : t('common.cancel')}
-        isSubmitting={savingModel}
+        isSubmitting={isAnalyzing}
         onProviderChange={handleProviderChange}
         onModelChange={setRetryModel}
         onRequestedDocumentTypeChange={setRequestedDocumentType}
@@ -250,7 +250,7 @@ export default function DocumentScanPage() {
   }
 
   async function startUploadWithModel() {
-    setSavingModel(true)
+    setIsAnalyzing(true)
     try {
       const updates: any = {}
       if (retryProvider === 'google') updates.gemini_model = retryModel
@@ -270,43 +270,26 @@ export default function DocumentScanPage() {
     } catch (err: any) {
       setErrorMsg(err.message || t('common.error'))
     } finally {
-      setSavingModel(false)
+      setIsAnalyzing(false)
     }
   }
 
   async function handleRetryAnalysisAPI() {
     if (!documentId) return
-    setSavingModel(true)
+    setIsAnalyzing(true)
     setErrorMsg(null)
     try {
-      const res = await fetch(`/api/documents/${documentId}/retry-analysis`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({ provider: retryProvider, model: retryModel, language: i18next.language || 'de', requestedDocumentType })
-      })
-      const data = await res.json().catch(() => ({}))
+      await analyzeDocument(documentId, 'retry', { provider: retryProvider, model: retryModel, language: i18next.language || 'de', requestedDocumentType })
       setShowModelSelection(false)
-
-      if (!res.ok) {
-        navigate(`/animals/${animalId}/documents/${documentId}`, {
-          replace: true,
-          state: { analysisError: data.error || t('animal.documentFailed') }
-        })
-        return
-      }
-
       navigate(`/animals/${animalId}/documents/${documentId}`, { replace: true })
     } catch (err: any) {
       setShowModelSelection(false)
       navigate(`/animals/${animalId}/documents/${documentId}`, {
         replace: true,
-        state: { analysisError: err.message || t('common.error') }
+        state: { analysisError: err.response?.data?.error || err.message || t('animal.documentFailed') }
       })
     } finally {
-      setSavingModel(false)
+      setIsAnalyzing(false)
     }
   }
 
