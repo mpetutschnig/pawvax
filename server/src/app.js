@@ -198,10 +198,9 @@ fastify.addHook('onSend', async (req, reply, payload) => {
 })
 
 // Structured request/response logging for every REST call
-fastify.addHook('onResponse', (req, reply, done) => {
+fastify.addHook('onResponse', async (req, reply) => {
   const statusCode = reply.statusCode
   if (shouldSkipHttpAudit(req.url)) {
-    done()
     return
   }
   const requestPath = req.url.split('?')[0]
@@ -265,7 +264,6 @@ fastify.addHook('onResponse', (req, reply, done) => {
       })
     } catch { /* audit logging failed, continue */ }
   }
-  done()
 })
 
 // Global handler for validation and unhandled errors
