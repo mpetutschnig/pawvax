@@ -12,10 +12,22 @@ echo -e "${BLUE}=== Setting up Caddy for paw.oxs.at ===${NC}"
 
 # 1. Install Caddy if not present
 if ! command -v caddy &> /dev/null; then
-  echo -e "${BLUE}Installing Caddy...${NC}"
-  dnf install -y caddy || apt-get install -y caddy || (echo "Please install caddy manually"; exit 1)
+  echo -e "${BLUE}Installing Caddy from official release...${NC}"
+  CADDY_VERSION=$(curl -s https://api.github.com/repos/caddyserver/caddy/releases/latest | grep tag_name | cut -d'"' -f4 | sed 's/v//')
+  CADDY_URL="https://github.com/caddyserver/caddy/releases/download/v${CADDY_VERSION}/caddy_${CADDY_VERSION}_linux_amd64.tar.gz"
+  
+  mkdir -p /tmp/caddy-install
+  cd /tmp/caddy-install
+  curl -L -o caddy.tar.gz "$CADDY_URL"
+  tar -xzf caddy.tar.gz
+  mv caddy /usr/bin/caddy
+  chmod +x /usr/bin/caddy
+  cd -
+  rm -rf /tmp/caddy-install
+  
+  echo -e "${GREEN}Caddy installed: $(caddy version)${NC}"
 else
-  echo -e "${GREEN}Caddy already installed$(caddy version)${NC}"
+  echo -e "${GREEN}Caddy already installed: $(caddy version)${NC}"
 fi
 
 # 2. Create caddy user if not present
