@@ -513,7 +513,7 @@ describe('PAWvax API Tests', () => {
       const { data: ownerRegRes } = await registerAndVerifyUser('Doc Owner', `doc-owner-${Date.now()}@example.com`, 'SecurePassword123!')
       ownerToken = ownerRegRes.token
 
-      const { data: foreignRegRes } = await registerAndVerifyUser(`doc-foreign-${Date.now()}@example.com`, 'Doc Foreign', 'SecurePassword123!')
+      const { data: foreignRegRes } = await registerAndVerifyUser('Doc Foreign', `doc-foreign-${Date.now()}@example.com`, 'SecurePassword123!')
       foreignToken = foreignRegRes.token
 
       const ownerAnimal = await apiCallWithToken(ownerToken, 'POST', '/animals', {
@@ -1023,7 +1023,7 @@ describe('9. Extended Regression Tests', () => {
   let adminDb9
 
   beforeAll(async () => {
-    const { data: regRes } = await registerAndVerifyUser(`reg9-${Date.now()}@example.com`, 'Regression User', 'SecurePassword123!')
+    const { data: regRes } = await registerAndVerifyUser('Regression User', `reg9-${Date.now()}@example.com`, 'SecurePassword123!')
     token9 = regRes.token
 
     const animal = await apiCallWithToken(token9, 'POST', '/animals', {
@@ -1496,7 +1496,7 @@ describe('Suite 12: Reminders', () => {
   let token12, animalId12, documentId12, reminderId
 
   beforeAll(async () => {
-    const { data: regRes } = await registerAndVerifyUser(`reminder-test-${Date.now()}@example.com`, 'Reminder Test User', 'SecurePassword123!')
+    const { data: regRes } = await registerAndVerifyUser('Reminder Test User', `reminder-test-${Date.now()}@example.com`, 'SecurePassword123!')
     token12 = regRes.token
 
     const { data: animal } = await apiCallWithToken(token12, 'POST', '/animals', {
@@ -1994,7 +1994,7 @@ describe('Suite 15: Multilingual OCR Prompts', () => {
     const db = await getTestDb()
 
     // Create a user + animal + document for this test
-    const { data: regRes } = await registerAndVerifyUser(`ocr-lang-de-${Date.now()}@example.com`, 'OCR Lang DE Tester', 'SecurePassword123!')
+    const { data: regRes } = await registerAndVerifyUser('OCR Lang DE Tester', `ocr-lang-de-${Date.now()}@example.com`, 'SecurePassword123!')
     const token15 = regRes.token
 
     const { data: animal } = await apiCallWithToken(token15, 'POST', '/animals', { name: 'Lang Test Hund', species: 'dog' })
@@ -2020,7 +2020,7 @@ describe('Suite 15: Multilingual OCR Prompts', () => {
   test('15j. retry-analysis accepts language=en and returns 200', async () => {
     const db = await getTestDb()
 
-    const { data: regRes } = await registerAndVerifyUser(`ocr-lang-en-${Date.now()}@example.com`, 'OCR Lang EN Tester', 'SecurePassword123!')
+    const { data: regRes } = await registerAndVerifyUser('OCR Lang EN Tester', `ocr-lang-en-${Date.now()}@example.com`, 'SecurePassword123!')
     const token15en = regRes.token
 
     const { data: animal } = await apiCallWithToken(token15en, 'POST', '/animals', { name: 'Lang Test Dog', species: 'dog' })
@@ -2046,7 +2046,7 @@ describe('Suite 15: Multilingual OCR Prompts', () => {
   test('15j2. retry-analysis honors requestedDocumentType override', async () => {
     const db = await getTestDb()
 
-    const { data: regRes } = await registerAndVerifyUser(`ocr-type-override-${Date.now()}@example.com`, 'OCR Type Override Tester', 'SecurePassword123!')
+    const { data: regRes } = await registerAndVerifyUser('OCR Type Override Tester', `ocr-type-override-${Date.now()}@example.com`, 'SecurePassword123!')
     const token = regRes.token
 
     const { data: animal } = await apiCallWithToken(token, 'POST', '/animals', { name: 'Type Override Dog', species: 'dog' })
@@ -2072,7 +2072,7 @@ describe('Suite 15: Multilingual OCR Prompts', () => {
   test('15k. re-analyze accepts language parameter', async () => {
     const db = await getTestDb()
 
-    const { data: regRes } = await registerAndVerifyUser(`ocr-reanalyze-${Date.now()}@example.com`, 'Re-Analyze Lang Tester', 'SecurePassword123!')
+    const { data: regRes } = await registerAndVerifyUser('Re-Analyze Lang Tester', `ocr-reanalyze-${Date.now()}@example.com`, 'SecurePassword123!')
     const token15k = regRes.token
 
     const { data: animal } = await apiCallWithToken(token15k, 'POST', '/animals', { name: 'Reanalyze Dog', species: 'dog' })
@@ -2097,7 +2097,7 @@ describe('Suite 15: Multilingual OCR Prompts', () => {
   test('15k2. re-analyze honors requestedDocumentType override', async () => {
     const db = await getTestDb()
 
-    const { data: regRes } = await registerAndVerifyUser(`ocr-reanalyze-type-${Date.now()}@example.com`, 'Re-Analyze Type Tester', 'SecurePassword123!')
+    const { data: regRes } = await registerAndVerifyUser('Re-Analyze Type Tester', `ocr-reanalyze-type-${Date.now()}@example.com`, 'SecurePassword123!')
     const token = regRes.token
 
     const { data: animal } = await apiCallWithToken(token, 'POST', '/animals', { name: 'Reanalyze Type Dog', species: 'dog' })
@@ -2123,7 +2123,7 @@ describe('Suite 15: Multilingual OCR Prompts', () => {
   test('15k3. retry-analysis rejects unsupported model for selected provider', async () => {
     const db = await getTestDb()
 
-    const { data: regRes } = await registerAndVerifyUser(`ocr-invalid-model-${Date.now()}@example.com`, 'Invalid Model Tester', 'SecurePassword123!')
+    const { data: regRes } = await registerAndVerifyUser('Invalid Model Tester', `ocr-invalid-model-${Date.now()}@example.com`, 'SecurePassword123!')
     const token = regRes.token
 
     const { data: animal } = await apiCallWithToken(token, 'POST', '/animals', { name: 'Invalid Model Dog', species: 'dog' })
@@ -2303,7 +2303,7 @@ describe('Suite 16: EU Pet Passport + Chip Tag Type', () => {
   })
 
   test('16e. create animal accepts chip as tag type', async () => {
-    const { data: regRes } = await registerAndVerifyUser(`chip-create-${Date.now()}@example.com`, 'Chip Test User', 'SecurePassword123!')
+    const { data: regRes } = await registerAndVerifyUser('Chip Test User', `chip-create-${Date.now()}@example.com`, 'SecurePassword123!')
     const token = regRes.token
 
     const { status, data } = await apiCallWithToken(token, 'POST', '/animals', {
@@ -2344,7 +2344,7 @@ describe('Suite 16: EU Pet Passport + Chip Tag Type', () => {
 
   test('16g. retry-analysis returns pet_passport data with chip_code', async () => {
     const db = await getTestDb()
-    const { data: regRes } = await registerAndVerifyUser(`passport-retry-${Date.now()}@example.com`, 'Passport Retry User', 'SecurePassword123!')
+    const { data: regRes } = await registerAndVerifyUser('Passport Retry User', `passport-retry-${Date.now()}@example.com`, 'SecurePassword123!')
     const token = regRes.token
 
     const { data: animal } = await apiCallWithToken(token, 'POST', '/animals', {
@@ -2387,7 +2387,7 @@ describe('Suite 16: EU Pet Passport + Chip Tag Type', () => {
     })
 
     test('17b. GET /api/admin/test-runs returns 403 for non-admin', async () => {
-      const { data: regRes } = await registerAndVerifyUser(`nonadmin-${Date.now()}@example.com`, 'Non-Admin User', 'Password123!')
+      const { data: regRes } = await registerAndVerifyUser('Non-Admin User', `nonadmin-${Date.now()}@example.com`, 'Password123!')
       const { status } = await apiCallWithToken(regRes.token, 'GET', '/admin/test-runs')
       expect(status).toBe(403)
     })
