@@ -186,17 +186,27 @@ deploy_stack() {
   run_as_app "cd '$REPO_DIR'; podman build --no-cache -t localhost/paw-pwa:latest -f pwa/Dockerfile pwa"
   run_as_app "cd '$REPO_DIR'; podman build --no-cache -t localhost/paw-caddy:latest -f podman/Dockerfile.caddy ."
 
-  run_as_app "podman pod exists '$POD_NAME' && podman pod rm -f '$POD_NAME' || true"
-  # Wait until pod is fully gone from Podman state
-  run_as_app "i=0; while podman pod exists '$POD_NAME' 2>/dev/null; do sleep 2; i=\$((i+1)); [ \$i -ge 15 ] && { echo 'Pod did not disappear in time' >&2; exit 1; }; done"
-  sleep 2  # Extra buffer for ports/network to release
-  # Remove stale PostgreSQL PID file that SIGKILL leaves behind
+  # Remove stale PostgreSQL PID file that SIGKILL leaves behind (runs as root, has direct access)
   local pg_pid_file
   pg_pid_file="$(app_home)/data/postgres/postmaster.pid"
   [ -f "$pg_pid_file" ] && rm -f "$pg_pid_file" && echo "Removed stale PostgreSQL PID file" || true
-  run_as_app "podman pod create --name '$POD_NAME' -p '$HTTP_PORT:80' -p '$HTTPS_PORT:443'"
-  sleep 2
-  run_as_app "podman pod exists '$POD_NAME' || { echo 'Pod creation failed' >&2; exit 1; }"
+
+  # Teardown + wait + create in ONE shell session to avoid inter-call race conditions
+  run_as_app "
+    if podman pod exists '$POD_NAME' 2>/dev/null; then
+      podman pod rm -f '$POD_NAME'
+      echo 'Waiting for pod to fully unregister from Podman state...'
+      i=0
+      while podman pod exists '$POD_NAME' 2>/dev/null; do
+        sleep 2; i=\$((i+1))
+        [ \$i -ge 20 ] && { echo 'ERROR: Pod did not disappear in time' >&2; exit 1; }
+      done
+      sleep 3
+    fi
+    podman pod create --name '$POD_NAME' -p '$HTTP_PORT:80' -p '$HTTPS_PORT:443'
+    podman pod exists '$POD_NAME' || { echo 'Pod creation failed' >&2; exit 1; }
+    echo 'Pod created successfully.'
+  "
 
   run_as_app "source '$app_home_dir/.config/pawvax/paw.env'; podman run -d --replace --name paw-postgres --pod '$POD_NAME' \
     -e POSTGRES_DB='$DB_NAME' \
