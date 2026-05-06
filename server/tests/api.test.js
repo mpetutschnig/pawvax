@@ -1661,7 +1661,8 @@ describe('Suite 13: Content-Hash Deduplication', () => {
     db13 = await getTestDb()
     // Create a user + animal directly in DB for isolation
     const accountId = `dedup-acct-${Date.now()}`
-    await db13.query(`INSERT INTO accounts (id, name, email, password_hash, role, created_at) VALUES ($1, 'Dedup Tester', 'dedup@example.com', 'x', 'user', CURRENT_TIMESTAMP)`, [accountId])
+    const uniqueEmail = `dedup-${Date.now()}@example.com`
+    await db13.query(`INSERT INTO accounts (id, name, email, password_hash, role, created_at) VALUES ($1, 'Dedup Tester', $2, 'x', 'user', CURRENT_TIMESTAMP)`, [accountId, uniqueEmail])
     await db13.query(`INSERT INTO animals (id, account_id, name, species, created_at) VALUES ($1, $2, 'Dedup-Hund', 'dog', CURRENT_TIMESTAMP)`, [`dedup-animal-${Date.now()}`, accountId])
     // Fetch the inserted animal id
     const { rows: [animalRow] } = await db13.query(`SELECT id FROM animals WHERE account_id = $1`, [accountId])
@@ -2369,7 +2370,7 @@ describe('Suite 16: EU Pet Passport + Chip Tag Type', () => {
 
   describe('17. Admin: Test Run History', () => {
     test('17a. GET /api/admin/test-runs returns 401 without auth', async () => {
-      const { status } = await apiCall('GET', '/admin/test-runs')
+      const { status } = await apiCallWithToken(null, 'GET', '/admin/test-runs')
       expect(status).toBe(401)
     })
 
@@ -2429,7 +2430,7 @@ describe('Suite 16: EU Pet Passport + Chip Tag Type', () => {
     })
 
     test('17e. GET /api/admin/test-runs/:id returns 401 without auth', async () => {
-      const { status } = await apiCall('GET', '/admin/test-runs/some-id')
+      const { status } = await apiCallWithToken(null, 'GET', '/admin/test-runs/some-id')
       expect(status).toBe(401)
     })
   })

@@ -56,7 +56,7 @@ async function persistResults(connectionString, summary, detailsRaw) {
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
     `, [
       randomUUID(),
-      Number.isFinite(testTimestamp) ? testTimestamp : Date.now(),
+      Math.floor((Number.isFinite(testTimestamp) ? testTimestamp : Date.now()) / 1000),
       summaryJson,
       detailsRaw,
       summary.passedTests,
