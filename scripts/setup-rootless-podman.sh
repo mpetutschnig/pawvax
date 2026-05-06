@@ -187,8 +187,13 @@ deploy_stack() {
   run_as_app "cd '$REPO_DIR'; podman build --no-cache -t localhost/paw-caddy:latest -f podman/Dockerfile.caddy ."
 
   run_as_app "podman pod exists '$POD_NAME' && podman pod rm -f '$POD_NAME' || true"
+  sleep 3  # Wait for old containers/ports to fully release
+  # Remove stale PostgreSQL PID file that SIGKILL leaves behind
+  local pg_pid_file
+  pg_pid_file="$(app_home)/data/postgres/postmaster.pid"
+  [ -f "$pg_pid_file" ] && rm -f "$pg_pid_file" && echo "Removed stale PostgreSQL PID file" || true
   run_as_app "podman pod create --name '$POD_NAME' -p '$HTTP_PORT:80' -p '$HTTPS_PORT:443'"
-  sleep 1
+  sleep 2
   run_as_app "podman pod exists '$POD_NAME' || { echo 'Pod creation failed' >&2; exit 1; }"
 
   run_as_app "source '$app_home_dir/.config/pawvax/paw.env'; podman run -d --replace --name paw-postgres --pod '$POD_NAME' \
@@ -199,7 +204,7 @@ deploy_stack() {
     --health-cmd 'pg_isready -U $DB_USER' --health-interval 10s --health-timeout 5s --health-retries 5 \
     docker.io/postgres:16-alpine"
 
-  run_as_app "i=0; while [ \$i -lt 30 ]; do podman exec paw-postgres pg_isready -U '$DB_USER' >/dev/null 2>&1 && break; sleep 2; i=\$((i+1)); done; podman exec paw-postgres pg_isready -U '$DB_USER' || { echo 'PostgreSQL did not become ready in time.' >&2; exit 1; }"
+  run_as_app "i=0; while [ \$i -lt 60 ]; do podman exec paw-postgres pg_isready -U '$DB_USER' >/dev/null 2>&1 && break; sleep 3; i=\$((i+1)); done; podman exec paw-postgres pg_isready -U '$DB_USER' || { echo 'PostgreSQL did not become ready in time.' >&2; exit 1; }"
 
   run_as_app "podman exec paw-postgres psql -U '$DB_USER' -d postgres -c \"CREATE DATABASE IF NOT EXISTS $DB_NAME\" 2>&1 | grep -v 'already exists' || true"
   run_as_app "podman exec paw-postgres psql -U '$DB_USER' -d postgres -c \"CREATE DATABASE IF NOT EXISTS $DB_TEST_NAME\" 2>&1 | grep -v 'already exists' || true"
