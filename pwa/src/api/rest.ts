@@ -72,6 +72,20 @@ export const reanalyzeDocument = (id: string, data: { provider?: string; model?:
 
 export const getDocumentHistory = (id: string) => api.get(`/documents/${id}/history`)
 
+export const patchDocumentRecord = (docId: string, key: string, allowed_roles: string[]) =>
+  api.patch(`/documents/${docId}/records`, { key, allowed_roles })
+
+// Manual entry
+export const addVaccination = (animalId: string, data: {
+  vaccine_name: string; date: string; batch_number?: string; valid_until?: string;
+  target_disease?: string; vet_name?: string; notes?: string; allowed_roles?: string[]
+}) => api.post(`/animals/${animalId}/vaccinations`, data)
+
+export const addTreatment = (animalId: string, data: {
+  substance: string; date: string; dosage?: string; vet_name?: string;
+  notes?: string; next_due?: string; active_ingredient?: string; allowed_roles?: string[]
+}) => api.post(`/animals/${animalId}/treatments`, data)
+
 // Sharing
 export const getSharing = (animalId: string) => api.get(`/animals/${animalId}/sharing`)
 export const updateSharing = (animalId: string, role: string, data: object) =>

@@ -153,14 +153,59 @@ export default async function documentRoutes(fastify) {
 
     const pages = await getDocumentPages(db, doc.id)
 
+    let record_permissions = {}
+    try { record_permissions = doc.record_permissions ? JSON.parse(doc.record_permissions) : {} } catch {}
+
     return {
       ...doc,
       pages: pages.map(p => p.image_path),
       extracted_json: JSON.parse(doc.extracted_json),
+      record_permissions,
       added_by_role: doc.added_by_role || 'user',
       isOwner,
       isUploader
     }
+  })
+
+  // Per-record role permissions
+  fastify.patch('/api/documents/:id/records', async (req, reply) => {
+    const db = getDb()
+    const { accountId, role } = req.user
+    const { key, allowed_roles } = req.body
+
+    if (!key || !Array.isArray(allowed_roles)) {
+      return reply.code(400).send({ error: 'key und allowed_roles sind erforderlich' })
+    }
+
+    const { rows: [doc] } = await db.query(`
+      SELECT d.record_permissions, a.account_id AS owner_id
+      FROM documents d
+      JOIN animals a ON a.id = d.animal_id
+      WHERE d.id = $1
+    `, [req.params.id])
+
+    if (!doc) return reply.code(404).send({ error: 'Dokument nicht gefunden' })
+
+    const isOwner = doc.owner_id === accountId
+    if (!isOwner && role !== 'admin') {
+      return reply.code(403).send({ error: 'Nur der Besitzer kann Einzel-Freigaben setzen' })
+    }
+
+    let current = {}
+    try { current = doc.record_permissions ? JSON.parse(doc.record_permissions) : {} } catch {}
+
+    const validRoles = ['guest', 'vet', 'authority']
+    const normalized = [...new Set(allowed_roles.map(r => normalizeRole(r)).filter(r => validRoles.includes(r)))]
+    current[key] = normalized
+
+    await db.query('UPDATE documents SET record_permissions = $1 WHERE id = $2', [JSON.stringify(current), req.params.id])
+
+    await logAudit(db, {
+      accountId, role, action: 'update_record_permissions', resource: 'document',
+      resourceId: req.params.id, details: { key, allowed_roles: normalized }, ip: req.ip
+    })
+
+    return { success: true, record_permissions: current }
   })
 
   fastify.get('/api/documents/:id/history', async (req, reply) => {

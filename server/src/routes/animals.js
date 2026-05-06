@@ -99,6 +99,7 @@ async function applySharing(db, animal, requestRole, ownerName, ownerEmail, effe
 
   for (const d of result.documents) {
     try { d.extracted_json = JSON.parse(d.extracted_json) } catch { d.extracted_json = {} }
+    try { d.record_permissions = d.record_permissions ? JSON.parse(d.record_permissions) : {} } catch { d.record_permissions = {} }
     const { rows: pages } = await db.query('SELECT image_path FROM document_pages WHERE document_id = $1 ORDER BY id ASC', [d.id])
     d.pages = pages.map(p => p.image_path)
   }
@@ -223,6 +224,7 @@ export default async function animalRoutes(fastify) {
 
     for (const d of result.documents) {
       try { d.extracted_json = JSON.parse(d.extracted_json) } catch { d.extracted_json = {} }
+      try { d.record_permissions = d.record_permissions ? JSON.parse(d.record_permissions) : {} } catch { d.record_permissions = {} }
       const { rows: pages } = await db.query('SELECT image_path FROM document_pages WHERE document_id = $1 ORDER BY id ASC', [d.id])
       d.pages = pages.map(p => p.image_path)
     }
@@ -625,6 +627,7 @@ export default async function animalRoutes(fastify) {
 
     const parseDocs = (docs) => docs.map(d => {
       try { d.extracted_json = JSON.parse(d.extracted_json) } catch { d.extracted_json = {} }
+      try { d.record_permissions = d.record_permissions ? JSON.parse(d.record_permissions) : {} } catch { d.record_permissions = {} }
       return d
     })
 
@@ -1029,5 +1032,138 @@ export default async function animalRoutes(fastify) {
     `, [scanId, id, accountId])
 
     return { success: true, scanId }
+  })
+
+  // Manuelle Impfung eintragen (kein Bild nötig)
+  fastify.post('/api/animals/:id/vaccinations', {
+    schema: {
+      body: {
+        type: 'object',
+        required: ['vaccine_name', 'date'],
+        properties: {
+          vaccine_name: { type: 'string', minLength: 1 },
+          date: { type: 'string' },
+          batch_number: { type: 'string' },
+          valid_until: { type: 'string' },
+          target_disease: { type: 'string' },
+          vet_name: { type: 'string' },
+          notes: { type: 'string' },
+          allowed_roles: { type: 'array', items: { type: 'string' } }
+        }
+      }
+    }
+  }, async (req, reply) => {
+    const db = getDb()
+    const { accountId, role } = req.user
+    const { id } = req.params
+    const { vaccine_name, date, batch_number, valid_until, target_disease, vet_name, notes, allowed_roles } = req.body
+
+    const userRoles = (role || '').split(',').map(r => r.trim())
+    const isVet = userRoles.includes('vet')
+
+    const { rows: [animal] } = await db.query('SELECT id, account_id FROM animals WHERE id = $1', [id])
+    if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden' })
+    if (animal.account_id !== accountId && !isVet) {
+      return reply.code(403).send({ error: 'Keine Berechtigung' })
+    }
+
+    const docId = uuid()
+    const extractedJson = {
+      type: 'vaccination',
+      payload: {
+        vaccinations: [{
+          vaccine: vaccine_name,
+          administration_date: date,
+          batch_number: batch_number || null,
+          valid_until: valid_until || null,
+          target_disease: target_disease || null,
+          veterinarian_name: vet_name || null,
+          notes: notes || null,
+          components: [],
+          purpose: null,
+          manufacturer: null,
+          expiry_date: null,
+          valid_from: date
+        }]
+      },
+      title: vaccine_name,
+      summary: `Manuelle Eingabe: ${vaccine_name} am ${date}`,
+      document_date: date
+    }
+
+    const docAllowedRoles = Array.isArray(allowed_roles) ? allowed_roles : ['vet', 'authority', 'guest']
+
+    await db.query(`
+      INSERT INTO documents (id, animal_id, doc_type, image_path, extracted_json, ocr_provider, added_by_role, added_by_account, allowed_roles, analysis_status)
+      VALUES ($1, $2, 'vaccination', '', $3, 'manual', $4, $5, $6, 'completed')
+    `, [docId, id, JSON.stringify(extractedJson), isVet ? 'vet' : 'user', accountId, JSON.stringify(docAllowedRoles)])
+
+    await logAudit(db, { accountId, role, action: 'manual_vaccination_entry', resource: 'document', resourceId: docId, details: { vaccine_name, date }, ip: req.ip })
+
+    return reply.code(201).send({ id: docId, doc_type: 'vaccination', extracted_json: extractedJson })
+  })
+
+  // Manuelle Behandlung eintragen (kein Bild nötig)
+  fastify.post('/api/animals/:id/treatments', {
+    schema: {
+      body: {
+        type: 'object',
+        required: ['substance', 'date'],
+        properties: {
+          substance: { type: 'string', minLength: 1 },
+          date: { type: 'string' },
+          dosage: { type: 'string' },
+          vet_name: { type: 'string' },
+          notes: { type: 'string' },
+          next_due: { type: 'string' },
+          active_ingredient: { type: 'string' },
+          allowed_roles: { type: 'array', items: { type: 'string' } }
+        }
+      }
+    }
+  }, async (req, reply) => {
+    const db = getDb()
+    const { accountId, role } = req.user
+    const { id } = req.params
+    const { substance, date, dosage, vet_name, notes, next_due, active_ingredient, allowed_roles } = req.body
+
+    const userRoles = (role || '').split(',').map(r => r.trim())
+    const isVet = userRoles.includes('vet')
+
+    const { rows: [animal] } = await db.query('SELECT id, account_id FROM animals WHERE id = $1', [id])
+    if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden' })
+    if (animal.account_id !== accountId && !isVet) {
+      return reply.code(403).send({ error: 'Keine Berechtigung' })
+    }
+
+    const docId = uuid()
+    const extractedJson = {
+      type: 'treatment',
+      payload: {
+        treatments: [{
+          substance,
+          administered_at: date,
+          dosage: dosage || null,
+          vet_name: vet_name || null,
+          notes: notes || null,
+          next_due: next_due || null,
+          active_ingredient: active_ingredient || null
+        }]
+      },
+      title: substance,
+      summary: `Manuelle Eingabe: ${substance} am ${date}`,
+      document_date: date
+    }
+
+    const docAllowedRoles = Array.isArray(allowed_roles) ? allowed_roles : ['vet', 'authority', 'guest']
+
+    await db.query(`
+      INSERT INTO documents (id, animal_id, doc_type, image_path, extracted_json, ocr_provider, added_by_role, added_by_account, allowed_roles, analysis_status)
+      VALUES ($1, $2, 'treatment', '', $3, 'manual', $4, $5, $6, 'completed')
+    `, [docId, id, JSON.stringify(extractedJson), isVet ? 'vet' : 'user', accountId, JSON.stringify(docAllowedRoles)])
+
+    await logAudit(db, { accountId, role, action: 'manual_treatment_entry', resource: 'document', resourceId: docId, details: { substance, date }, ip: req.ip })
+
+    return reply.code(201).send({ id: docId, doc_type: 'treatment', extracted_json: extractedJson })
   })
 }

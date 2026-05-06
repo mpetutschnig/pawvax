@@ -1,10 +1,10 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { getAnimal, getAnimalDocuments, getAnimalTags, updateAnimal, deleteAnimal, uploadAnimalAvatar, deleteDocument, getMe } from '../api/rest'
+import { getAnimal, getAnimalDocuments, getAnimalTags, updateAnimal, deleteAnimal, uploadAnimalAvatar, deleteDocument, getMe, patchDocumentRecord, addVaccination, addTreatment } from '../api/rest'
 import { PageHeader } from '../components/PageHeader' 
 import { DocumentAnalysisForm } from '../components/DocumentAnalysisForm'
-import { PawPrint, Cat, Edit2, Trash2, Camera, Search, Radio, ShieldAlert, AlertTriangle, RefreshCw, X, Syringe, FileText, CheckCircle, ArrowDownAZ, ArrowUpAZ, SlidersHorizontal, ArrowRightLeft, Share2 } from 'lucide-react'
+import { PawPrint, Cat, Edit2, Trash2, Camera, Search, Radio, ShieldAlert, AlertTriangle, RefreshCw, X, Syringe, FileText, CheckCircle, ArrowDownAZ, ArrowUpAZ, SlidersHorizontal, ArrowRightLeft, Share2, Plus, Pill, ChevronDown, ChevronUp } from 'lucide-react'
 import { AnimalDTO } from '../types/animal'
 import { normalizeVaccinationRecord } from '../utils/vaccination'
 import { DEFAULT_AVAILABLE_MODELS, DEFAULT_MODEL_BY_PROVIDER, DOCUMENT_TYPE_PLACEHOLDER, type DocumentTypeSelectValue } from '../utils/documentAnalysis'
@@ -14,7 +14,7 @@ interface AnimalTag {
   tag_id: string; tag_type: string; active: number; added_at: string
 }
 interface Document {
-  id: string; doc_type: string; created_at: string; ocr_provider: string; added_by_role?: string; added_by_name?: string; added_by_verified?: number; analysis_status?: string; extracted_json?: any
+  id: string; doc_type: string; created_at: string; ocr_provider: string; added_by_role?: string; added_by_name?: string; added_by_verified?: number; analysis_status?: string; extracted_json?: any; record_permissions?: Record<string, string[]>
 }
 
 export default function AnimalPage() {
@@ -82,6 +82,18 @@ export default function AnimalPage() {
   const hasAnyKey = hasGemini || hasAnthropic || hasOpenai || hasSystemAi
   const [availableModels, setAvailableModels] = useState<any>(DEFAULT_AVAILABLE_MODELS)
 
+  // Manual entry modals
+  const [showVaxModal, setShowVaxModal] = useState(false)
+  const [showTreatModal, setShowTreatModal] = useState(false)
+  const [manualVax, setManualVax] = useState({ vaccine_name: '', date: '', batch_number: '', valid_until: '', target_disease: '', vet_name: '', notes: '' })
+  const [manualTreat, setManualTreat] = useState({ substance: '', date: '', dosage: '', vet_name: '', notes: '', next_due: '' })
+  const [savingManual, setSavingManual] = useState(false)
+  const [manualError, setManualError] = useState<string | null>(null)
+
+  // Per-record permissions UI
+  const [expandedRecord, setExpandedRecord] = useState<string | null>(null)
+  const [updatingRecord, setUpdatingRecord] = useState<string | null>(null)
+
   useEffect(() => {
     getMe().then(res => {
       setHasGemini(res.data.has_gemini_token)
@@ -113,6 +125,54 @@ export default function AnimalPage() {
     if (prov === 'google') setRetryModel(DEFAULT_MODEL_BY_PROVIDER.google)
     else if (prov === 'anthropic') setRetryModel(DEFAULT_MODEL_BY_PROVIDER.anthropic)
     else if (prov === 'openai') setRetryModel(DEFAULT_MODEL_BY_PROVIDER.openai)
+  }
+
+  const getRecordPermissions = (doc: Document, key: string): string[] => {
+    const perRecord = doc.record_permissions?.[key]
+    if (perRecord !== undefined) return perRecord
+    try {
+      const dr = doc.allowed_roles !== undefined ? doc.allowed_roles : null
+      if (!dr) return ['vet', 'authority', 'guest']
+      return JSON.parse(dr as any) as string[]
+    } catch { return ['vet', 'authority', 'guest'] }
+  }
+
+  const handleToggleRecordRole = async (docId: string, key: string, currentRoles: string[], role: string) => {
+    const newRoles = currentRoles.includes(role) ? currentRoles.filter(r => r !== role) : [...currentRoles, role]
+    setUpdatingRecord(`${docId}-${key}`)
+    try {
+      await patchDocumentRecord(docId, key, newRoles)
+      setDocuments(prev => prev.map(d => {
+        if (d.id !== docId) return d
+        return { ...d, record_permissions: { ...(d.record_permissions || {}), [key]: newRoles } }
+      }))
+    } catch { /* silent */ } finally {
+      setUpdatingRecord(null)
+    }
+  }
+
+  const handleSaveManualVax = async () => {
+    if (!id || !manualVax.vaccine_name || !manualVax.date) return
+    setSavingManual(true); setManualError(null)
+    try {
+      await addVaccination(id, manualVax)
+      const res = await getAnimalDocuments(id)
+      setDocuments(res.data)
+      setShowVaxModal(false)
+      setManualVax({ vaccine_name: '', date: '', batch_number: '', valid_until: '', target_disease: '', vet_name: '', notes: '' })
+    } catch { setManualError('Fehler beim Speichern') } finally { setSavingManual(false) }
+  }
+
+  const handleSaveManualTreat = async () => {
+    if (!id || !manualTreat.substance || !manualTreat.date) return
+    setSavingManual(true); setManualError(null)
+    try {
+      await addTreatment(id, manualTreat)
+      const res = await getAnimalDocuments(id)
+      setDocuments(res.data)
+      setShowTreatModal(false)
+      setManualTreat({ substance: '', date: '', dosage: '', vet_name: '', notes: '', next_due: '' })
+    } catch { setManualError('Fehler beim Speichern') } finally { setSavingManual(false) }
   }
 
   const handleRetryAnalysisAPI = async () => {
@@ -539,10 +599,32 @@ export default function AnimalPage() {
       return records.map((record: any, index: number) => ({
         id: `${doc.id}-${index}`,
         documentId: doc.id,
+        doc: doc,
+        recordKey: `vaccinations.${index}`,
         ...normalizeVaccinationRecord(record)
       }))
     })
     .sort((a, b) => String(b.administrationDate || b.validUntil || '').localeCompare(String(a.administrationDate || a.validUntil || '')))
+
+  const treatmentRecords = documents
+    .filter(d => d.analysis_status !== 'pending_analysis' && d.doc_type === 'treatment')
+    .flatMap((doc) => {
+      const records = doc.extracted_json?.payload?.treatments || doc.extracted_json?.treatments || []
+      if (!Array.isArray(records)) return []
+      return records.map((record: any, index: number) => ({
+        id: `${doc.id}-t${index}`,
+        documentId: doc.id,
+        doc: doc,
+        recordKey: `treatments.${index}`,
+        substance: record.substance || record.medication || '—',
+        administeredAt: record.administered_at || record.date || null,
+        dosage: record.dosage || null,
+        vetName: record.vet_name || null,
+        nextDue: record.next_due || null,
+        notes: record.notes || null
+      }))
+    })
+    .sort((a, b) => String(b.administeredAt || '').localeCompare(String(a.administeredAt || '')))
 
   return (
     <div className="container page">
@@ -939,36 +1021,154 @@ export default function AnimalPage() {
                 <Syringe size={18} color="var(--primary-600)" />
                 <h3 style={{ margin: 0 }}>{t('animal.vaccinations')}</h3>
                 <span className="badge">{vaccinationRecords.length}</span>
+                {isOwner && (
+                  <button className="btn btn-outline" style={{ marginLeft: 'auto', fontSize: 'var(--font-size-xs)', padding: '4px 10px', display: 'flex', alignItems: 'center', gap: 4 }} onClick={() => setShowVaxModal(true)}>
+                    <Plus size={14} /> Eintragen
+                  </button>
+                )}
               </div>
               <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)', minWidth: 0 }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                      <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) 0' }}>{t('animal.vaccinations')}</th>
-                      <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)' }}>{t('vaccine.administrationDate')}</th>
-                      <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)' }}>{t('vaccine.validUntil')}</th>
-                      <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)' }}>{t('vaccine.expiryDate')}</th>
-                      <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)' }}>{t('vaccine.batchNumber')}</th>
+                      <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) 0', whiteSpace: 'nowrap' }}>{t('animal.vaccinations')}</th>
+                      <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{t('vaccine.administrationDate')}</th>
+                      <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{t('vaccine.validUntil')}</th>
+                      <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{t('vaccine.batchNumber')}</th>
+                      {isOwner && <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Rollen</th>}
                     </tr>
                   </thead>
                   <tbody>
-                    {vaccinationRecords.map((record) => (
-                      <tr key={record.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                        <td style={{ padding: 'var(--space-2) 0' }}>
-                          <Link to={`/animals/${id}/documents/${record.documentId}`} style={{ color: 'var(--text-primary)', textDecoration: 'none', fontWeight: 600 }}>
-                            {record.vaccineName || '—'}
-                          </Link>
-                          {record.manufacturer && <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>{record.manufacturer}</div>}
-                        </td>
-                        <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{record.administrationDate || '—'}</td>
-                        <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{record.validUntil || '—'}</td>
-                        <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{record.expiryDate || '—'}</td>
-                        <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{record.batchNumber || '—'}</td>
-                      </tr>
-                    ))}
+                    {vaccinationRecords.map((record) => {
+                      const recPerms = getRecordPermissions(record.doc, record.recordKey)
+                      const isExpanded = expandedRecord === record.id
+                      return (
+                        <>
+                          <tr key={record.id} style={{ borderBottom: isExpanded ? 'none' : '1px solid var(--border-subtle)', cursor: isOwner ? 'pointer' : undefined }} onClick={isOwner ? () => setExpandedRecord(isExpanded ? null : record.id) : undefined}>
+                            <td style={{ padding: 'var(--space-2) 0' }}>
+                              <Link to={`/animals/${id}/documents/${record.documentId}`} style={{ color: 'var(--text-primary)', textDecoration: 'none', fontWeight: 600 }} onClick={e => e.stopPropagation()}>
+                                {record.vaccineName || '—'}
+                              </Link>
+                              {record.manufacturer && <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>{record.manufacturer}</div>}
+                            </td>
+                            <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{record.administrationDate || '—'}</td>
+                            <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{record.validUntil || '—'}</td>
+                            <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{record.batchNumber || '—'}</td>
+                            {isOwner && (
+                              <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>
+                                <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                                  {['guest', 'vet', 'authority'].map(r => (
+                                    <span key={r} style={{ fontSize: 10, padding: '1px 6px', borderRadius: 99, border: '1px solid', borderColor: recPerms.includes(r) ? 'var(--primary-500)' : 'var(--border)', background: recPerms.includes(r) ? 'var(--primary-50)' : 'transparent', color: recPerms.includes(r) ? 'var(--primary-700)' : 'var(--text-tertiary)' }}>{r}</span>
+                                  ))}
+                                  {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                                </div>
+                              </td>
+                            )}
+                          </tr>
+                          {isOwner && isExpanded && (
+                            <tr key={`${record.id}-expand`} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                              <td colSpan={5} style={{ padding: 'var(--space-1) 0 var(--space-2) 0' }}>
+                                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                                  <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Freigabe:</span>
+                                  {(['guest', 'vet', 'authority'] as const).map(r => (
+                                    <label key={r} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 'var(--font-size-xs)', cursor: 'pointer' }}>
+                                      <input type="checkbox" checked={recPerms.includes(r)} disabled={updatingRecord === `${record.documentId}-${record.recordKey}`}
+                                        onChange={() => handleToggleRecordRole(record.documentId, record.recordKey, recPerms, r)} />
+                                      {r}
+                                    </label>
+                                  ))}
+                                  {updatingRecord === `${record.documentId}-${record.recordKey}` && <div className="spinner" style={{ width: 12, height: 12, borderWidth: 1 }} />}
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
+            </div>
+          )}
+
+          {(treatmentRecords.length > 0 || isOwner) && (
+            <div className="card" style={{ marginBottom: 'var(--space-4)', overflow: 'hidden' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
+                <Pill size={18} color="var(--success-600)" />
+                <h3 style={{ margin: 0 }}>Behandlungen</h3>
+                {treatmentRecords.length > 0 && <span className="badge">{treatmentRecords.length}</span>}
+                {isOwner && (
+                  <button className="btn btn-outline" style={{ marginLeft: 'auto', fontSize: 'var(--font-size-xs)', padding: '4px 10px', display: 'flex', alignItems: 'center', gap: 4 }} onClick={() => setShowTreatModal(true)}>
+                    <Plus size={14} /> Eintragen
+                  </button>
+                )}
+              </div>
+              {treatmentRecords.length === 0 ? (
+                <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', margin: 0 }}>Noch keine Behandlungen eingetragen.</p>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)', minWidth: 0 }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                        <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) 0', whiteSpace: 'nowrap' }}>Substanz</th>
+                        <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Datum</th>
+                        <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Dosierung</th>
+                        <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Tierarzt</th>
+                        <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Nächste Fälligkeit</th>
+                        {isOwner && <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Rollen</th>}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {treatmentRecords.map((record) => {
+                        const recPerms = getRecordPermissions(record.doc, record.recordKey)
+                        const isExpanded = expandedRecord === record.id
+                        return (
+                          <>
+                            <tr key={record.id} style={{ borderBottom: isExpanded ? 'none' : '1px solid var(--border-subtle)', cursor: isOwner ? 'pointer' : undefined }} onClick={isOwner ? () => setExpandedRecord(isExpanded ? null : record.id) : undefined}>
+                              <td style={{ padding: 'var(--space-2) 0' }}>
+                                <Link to={`/animals/${id}/documents/${record.documentId}`} style={{ color: 'var(--text-primary)', textDecoration: 'none', fontWeight: 600 }} onClick={e => e.stopPropagation()}>
+                                  {record.substance}
+                                </Link>
+                              </td>
+                              <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{record.administeredAt || '—'}</td>
+                              <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{record.dosage || '—'}</td>
+                              <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{record.vetName || '—'}</td>
+                              <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{record.nextDue || '—'}</td>
+                              {isOwner && (
+                                <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>
+                                  <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                                    {['guest', 'vet', 'authority'].map(r => (
+                                      <span key={r} style={{ fontSize: 10, padding: '1px 6px', borderRadius: 99, border: '1px solid', borderColor: recPerms.includes(r) ? 'var(--success-500)' : 'var(--border)', background: recPerms.includes(r) ? 'oklch(97% 0.05 145)' : 'transparent', color: recPerms.includes(r) ? 'var(--success-700)' : 'var(--text-tertiary)' }}>{r}</span>
+                                    ))}
+                                    {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                                  </div>
+                                </td>
+                              )}
+                            </tr>
+                            {isOwner && isExpanded && (
+                              <tr key={`${record.id}-expand`} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                                <td colSpan={6} style={{ padding: 'var(--space-1) 0 var(--space-2) 0' }}>
+                                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                                    <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Freigabe:</span>
+                                    {(['guest', 'vet', 'authority'] as const).map(r => (
+                                      <label key={r} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 'var(--font-size-xs)', cursor: 'pointer' }}>
+                                        <input type="checkbox" checked={recPerms.includes(r)} disabled={updatingRecord === `${record.documentId}-${record.recordKey}`}
+                                          onChange={() => handleToggleRecordRole(record.documentId, record.recordKey, recPerms, r)} />
+                                        {r}
+                                      </label>
+                                    ))}
+                                    {updatingRecord === `${record.documentId}-${record.recordKey}` && <div className="spinner" style={{ width: 12, height: 12, borderWidth: 1 }} />}
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
 
@@ -1350,6 +1550,61 @@ export default function AnimalPage() {
                 disabled={submitting}
               >
                 {t('common.cancel')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Manual Vaccination Entry Modal */}
+      {showVaxModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'oklch(0% 0 0 / 0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'var(--space-4)' }}>
+          <div className="card" style={{ width: '100%', maxWidth: 480, maxHeight: '90dvh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-4)' }}>
+              <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}><Syringe size={18} /> Impfung eintragen</h3>
+              <button className="btn btn-ghost" onClick={() => setShowVaxModal(false)}><X size={18} /></button>
+            </div>
+            {manualError && <div className="error-card" style={{ marginBottom: 'var(--space-3)' }}><p>{manualError}</p></div>}
+            <div style={{ display: 'grid', gap: 'var(--space-3)' }}>
+              <div className="form-group"><label className="form-label">Impfstoff *</label><input className="form-input" value={manualVax.vaccine_name} onChange={e => setManualVax(p => ({ ...p, vaccine_name: e.target.value }))} placeholder="z.B. Nobivac Puppy DP" /></div>
+              <div className="form-group"><label className="form-label">Datum *</label><input className="form-input" type="date" value={manualVax.date} onChange={e => setManualVax(p => ({ ...p, date: e.target.value }))} /></div>
+              <div className="form-group"><label className="form-label">Zielkrankheit</label><input className="form-input" value={manualVax.target_disease} onChange={e => setManualVax(p => ({ ...p, target_disease: e.target.value }))} placeholder="z.B. Staupe, Parvo" /></div>
+              <div className="form-group"><label className="form-label">Chargennummer</label><input className="form-input" value={manualVax.batch_number} onChange={e => setManualVax(p => ({ ...p, batch_number: e.target.value }))} /></div>
+              <div className="form-group"><label className="form-label">Gültig bis</label><input className="form-input" type="date" value={manualVax.valid_until} onChange={e => setManualVax(p => ({ ...p, valid_until: e.target.value }))} /></div>
+              <div className="form-group"><label className="form-label">Tierarzt</label><input className="form-input" value={manualVax.vet_name} onChange={e => setManualVax(p => ({ ...p, vet_name: e.target.value }))} /></div>
+              <div className="form-group"><label className="form-label">Notizen</label><textarea className="form-input" value={manualVax.notes} onChange={e => setManualVax(p => ({ ...p, notes: e.target.value }))} rows={2} /></div>
+            </div>
+            <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-4)', justifyContent: 'flex-end' }}>
+              <button className="btn btn-outline" onClick={() => setShowVaxModal(false)}>Abbrechen</button>
+              <button className="btn btn-primary" onClick={handleSaveManualVax} disabled={savingManual || !manualVax.vaccine_name || !manualVax.date}>
+                {savingManual ? <div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} /> : 'Speichern'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Manual Treatment Entry Modal */}
+      {showTreatModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'oklch(0% 0 0 / 0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'var(--space-4)' }}>
+          <div className="card" style={{ width: '100%', maxWidth: 480, maxHeight: '90dvh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-4)' }}>
+              <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}><Pill size={18} /> Behandlung eintragen</h3>
+              <button className="btn btn-ghost" onClick={() => setShowTreatModal(false)}><X size={18} /></button>
+            </div>
+            {manualError && <div className="error-card" style={{ marginBottom: 'var(--space-3)' }}><p>{manualError}</p></div>}
+            <div style={{ display: 'grid', gap: 'var(--space-3)' }}>
+              <div className="form-group"><label className="form-label">Substanz / Medikament *</label><input className="form-input" value={manualTreat.substance} onChange={e => setManualTreat(p => ({ ...p, substance: e.target.value }))} placeholder="z.B. Frontline Spot-on" /></div>
+              <div className="form-group"><label className="form-label">Datum *</label><input className="form-input" type="date" value={manualTreat.date} onChange={e => setManualTreat(p => ({ ...p, date: e.target.value }))} /></div>
+              <div className="form-group"><label className="form-label">Dosierung</label><input className="form-input" value={manualTreat.dosage} onChange={e => setManualTreat(p => ({ ...p, dosage: e.target.value }))} placeholder="z.B. 1 Pipette" /></div>
+              <div className="form-group"><label className="form-label">Tierarzt</label><input className="form-input" value={manualTreat.vet_name} onChange={e => setManualTreat(p => ({ ...p, vet_name: e.target.value }))} /></div>
+              <div className="form-group"><label className="form-label">Nächste Fälligkeit</label><input className="form-input" type="date" value={manualTreat.next_due} onChange={e => setManualTreat(p => ({ ...p, next_due: e.target.value }))} /></div>
+              <div className="form-group"><label className="form-label">Notizen</label><textarea className="form-input" value={manualTreat.notes} onChange={e => setManualTreat(p => ({ ...p, notes: e.target.value }))} rows={2} /></div>
+            </div>
+            <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-4)', justifyContent: 'flex-end' }}>
+              <button className="btn btn-outline" onClick={() => setShowTreatModal(false)}>Abbrechen</button>
+              <button className="btn btn-primary" onClick={handleSaveManualTreat} disabled={savingManual || !manualTreat.substance || !manualTreat.date}>
+                {savingManual ? <div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} /> : 'Speichern'}
               </button>
             </div>
           </div>

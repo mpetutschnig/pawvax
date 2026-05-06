@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS documents (
   added_by_role  TEXT,
   added_by_account TEXT,
   allowed_roles  TEXT DEFAULT '["vet", "authority", "guest"]',
+  record_permissions TEXT DEFAULT NULL,
   created_at     TEXT DEFAULT (CURRENT_TIMESTAMP),
   analysis_status TEXT DEFAULT 'pending_analysis'
 );

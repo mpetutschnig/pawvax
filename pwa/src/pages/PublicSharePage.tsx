@@ -1,13 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { PawPrint, Calendar, User, MapPin, Syringe, Pill, FileText, ChevronUp, ChevronDown } from 'lucide-react'
+import { PawPrint, Calendar, User, MapPin, Syringe, Pill, FileText, ChevronUp, ChevronDown, ShieldCheck } from 'lucide-react'
 import { api } from '../api/rest'
 import { addRecentlyViewedAnimal } from '../hooks/useRecentlyViewed'
-
-function uniqueImagePaths(imagePath: string | undefined, pages: string[] | undefined): string[] {
-  return [...new Set([imagePath, ...(pages || [])].filter((p): p is string => Boolean(p)))]
-}
 
 export default function PublicSharePage() {
   const { shareId } = useParams<{ shareId: string }>()
@@ -16,6 +12,25 @@ export default function PublicSharePage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [expandedDocId, setExpandedDocId] = useState<string | null>(null)
+  const [expandedRecordId, setExpandedRecordId] = useState<string | null>(null)
+
+  const effectiveRole = (() => {
+    const token = localStorage.getItem('token')
+    if (!token) return 'guest'
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]))
+      const roles = (payload.role || '').split(',').map((r: string) => r.trim())
+      if (roles.includes('vet')) return 'vet'
+      if (roles.includes('authority')) return 'authority'
+    } catch { /* */ }
+    return 'guest'
+  })()
+
+  function canSeeRecord(doc: any, recordKey: string): boolean {
+    const perRecord = doc.record_permissions?.[recordKey]
+    const roles = perRecord ?? ((() => { try { return JSON.parse(doc.allowed_roles || '[]') } catch { return ['vet', 'authority', 'guest'] } })())
+    return roles.includes(effectiveRole) || roles.includes('guest')
+  }
 
   const docTypeLabel = (type: string) => {
     const labels: Record<string, string> = {
@@ -130,86 +145,136 @@ export default function PublicSharePage() {
       )}
 
       {animal.documents && animal.documents.length > 0 ? (() => {
-        const groups: Record<string, { icon: React.ReactNode; label: string; docs: any[] }> = {
-          vaccination: { icon: <Syringe size={18} />, label: t('animal.vaccinations'), docs: [] },
-          medical_product: { icon: <Pill size={18} />, label: docTypeLabel('medical_product'), docs: [] },
-          pedigree: { icon: <FileText size={18} />, label: docTypeLabel('pedigree'), docs: [] },
-          dog_certificate: { icon: <FileText size={18} />, label: docTypeLabel('dog_certificate'), docs: [] },
-          general: { icon: <FileText size={18} />, label: t('animal.documents'), docs: [] },
-        }
+        const vaccinationRecords: any[] = []
+        const treatmentRecords: any[] = []
+        const otherDocs: any[] = []
+
         for (const doc of animal.documents) {
-          if (groups[doc.doc_type]) groups[doc.doc_type].docs.push(doc)
-          else groups.general.docs.push(doc)
+          if (doc.doc_type === 'vaccination') {
+            const records = doc.extracted_json?.payload?.vaccinations || doc.extracted_json?.vaccinations || []
+            records.forEach((r: any, i: number) => {
+              if (canSeeRecord(doc, `vaccinations.${i}`)) {
+                vaccinationRecords.push({ ...r, _docId: doc.id, _idx: i, _added_by_name: doc.added_by_name, _added_by_verified: doc.added_by_verified })
+              }
+            })
+          } else if (doc.doc_type === 'treatment') {
+            const records = doc.extracted_json?.payload?.treatments || doc.extracted_json?.treatments || []
+            records.forEach((r: any, i: number) => {
+              if (canSeeRecord(doc, `treatments.${i}`)) {
+                treatmentRecords.push({ ...r, _docId: doc.id, _idx: i, _added_by_name: doc.added_by_name, _added_by_verified: doc.added_by_verified })
+              }
+            })
+          } else {
+            otherDocs.push(doc)
+          }
         }
+
         return (
           <div className="animate-fade-in" style={{ animationDelay: '150ms' }}>
-            {Object.entries(groups).map(([type, { icon, label, docs }]) =>
-              docs.length > 0 && (
-                <div key={type} style={{ marginBottom: 'var(--space-4)' }}>
-                  <h3 style={{ fontSize: 'var(--font-size-base)', marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                    {icon} {label} ({docs.length})
-                  </h3>
-                  {docs.map((doc: any) => {
-                    const isExpanded = expandedDocId === doc.id;
-                    return (
-                      <div key={doc.id} className="card card-sm" style={{ marginBottom: 'var(--space-2)', cursor: 'pointer', transition: 'all 0.2s' }} onClick={() => setExpandedDocId(isExpanded ? null : doc.id)}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                            <span style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>
-                              {doc.extracted_json?.title || docTypeLabel(type)}
-                            </span>
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                            <span className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>
-                              {new Date(doc.created_at).toLocaleDateString(i18n.language === 'de' ? 'de-AT' : 'en-GB')}
-                            </span>
-                            {isExpanded ? <ChevronUp size={16} className="text-muted" /> : <ChevronDown size={16} className="text-muted" />}
-                          </div>
+            {vaccinationRecords.length > 0 && (
+              <div style={{ marginBottom: 'var(--space-4)' }}>
+                <h3 style={{ fontSize: 'var(--font-size-base)', marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                  <Syringe size={18} /> {t('animal.vaccinations')} ({vaccinationRecords.length})
+                </h3>
+                {vaccinationRecords.map((r: any) => {
+                  const recId = `vax-${r._docId}-${r._idx}`
+                  const isExp = expandedRecordId === recId
+                  const name = r.vaccine || r.vaccine_name || t('animal.docTypeVaccination')
+                  const date = r.administration_date || r.date || ''
+                  return (
+                    <div key={recId} className="card card-sm" style={{ marginBottom: 'var(--space-2)', cursor: 'pointer' }} onClick={() => setExpandedRecordId(isExp ? null : recId)}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <span style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>{name}</span>
+                          {date && <span className="text-muted" style={{ fontSize: 'var(--font-size-xs)', marginLeft: 8 }}>{date}</span>}
                         </div>
-
-                        {isExpanded && (
-                          <div className="animate-slide-up" style={{ marginTop: 'var(--space-3)', paddingTop: 'var(--space-3)', borderTop: '1px solid var(--border)' }}>
-                            {doc.extracted_json?.summary && (
-                              <div style={{ background: 'var(--primary-50)', padding: 'var(--space-3)', borderRadius: 'var(--radius-sm)', marginBottom: 'var(--space-3)', borderLeft: '3px solid var(--primary-500)' }}>
-                                <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', color: 'var(--primary-900)' }}>{doc.extracted_json.summary}</p>
-                              </div>
-                            )}
-
-                            {Array.isArray(doc.extracted_json?.vaccinations) && doc.extracted_json.vaccinations.length > 0 && (
-                              <div style={{ marginBottom: 'var(--space-3)', display: 'grid', gap: 'var(--space-2)' }}>
-                                {doc.extracted_json.vaccinations.map((entry: any, index: number) => (
-                                  <div key={index} style={{ padding: 'var(--space-3)', background: 'var(--surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
-                                    <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>{entry.vaccine || t('animal.docTypeVaccination')}</div>
-                                    <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)', marginTop: '4px' }}>
-                                      {[entry.date, entry.nextDue ? `Next: ${entry.nextDue}` : null, entry.vet].filter(Boolean).join(' • ')}
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-
-                            {doc.extracted_json?.product && (
-                              <div style={{ marginBottom: 'var(--space-3)', padding: 'var(--space-3)', background: 'var(--surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
-                                <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>{doc.extracted_json.product.name || docTypeLabel('medical_product')}</div>
-                                <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)', marginTop: '4px', display: 'grid', gap: '2px' }}>
-                                  {doc.extracted_json.product.active_substance && <span>{doc.extracted_json.product.active_substance}</span>}
-                                  {doc.extracted_json.product.dosage && <span>{doc.extracted_json.product.dosage}</span>}
-                                  {doc.extracted_json.product.manufacturer && <span>{doc.extracted_json.product.manufacturer}</span>}
-                                  {doc.extracted_json.usage && <span>{doc.extracted_json.usage}</span>}
-                                </div>
-                              </div>
-                            )}
-
-                            {uniqueImagePaths(doc.image_path, doc.pages).map((imgPath: string, idx: number) => (
-                              <img key={idx} src={`/uploads/${imgPath.split('/').pop()}`} alt={`Page ${idx + 1}`} style={{ width: '100%', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-2)', display: 'block' }} />
-                            ))}
-                          </div>
-                        )}
+                        {isExp ? <ChevronUp size={16} className="text-muted" /> : <ChevronDown size={16} className="text-muted" />}
                       </div>
-                    )
-                  })}
-                </div>
-              )
+                      {isExp && (
+                        <div className="animate-slide-up" style={{ marginTop: 'var(--space-3)', paddingTop: 'var(--space-3)', borderTop: '1px solid var(--border)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)', fontSize: 'var(--font-size-xs)' }}>
+                          {r.target_disease && <div><span style={{ color: 'var(--text-tertiary)' }}>Zielkrankheit</span><br /><strong>{r.target_disease}</strong></div>}
+                          {r.valid_until && <div><span style={{ color: 'var(--text-tertiary)' }}>Gültig bis</span><br /><strong>{r.valid_until}</strong></div>}
+                          {r.batch_number && <div><span style={{ color: 'var(--text-tertiary)' }}>Charge</span><br /><strong>{r.batch_number}</strong></div>}
+                          {r.manufacturer && <div><span style={{ color: 'var(--text-tertiary)' }}>Hersteller</span><br /><strong>{r.manufacturer}</strong></div>}
+                          {r.veterinarian_name && <div><span style={{ color: 'var(--text-tertiary)' }}>Tierarzt</span><br /><strong>{r.veterinarian_name}</strong></div>}
+                          {r._added_by_verified && r._added_by_name && (
+                            <div style={{ gridColumn: '1/-1', display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
+                              <ShieldCheck size={13} color="var(--primary-600)" />
+                              <span style={{ color: 'var(--primary-700)', fontWeight: 500 }}>{r._added_by_name}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            {treatmentRecords.length > 0 && (
+              <div style={{ marginBottom: 'var(--space-4)' }}>
+                <h3 style={{ fontSize: 'var(--font-size-base)', marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                  <Pill size={18} /> Behandlungen ({treatmentRecords.length})
+                </h3>
+                {treatmentRecords.map((r: any) => {
+                  const recId = `treat-${r._docId}-${r._idx}`
+                  const isExp = expandedRecordId === recId
+                  const name = r.substance || r.medication || 'Behandlung'
+                  const date = r.administered_at || r.date || ''
+                  return (
+                    <div key={recId} className="card card-sm" style={{ marginBottom: 'var(--space-2)', cursor: 'pointer' }} onClick={() => setExpandedRecordId(isExp ? null : recId)}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <span style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>{name}</span>
+                          {date && <span className="text-muted" style={{ fontSize: 'var(--font-size-xs)', marginLeft: 8 }}>{date}</span>}
+                        </div>
+                        {isExp ? <ChevronUp size={16} className="text-muted" /> : <ChevronDown size={16} className="text-muted" />}
+                      </div>
+                      {isExp && (
+                        <div className="animate-slide-up" style={{ marginTop: 'var(--space-3)', paddingTop: 'var(--space-3)', borderTop: '1px solid var(--border)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)', fontSize: 'var(--font-size-xs)' }}>
+                          {r.dosage && <div><span style={{ color: 'var(--text-tertiary)' }}>Dosierung</span><br /><strong>{r.dosage}</strong></div>}
+                          {r.vet_name && <div><span style={{ color: 'var(--text-tertiary)' }}>Tierarzt</span><br /><strong>{r.vet_name}</strong></div>}
+                          {r.next_due && <div><span style={{ color: 'var(--text-tertiary)' }}>Nächste Fälligkeit</span><br /><strong>{r.next_due}</strong></div>}
+                          {r.notes && <div style={{ gridColumn: '1/-1' }}><span style={{ color: 'var(--text-tertiary)' }}>Notizen</span><br /><strong>{r.notes}</strong></div>}
+                          {r._added_by_verified && r._added_by_name && (
+                            <div style={{ gridColumn: '1/-1', display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
+                              <ShieldCheck size={13} color="var(--primary-600)" />
+                              <span style={{ color: 'var(--primary-700)', fontWeight: 500 }}>{r._added_by_name}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            {otherDocs.length > 0 && (
+              <div style={{ marginBottom: 'var(--space-4)' }}>
+                <h3 style={{ fontSize: 'var(--font-size-base)', marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                  <FileText size={18} /> {t('animal.documents')} ({otherDocs.length})
+                </h3>
+                {otherDocs.map((doc: any) => {
+                  const isExpanded = expandedDocId === doc.id
+                  return (
+                    <div key={doc.id} className="card card-sm" style={{ marginBottom: 'var(--space-2)', cursor: 'pointer' }} onClick={() => setExpandedDocId(isExpanded ? null : doc.id)}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>{doc.extracted_json?.title || docTypeLabel(doc.doc_type)}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                          <span className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>{new Date(doc.created_at).toLocaleDateString(i18n.language === 'de' ? 'de-AT' : 'en-GB')}</span>
+                          {isExpanded ? <ChevronUp size={16} className="text-muted" /> : <ChevronDown size={16} className="text-muted" />}
+                        </div>
+                      </div>
+                      {isExpanded && doc.extracted_json?.summary && (
+                        <div className="animate-slide-up" style={{ marginTop: 'var(--space-3)', paddingTop: 'var(--space-3)', borderTop: '1px solid var(--border)' }}>
+                          <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>{doc.extracted_json.summary}</p>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
             )}
           </div>
         )

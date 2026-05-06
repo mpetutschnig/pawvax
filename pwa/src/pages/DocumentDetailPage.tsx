@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { getDocument, deleteDocument, patchDocument, getAnimalDocuments, getMe, createReminder, analyzeDocument, getDocumentHistory } from '../api/rest'
+import { getDocument, deleteDocument, patchDocument, getAnimalDocuments, getMe, createReminder, analyzeDocument, getDocumentHistory, patchDocumentRecord } from '../api/rest'
 import { generateICS, downloadBlob } from '../utils/ics'
 import { normalizeVaccinationRecord } from '../utils/vaccination'
 import { DocumentAnalysisForm } from '../components/DocumentAnalysisForm'
@@ -51,6 +51,26 @@ export default function DocumentDetailPage() {
   const [hasSystemAi, setHasSystemAi] = useState(true)
   const hasAnyKey = hasGemini || hasAnthropic || hasOpenai || hasSystemAi
   const [availableModels, setAvailableModels] = useState<any>(DEFAULT_AVAILABLE_MODELS)
+
+  // Per-record permissions
+  const [updatingRecordKey, setUpdatingRecordKey] = useState<string | null>(null)
+
+  const getRecordPerms = (key: string): string[] => {
+    if (!doc) return ['vet', 'authority', 'guest']
+    const perRecord = doc.record_permissions?.[key]
+    if (perRecord !== undefined) return perRecord
+    try { return Array.isArray(doc.allowed_roles) ? doc.allowed_roles : JSON.parse(doc.allowed_roles || '[]') } catch { return ['vet', 'authority', 'guest'] }
+  }
+
+  const handleToggleRecordRole = async (key: string, role: string) => {
+    const current = getRecordPerms(key)
+    const newRoles = current.includes(role) ? current.filter(r => r !== role) : [...current, role]
+    setUpdatingRecordKey(key)
+    try {
+      const res = await patchDocumentRecord(doc.id, key, newRoles)
+      setDoc((prev: any) => ({ ...prev, record_permissions: res.data.record_permissions }))
+    } catch { /* silent */ } finally { setUpdatingRecordKey(null) }
+  }
 
   const docTypeConfig: Record<string, { label: string; icon: React.ReactNode }> = {
     vaccination: { label: t('animal.docTypeVaccination'), icon: <Shield size={20} /> },
@@ -650,7 +670,10 @@ export default function DocumentDetailPage() {
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
                 {visibleRecords.map((record: any) => {
-                  const recordKey = `vax-${allRecords.indexOf(record)}`
+                  const recIdx = allRecords.indexOf(record)
+                  const recordKey = `vax-${recIdx}`
+                  const dbKey = `vaccinations.${recIdx}`
+                  const recPerms = getRecordPerms(dbKey)
                   const vaccination = normalizeVaccinationRecord(record)
                   const vaccineName = vaccination.vaccineName || '–'
                   const targetDisease = vaccination.targetDisease
@@ -703,6 +726,19 @@ export default function DocumentDetailPage() {
                           }
                         </button>
                       )}
+                      {doc.isOwner && (
+                        <div style={{ marginTop: 'var(--space-3)', paddingTop: 'var(--space-2)', borderTop: '1px solid var(--border-subtle)', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Freigabe:</span>
+                          {(['guest', 'vet', 'authority'] as const).map(r => (
+                            <label key={r} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 'var(--font-size-xs)', cursor: 'pointer' }}>
+                              <input type="checkbox" checked={recPerms.includes(r)} disabled={updatingRecordKey === dbKey}
+                                onChange={() => handleToggleRecordRole(dbKey, r)} />
+                              {r}
+                            </label>
+                          ))}
+                          {updatingRecordKey === dbKey && <div className="spinner" style={{ width: 12, height: 12, borderWidth: 1 }} />}
+                        </div>
+                      )}
                       {record._duplicate && (
                         <p style={{ margin: '8px 0 0 0', fontSize: 'var(--font-size-xs)', color: 'var(--warning-700)', fontStyle: 'italic' }}>
                           {t('docDetail.duplicateNoReminder')}
@@ -740,7 +776,10 @@ export default function DocumentDetailPage() {
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
                 {visibleRecords.map((record: any) => {
-                  const recordKey = `treatment-${allRecords.indexOf(record)}`
+                  const treatIdx = allRecords.indexOf(record)
+                  const recordKey = `treatment-${treatIdx}`
+                  const dbKey = `treatments.${treatIdx}`
+                  const recPerms = getRecordPerms(dbKey)
                   const substance = record.substance || '–'
                   const nextDue = record.next_due || ''
                   const today = new Date()
@@ -784,6 +823,19 @@ export default function DocumentDetailPage() {
                               : <><Bell size={14} /> Erinnerung setzen</>
                           }
                         </button>
+                      )}
+                      {doc.isOwner && (
+                        <div style={{ marginTop: 'var(--space-3)', paddingTop: 'var(--space-2)', borderTop: '1px solid var(--border-subtle)', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Freigabe:</span>
+                          {(['guest', 'vet', 'authority'] as const).map(r => (
+                            <label key={r} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 'var(--font-size-xs)', cursor: 'pointer' }}>
+                              <input type="checkbox" checked={recPerms.includes(r)} disabled={updatingRecordKey === dbKey}
+                                onChange={() => handleToggleRecordRole(dbKey, r)} />
+                              {r}
+                            </label>
+                          ))}
+                          {updatingRecordKey === dbKey && <div className="spinner" style={{ width: 12, height: 12, borderWidth: 1 }} />}
+                        </div>
                       )}
                       {record._duplicate && (
                         <p style={{ margin: '8px 0 0 0', fontSize: 'var(--font-size-xs)', color: 'var(--warning-700)', fontStyle: 'italic' }}>

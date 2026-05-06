@@ -88,5 +88,10 @@ export async function initDb(connectionString) {
     await pool.query("DELETE FROM documents WHERE analysis_status = 'uploading'")
   } catch { /* column may not exist on very old schemas */ }
 
+  // Migration: add record_permissions column (idempotent)
+  try {
+    await pool.query("ALTER TABLE documents ADD COLUMN IF NOT EXISTS record_permissions TEXT DEFAULT NULL")
+  } catch { /* column may already exist */ }
+
   return pool
 }

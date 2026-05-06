@@ -424,4 +424,90 @@ export default async function vetApiRoutes(fastify) {
       message: 'Vaccination record created successfully.'
     })
   })
+
+  // ─────────────────────────────────────────────────────────────────────
+  // POST /api/v1/animals/:animalId/treatments — Structured treatment entry
+  // ─────────────────────────────────────────────────────────────────────
+  fastify.post('/api/v1/animals/:animalId/treatments', {
+    schema: {
+      description: 'Add a structured treatment record without uploading an image',
+      tags: ['VET API'],
+      body: {
+        type: 'object',
+        required: ['substance', 'date'],
+        properties: {
+          substance: { type: 'string', description: 'Medication or substance name' },
+          date: { type: 'string', description: 'ISO date administered (YYYY-MM-DD)' },
+          dosage: { type: 'string' },
+          vet_name: { type: 'string' },
+          notes: { type: 'string' },
+          next_due: { type: 'string', description: 'ISO date for next due (YYYY-MM-DD)' },
+          active_ingredient: { type: 'string' },
+          allowed_roles: { type: 'array', items: { type: 'string' } }
+        }
+      }
+    }
+  }, async (req, reply) => {
+    if (!req.apiKeyAccount.permissions.includes('write')) {
+      return reply.code(403).send({ error: 'API key does not have write permission' })
+    }
+
+    const db = getDb()
+    const { animalId } = req.params
+    const { substance, date, dosage, vet_name, notes, next_due, active_ingredient, allowed_roles } = req.body
+
+    const { rows: [animal] } = await db.query('SELECT id FROM animals WHERE id = $1', [animalId])
+    if (!animal) return reply.code(404).send({ error: 'Animal not found' })
+
+    const docId = uuid()
+    const extractedJson = {
+      type: 'treatment',
+      payload: {
+        treatments: [{
+          substance,
+          administered_at: date,
+          dosage: dosage || null,
+          vet_name: vet_name || null,
+          notes: notes || null,
+          next_due: next_due || null,
+          active_ingredient: active_ingredient || null
+        }]
+      },
+      title: substance,
+      summary: `Vet API: ${substance} on ${date}`,
+      document_date: date
+    }
+
+    const docAllowedRoles = Array.isArray(allowed_roles) ? allowed_roles : ['vet', 'authority', 'guest']
+
+    await db.query(`
+      INSERT INTO documents (id, animal_id, doc_type, image_path, extracted_json, ocr_provider, added_by_account, added_by_role, allowed_roles, analysis_status)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+    `, [
+      docId, animal.id, 'treatment', '',
+      JSON.stringify(extractedJson), 'vet_api',
+      req.apiKeyAccount.accountId, 'vet',
+      JSON.stringify(docAllowedRoles),
+      'completed'
+    ])
+
+    await logAudit(db, {
+      accountId: req.apiKeyAccount.accountId,
+      role: 'vet_api',
+      action: 'create_treatment',
+      resource: 'document',
+      resourceId: docId,
+      details: { api_key: req.apiKeyAccount.keyName, substance, animal_id: animal.id },
+      ip: req.ip
+    })
+
+    return reply.code(201).send({
+      id: docId,
+      animal_id: animal.id,
+      doc_type: 'treatment',
+      extracted_json: extractedJson,
+      analysis_status: 'completed',
+      message: 'Treatment record created successfully.'
+    })
+  })
 }
