@@ -1034,7 +1034,7 @@ describe('9. Extended Regression Tests', () => {
     const { data: adminRegData } = await registerAndVerifyUser('Regression Admin', adminEmail, 'SecurePassword123!')
 
     adminDb9 = await getTestDb()
-    const adminAccountId = adminRegData.id
+    const adminAccountId = adminRegData.account.id
     expect(adminAccountId).toBeTruthy()
     await adminDb9.query('UPDATE accounts SET role = $1 WHERE id = $2', ['user,admin', adminAccountId])
 
