@@ -14,7 +14,7 @@ interface AnimalTag {
   tag_id: string; tag_type: string; active: number; added_at: string
 }
 interface Document {
-  id: string; doc_type: string; created_at: string; ocr_provider: string; added_by_role?: string; added_by_name?: string; added_by_verified?: number; analysis_status?: string; extracted_json?: any; record_permissions?: Record<string, string[]>
+  id: string; doc_type: string; created_at: string; ocr_provider: string; added_by_role?: string; added_by_name?: string; added_by_verified?: number; analysis_status?: string; extracted_json?: any; record_permissions?: Record<string, string[]>; allowed_roles?: string
 }
 
 export default function AnimalPage() {
