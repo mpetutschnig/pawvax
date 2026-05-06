@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import {
   adminGetStats, adminGetAccounts, adminGetAnimals,
   adminPatchAccount, adminGetAuditLog, adminDeleteAnimal, adminDeleteAccount, adminGetTestResults,
+  adminGetTestRuns, adminGetTestRunDetail,
   adminGetOrphans, adminDeleteOrphans, adminGetVerifications, adminApproveVerification, adminRejectVerification, adminGetVersion
 } from '../api/rest'
 import { PawPrint, LogOut, LayoutDashboard, Users, Cat, ShieldCheck, FileClock, CheckCircle, Menu, X, Settings, XCircle, FlaskConical, Trash2, AlertCircle } from 'lucide-react'
@@ -95,6 +96,9 @@ export default function AdminPage() {
   const [settingsSaving, setSettingsSaving] = useState(false)
   const [testResults, setTestResults] = useState<TestResults | null>(null)
   const [selectedTest, setSelectedTest] = useState<TestCase | null>(null)
+  const [testRuns, setTestRuns] = useState<any[]>([])
+  const [selectedRunId, setSelectedRunId] = useState<string | null>(null)
+  const [selectedRunDetail, setSelectedRunDetail] = useState<TestResults | null>(null)
   const [orphanReport, setOrphanReport] = useState<OrphanReport | null>(null)
   const [selectedOrphanCategories, setSelectedOrphanCategories] = useState<string[]>([])
   const [orphanDeleting, setOrphanDeleting] = useState(false)
@@ -141,9 +145,15 @@ export default function AdminPage() {
         const data = await res.json()
         setAppSettings(data)
       } else if (section === 'tests') {
+        // Load test runs list (Level 1)
+        const runsRes = await adminGetTestRuns(20, 0)
+        setTestRuns(runsRes.data.runs || [])
+        // Also load latest test results for backwards compatibility
         const res = await adminGetTestResults()
         setTestResults(res.data)
         setSelectedTest(null)
+        setSelectedRunId(null)
+        setSelectedRunDetail(null)
       } else if (section === 'cleanup') {
         const res = await adminGetOrphans()
         setOrphanReport(res.data)
@@ -799,8 +809,100 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* Tests Section */}
-        {section === 'tests' && !loading && testResults && (
+        {/* Tests Section - Level 1: Run List */}
+        {section === 'tests' && !loading && !selectedRunId && testRuns.length > 0 && (
+          <div className="animate-fade-in">
+            <h1 style={{ marginBottom: 'var(--space-4)' }}>{t('admin.tests')} - History</h1>
+            <div className="card">
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Status</th>
+                    <th>Passed</th>
+                    <th>Failed</th>
+                    <th>Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {testRuns.map((run) => (
+                    <tr key={run.id} onClick={() => { setSelectedRunId(run.id); adminGetTestRunDetail(run.id).then(res => setSelectedRunDetail(res.data)).catch(console.error) }} style={{ cursor: 'pointer' }}>
+                      <td>{new Date(run.date).toLocaleString(i18n.language === 'de' ? 'de-AT' : 'en-GB')}</td>
+                      <td><span style={{ color: run.status === 'passed' ? 'var(--success-600)' : 'var(--danger-600)', fontWeight: 600 }}>{run.status === 'passed' ? '✅' : '❌'}</span></td>
+                      <td><span style={{ color: 'var(--success-600)' }}>{run.pass_count}</span></td>
+                      <td><span style={{ color: run.fail_count > 0 ? 'var(--danger-600)' : 'var(--text-secondary)' }}>{run.fail_count}</span></td>
+                      <td>{run.total_count}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Tests Section - Level 2: Test Cases for Selected Run */}
+        {section === 'tests' && !loading && selectedRunId && selectedRunDetail && !selectedTest && (
+          <div className="animate-fade-in">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
+              <button className="btn btn-secondary" onClick={() => { setSelectedRunId(null); setSelectedRunDetail(null) }}>← Back</button>
+              <h1 style={{ margin: 0 }}>{t('admin.tests')} - {new Date(selectedRunDetail.summary?.date || '').toLocaleString(i18n.language === 'de' ? 'de-AT' : 'en-GB')}</h1>
+            </div>
+            <div className="card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', height: 'calc(100vh - 250px)' }}>
+              <div style={{ padding: 'var(--space-4)', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
+                <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
+                  <span style={{ color: 'var(--success-600)', fontWeight: 600 }}>{selectedRunDetail.summary?.passedTests || 0}</span> / {selectedRunDetail.summary?.totalTests || 0} Tests
+                </div>
+              </div>
+              <div style={{ flex: 1, overflowY: 'auto' }}>
+                {selectedRunDetail.tests ? (() => {
+                  const allTests: TestCase[] = []
+                  if (Array.isArray(selectedRunDetail.tests.testResults)) {
+                    for (const suite of selectedRunDetail.tests.testResults) {
+                      const results = suite.assertionResults || suite.testResults || []
+                      if (Array.isArray(results)) allTests.push(...results)
+                    }
+                  }
+
+                  if (allTests.length === 0) {
+                    return <div style={{ padding: 'var(--space-4)', textAlign: 'center', color: 'var(--text-tertiary)' }}>{t('admin.noTestResults')}</div>
+                  }
+
+                  const groups = new Map<string, TestCase[]>()
+                  for (const test of allTests) {
+                    const titles = test.ancestorTitles ?? []
+                    const groupName = titles.length > 1 ? titles[1] : (titles[0] ?? 'Other')
+                    if (!groups.has(groupName)) groups.set(groupName, [])
+                    groups.get(groupName)!.push(test)
+                  }
+
+                  return Array.from(groups.entries()).map(([groupName, tests]) => (
+                    <div key={groupName}>
+                      <div style={{ padding: 'var(--space-3)', paddingLeft: 'var(--space-4)', background: 'var(--surface)', borderBottom: '1px solid var(--border)', fontSize: 'var(--font-size-xs)', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        {groupName}
+                      </div>
+                      {tests.map((test, testIdx) => (
+                        <div key={`${groupName}-${testIdx}`} onClick={() => setSelectedTest(test)} style={{ padding: 'var(--space-3)', paddingLeft: 'var(--space-6)', borderBottom: '1px solid var(--border)', cursor: 'pointer', background: 'transparent', transition: 'all 0.2s' }}>
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-2)' }}>
+                            <div style={{ marginTop: '2px', flexShrink: 0 }}>
+                              {test.status === 'passed' ? <CheckCircle size={16} color="var(--success-600)" /> : <XCircle size={16} color="var(--danger-500)" />}
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 500, lineHeight: 1.4, wordBreak: 'break-word' }}>{test.title}</div>
+                              <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginTop: '2px' }}>{test.duration}ms</div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ))
+                })() : <div style={{ padding: 'var(--space-4)', textAlign: 'center', color: 'var(--text-tertiary)' }}>{t('admin.noTestResults')}</div>}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tests Section - Level 1 (fallback): Latest Run */}
+        {section === 'tests' && !loading && !selectedRunId && testResults && testRuns.length === 0 && (
           <div className="animate-fade-in">
             <h1 style={{ marginBottom: 'var(--space-4)' }}>{t('admin.tests')}</h1>
             <div className="card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', height: 'calc(100vh - 200px)' }}>

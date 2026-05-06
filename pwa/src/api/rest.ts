@@ -140,6 +140,8 @@ export const adminPatchAccount = (id: string, data: object) => api.patch(`/admin
 export const adminGetAuditLog = (params?: object) => api.get('/admin/audit', { params })
 export const adminGetStats = () => api.get('/admin/stats')
 export const adminGetTestResults = () => api.get('/admin/test-results')
+export const adminGetTestRuns = (limit?: number, page?: number) => api.get('/admin/test-runs', { params: { limit, page } })
+export const adminGetTestRunDetail = (id: string) => api.get(`/admin/test-runs/${id}`)
 export const adminGetVersion = () => api.get('/admin/version')
 export const adminGetOrphans = () => api.get('/admin/orphans')
 export const adminDeleteOrphans = (categories: string[]) => api.post('/admin/orphans/delete', { categories })

@@ -28,7 +28,54 @@ Persistent Volumes:
 
 ---
 
-## 🔧 VORBEREITUNG (Einmalig beim ersten Deployment)
+## � DATABASE PERSISTENCE GUARANTEE
+
+### Deine Daten bleiben bei Updates & Deployments
+
+Die pawvax-Datenbank **überlebt alle Container-Restarts, Updates und Deployments durch Design**:
+
+✅ **PostgreSQL-Daten-Verzeichnis**: `/home/paw-app/data/postgres` (Host-Bind-Mount, nicht ephemeral)  
+✅ **Schema-Änderungen**: Alle **inkrementell** via `CREATE TABLE IF NOT EXISTS`, `ALTER TABLE ... IF NOT EXISTS`  
+✅ **Keine Destructive Operations**: Kein `DROP DATABASE`, `DROP TABLE`, oder `TRUNCATE`  
+✅ **Automatische Migrationen**: Fehlende Tabellen & Spalten werden hinzugefügt; bestehende Daten bleiben  
+
+### Was passiert bei einem Update?
+
+```
+1. git pull → neue Code-Version
+2. bash scripts/setup-rootless-podman.sh deploy
+   ↓
+3. Alte Container stoppen/entfernen
+   ↓
+4. Volumes BLEIBEN auf der Host-Maschine (/home/paw-app/data/postgres)
+   ↓
+5. Neue Container starten
+   ↓
+6. Volumes neu gemountet → Daten sofort verfügbar
+   ↓
+7. Schema-Init: Fehlende Tabellen werden erstellt, bestehende erhalten keine Änderung
+   ↓
+8. ✅ ALLE DATEN BEWAHRT
+```
+
+### Nur Weg, Daten zu verlieren
+
+Explizites Löschen (nicht Teil des normalen Deployments):
+```bash
+rm -rf /home/paw-app/data/  # ← Niemals ausführen! 🚫
+```
+
+### Empfohlene Backup vor Major Updates
+
+```bash
+podman exec paw-postgres pg_dump -U pawvax pawvax > /home/paw-app/data/backup-$(date +%s).sql
+```
+
+**Technische Details & Verification: siehe [DATABASE_PERSISTENCE.md](./DATABASE_PERSISTENCE.md)**
+
+---
+
+## �🔧 VORBEREITUNG (Einmalig beim ersten Deployment)
 
 ### Schritt 1: Hetzner-Server Zugriff & Basis-Setup
 
@@ -233,6 +280,19 @@ bash scripts/setup-rootless-podman.sh status
 curl -k https://localhost/api/health
 curl -k https://paw.oxs.at/api/health  # Nach DNS/Let's Encrypt Propagation
 ```
+
+### ✅ Pre-Deploy Checklist
+
+Vor jedem Major Update:
+
+- [ ] Backup erstellen: `podman exec paw-postgres pg_dump -U pawvax pawvax > /home/paw-app/data/backup-$(date +%s).sql`
+- [ ] Datenbank-Größe prüfen: `du -sh /home/paw-app/data/postgres/` (sollte nicht drastisch unterschiedlich sein)
+- [ ] Schema-Änderungen prüfen: `git log --oneline -- server/src/db/schema.sql`
+- [ ] Tests lokal bestätigt: `cd /git/pawvax/server && npm test` ✅
+- [ ] Version bumped: `grep '"version"' /git/pawvax/*/package.json` (Format: YYYY-MM-DD_HHmm)
+- [ ] Deploy-Skript überprüft: `cat /git/pawvax/scripts/setup-rootless-podman.sh | head -20`
+
+**Wichtig**: Datenbank wird beim Update **NICHT** neu erstellt oder zurückgesetzt! Alle bestehenden Daten bleiben erhalten (siehe "Database Persistence Guarantee" oben).
 
 ---
 

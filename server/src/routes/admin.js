@@ -597,6 +597,56 @@ export default async function adminRoutes(fastify) {
     }
   })
 
+  // Test Run History - List all runs
+  fastify.get('/api/admin/test-runs', async (req) => {
+    const db = getDb()
+    const limit = Math.min(parseInt(req.query.limit) || 20, 100)
+    const offset = Math.max(parseInt(req.query.page) || 0, 0) * limit
+
+    const { rows: allRuns } = await db.query(`
+      SELECT id, test_timestamp, pass_count, fail_count, total_count, status
+      FROM test_results
+      ORDER BY test_timestamp DESC
+      LIMIT $1 OFFSET $2
+    `, [limit, offset])
+
+    const { rows: [{ cnt: total }] } = await db.query('SELECT COUNT(*)::int as cnt FROM test_results')
+
+    const runs = allRuns.map(run => ({
+      id: run.id,
+      test_timestamp: run.test_timestamp,
+      date: new Date(run.test_timestamp).toISOString(),
+      pass_count: run.pass_count,
+      fail_count: run.fail_count,
+      total_count: run.total_count,
+      status: run.status
+    }))
+
+    return { runs, total, limit, page: offset / limit }
+  })
+
+  // Test Run History - Get single run details
+  fastify.get('/api/admin/test-runs/:id', async (req, reply) => {
+    const db = getDb()
+    const { id } = req.params
+
+    const { rows: [runRow] } = await db.query(`
+      SELECT summary_json, details_json
+      FROM test_results
+      WHERE id = $1
+    `, [id])
+
+    if (!runRow) {
+      return reply.code(404).send({ error: 'Test run not found' })
+    }
+
+    try {
+      return normalizeStoredTestPayload(runRow.summary_json, runRow.details_json)
+    } catch {
+      return { summary: null, tests: null }
+    }
+  })
+
   fastify.get('/api/admin/orphans', async () => {
     const db = getDb()
     const categories = await listOrphanCategories(db)

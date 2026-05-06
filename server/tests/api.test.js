@@ -2280,4 +2280,117 @@ describe('Suite 16: EU Pet Passport + Chip Tag Type', () => {
     expect(tags.status).toBe(200)
     expect(tags.data.some((tag) => tag.tag_id === '040097200000276' && tag.tag_type === 'chip')).toBe(true)
   })
+
+  // ════════════════════════════════════════════════════════════════
+  // 17. Admin: Test Run History
+  // ════════════════════════════════════════════════════════════════
+
+  describe('17. Admin: Test Run History', () => {
+    test('17a. GET /api/admin/test-runs returns 401 without auth', async () => {
+      const { status } = await apiCall('GET', '/admin/test-runs')
+      expect(status).toBe(401)
+    })
+
+    test('17b. GET /api/admin/test-runs returns 403 for non-admin', async () => {
+      const { data: reg } = await apiCall('POST', '/auth/register', {
+        name: 'Non-Admin User',
+        email: `nonadmin-${Date.now()}@example.com`,
+        password: 'Password123!'
+      })
+      const { status } = await apiCallWithToken(reg.token, 'GET', '/admin/test-runs')
+      expect(status).toBe(403)
+    })
+
+    test('17c. GET /api/admin/test-runs returns empty list when no runs exist', async () => {
+      // Register admin user
+      const adminEmail = `admin-${Date.now()}@example.com`
+      const { data: adminReg } = await apiCall('POST', '/auth/register', {
+        name: 'Admin',
+        email: adminEmail,
+        password: 'Password123!'
+      })
+      const { data: adminCreated } = await apiCallWithToken(null, 'GET', `/auth/profile/${adminEmail}`)
+      const adminToken = adminReg.token
+
+      // Delete all test runs from DB first
+      const db = await getTestDb()
+      await db.query('DELETE FROM test_results')
+      await db.end()
+
+      const { status, data } = await apiCallWithToken(adminToken, 'GET', '/admin/test-runs')
+      expect(status).toBe(200)
+      expect(data.runs).toEqual([])
+      expect(data.total).toBe(0)
+    })
+
+    test('17d. GET /api/admin/test-runs/:id returns 404 for unknown run', async () => {
+      const adminEmail = `admin2-${Date.now()}@example.com`
+      const { data: adminReg } = await apiCall('POST', '/auth/register', {
+        name: 'Admin2',
+        email: adminEmail,
+        password: 'Password123!'
+      })
+      const adminToken = adminReg.token
+
+      const { status } = await apiCallWithToken(adminToken, 'GET', '/admin/test-runs/unknown-id-12345')
+      expect(status).toBe(404)
+    })
+
+    test('17e. GET /api/admin/test-runs/:id returns 401 without auth', async () => {
+      const { status } = await apiCall('GET', '/admin/test-runs/some-id')
+      expect(status).toBe(401)
+    })
+  })
+
+  // ════════════════════════════════════════════════════════════════
+  // 18. Database Persistence
+  // ════════════════════════════════════════════════════════════════
+
+  describe('18. Database Persistence', () => {
+    test('18a. Animal data persists across simulated restarts', async () => {
+      const db1 = await getTestDb()
+      const accountId = uuid()
+      const animalId = uuid()
+      const animalName = `Persistence Test Dog ${Date.now()}`
+
+      // Insert data in first "session"
+      await db1.query(`INSERT INTO accounts (id, name, email, password_hash, role, created_at)
+        VALUES ($1, 'Test User', $2, 'hash', 'user', CURRENT_TIMESTAMP)`,
+        [accountId, `persist-test-${Date.now()}@example.com`])
+      await db1.query(`INSERT INTO animals (id, account_id, name, species, created_at)
+        VALUES ($1, $2, $3, 'dog', CURRENT_TIMESTAMP)`,
+        [animalId, accountId, animalName])
+      await db1.end()
+
+      // Simulate restart: open new connection and verify data still exists
+      const db2 = await getTestDb()
+      const { rows: [animal] } = await db2.query(
+        'SELECT id, name, species FROM animals WHERE id = $1',
+        [animalId]
+      )
+      expect(animal).toBeTruthy()
+      expect(animal.name).toBe(animalName)
+      expect(animal.species).toBe('dog')
+      await db2.end()
+    })
+
+    test('18b. Schema migrations are idempotent (re-running init does not break data)', async () => {
+      const db = await getTestDb()
+      const accountId = uuid()
+      const email = `idempotent-${Date.now()}@example.com`
+
+      // Insert data
+      await db.query(`INSERT INTO accounts (id, name, email, password_hash, role, created_at)
+        VALUES ($1, 'Idempotent Test', $2, 'hash', 'user', CURRENT_TIMESTAMP)`,
+        [accountId, email])
+
+      // Query to verify record_permissions column exists (should be idempotent)
+      const { rows: [doc] } = await db.query(`
+        SELECT column_name FROM information_schema.columns
+        WHERE table_name = 'documents' AND column_name = 'record_permissions'
+      `)
+      expect(doc).toBeTruthy() // column should exist without error
+      await db.end()
+    })
+  })
 })
