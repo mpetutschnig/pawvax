@@ -191,20 +191,27 @@ deploy_stack() {
   pg_pid_file="$(app_home)/data/postgres/postmaster.pid"
   [ -f "$pg_pid_file" ] && rm -f "$pg_pid_file" && echo "Removed stale PostgreSQL PID file" || true
 
-  # Teardown + wait + create in ONE shell session to avoid inter-call race conditions
+  # Stop each container individually with grace period, then remove pod
+  # This prevents SIGKILL leaving Podman state dirty
   run_as_app "
-    if podman pod exists '$POD_NAME' 2>/dev/null; then
-      podman pod rm -f '$POD_NAME'
-      echo 'Waiting for pod to fully unregister from Podman state...'
-      i=0
-      while podman pod exists '$POD_NAME' 2>/dev/null; do
-        sleep 2; i=\$((i+1))
-        [ \$i -ge 20 ] && { echo 'ERROR: Pod did not disappear in time' >&2; exit 1; }
-      done
+    for c in paw-api paw-pwa paw-caddy paw-postgres; do
+      podman stop --time 15 \$c 2>/dev/null || true
+      podman rm -f \$c 2>/dev/null || true
+    done
+    podman pod rm -f '$POD_NAME' 2>/dev/null || true
+    sleep 2
+  "
+
+  # Retry pod create until Podman state is fully cleared (exists check is unreliable)
+  run_as_app "
+    echo 'Creating pod $POD_NAME...'
+    i=0
+    until podman pod create --name '$POD_NAME' -p '$HTTP_PORT:80' -p '$HTTPS_PORT:443' 2>/dev/null; do
+      i=\$((i+1))
+      [ \$i -ge 15 ] && { echo 'ERROR: Could not create pod after 15 retries' >&2; exit 1; }
+      echo \"Pod name still in use, retrying in 3s (attempt \$i/15)...\"
       sleep 3
-    fi
-    podman pod create --name '$POD_NAME' -p '$HTTP_PORT:80' -p '$HTTPS_PORT:443'
-    podman pod exists '$POD_NAME' || { echo 'Pod creation failed' >&2; exit 1; }
+    done
     echo 'Pod created successfully.'
   "
 
