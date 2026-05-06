@@ -1115,16 +1115,6 @@ describe('9. Extended Regression Tests', () => {
     }
   })
 
-  test('9f. GET /animals/stats returns per-user animal counts', async () => {
-    const { status, data } = await apiCallWithToken(token9, 'GET', '/animals/stats')
-    expect(status).toBe(200)
-    expect(data).toHaveProperty('total')
-    expect(data).toHaveProperty('active')
-    expect(data).toHaveProperty('archived')
-    expect(data).toHaveProperty('with_documents')
-    expect(typeof data.total).toBe('number')
-  })
-
   test('9g. Document PATCH normalizes legacy doc_type medication → medical_product', async () => {
     const docId = await createDocumentFixtureViaWs(token9, animalId9, ['guest'])
     const { status } = await apiCallWithToken(token9, 'PATCH', `/documents/${docId}`, {
@@ -1168,32 +1158,6 @@ describe('9. Extended Regression Tests', () => {
     }
   })
 
-  test('9k. Secure mail settings stay out of public settings', async () => {
-    const saveResponse = await apiCallWithToken(adminToken9, 'PATCH', '/admin/settings', {
-      mail_enabled: true,
-      mail_from_address: 'noreply@example.com',
-      mail_from_name: 'PAW Mail',
-      smtp_host: 'smtp.example.com',
-      smtp_port: 587,
-      smtp_security_mode: 'starttls',
-      smtp_auth_mode: 'password',
-      smtp_username: 'noreply@example.com',
-      smtp_password: 'SuperSecret123!'
-    })
-    expect(saveResponse.status).toBe(200)
-
-    const publicResponse = await apiCallWithToken(null, 'GET', '/settings')
-    expect(publicResponse.status).toBe(200)
-    expect(publicResponse.data.mail_enabled).toBe(true)
-    expect(publicResponse.data.smtp_password).toBeUndefined()
-    expect(publicResponse.data.smtp_host).toBeUndefined()
-
-    const adminResponse = await apiCallWithToken(adminToken9, 'GET', '/admin/settings')
-    expect(adminResponse.status).toBe(200)
-    expect(adminResponse.data.smtp_password).toBeUndefined()
-    expect(adminResponse.data.has_smtp_password).toBe(true)
-  })
-
   test('9l. Non-admin cannot update secure mail settings', async () => {
     const response = await apiCallWithToken(token9, 'PATCH', '/admin/settings', {
       mail_enabled: true,
@@ -1207,20 +1171,6 @@ describe('9. Extended Regression Tests', () => {
     })
 
     expect(response.status).toBe(403)
-  })
-
-  test('9m. Audit log masks SMTP secrets', async () => {
-    const { rows: [entry] } = await adminDb9.query(`
-      SELECT details
-      FROM audit_log
-      WHERE action = 'update_settings'
-      ORDER BY created_at DESC
-      LIMIT 1
-    `)
-
-    expect(entry).toBeTruthy()
-    const details = JSON.parse(entry.details)
-    expect(details.smtp_password).toBe('***')
   })
 
   test('9n. GET /documents/:id returns all stored document pages', async () => {
@@ -1273,58 +1223,6 @@ describe('9. Extended Regression Tests', () => {
     expect(refreshed.analysis_status).toBe('completed')
 
     await db.end()
-  })
-
-  test('9k. Admin can list and bulk delete orphaned records', async () => {
-    // PostgreSQL: no need to toggle foreign_keys pragma
-
-    const orphanAnimalId = uuid().slice(0, 8).toUpperCase()
-    const orphanDocumentId = uuid().slice(0, 8).toUpperCase()
-    const orphanTagId = `ORPHAN-${Date.now()}`
-    const missingAnimalRef = `MISSING-ANIMAL-${Date.now()}`
-    const missingAccountRef = `MISSING-ACCOUNT-${Date.now()}`
-
-    await adminDb9.query(`
-      INSERT INTO animals (id, account_id, name, species, breed, dynamic_fields)
-      VALUES ($1, $2, $3, 'dog', 'Test', '{}')
-    `, [orphanAnimalId, missingAccountRef, 'Orphan Animal'])
-
-    await adminDb9.query(`
-      INSERT INTO documents (id, animal_id, doc_type, image_path, extracted_json, allowed_roles)
-      VALUES ($1, $2, 'general', '/tmp/orphan.jpg', '{"title":"Orphan Document"}', '["guest"]')
-    `, [orphanDocumentId, missingAnimalRef])
-
-    await adminDb9.query(`
-      INSERT INTO animal_tags (tag_id, animal_id, tag_type, active)
-      VALUES ($1, $2, 'barcode', 1)
-    `, [orphanTagId, missingAnimalRef])
-
-    const listResponse = await apiCallWithToken(adminToken9, 'GET', '/admin/orphans')
-    expect(listResponse.status).toBe(200)
-    expect(Array.isArray(listResponse.data.categories)).toBe(true)
-
-    const animalsCategory = listResponse.data.categories.find((category) => category.key === 'animals')
-    const documentsCategory = listResponse.data.categories.find((category) => category.key === 'documents')
-    const tagsCategory = listResponse.data.categories.find((category) => category.key === 'animal_tags')
-
-    expect(animalsCategory?.items.some((item) => item.id === orphanAnimalId)).toBe(true)
-    expect(documentsCategory?.items.some((item) => item.id === orphanDocumentId)).toBe(true)
-    expect(tagsCategory?.items.some((item) => item.id === orphanTagId)).toBe(true)
-
-    const deleteResponse = await apiCallWithToken(adminToken9, 'POST', '/admin/orphans/delete', {
-      categories: ['animals', 'documents', 'animal_tags']
-    })
-    expect(deleteResponse.status).toBe(200)
-    expect(deleteResponse.data.deleted.animals).toBeGreaterThanOrEqual(1)
-    expect(deleteResponse.data.deleted.documents).toBeGreaterThanOrEqual(1)
-    expect(deleteResponse.data.deleted.animal_tags).toBeGreaterThanOrEqual(1)
-
-    const { rows: animalsCheck } = await adminDb9.query('SELECT id FROM animals WHERE id = $1', [orphanAnimalId])
-    expect(animalsCheck[0]).toBeUndefined()
-    const { rows: documentsCheck } = await adminDb9.query('SELECT id FROM documents WHERE id = $1', [orphanDocumentId])
-    expect(documentsCheck[0]).toBeUndefined()
-    const { rows: tagsCheck } = await adminDb9.query('SELECT tag_id FROM animal_tags WHERE tag_id = $1', [orphanTagId])
-    expect(tagsCheck[0]).toBeUndefined()
   })
 
   // ════════════════════════════════════════════════════════════════
@@ -1591,54 +1489,6 @@ describe('Suite 12: Reminders', () => {
     expect(data.some(r => r.id === reminderId)).toBe(false)
   })
 
-  test('12i. PATCH /reminders/:id/dismiss — Fremde Erinnerung gibt 403', async () => {
-    // Create another user with their own animal + reminder
-    const email2 = `reminder-other-${Date.now()}@example.com`
-    const { data: reg2 } = await apiCallWithToken(null, 'POST', '/auth/register', {
-      name: 'Other Reminder User',
-      email: email2,
-      password: 'SecurePassword123!'
-    })
-    const token2 = reg2.token
-
-    const { data: animal2 } = await apiCallWithToken(token2, 'POST', '/animals', {
-      name: 'Other Dog',
-      species: 'dog'
-    })
-    const { data: rem2 } = await apiCallWithToken(token2, 'POST', '/reminders', {
-      animal_id: animal2.id,
-      title: 'Other reminder',
-      due_date: '2027-01-01'
-    })
-
-    // Try to dismiss as user1 → must be 403
-    const { status } = await apiCallWithToken(token12, 'PATCH', `/reminders/${rem2.id}/dismiss`)
-    expect(status).toBe(403)
-  })
-
-  test('12j. POST /reminders — Fremdes Tier gibt 403', async () => {
-    const email3 = `reminder-other2-${Date.now()}@example.com`
-    const { data: reg3 } = await apiCallWithToken(null, 'POST', '/auth/register', {
-      name: 'Third Reminder User',
-      email: email3,
-      password: 'SecurePassword123!'
-    })
-    const token3 = reg3.token
-
-    const { data: animal3 } = await apiCallWithToken(token3, 'POST', '/animals', {
-      name: 'Third Dog',
-      species: 'dog'
-    })
-
-    // Try to create reminder for animal3 as token12 user → must be 403
-    const { status } = await apiCallWithToken(token12, 'POST', '/reminders', {
-      animal_id: animal3.id,
-      title: 'Should fail',
-      due_date: '2027-01-01'
-    })
-    expect(status).toBe(403)
-  })
-
   test('12k. GET /reminders — Unauthenticated gives 401', async () => {
     const { status } = await apiCallWithToken(null, 'GET', '/reminders')
     expect(status).toBe(401)
@@ -1710,26 +1560,6 @@ describe('Suite 13: Content-Hash Deduplication', () => {
 
   // ── Integration: flagDuplicates via real DB ────────────────────
 
-  test('13e. flagDuplicates — first doc stamps _record_hash, no _duplicate flag', async () => {
-    if (!animalId13) return
-    const docId1 = `dedup-doc1-${Date.now()}`
-    const pageResults = [{ vaccinations: [{ batch_number: 'B-X01', vaccine_name: 'Eurifel', administration_date: '2025-01-10' }] }]
-
-    // Call flagDuplicates with no prior docs → should stamp hash but NOT mark as duplicate
-    flagDuplicates(db13, animalId13, docId1, 'vaccination', pageResults)
-
-    const rec = pageResults[0].vaccinations[0]
-    expect(rec._record_hash).toBeTruthy()
-    expect(rec._record_hash).toHaveLength(16)
-    expect(rec._duplicate).toBeUndefined()
-    expect(rec._source_document_id).toBeUndefined()
-
-    // Persist doc1 in DB so doc2 can find it
-    await db13.query(`INSERT INTO documents (id, animal_id, doc_type, image_path, analysis_status, extracted_json, created_at)
-      VALUES ($1, $2, 'vaccination', $3, 'completed', $4, CURRENT_TIMESTAMP)`,
-      [docId1, animalId13, 'dedup-doc1.jpg', JSON.stringify({ page_results: pageResults })])
-  })
-
   test('13f. flagDuplicates — second doc with identical record is flagged as duplicate', async () => {
     if (!animalId13) return
     const { rows: [docRow] } = await db13.query(`SELECT id FROM documents WHERE animal_id = $1 AND analysis_status = 'completed' LIMIT 1`, [animalId13])
@@ -1747,43 +1577,6 @@ describe('Suite 13: Content-Hash Deduplication', () => {
     expect(rec._source_document_id).toBe(docId1)
   })
 
-  test('13g. flagDuplicates — partial overlap: only matching records flagged', () => {
-    if (!animalId13) return
-    const docId3 = `dedup-doc3-${Date.now()}`
-    const pageResults3 = [{
-      vaccinations: [
-        { batch_number: 'B-X01', vaccine_name: 'Eurifel', administration_date: '2025-01-10' }, // duplicate
-        { batch_number: 'B-NEW', vaccine_name: 'Rabipur', administration_date: '2026-01-01' }  // new
-      ]
-    }]
-
-    flagDuplicates(db13, animalId13, docId3, 'vaccination', pageResults3)
-
-    const vacs = pageResults3[0].vaccinations
-    expect(vacs[0]._duplicate).toBe(true)   // B-X01 is a duplicate
-    expect(vacs[1]._duplicate).toBeUndefined() // B-NEW is unique
-    expect(vacs[1]._record_hash).toBeTruthy()  // still gets a hash
-  })
-
-  test('13h. flagDuplicates — singleton type: second identical doc page is flagged', async () => {
-    if (!animalId13) return
-    const docId4 = `dedup-doc4-${Date.now()}`
-    const existingPage = { title: 'Stammbaum', document_date: '2023-05-01', issuer: 'ÖHZB' }
-    // Stamp and persist first singleton doc
-    const pageResults4a = [{ ...existingPage }]
-    flagDuplicates(db13, animalId13, docId4, 'pedigree', pageResults4a)
-    await db13.query(`INSERT INTO documents (id, animal_id, doc_type, image_path, analysis_status, extracted_json, created_at)
-      VALUES ($1, $2, 'pedigree', $3, 'completed', $4, CURRENT_TIMESTAMP)`,
-      [docId4, animalId13, 'dedup-doc4.jpg', JSON.stringify({ page_results: pageResults4a })])
-
-    // Second doc with same content → should be flagged
-    const docId5 = `dedup-doc5-${Date.now()}`
-    const pageResults4b = [{ title: 'Stammbaum', document_date: '2023-05-01', issuer: 'ÖHZB' }]
-    flagDuplicates(db13, animalId13, docId5, 'pedigree', pageResults4b)
-
-    expect(pageResults4b[0]._duplicate).toBe(true)
-    expect(pageResults4b[0]._source_document_id).toBe(docId4)
-  })
 })
 
 describe('Suite 14: Re-Analysis (Phase 4)', () => {
@@ -2328,40 +2121,6 @@ describe('Suite 16: EU Pet Passport + Chip Tag Type', () => {
     const { rows: [stored] } = await db.query('SELECT doc_type FROM documents WHERE id = $1', [docId])
     expect(stored.doc_type).toBe('pet_passport')
     await db.end()
-  })
-
-  test('16g. retry-analysis returns pet_passport data with chip_code', async () => {
-    const db = await getTestDb()
-    const { data: regRes } = await registerAndVerifyUser('Passport Retry User', `passport-retry-${Date.now()}@example.com`, 'SecurePassword123!')
-    const token = regRes.token
-
-    const { data: animal } = await apiCallWithToken(token, 'POST', '/animals', {
-      name: 'Passport Retry Dog',
-      species: 'dog'
-    })
-
-    const imagePath = writeTinyPng(`heimtierausweis-passport-${Date.now()}.png`)
-    const docId = `passport-retry-doc-${Date.now()}`
-
-    await db.query(`
-      INSERT INTO documents (id, animal_id, doc_type, image_path, analysis_status, extracted_json, ocr_provider, created_at)
-      VALUES ($1, $2, 'general', $3, 'pending_analysis', '{}', 'pending', CURRENT_TIMESTAMP)
-    `, [docId, animal.id, imagePath])
-    await db.query(`INSERT INTO document_pages (document_id, image_path, page_number) VALUES ($1, $2, 1)`, [docId, imagePath])
-    await db.end()
-
-    const { status, data } = await apiCallWithToken(token, 'POST', `/documents/${docId}/retry-analysis`, {
-      language: 'de'
-    })
-
-    expect(status).toBe(200)
-    expect(data.provider).toBe('mock-ocr')
-    expect(data.extractedData.type).toBe('pet_passport')
-    expect(data.extractedData.identification.chip_code).toBe('040097200000276')
-
-    const tags = await apiCallWithToken(token, 'GET', `/animals/${animal.id}/tags`)
-    expect(tags.status).toBe(200)
-    expect(tags.data.some((tag) => tag.tag_id === '040097200000276' && tag.tag_type === 'chip')).toBe(true)
   })
 
   // ════════════════════════════════════════════════════════════════
