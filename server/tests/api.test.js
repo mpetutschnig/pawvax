@@ -510,24 +510,11 @@ describe('PAWvax API Tests', () => {
     let documentId
 
     beforeAll(async () => {
-      const ownerEmail = `doc-owner-${Date.now()}@example.com`
-      const foreignEmail = `doc-foreign-${Date.now()}@example.com`
+      const { data: ownerRegRes } = await registerAndVerifyUser(`doc-owner-${Date.now()}@example.com`, 'Doc Owner', 'SecurePassword123!')
+      ownerToken = ownerRegRes.token
 
-      const ownerReg = await apiCallWithToken(null, 'POST', '/auth/register', {
-        name: 'Doc Owner',
-        email: ownerEmail,
-        password: 'SecurePassword123!'
-      })
-      expect(ownerReg.status).toBe(201)
-      ownerToken = ownerReg.data.token
-
-      const foreignReg = await apiCallWithToken(null, 'POST', '/auth/register', {
-        name: 'Doc Foreign',
-        email: foreignEmail,
-        password: 'SecurePassword123!'
-      })
-      expect(foreignReg.status).toBe(201)
-      foreignToken = foreignReg.data.token
+      const { data: foreignRegRes } = await registerAndVerifyUser(`doc-foreign-${Date.now()}@example.com`, 'Doc Foreign', 'SecurePassword123!')
+      foreignToken = foreignRegRes.token
 
       const ownerAnimal = await apiCallWithToken(ownerToken, 'POST', '/animals', {
         name: 'Doc Animal',
