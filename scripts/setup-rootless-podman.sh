@@ -120,9 +120,9 @@ prepare_proxy_assets() {
   chmod 755 "$app_home_dir/.cache" "$app_home_dir/.local" "$app_home_dir/.local/share"
 
   # Create directories with proper ownership
-  mkdir -p "$app_home_dir/data/proxy/ssl" "$app_home_dir/data/pwa" "$app_home_dir/data/caddy"
-  chown -R "$APP_USER:$APP_USER" "$app_home_dir/data/proxy" "$app_home_dir/data/pwa" "$app_home_dir/data/caddy"
-  chmod 755 "$app_home_dir/data/proxy" "$app_home_dir/data/proxy/ssl" "$app_home_dir/data/pwa" "$app_home_dir/data/caddy"
+  mkdir -p "$app_home_dir/data/proxy/ssl" "$app_home_dir/data/pwa" "$app_home_dir/data/caddy" "$app_home_dir/data/caddy-data"
+  chown -R "$APP_USER:$APP_USER" "$app_home_dir/data/proxy" "$app_home_dir/data/pwa" "$app_home_dir/data/caddy" "$app_home_dir/data/caddy-data"
+  chmod 755 "$app_home_dir/data/proxy" "$app_home_dir/data/proxy/ssl" "$app_home_dir/data/pwa" "$app_home_dir/data/caddy" "$app_home_dir/data/caddy-data"
 
   # Copy config files with proper ownership
   cp "$REPO_DIR/podman/proxy.nginx.conf" "$app_home_dir/data/proxy/default.conf"
@@ -226,6 +226,7 @@ deploy_stack() {
 
   run_as_app "podman run -d --replace --name paw-caddy --pod '$POD_NAME' \
     -v '$app_home_dir/data/caddy/Caddyfile:/etc/caddy/Caddyfile:ro' \
+    -v '$app_home_dir/data/caddy-data:/root/.local/share/caddy:Z' \
     localhost/paw-caddy:latest"
 
   run_as_app "rm -f '$app_home_dir/.config/systemd/user/'*.service"
