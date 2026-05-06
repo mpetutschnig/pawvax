@@ -510,7 +510,7 @@ describe('PAWvax API Tests', () => {
     let documentId
 
     beforeAll(async () => {
-      const { data: ownerRegRes } = await registerAndVerifyUser(`doc-owner-${Date.now()}@example.com`, 'Doc Owner', 'SecurePassword123!')
+      const { data: ownerRegRes } = await registerAndVerifyUser('Doc Owner', `doc-owner-${Date.now()}@example.com`, 'SecurePassword123!')
       ownerToken = ownerRegRes.token
 
       const { data: foreignRegRes } = await registerAndVerifyUser(`doc-foreign-${Date.now()}@example.com`, 'Doc Foreign', 'SecurePassword123!')
