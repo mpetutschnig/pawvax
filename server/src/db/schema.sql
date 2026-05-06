@@ -56,6 +56,7 @@ CREATE TABLE IF NOT EXISTS documents (
   added_by_account TEXT,
   allowed_roles  TEXT DEFAULT '["vet", "authority", "guest"]',
   record_permissions TEXT DEFAULT NULL,
+  share_image_with_guest INTEGER NOT NULL DEFAULT 0,
   created_at     TEXT DEFAULT (CURRENT_TIMESTAMP),
   analysis_status TEXT DEFAULT 'pending_analysis'
 );

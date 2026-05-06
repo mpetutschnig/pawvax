@@ -259,7 +259,7 @@ export default async function documentRoutes(fastify) {
   fastify.patch('/api/documents/:id', async (req, reply) => {
     const db = getDb()
     const { accountId, role } = req.user
-    const { allowed_roles, extracted_json, doc_type } = req.body
+    const { allowed_roles, extracted_json, doc_type, share_image_with_guest } = req.body
 
     const { rows: [doc] } = await db.query(`
       SELECT d.*, a.account_id AS owner_id, uploader.name AS added_by_name, uploader.verified AS added_by_verified FROM documents d
@@ -301,6 +301,14 @@ export default async function documentRoutes(fastify) {
       await db.query('UPDATE documents SET doc_type = $1 WHERE id = $2', [normalizedDocType, doc.id])
       await logAudit(db, { accountId, role, action: 'update_document_type', resource: 'document', resourceId: doc.id,
         details: { doc_type: normalizedDocType }, ip: req.ip })
+    }
+
+    if (share_image_with_guest !== undefined) {
+      if (!isOwner) return reply.code(403).send({ error: 'Nur der Besitzer kann die Bildfreigabe ändern' })
+      const value = share_image_with_guest ? 1 : 0
+      await db.query('UPDATE documents SET share_image_with_guest = $1 WHERE id = $2', [value, doc.id])
+      await logAudit(db, { accountId, role, action: 'update_document_image_sharing', resource: 'document', resourceId: doc.id,
+        details: { share_image_with_guest: value }, ip: req.ip })
     }
 
     return { success: true }

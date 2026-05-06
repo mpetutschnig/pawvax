@@ -1,10 +1,10 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { getAnimal, getAnimalDocuments, getAnimalTags, updateAnimal, deleteAnimal, uploadAnimalAvatar, deleteDocument, getMe, patchDocumentRecord, addVaccination, addTreatment } from '../api/rest'
+import { getAnimal, getAnimalDocuments, getAnimalTags, updateAnimal, deleteAnimal, uploadAnimalAvatar, deleteDocument, getMe, patchDocumentRecord, patchDocument, addVaccination, addTreatment } from '../api/rest'
 import { PageHeader } from '../components/PageHeader' 
 import { DocumentAnalysisForm } from '../components/DocumentAnalysisForm'
-import { PawPrint, Cat, Edit2, Trash2, Camera, Search, Radio, ShieldAlert, AlertTriangle, RefreshCw, X, Syringe, FileText, CheckCircle, ArrowDownAZ, ArrowUpAZ, SlidersHorizontal, ArrowRightLeft, Share2, Plus, Pill, ChevronDown, ChevronUp } from 'lucide-react'
+import { PawPrint, Cat, Edit2, Trash2, Camera, Search, Radio, ShieldAlert, AlertTriangle, RefreshCw, X, Syringe, FileText, CheckCircle, ArrowDownAZ, ArrowUpAZ, SlidersHorizontal, ArrowRightLeft, Share2, Plus, Pill, ChevronDown, ChevronUp, Landmark, Award, GraduationCap } from 'lucide-react'
 import { AnimalDTO } from '../types/animal'
 import { normalizeVaccinationRecord } from '../utils/vaccination'
 import { DEFAULT_AVAILABLE_MODELS, DEFAULT_MODEL_BY_PROVIDER, DOCUMENT_TYPE_PLACEHOLDER, type DocumentTypeSelectValue } from '../utils/documentAnalysis'
@@ -626,6 +626,40 @@ export default function AnimalPage() {
     })
     .sort((a, b) => String(b.administeredAt || '').localeCompare(String(a.administeredAt || '')))
 
+  // Helfer: Parse allowed_roles eines Dokuments
+  const getDocumentRoles = (doc: any): string[] => {
+    try {
+      return Array.isArray(doc.allowed_roles) ? doc.allowed_roles : JSON.parse(doc.allowed_roles || '["vet","authority","guest"]')
+    } catch {
+      return ['vet', 'authority', 'guest']
+    }
+  }
+
+  // Handler für Dokumentebenen-Rollen (nicht Record-Ebene)
+  const handleToggleDocumentRole = async (docId: string, currentRoles: string[], roleToToggle: string) => {
+    const newRoles = currentRoles.includes(roleToToggle)
+      ? currentRoles.filter(r => r !== roleToToggle)
+      : [...currentRoles, roleToToggle]
+    setUpdatingRecord(`${docId}-doc`)
+    try {
+      await patchDocument(docId, { allowed_roles: newRoles })
+      setDocuments(prev =>
+        prev.map(d =>
+          d.id === docId ? { ...d, allowed_roles: JSON.stringify(newRoles) } : d
+        )
+      )
+    } catch { /* silent */ } finally {
+      setUpdatingRecord(null)
+    }
+  }
+
+  // Datenaggregation für alle anderen Dokumenttypen
+  const petPassportDocs = documents.filter(d => d.analysis_status !== 'pending_analysis' && d.doc_type === 'pet_passport')
+  const medicalProductDocs = documents.filter(d => d.analysis_status !== 'pending_analysis' && d.doc_type === 'medical_product')
+  const pedigreeDocs = documents.filter(d => d.analysis_status !== 'pending_analysis' && d.doc_type === 'pedigree')
+  const dogCertificateDocs = documents.filter(d => d.analysis_status !== 'pending_analysis' && d.doc_type === 'dog_certificate')
+  const generalDocs = documents.filter(d => d.analysis_status !== 'pending_analysis' && d.doc_type === 'general')
+
   return (
     <div className="container page">
       <PageHeader title={animal.name} backTo="/animals" showThemeToggle />
@@ -1169,6 +1203,361 @@ export default function AnimalPage() {
                   </table>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Pet Passport Table */}
+          {petPassportDocs.length > 0 && (
+            <div className="card" style={{ marginBottom: 'var(--space-4)', overflow: 'hidden' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
+                <Landmark size={18} color="var(--info-600)" />
+                <h3 style={{ margin: 0 }}>Heimtierausweis</h3>
+                <span className="badge">{petPassportDocs.length}</span>
+              </div>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)', minWidth: 0 }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                      <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) 0', whiteSpace: 'nowrap' }}>Titel</th>
+                      <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Reisepass-Nr.</th>
+                      <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Abschnitt</th>
+                      <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Chip-Nr.</th>
+                      <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Datum</th>
+                      {isOwner && <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Rollen</th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {petPassportDocs.map((doc) => {
+                      const docRoles = getDocumentRoles(doc)
+                      const isExpanded = expandedRecord === doc.id
+                      const extracted = doc.extracted_json || {}
+                      return (
+                        <>
+                          <tr key={doc.id} style={{ borderBottom: isExpanded ? 'none' : '1px solid var(--border-subtle)', cursor: isOwner ? 'pointer' : undefined }} onClick={isOwner ? () => setExpandedRecord(isExpanded ? null : doc.id) : undefined}>
+                            <td style={{ padding: 'var(--space-2) 0' }}>
+                              <Link to={`/animals/${id}/documents/${doc.id}`} style={{ color: 'var(--text-primary)', textDecoration: 'none', fontWeight: 600 }} onClick={e => e.stopPropagation()}>
+                                {extracted.title || 'Heimtierausweis'}
+                              </Link>
+                            </td>
+                            <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{extracted.passport_number || '—'}</td>
+                            <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{extracted.section_type || '—'}</td>
+                            <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{extracted.identification?.chip_code || '—'}</td>
+                            <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{extracted.document_date || new Date(doc.created_at).toLocaleDateString(i18n.language === 'de' ? 'de-AT' : 'en-GB')}</td>
+                            {isOwner && (
+                              <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>
+                                <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                                  {['guest', 'vet', 'authority'].map(r => (
+                                    <span key={r} style={{ fontSize: 10, padding: '1px 6px', borderRadius: 99, border: '1px solid', borderColor: docRoles.includes(r) ? 'var(--info-500)' : 'var(--border)', background: docRoles.includes(r) ? 'var(--info-50)' : 'transparent', color: docRoles.includes(r) ? 'var(--info-700)' : 'var(--text-tertiary)' }}>{r}</span>
+                                  ))}
+                                  {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                                </div>
+                              </td>
+                            )}
+                          </tr>
+                          {isOwner && isExpanded && (
+                            <tr key={`${doc.id}-expand`} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                              <td colSpan={6} style={{ padding: 'var(--space-1) 0 var(--space-2) 0' }}>
+                                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                                  <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Freigabe:</span>
+                                  {(['guest', 'vet', 'authority'] as const).map(r => (
+                                    <label key={r} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 'var(--font-size-xs)', cursor: 'pointer' }}>
+                                      <input type="checkbox" checked={docRoles.includes(r)} disabled={updatingRecord === `${doc.id}-doc`}
+                                        onChange={() => handleToggleDocumentRole(doc.id, docRoles, r)} />
+                                      {r}
+                                    </label>
+                                  ))}
+                                  {updatingRecord === `${doc.id}-doc` && <div className="spinner" style={{ width: 12, height: 12, borderWidth: 1 }} />}
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Medical Product Table */}
+          {medicalProductDocs.length > 0 && (
+            <div className="card" style={{ marginBottom: 'var(--space-4)', overflow: 'hidden' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
+                <Pill size={18} color="var(--warning-600)" />
+                <h3 style={{ margin: 0 }}>Medizinische Produkte</h3>
+                <span className="badge">{medicalProductDocs.length}</span>
+              </div>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)', minWidth: 0 }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                      <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) 0', whiteSpace: 'nowrap' }}>Produkt</th>
+                      <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Wirkstoff</th>
+                      <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Charge</th>
+                      <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Datum</th>
+                      {isOwner && <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Rollen</th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {medicalProductDocs.map((doc) => {
+                      const docRoles = getDocumentRoles(doc)
+                      const isExpanded = expandedRecord === doc.id
+                      const extracted = doc.extracted_json || {}
+                      return (
+                        <>
+                          <tr key={doc.id} style={{ borderBottom: isExpanded ? 'none' : '1px solid var(--border-subtle)', cursor: isOwner ? 'pointer' : undefined }} onClick={isOwner ? () => setExpandedRecord(isExpanded ? null : doc.id) : undefined}>
+                            <td style={{ padding: 'var(--space-2) 0' }}>
+                              <Link to={`/animals/${id}/documents/${doc.id}`} style={{ color: 'var(--text-primary)', textDecoration: 'none', fontWeight: 600 }} onClick={e => e.stopPropagation()}>
+                                {extracted.title || 'Medizinisches Produkt'}
+                              </Link>
+                            </td>
+                            <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{extracted.active_ingredient || '—'}</td>
+                            <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{extracted.batch_number || '—'}</td>
+                            <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{extracted.document_date || new Date(doc.created_at).toLocaleDateString(i18n.language === 'de' ? 'de-AT' : 'en-GB')}</td>
+                            {isOwner && (
+                              <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>
+                                <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                                  {['guest', 'vet', 'authority'].map(r => (
+                                    <span key={r} style={{ fontSize: 10, padding: '1px 6px', borderRadius: 99, border: '1px solid', borderColor: docRoles.includes(r) ? 'var(--warning-500)' : 'var(--border)', background: docRoles.includes(r) ? 'oklch(97% 0.08 70)' : 'transparent', color: docRoles.includes(r) ? 'var(--warning-700)' : 'var(--text-tertiary)' }}>{r}</span>
+                                  ))}
+                                  {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                                </div>
+                              </td>
+                            )}
+                          </tr>
+                          {isOwner && isExpanded && (
+                            <tr key={`${doc.id}-expand`} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                              <td colSpan={5} style={{ padding: 'var(--space-1) 0 var(--space-2) 0' }}>
+                                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                                  <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Freigabe:</span>
+                                  {(['guest', 'vet', 'authority'] as const).map(r => (
+                                    <label key={r} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 'var(--font-size-xs)', cursor: 'pointer' }}>
+                                      <input type="checkbox" checked={docRoles.includes(r)} disabled={updatingRecord === `${doc.id}-doc`}
+                                        onChange={() => handleToggleDocumentRole(doc.id, docRoles, r)} />
+                                      {r}
+                                    </label>
+                                  ))}
+                                  {updatingRecord === `${doc.id}-doc` && <div className="spinner" style={{ width: 12, height: 12, borderWidth: 1 }} />}
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Pedigree Table */}
+          {pedigreeDocs.length > 0 && (
+            <div className="card" style={{ marginBottom: 'var(--space-4)', overflow: 'hidden' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
+                <Award size={18} color="var(--primary-600)" />
+                <h3 style={{ margin: 0 }}>Stammbaum</h3>
+                <span className="badge">{pedigreeDocs.length}</span>
+              </div>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)', minWidth: 0 }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                      <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) 0', whiteSpace: 'nowrap' }}>Titel</th>
+                      <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Datum</th>
+                      {isOwner && <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Rollen</th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pedigreeDocs.map((doc) => {
+                      const docRoles = getDocumentRoles(doc)
+                      const isExpanded = expandedRecord === doc.id
+                      const extracted = doc.extracted_json || {}
+                      return (
+                        <>
+                          <tr key={doc.id} style={{ borderBottom: isExpanded ? 'none' : '1px solid var(--border-subtle)', cursor: isOwner ? 'pointer' : undefined }} onClick={isOwner ? () => setExpandedRecord(isExpanded ? null : doc.id) : undefined}>
+                            <td style={{ padding: 'var(--space-2) 0' }}>
+                              <Link to={`/animals/${id}/documents/${doc.id}`} style={{ color: 'var(--text-primary)', textDecoration: 'none', fontWeight: 600 }} onClick={e => e.stopPropagation()}>
+                                {extracted.title || 'Stammbaum'}
+                              </Link>
+                            </td>
+                            <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{extracted.document_date || new Date(doc.created_at).toLocaleDateString(i18n.language === 'de' ? 'de-AT' : 'en-GB')}</td>
+                            {isOwner && (
+                              <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>
+                                <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                                  {['guest', 'vet', 'authority'].map(r => (
+                                    <span key={r} style={{ fontSize: 10, padding: '1px 6px', borderRadius: 99, border: '1px solid', borderColor: docRoles.includes(r) ? 'var(--primary-500)' : 'var(--border)', background: docRoles.includes(r) ? 'var(--primary-50)' : 'transparent', color: docRoles.includes(r) ? 'var(--primary-700)' : 'var(--text-tertiary)' }}>{r}</span>
+                                  ))}
+                                  {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                                </div>
+                              </td>
+                            )}
+                          </tr>
+                          {isOwner && isExpanded && (
+                            <tr key={`${doc.id}-expand`} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                              <td colSpan={3} style={{ padding: 'var(--space-1) 0 var(--space-2) 0' }}>
+                                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                                  <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Freigabe:</span>
+                                  {(['guest', 'vet', 'authority'] as const).map(r => (
+                                    <label key={r} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 'var(--font-size-xs)', cursor: 'pointer' }}>
+                                      <input type="checkbox" checked={docRoles.includes(r)} disabled={updatingRecord === `${doc.id}-doc`}
+                                        onChange={() => handleToggleDocumentRole(doc.id, docRoles, r)} />
+                                      {r}
+                                    </label>
+                                  ))}
+                                  {updatingRecord === `${doc.id}-doc` && <div className="spinner" style={{ width: 12, height: 12, borderWidth: 1 }} />}
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Dog Certificate Table */}
+          {dogCertificateDocs.length > 0 && (
+            <div className="card" style={{ marginBottom: 'var(--space-4)', overflow: 'hidden' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
+                <GraduationCap size={18} color="var(--success-600)" />
+                <h3 style={{ margin: 0 }}>Hundeführerschein</h3>
+                <span className="badge">{dogCertificateDocs.length}</span>
+              </div>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)', minWidth: 0 }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                      <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) 0', whiteSpace: 'nowrap' }}>Titel</th>
+                      <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Ergebnis</th>
+                      <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Datum</th>
+                      {isOwner && <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Rollen</th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dogCertificateDocs.map((doc) => {
+                      const docRoles = getDocumentRoles(doc)
+                      const isExpanded = expandedRecord === doc.id
+                      const extracted = doc.extracted_json || {}
+                      return (
+                        <>
+                          <tr key={doc.id} style={{ borderBottom: isExpanded ? 'none' : '1px solid var(--border-subtle)', cursor: isOwner ? 'pointer' : undefined }} onClick={isOwner ? () => setExpandedRecord(isExpanded ? null : doc.id) : undefined}>
+                            <td style={{ padding: 'var(--space-2) 0' }}>
+                              <Link to={`/animals/${id}/documents/${doc.id}`} style={{ color: 'var(--text-primary)', textDecoration: 'none', fontWeight: 600 }} onClick={e => e.stopPropagation()}>
+                                {extracted.title || 'Hundeführerschein'}
+                              </Link>
+                            </td>
+                            <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{extracted.result || '—'}</td>
+                            <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{extracted.exam_date || extracted.document_date || new Date(doc.created_at).toLocaleDateString(i18n.language === 'de' ? 'de-AT' : 'en-GB')}</td>
+                            {isOwner && (
+                              <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>
+                                <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                                  {['guest', 'vet', 'authority'].map(r => (
+                                    <span key={r} style={{ fontSize: 10, padding: '1px 6px', borderRadius: 99, border: '1px solid', borderColor: docRoles.includes(r) ? 'var(--success-500)' : 'var(--border)', background: docRoles.includes(r) ? 'oklch(97% 0.05 145)' : 'transparent', color: docRoles.includes(r) ? 'var(--success-700)' : 'var(--text-tertiary)' }}>{r}</span>
+                                  ))}
+                                  {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                                </div>
+                              </td>
+                            )}
+                          </tr>
+                          {isOwner && isExpanded && (
+                            <tr key={`${doc.id}-expand`} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                              <td colSpan={4} style={{ padding: 'var(--space-1) 0 var(--space-2) 0' }}>
+                                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                                  <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Freigabe:</span>
+                                  {(['guest', 'vet', 'authority'] as const).map(r => (
+                                    <label key={r} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 'var(--font-size-xs)', cursor: 'pointer' }}>
+                                      <input type="checkbox" checked={docRoles.includes(r)} disabled={updatingRecord === `${doc.id}-doc`}
+                                        onChange={() => handleToggleDocumentRole(doc.id, docRoles, r)} />
+                                      {r}
+                                    </label>
+                                  ))}
+                                  {updatingRecord === `${doc.id}-doc` && <div className="spinner" style={{ width: 12, height: 12, borderWidth: 1 }} />}
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* General Document Table */}
+          {generalDocs.length > 0 && (
+            <div className="card" style={{ marginBottom: 'var(--space-4)', overflow: 'hidden' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
+                <FileText size={18} color="var(--text-secondary)" />
+                <h3 style={{ margin: 0 }}>Sonstige Dokumente</h3>
+                <span className="badge">{generalDocs.length}</span>
+              </div>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)', minWidth: 0 }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                      <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) 0', whiteSpace: 'nowrap' }}>Titel</th>
+                      <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Zusammenfassung</th>
+                      <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Datum</th>
+                      {isOwner && <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Rollen</th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {generalDocs.map((doc) => {
+                      const docRoles = getDocumentRoles(doc)
+                      const isExpanded = expandedRecord === doc.id
+                      const extracted = doc.extracted_json || {}
+                      const summary = extracted.summary || ''
+                      return (
+                        <>
+                          <tr key={doc.id} style={{ borderBottom: isExpanded ? 'none' : '1px solid var(--border-subtle)', cursor: isOwner ? 'pointer' : undefined }} onClick={isOwner ? () => setExpandedRecord(isExpanded ? null : doc.id) : undefined}>
+                            <td style={{ padding: 'var(--space-2) 0' }}>
+                              <Link to={`/animals/${id}/documents/${doc.id}`} style={{ color: 'var(--text-primary)', textDecoration: 'none', fontWeight: 600 }} onClick={e => e.stopPropagation()}>
+                                {extracted.title || 'Dokument'}
+                              </Link>
+                            </td>
+                            <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '300px' }}>{summary || '—'}</td>
+                            <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{extracted.document_date || new Date(doc.created_at).toLocaleDateString(i18n.language === 'de' ? 'de-AT' : 'en-GB')}</td>
+                            {isOwner && (
+                              <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>
+                                <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                                  {['guest', 'vet', 'authority'].map(r => (
+                                    <span key={r} style={{ fontSize: 10, padding: '1px 6px', borderRadius: 99, border: '1px solid', borderColor: docRoles.includes(r) ? 'var(--primary-500)' : 'var(--border)', background: docRoles.includes(r) ? 'var(--primary-50)' : 'transparent', color: docRoles.includes(r) ? 'var(--primary-700)' : 'var(--text-tertiary)' }}>{r}</span>
+                                  ))}
+                                  {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                                </div>
+                              </td>
+                            )}
+                          </tr>
+                          {isOwner && isExpanded && (
+                            <tr key={`${doc.id}-expand`} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                              <td colSpan={4} style={{ padding: 'var(--space-1) 0 var(--space-2) 0' }}>
+                                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                                  <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Freigabe:</span>
+                                  {(['guest', 'vet', 'authority'] as const).map(r => (
+                                    <label key={r} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 'var(--font-size-xs)', cursor: 'pointer' }}>
+                                      <input type="checkbox" checked={docRoles.includes(r)} disabled={updatingRecord === `${doc.id}-doc`}
+                                        onChange={() => handleToggleDocumentRole(doc.id, docRoles, r)} />
+                                      {r}
+                                    </label>
+                                  ))}
+                                  {updatingRecord === `${doc.id}-doc` && <div className="spinner" style={{ width: 12, height: 12, borderWidth: 1 }} />}
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
 

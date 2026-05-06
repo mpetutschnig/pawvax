@@ -95,6 +95,11 @@ export async function initDb(connectionString) {
     await pool.query("ALTER TABLE documents ADD COLUMN IF NOT EXISTS record_permissions TEXT DEFAULT NULL")
   } catch { /* column may already exist */ }
 
+  // Migration: add share_image_with_guest column (idempotent)
+  try {
+    await pool.query("ALTER TABLE documents ADD COLUMN IF NOT EXISTS share_image_with_guest INTEGER NOT NULL DEFAULT 0")
+  } catch { /* column may already exist */ }
+
   // Migration: email verification support for new accounts without breaking legacy users.
   try {
     await pool.query("ALTER TABLE accounts ADD COLUMN IF NOT EXISTS email_verified INTEGER NOT NULL DEFAULT 0")

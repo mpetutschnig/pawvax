@@ -257,18 +257,42 @@ export default function PublicSharePage() {
                 </h3>
                 {otherDocs.map((doc: any) => {
                   const isExpanded = expandedDocId === doc.id
+                  const extracted = doc.extracted_json || {}
+                  const typeDetails: string[] = []
+                  switch(doc.doc_type) {
+                    case 'pet_passport':
+                      if (extracted.passport_number) typeDetails.push(`Pass-Nr: ${extracted.passport_number}`)
+                      if (extracted.identification?.chip_code) typeDetails.push(`Chip: ${extracted.identification.chip_code}`)
+                      if (extracted.section_type) typeDetails.push(extracted.section_type)
+                      break
+                    case 'medical_product':
+                      if (extracted.active_ingredient) typeDetails.push(extracted.active_ingredient)
+                      if (extracted.dosage) typeDetails.push(`Dosierung: ${extracted.dosage}`)
+                      break
+                    case 'pedigree':
+                      if (extracted.registration_number) typeDetails.push(`Reg-Nr: ${extracted.registration_number}`)
+                      break
+                    case 'dog_certificate':
+                      if (extracted.result) typeDetails.push(`Ergebnis: ${extracted.result}`)
+                      if (extracted.exam_date) typeDetails.push(`Datum: ${extracted.exam_date}`)
+                      break
+                    default:
+                      if (extracted.summary) typeDetails.push(extracted.summary)
+                  }
                   return (
                     <div key={doc.id} className="card card-sm" style={{ marginBottom: 'var(--space-2)', cursor: 'pointer' }} onClick={() => setExpandedDocId(isExpanded ? null : doc.id)}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>{doc.extracted_json?.title || docTypeLabel(doc.doc_type)}</span>
+                        <span style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>{extracted.title || docTypeLabel(doc.doc_type)}</span>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
                           <span className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>{new Date(doc.created_at).toLocaleDateString(i18n.language === 'de' ? 'de-AT' : 'en-GB')}</span>
                           {isExpanded ? <ChevronUp size={16} className="text-muted" /> : <ChevronDown size={16} className="text-muted" />}
                         </div>
                       </div>
-                      {isExpanded && doc.extracted_json?.summary && (
-                        <div className="animate-slide-up" style={{ marginTop: 'var(--space-3)', paddingTop: 'var(--space-3)', borderTop: '1px solid var(--border)' }}>
-                          <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>{doc.extracted_json.summary}</p>
+                      {isExpanded && typeDetails.length > 0 && (
+                        <div className="animate-slide-up" style={{ marginTop: 'var(--space-3)', paddingTop: 'var(--space-3)', borderTop: '1px solid var(--border)', display: 'grid', gridTemplateColumns: '1fr', gap: 'var(--space-2)', fontSize: 'var(--font-size-xs)' }}>
+                          {typeDetails.map((detail, idx) => (
+                            <div key={idx}><strong>{detail}</strong></div>
+                          ))}
                         </div>
                       )}
                     </div>

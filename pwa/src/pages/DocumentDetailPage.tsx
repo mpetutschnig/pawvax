@@ -55,6 +55,25 @@ export default function DocumentDetailPage() {
   // Per-record permissions
   const [updatingRecordKey, setUpdatingRecordKey] = useState<string | null>(null)
 
+  // Image sharing with guests
+  const [shareImageWithGuest, setShareImageWithGuest] = useState(false)
+
+  // Determine effective role for image visibility
+  const effectiveRole: 'owner' | 'vet' | 'authority' | 'guest' = (() => {
+    if (doc?.isOwner) return 'owner'
+    const token = localStorage.getItem('token')
+    if (!token) return 'guest'
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]))
+      const r = (payload.role || '').split(',').map((r: string) => r.trim())
+      if (r.includes('vet')) return 'vet'
+      if (r.includes('authority')) return 'authority'
+    } catch { /* */ }
+    return 'guest'
+  })()
+
+  const canSeeImage = doc?.isOwner || effectiveRole === 'vet' || effectiveRole === 'authority' || !!doc?.share_image_with_guest
+
   const getRecordPerms = (key: string): string[] => {
     if (!doc) return ['vet', 'authority', 'guest']
     const perRecord = doc.record_permissions?.[key]
@@ -147,6 +166,7 @@ export default function DocumentDetailPage() {
       try {
         setVisibility(docRes.data.allowed_roles ? JSON.parse(docRes.data.allowed_roles) : [])
       } catch { setVisibility([]) }
+      setShareImageWithGuest(!!docRes.data.share_image_with_guest)
       setAnalysisHistory(historyRes?.data?.history || [])
       setError(null)
     } catch (err) {
@@ -269,6 +289,7 @@ export default function DocumentDetailPage() {
     try {
       const updates: any = {}
       if (doc.isOwner) updates.allowed_roles = visibility
+      if (doc.isOwner) updates.share_image_with_guest = shareImageWithGuest ? 1 : 0
       if (canEditTags) updates.extracted_json = { ...doc.extracted_json, suggested_tags: tags, title: editedTitle }
 
       await patchDocument(docId!, updates)
@@ -423,7 +444,7 @@ export default function DocumentDetailPage() {
           {t('docDetail.addedAt')} {new Date(doc.created_at).toLocaleString(i18n.language === 'de' ? 'de-AT' : 'en-GB')}
         </p>
 
-        {currentImage && (
+        {currentImage && canSeeImage && (
           <div style={{ marginBottom: 'var(--space-6)' }}>
             <div style={{ position: 'relative', borderRadius: 'var(--radius-lg)', overflow: 'hidden', border: '1px solid var(--border)', background: 'var(--surface)' }}>
               <img
@@ -474,6 +495,16 @@ export default function DocumentDetailPage() {
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {currentImage && !canSeeImage && (
+          <div style={{ marginBottom: 'var(--space-6)', padding: 'var(--space-4)', background: 'var(--warning-50)', borderRadius: 'var(--radius-md)', border: '1px solid var(--warning-200)', display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+            <div style={{ color: 'var(--warning-600)', fontSize: '24px' }}>🔒</div>
+            <div>
+              <p style={{ margin: '0 0 4px 0', fontWeight: 600, color: 'var(--warning-900)' }}>Bild nicht freigegeben</p>
+              <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', color: 'var(--warning-700)' }}>Der Besitzer hat dieses Bild nicht für deinen Zugang freigegeben.</p>
+            </div>
           </div>
         )}
 
@@ -850,6 +881,128 @@ export default function DocumentDetailPage() {
           )
         })()}
 
+        {doc.doc_type === 'pet_passport' && (() => {
+          const passport = extracted
+          return passport && (
+            <div style={{ marginBottom: 'var(--space-6)' }}>
+              <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0, display: 'flex', gap: '8px', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
+                <Landmark size={18} /> {passport.title || 'Heimtierausweis'}
+              </h3>
+              {passport.animal && (
+                <div style={{ background: 'var(--surface)', padding: 'var(--space-3)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-3)' }}>
+                  <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', fontWeight: 600 }}>{passport.animal.name} {passport.animal.species ? `(${passport.animal.species})` : ''}</p>
+                  {passport.animal.breed && <p style={{ margin: '4px 0 0 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>{passport.animal.breed}</p>}
+                </div>
+              )}
+              {passport.identification && (
+                <div style={{ background: 'var(--surface)', padding: 'var(--space-3)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-3)' }}>
+                  <h4 style={{ margin: '0 0 var(--space-2) 0', fontSize: 'var(--font-size-sm)', fontWeight: 600 }}>Identifikation</h4>
+                  {passport.identification.chip_code && <p style={{ margin: '4px 0', fontSize: 'var(--font-size-sm)' }}><span style={{ color: 'var(--text-secondary)' }}>Chip:</span> {passport.identification.chip_code}</p>}
+                  {passport.identification.chip_date && <p style={{ margin: '4px 0', fontSize: 'var(--font-size-sm)' }}><span style={{ color: 'var(--text-secondary)' }}>Chip-Datum:</span> {passport.identification.chip_date}</p>}
+                  {passport.identification.tattoo_code && <p style={{ margin: '4px 0', fontSize: 'var(--font-size-sm)' }}><span style={{ color: 'var(--text-secondary)' }}>Tätowierung:</span> {passport.identification.tattoo_code}</p>}
+                </div>
+              )}
+              {passport.issuing_authority && (
+                <div style={{ background: 'var(--surface)', padding: 'var(--space-3)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-3)' }}>
+                  <h4 style={{ margin: '0 0 var(--space-2) 0', fontSize: 'var(--font-size-sm)', fontWeight: 600 }}>Ausstellende Behörde</h4>
+                  {passport.issuing_authority.name && <p style={{ margin: '4px 0', fontSize: 'var(--font-size-sm)' }}>{passport.issuing_authority.name}</p>}
+                  {passport.issuing_authority.address && <p style={{ margin: '4px 0', fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>{passport.issuing_authority.address}</p>}
+                </div>
+              )}
+              {passport.passport_number && <p style={{ margin: 'var(--space-3) 0 0 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Reisepass-Nr.: {passport.passport_number}</p>}
+            </div>
+          )
+        })()}
+
+        {doc.doc_type === 'medical_product' && (() => {
+          const product = extracted
+          return product && (
+            <div style={{ marginBottom: 'var(--space-6)' }}>
+              <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0, display: 'flex', gap: '8px', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
+                <Pill size={18} /> {product.title || 'Medizinisches Produkt'}
+              </h3>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)', marginBottom: 'var(--space-3)' }}>
+                {product.active_ingredient && (
+                  <div style={{ background: 'var(--surface)', padding: 'var(--space-3)', borderRadius: 'var(--radius-md)' }}>
+                    <p style={{ margin: '0 0 4px 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Wirkstoff</p>
+                    <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', fontWeight: 500 }}>{product.active_ingredient}</p>
+                  </div>
+                )}
+                {product.dosage && (
+                  <div style={{ background: 'var(--surface)', padding: 'var(--space-3)', borderRadius: 'var(--radius-md)' }}>
+                    <p style={{ margin: '0 0 4px 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Dosierung</p>
+                    <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', fontWeight: 500 }}>{product.dosage}</p>
+                  </div>
+                )}
+                {product.batch_number && (
+                  <div style={{ background: 'var(--surface)', padding: 'var(--space-3)', borderRadius: 'var(--radius-md)' }}>
+                    <p style={{ margin: '0 0 4px 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Chargennummer</p>
+                    <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', fontWeight: 500 }}>{product.batch_number}</p>
+                  </div>
+                )}
+                {product.manufacturer && (
+                  <div style={{ background: 'var(--surface)', padding: 'var(--space-3)', borderRadius: 'var(--radius-md)' }}>
+                    <p style={{ margin: '0 0 4px 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Hersteller</p>
+                    <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', fontWeight: 500 }}>{product.manufacturer}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )
+        })()}
+
+        {doc.doc_type === 'pedigree' && (() => {
+          const pedigree = extracted
+          return pedigree && (
+            <div style={{ marginBottom: 'var(--space-6)' }}>
+              <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0, display: 'flex', gap: '8px', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
+                <Award size={18} /> {pedigree.title || 'Stammbaum'}
+              </h3>
+              {pedigree.document_date && <p style={{ margin: '0 0 var(--space-3) 0', fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>Datum: {pedigree.document_date}</p>}
+              {pedigree.summary && <p style={{ margin: 'var(--space-3) 0', fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)' }}>{pedigree.summary}</p>}
+            </div>
+          )
+        })()}
+
+        {doc.doc_type === 'dog_certificate' && (() => {
+          const cert = extracted
+          return cert && (
+            <div style={{ marginBottom: 'var(--space-6)' }}>
+              <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0, display: 'flex', gap: '8px', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
+                <GraduationCap size={18} /> {cert.title || 'Hundeführerschein'}
+              </h3>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)', marginBottom: 'var(--space-3)' }}>
+                {cert.result && (
+                  <div style={{ background: 'var(--surface)', padding: 'var(--space-3)', borderRadius: 'var(--radius-md)' }}>
+                    <p style={{ margin: '0 0 4px 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Ergebnis</p>
+                    <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', fontWeight: 500 }}>{cert.result}</p>
+                  </div>
+                )}
+                {(cert.exam_date || cert.document_date) && (
+                  <div style={{ background: 'var(--surface)', padding: 'var(--space-3)', borderRadius: 'var(--radius-md)' }}>
+                    <p style={{ margin: '0 0 4px 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Datum</p>
+                    <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', fontWeight: 500 }}>{cert.exam_date || cert.document_date}</p>
+                  </div>
+                )}
+              </div>
+              {cert.summary && <p style={{ margin: 'var(--space-3) 0', fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)' }}>{cert.summary}</p>}
+            </div>
+          )
+        })()}
+
+        {doc.doc_type === 'general' && (() => {
+          const general = extracted
+          return general && (
+            <div style={{ marginBottom: 'var(--space-6)' }}>
+              <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0, display: 'flex', gap: '8px', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
+                <FileText size={18} /> {general.title || 'Dokument'}
+              </h3>
+              {general.document_date && <p style={{ margin: '0 0 var(--space-3) 0', fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>Datum: {general.document_date}</p>}
+              {general.summary && <p style={{ margin: 'var(--space-3) 0', fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)' }}>{general.summary}</p>}
+            </div>
+          )
+        })()}
+
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-3)' }}>
           <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0, display: 'flex', gap: '8px', alignItems: 'center' }}>
             <Tag size={18} /> {t('docDetail.sharedWith')}
@@ -916,7 +1069,21 @@ export default function DocumentDetailPage() {
                 </div>
               </div>
             )}
-            
+
+            {doc?.isOwner && (
+              <div className="form-group" style={{ marginTop: 'var(--space-4)' }}>
+                <label style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={shareImageWithGuest}
+                    onChange={(e) => setShareImageWithGuest(e.target.checked)}
+                    style={{ width: 16, height: 16, accentColor: 'var(--primary-500)' }}
+                  />
+                  <span style={{ fontSize: 'var(--font-size-sm)' }}>Bild für Gäste freigeben</span>
+                </label>
+              </div>
+            )}
+
             <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-4)' }}>
               <button className="btn btn-primary" onClick={handleSaveDoc} disabled={saving}><Save size={16} /> {t('docDetail.save')}</button>
               <button className="btn btn-ghost" onClick={() => { setEditMode(false); loadDocument(); }} disabled={saving}>{t('docDetail.cancel')}</button>
