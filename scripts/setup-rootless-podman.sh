@@ -157,11 +157,11 @@ podman run --rm --network host \
     set -e
     npm ci
     test_exit=0
-    node scripts/run-api-tests.js || test_exit=$?
+    node scripts/run-api-tests.js || test_exit=\$?
     if [ -f /tmp/jest-raw.json ]; then
-      node scripts/persist-test-results.js /tmp/jest-raw.json "$PERSIST_DATABASE_URL"
+      node scripts/persist-test-results.js /tmp/jest-raw.json "\$PERSIST_DATABASE_URL"
     fi
-    exit "$test_exit"
+    exit "\$test_exit"
   '
 EOF
 
