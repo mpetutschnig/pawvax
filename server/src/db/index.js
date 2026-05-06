@@ -156,5 +156,21 @@ export async function initDb(connectionString) {
     }
   } catch { /* table or column may not exist, or no accounts need migration */ }
 
+  // OAuth accounts table for social login
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS oauth_accounts (
+        id TEXT PRIMARY KEY,
+        account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+        provider TEXT NOT NULL,
+        provider_user_id TEXT NOT NULL,
+        email TEXT,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(provider, provider_user_id)
+      )
+    `)
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_oauth_accounts_account ON oauth_accounts(account_id)')
+  } catch { /* table may already exist */ }
+
   return pool
 }

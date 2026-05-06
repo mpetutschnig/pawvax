@@ -185,3 +185,11 @@ export const dismissReminder = (id: string) => api.patch(`/reminders/${id}/dismi
 export const getUserApiKeys = () => api.get('/accounts/api-keys')
 export const createUserApiKey = (description: string) => api.post('/accounts/api-keys', { description })
 export const deleteUserApiKey = (id: string) => api.delete(`/accounts/api-keys/${id}`)
+
+// OAuth Login
+export const getOAuthUrl = (provider: 'google' | 'github' | 'microsoft') =>
+  `${getServerUrl()}/api/auth/oauth/${provider}`
+
+// Supabase Auth Handshake
+export const supabaseLogin = (token: string) =>
+  api.post('/auth/supabase', { token })

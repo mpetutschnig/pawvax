@@ -10,6 +10,53 @@ import { encrypt, decrypt } from '../utils/crypto.js'
 import { ALLOWED_CLAUDE_MODELS, ALLOWED_GEMINI_MODELS, ALLOWED_OPENAI_MODELS } from '../utils/aiModels.js'
 import { sendAuthEmail, shouldExposeAuthTokens } from '../services/authMail.js'
 import { generateApiKey, hashApiKey } from '../utils/apikey.js'
+import { createVerify } from 'crypto'
+
+const oauthStates = new Map()
+
+const OAUTH_PROVIDERS = {
+  google: {
+    authUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
+    tokenUrl: 'https://oauth2.googleapis.com/token',
+    userInfoUrl: 'https://www.googleapis.com/oauth2/v3/userinfo',
+    scopes: 'openid email profile',
+    clientIdEnv: 'OAUTH_GOOGLE_CLIENT_ID',
+    clientSecretEnv: 'OAUTH_GOOGLE_CLIENT_SECRET'
+  },
+  github: {
+    authUrl: 'https://github.com/login/oauth/authorize',
+    tokenUrl: 'https://github.com/login/oauth/access_token',
+    userInfoUrl: 'https://api.github.com/user',
+    scopes: 'read:user user:email',
+    clientIdEnv: 'OAUTH_GITHUB_CLIENT_ID',
+    clientSecretEnv: 'OAUTH_GITHUB_CLIENT_SECRET'
+  },
+  microsoft: {
+    authUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
+    tokenUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
+    userInfoUrl: 'https://graph.microsoft.com/v1.0/me',
+    scopes: 'openid email profile User.Read',
+    clientIdEnv: 'OAUTH_MICROSOFT_CLIENT_ID',
+    clientSecretEnv: 'OAUTH_MICROSOFT_CLIENT_SECRET'
+  }
+}
+
+function decodeJwtPayload(token) {
+  const parts = token.split('.')
+  if (parts.length !== 3) throw new Error('Invalid JWT format')
+  return JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'))
+}
+
+function verifyJwtHS256(token, secret) {
+  const parts = token.split('.')
+  if (parts.length !== 3) throw new Error('Invalid JWT')
+  const signingInput = `${parts[0]}.${parts[1]}`
+  const expectedSig = crypto.createHmac('sha256', secret).update(signingInput).digest('base64url')
+  if (expectedSig !== parts[2]) throw new Error('Invalid JWT signature')
+  const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'))
+  if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) throw new Error('JWT expired')
+  return payload
+}
 
 const UPLOADS_DIR = process.env.UPLOADS_DIR
   ? resolve(process.env.UPLOADS_DIR)
@@ -619,5 +666,196 @@ export default async function authRoutes(fastify) {
     await logAudit(db, { accountId, role: req.user.role, action: 'delete_api_key', resource: 'api_key', resourceId: id, ip: req.ip })
 
     return reply.code(204).send()
+  })
+
+  // OAuth Login — GET /api/auth/oauth/:provider
+  fastify.get('/api/auth/oauth/:provider', async (req, reply) => {
+    const { provider } = req.params
+    const config = OAUTH_PROVIDERS[provider]
+    if (!config) return reply.code(404).send({ error: 'Unknown provider' })
+
+    const clientId = process.env[config.clientIdEnv]
+    if (!clientId) return reply.code(503).send({ error: `OAuth provider '${provider}' not configured` })
+
+    // Clean up stale states older than 10 minutes
+    for (const [k, v] of oauthStates.entries()) {
+      if (Date.now() - v.createdAt > 10 * 60 * 1000) oauthStates.delete(k)
+    }
+
+    const state = crypto.randomBytes(16).toString('hex')
+    oauthStates.set(state, { provider, createdAt: Date.now() })
+
+    const serverUrl = process.env.BASE_URL || `${req.protocol}://${req.hostname}`
+    const callbackUrl = `${serverUrl}/api/auth/oauth/${provider}/callback`
+
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: callbackUrl,
+      response_type: 'code',
+      scope: config.scopes,
+      state
+    })
+
+    return reply.redirect(`${config.authUrl}?${params}`)
+  })
+
+  // OAuth Callback — GET /api/auth/oauth/:provider/callback
+  fastify.get('/api/auth/oauth/:provider/callback', async (req, reply) => {
+    const { provider } = req.params
+    const { code, state, error: oauthError } = req.query
+    const config = OAUTH_PROVIDERS[provider]
+    const pwaBase = process.env.PWA_URL || '/'
+
+    if (!config) return reply.redirect(`${pwaBase}?oauthError=unknown_provider`)
+    if (oauthError) return reply.redirect(`${pwaBase}?oauthError=${encodeURIComponent(oauthError)}`)
+
+    const stateData = oauthStates.get(state)
+    if (!stateData || stateData.provider !== provider) {
+      return reply.redirect(`${pwaBase}?oauthError=invalid_state`)
+    }
+    oauthStates.delete(state)
+
+    const clientId = process.env[config.clientIdEnv]
+    const clientSecret = process.env[config.clientSecretEnv]
+    const serverUrl = process.env.BASE_URL || `${req.protocol}://${req.hostname}`
+    const callbackUrl = `${serverUrl}/api/auth/oauth/${provider}/callback`
+
+    // Exchange code for access token
+    let tokenData
+    try {
+      const tokenRes = await fetch(config.tokenUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
+        body: new URLSearchParams({ code, client_id: clientId, client_secret: clientSecret, redirect_uri: callbackUrl, grant_type: 'authorization_code' })
+      })
+      tokenData = await tokenRes.json()
+    } catch {
+      return reply.redirect(`${pwaBase}?oauthError=token_exchange_failed`)
+    }
+
+    if (tokenData.error || !tokenData.access_token) {
+      return reply.redirect(`${pwaBase}?oauthError=${encodeURIComponent(tokenData.error || 'no_token')}`)
+    }
+
+    // Fetch user profile
+    let userInfo
+    try {
+      const infoRes = await fetch(config.userInfoUrl, {
+        headers: { Authorization: `Bearer ${tokenData.access_token}`, Accept: 'application/json' }
+      })
+      userInfo = await infoRes.json()
+    } catch {
+      return reply.redirect(`${pwaBase}?oauthError=userinfo_failed`)
+    }
+
+    // Extract email, name, providerId
+    let email, name, providerId
+    if (provider === 'google') {
+      email = userInfo.email
+      name = userInfo.name
+      providerId = userInfo.sub
+    } else if (provider === 'github') {
+      providerId = String(userInfo.id)
+      name = userInfo.name || userInfo.login
+      email = userInfo.email
+      if (!email) {
+        try {
+          const emailsRes = await fetch('https://api.github.com/user/emails', {
+            headers: { Authorization: `Bearer ${tokenData.access_token}` }
+          })
+          const emails = await emailsRes.json()
+          const primary = emails.find(e => e.primary && e.verified)
+          email = primary?.email
+        } catch { /* ignore */ }
+      }
+    } else if (provider === 'microsoft') {
+      email = userInfo.mail || userInfo.userPrincipalName
+      name = userInfo.displayName
+      providerId = userInfo.id
+    }
+
+    if (!email) return reply.redirect(`${pwaBase}?oauthError=no_email`)
+
+    const db = getDb()
+
+    // Find existing OAuth link
+    let { rows: [oauthRow] } = await db.query(
+      'SELECT account_id FROM oauth_accounts WHERE provider = $1 AND provider_user_id = $2',
+      [provider, String(providerId)]
+    )
+
+    let accountId
+    if (oauthRow) {
+      accountId = oauthRow.account_id
+    } else {
+      // Find or create account by email
+      let { rows: [existingAccount] } = await db.query('SELECT id FROM accounts WHERE LOWER(email) = LOWER($1)', [email])
+
+      if (!existingAccount) {
+        accountId = uuid()
+        const displayName = name || email.split('@')[0]
+        await db.query(
+          `INSERT INTO accounts (id, name, email, password_hash, role, verified, email_verified, created_at)
+           VALUES ($1, $2, $3, '', 'user', 0, 1, NOW())`,
+          [accountId, displayName, email.toLowerCase()]
+        )
+      } else {
+        accountId = existingAccount.id
+      }
+
+      await db.query(
+        'INSERT INTO oauth_accounts (id, account_id, provider, provider_user_id, email) VALUES ($1, $2, $3, $4, $5)',
+        [uuid(), accountId, provider, String(providerId), email.toLowerCase()]
+      )
+    }
+
+    const { rows: [account] } = await db.query('SELECT id, name, email, role, verified FROM accounts WHERE id = $1', [accountId])
+
+    const jti = uuid()
+    const token = await fastify.jwt.sign({ accountId: account.id, role: account.role, jti })
+
+    await logAudit(db, { accountId: account.id, role: account.role, action: 'oauth_login', resource: 'account', resourceId: account.id, details: { provider }, ip: req.ip })
+
+    return reply.redirect(`${pwaBase}?oauthToken=${token}`)
+  })
+
+  // Supabase Auth Handshake — POST /api/auth/supabase
+  fastify.post('/api/auth/supabase', async (req, reply) => {
+    const { token } = req.body || {}
+    if (!token) return reply.code(400).send({ error: 'Token fehlt' })
+
+    const supabaseSecret = process.env.SUPABASE_JWT_SECRET
+    if (!supabaseSecret) return reply.code(503).send({ error: 'Supabase nicht konfiguriert' })
+
+    let payload
+    try {
+      payload = verifyJwtHS256(token, supabaseSecret)
+    } catch {
+      return reply.code(401).send({ error: 'Ungültiges Supabase-Token' })
+    }
+
+    const email = payload.email
+    if (!email) return reply.code(400).send({ error: 'Keine E-Mail im Token' })
+
+    const db = getDb()
+    let { rows: [account] } = await db.query('SELECT id, name, email, role, verified FROM accounts WHERE LOWER(email) = LOWER($1)', [email])
+
+    if (!account) {
+      const accountId = uuid()
+      const displayName = payload.user_metadata?.full_name || payload.user_metadata?.name || email.split('@')[0]
+      await db.query(
+        `INSERT INTO accounts (id, name, email, password_hash, role, verified, email_verified, created_at)
+         VALUES ($1, $2, $3, '', 'user', 0, 1, NOW())`,
+        [accountId, displayName, email.toLowerCase()]
+      )
+      account = { id: accountId, name: displayName, email: email.toLowerCase(), role: 'user', verified: 0 }
+    }
+
+    const jti = uuid()
+    const pawToken = await fastify.jwt.sign({ accountId: account.id, role: account.role, jti })
+
+    await logAudit(db, { accountId: account.id, role: account.role, action: 'supabase_login', resource: 'account', resourceId: account.id, ip: req.ip })
+
+    return { token: pawToken, account }
   })
 }
