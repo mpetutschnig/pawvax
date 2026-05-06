@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { getMe, patchMe, deleteMe, requestVerification, getMyVerifications } from '../api/rest'
+import { getMe, patchMe, deleteMe, requestVerification, getMyVerifications, getUserApiKeys, createUserApiKey, deleteUserApiKey } from '../api/rest'
 import { PageHeader } from '../components/PageHeader'
 import { User, Shield, Stethoscope, Settings, Trash2, CheckCircle, Clock, AlertTriangle, Key, BookOpen, Download, Upload, X } from 'lucide-react'
 import { DEFAULT_AVAILABLE_MODELS, DEFAULT_MODEL_BY_PROVIDER } from '../utils/documentAnalysis'
@@ -36,6 +36,9 @@ export default function ProfilePage() {
   const [verificationSubmitting, setVerificationSubmitting] = useState(false)
   const [verificationRequests, setVerificationRequests] = useState<any[]>([])
   const [showVerificationForm, setShowVerificationForm] = useState(false)
+  const [apiKeys, setApiKeys] = useState<any[]>([])
+  const [newKeyName, setNewKeyName] = useState('')
+  const [creatingKey, setCreatingKey] = useState(false)
 
   const renderModelHint = (message: string) => (
     <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-3)', padding: 'var(--space-3)', background: 'color-mix(in oklch, var(--info-500) 10%, var(--surface))', borderRadius: 'var(--radius-md)', border: '1px solid color-mix(in oklch, var(--info-500) 28%, transparent)' }}>
@@ -47,7 +50,42 @@ export default function ProfilePage() {
   useEffect(() => {
     loadProfile()
     loadVerificationRequests()
+    loadApiKeys()
   }, [])
+
+  const loadApiKeys = async () => {
+    try {
+      const res = await getUserApiKeys()
+      setApiKeys(res.data.keys || [])
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
+  const handleCreateApiKey = async () => {
+    if (!newKeyName.trim()) return
+    setCreatingKey(true)
+    try {
+      const res = await createUserApiKey(newKeyName)
+      alert(`API Key erstellt:\n\n${res.data.raw}\n\nSpeichern Sie diesen Schlüssel sicher - er wird nicht erneut angezeigt!`)
+      setNewKeyName('')
+      await loadApiKeys()
+    } catch (err) {
+      alert(t('common.error'))
+    } finally {
+      setCreatingKey(false)
+    }
+  }
+
+  const handleDeleteApiKey = async (id: string) => {
+    if (!confirm('API Key wirklich löschen?')) return
+    try {
+      await deleteUserApiKey(id)
+      await loadApiKeys()
+    } catch (err) {
+      alert(t('common.error'))
+    }
+  }
 
   const loadVerificationRequests = async () => {
     try {
@@ -759,6 +797,40 @@ export default function ProfilePage() {
         <button className="btn btn-outline btn-full" onClick={() => navigate('/docs')}>
           {t('docs.openDocs')}
         </button>
+
+        <hr className="divider" style={{ margin: 'var(--space-6) 0' }} />
+
+        {/* Section: API Keys */}
+        <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--space-4)' }}>
+          <Key size={20} style={{ marginRight: 'var(--space-2)', verticalAlign: 'middle' }} />
+          API-Schlüssel für Automationen
+        </h3>
+        <p className="text-muted" style={{ fontSize: 'var(--font-size-xs)', marginBottom: 'var(--space-3)' }}>
+          Erstellen Sie API-Schlüssel für Integrationen und Automationen. Diese Schlüssel werden nach der Erstellung nicht erneut angezeigt.
+        </p>
+        <div style={{ display: 'grid', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 'var(--space-2)' }}>
+            <input className="form-input" placeholder="z.B. Workflow-Automation" value={newKeyName} onChange={e => setNewKeyName(e.target.value)} />
+            <button className="btn btn-primary" onClick={handleCreateApiKey} disabled={creatingKey || !newKeyName.trim()}>
+              {creatingKey ? 'Erstelle...' : 'Erstellen'}
+            </button>
+          </div>
+        </div>
+        {apiKeys.length > 0 && (
+          <div style={{ display: 'grid', gap: 'var(--space-2)', marginBottom: 'var(--space-4)' }}>
+            {apiKeys.map(key => (
+              <div key={key.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 'var(--space-2)', background: 'var(--surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>{key.description}</div>
+                  <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>{key.key_prefix} · {new Date(key.created_at).toLocaleDateString()}</div>
+                </div>
+                <button className="btn btn-ghost btn-icon" onClick={() => handleDeleteApiKey(key.id)}>
+                  <X size={16} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
 
         <hr className="divider" style={{ margin: 'var(--space-6) 0' }} />
 

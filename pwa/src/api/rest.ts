@@ -180,3 +180,8 @@ export const getReminders = () => api.get('/reminders')
 export const createReminder = (data: { animal_id: string; document_id?: string; title: string; due_date: string; notes?: string }) =>
   api.post('/reminders', data)
 export const dismissReminder = (id: string) => api.patch(`/reminders/${id}/dismiss`)
+
+// User API Keys
+export const getUserApiKeys = () => api.get('/accounts/api-keys')
+export const createUserApiKey = (description: string) => api.post('/accounts/api-keys', { description })
+export const deleteUserApiKey = (id: string) => api.delete(`/accounts/api-keys/${id}`)

@@ -9,6 +9,7 @@ import { saveImageChunks, getUploadPath } from '../services/storage.js'
 import { encrypt, decrypt } from '../utils/crypto.js'
 import { ALLOWED_CLAUDE_MODELS, ALLOWED_GEMINI_MODELS, ALLOWED_OPENAI_MODELS } from '../utils/aiModels.js'
 import { sendAuthEmail, shouldExposeAuthTokens } from '../services/authMail.js'
+import { generateApiKey, hashApiKey } from '../utils/apikey.js'
 
 const UPLOADS_DIR = process.env.UPLOADS_DIR
   ? resolve(process.env.UPLOADS_DIR)
@@ -573,5 +574,50 @@ export default async function authRoutes(fastify) {
     })
 
     await archive.finalize()
+  })
+
+  // User API Keys Management
+  fastify.get('/api/accounts/api-keys', { onRequest: [fastify.authenticate] }, async (req, reply) => {
+    const db = getDb()
+    const { accountId } = req.user
+    const { rows: keys } = await db.query(`
+      SELECT id, description, created_at, last_used_at, key_hash
+      FROM api_keys WHERE account_id = $1
+      ORDER BY created_at DESC
+    `, [accountId])
+    // Return masked key hashes (show only first 15 chars)
+    return { keys: keys.map(k => ({ ...k, key_prefix: k.key_hash.substring(0, 15) + '***' })) }
+  })
+
+  fastify.post('/api/accounts/api-keys', { onRequest: [fastify.authenticate] }, async (req, reply) => {
+    const db = getDb()
+    const { accountId } = req.user
+    const { description = 'API Key' } = req.body
+
+    const { raw, hash } = generateApiKey()
+    const id = uuid()
+    await db.query(`
+      INSERT INTO api_keys (id, account_id, key_hash, description, rate_limit)
+      VALUES ($1, $2, $3, $4, 1000)
+    `, [id, accountId, hash, description])
+
+    await logAudit(db, { accountId, role: req.user.role, action: 'create_api_key', resource: 'api_key', resourceId: id, ip: req.ip })
+
+    reply.code(201).send({ id, raw, description, created_at: new Date().toISOString() })
+  })
+
+  fastify.delete('/api/accounts/api-keys/:id', { onRequest: [fastify.authenticate] }, async (req, reply) => {
+    const db = getDb()
+    const { accountId } = req.user
+    const { id } = req.params
+
+    const { rows: [key] } = await db.query('SELECT account_id FROM api_keys WHERE id = $1', [id])
+    if (!key) return reply.code(404).send({ error: 'API Key nicht gefunden' })
+    if (key.account_id !== accountId) return reply.code(403).send({ error: 'Keine Berechtigung' })
+
+    await db.query('DELETE FROM api_keys WHERE id = $1', [id])
+    await logAudit(db, { accountId, role: req.user.role, action: 'delete_api_key', resource: 'api_key', resourceId: id, ip: req.ip })
+
+    return reply.code(204).send()
   })
 }
