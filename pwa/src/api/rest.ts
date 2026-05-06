@@ -22,11 +22,20 @@ api.interceptors.response.use(
 )
 
 // Auth
-export const register = (name: string, email: string, password: string) =>
-  api.post('/auth/register', { name, email, password })
+export const register = (name: string, email: string, password: string, confirmPassword: string) =>
+  api.post('/auth/register', { name, email, password, confirmPassword })
 
 export const login = (email: string, password: string) =>
   api.post('/auth/login', { email, password })
+
+export const verifyEmail = (token: string) =>
+  api.post('/auth/verify-email', { token })
+
+export const requestPasswordReset = (email: string) =>
+  api.post('/auth/forgot-password', { email })
+
+export const resetPassword = (token: string, password: string, confirmPassword: string) =>
+  api.post('/auth/reset-password', { token, password, confirmPassword })
 
 export const logout = () =>
   api.post('/auth/logout', {})
@@ -139,6 +148,9 @@ export const adminRejectVerification = (id: string, reason: string) =>
 export const adminPatchAccount = (id: string, data: object) => api.patch(`/admin/accounts/${id}`, data)
 export const adminGetAuditLog = (params?: object) => api.get('/admin/audit', { params })
 export const adminGetStats = () => api.get('/admin/stats')
+export const adminGetSettings = () => api.get('/admin/settings')
+export const adminPatchSettings = (data: object) => api.patch('/admin/settings', data)
+export const adminTestMailSettings = (data?: object) => api.post('/admin/settings/test-mail', data || {})
 export const adminGetTestResults = () => api.get('/admin/test-results')
 export const adminGetTestRuns = (limit?: number, page?: number) => api.get('/admin/test-runs', { params: { limit, page } })
 export const adminGetTestRunDetail = (id: string) => api.get(`/admin/test-runs/${id}`)

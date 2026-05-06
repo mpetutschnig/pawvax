@@ -5,6 +5,7 @@ import {
   adminPatchAccount, adminGetAuditLog, adminDeleteAnimal, adminDeleteAccount, adminGetTestResults,
   adminGetTestRuns, adminGetTestRunDetail,
   adminGetOrphans, adminDeleteOrphans, adminGetVerifications, adminApproveVerification, adminRejectVerification, adminGetVersion
+  , adminGetSettings, adminPatchSettings, adminTestMailSettings
 } from '../api/rest'
 import { PawPrint, LogOut, LayoutDashboard, Users, Cat, ShieldCheck, FileClock, CheckCircle, Menu, X, Settings, XCircle, FlaskConical, Trash2, AlertCircle } from 'lucide-react'
 import { AdminAnimalDTO } from '../types/animal'
@@ -77,6 +78,51 @@ interface OrphanReport {
   categories: OrphanCategory[]
 }
 
+interface AdminSettingsState {
+  app_name: string
+  theme_color: string
+  logo_data: string
+  mail_enabled: boolean
+  mail_from_address: string
+  mail_from_name: string
+  mail_reply_to: string
+  smtp_host: string
+  smtp_port: number | string
+  smtp_security_mode: 'starttls' | 'ssl' | 'none'
+  smtp_auth_mode: 'password' | 'oauth2'
+  smtp_username: string
+  smtp_password: string
+  oauth2_provider: string
+  oauth2_client_id: string
+  oauth2_client_secret: string
+  oauth2_refresh_token: string
+  oauth2_tenant: string
+  has_smtp_password?: boolean
+  has_oauth2_client_secret?: boolean
+  has_oauth2_refresh_token?: boolean
+}
+
+const defaultAdminSettings: AdminSettingsState = {
+  app_name: '',
+  theme_color: '#0ea5e9',
+  logo_data: '',
+  mail_enabled: false,
+  mail_from_address: '',
+  mail_from_name: '',
+  mail_reply_to: '',
+  smtp_host: '',
+  smtp_port: 587,
+  smtp_security_mode: 'starttls',
+  smtp_auth_mode: 'password',
+  smtp_username: '',
+  smtp_password: '',
+  oauth2_provider: '',
+  oauth2_client_id: '',
+  oauth2_client_secret: '',
+  oauth2_refresh_token: '',
+  oauth2_tenant: ''
+}
+
 export default function AdminPage() {
   const { t, i18n } = useTranslation()
   const [section, setSection] = useState<Section>('overview')
@@ -92,8 +138,9 @@ export default function AdminPage() {
   const [auditPage, setAuditPage] = useState(1)
   const [selectedAuditEntry, setSelectedAuditEntry] = useState<AuditEntry | null>(null)
   const [auditSheetOpen, setAuditSheetOpen] = useState(false)
-  const [appSettings, setAppSettings] = useState({ app_name: '', theme_color: '', logo_data: '' })
+  const [appSettings, setAppSettings] = useState<AdminSettingsState>(defaultAdminSettings)
   const [settingsSaving, setSettingsSaving] = useState(false)
+  const [mailSettingsTesting, setMailSettingsTesting] = useState(false)
   const [testResults, setTestResults] = useState<TestResults | null>(null)
   const [selectedTest, setSelectedTest] = useState<TestCase | null>(null)
   const [testRuns, setTestRuns] = useState<any[]>([])
@@ -110,7 +157,7 @@ export default function AdminPage() {
   const [version, setVersion] = useState<any>(null)
 
   useEffect(() => {
-    fetch('/api/settings').then(res => res.json()).then(data => setAppSettings(data)).catch(console.error)
+    fetch('/api/settings').then(res => res.json()).then(data => setAppSettings(current => ({ ...current, ...data }))).catch(console.error)
     adminGetVersion().then(res => setVersion(res.data)).catch(console.error)
   }, [])
 
@@ -125,9 +172,8 @@ export default function AdminPage() {
         const [statsRes, orphanRes] = await Promise.all([adminGetStats(), adminGetOrphans()])
         setStats(statsRes.data)
         setOrphanReport(orphanRes.data)
-        const setRes = await fetch('/api/settings')
-        const setData = await setRes.json()
-        setAppSettings(setData)
+        const setRes = await adminGetSettings()
+        setAppSettings({ ...defaultAdminSettings, ...setRes.data, smtp_password: '', oauth2_client_secret: '', oauth2_refresh_token: '' })
       } else if (section === 'accounts') {
         const res = await adminGetAccounts()
         setAccounts(res.data)
@@ -141,9 +187,8 @@ export default function AdminPage() {
         const res = await adminGetAuditLog({ page: auditPage })
         setAuditLog(res.data)
       } else if (section === 'settings') {
-        const res = await fetch('/api/settings')
-        const data = await res.json()
-        setAppSettings(data)
+        const res = await adminGetSettings()
+        setAppSettings({ ...defaultAdminSettings, ...res.data, smtp_password: '', oauth2_client_secret: '', oauth2_refresh_token: '' })
       } else if (section === 'tests') {
         // Load test runs list (Level 1)
         const runsRes = await adminGetTestRuns(20, 0)
@@ -170,21 +215,26 @@ export default function AdminPage() {
   const saveSettings = async () => {
     setSettingsSaving(true)
     try {
-      const res = await fetch('/api/admin/settings', {
-        method: 'PATCH',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify(appSettings)
-      })
-      if (!res.ok) throw new Error('Failed to save settings')
+      await adminPatchSettings(appSettings)
       alert(t('admin.settingsSaved'))
       window.location.reload() // Lade die Seite neu, um Farbe/Name direkt global zu übernehmen
     } catch (e) {
       alert(t('common.error'))
     } finally {
       setSettingsSaving(false)
+    }
+  }
+
+  const testMailSettings = async () => {
+    setMailSettingsTesting(true)
+    try {
+      const res = await adminTestMailSettings(appSettings)
+      alert(res.data.message || t('admin.mailSettingsTestSuccess'))
+    } catch (e) {
+      const err = e as { response?: { data?: { error?: string } } }
+      alert(err.response?.data?.error || t('admin.mailSettingsTestError'))
+    } finally {
+      setMailSettingsTesting(false)
     }
   }
 
@@ -709,6 +759,99 @@ export default function AdminPage() {
                   }
                 }} />
                 {appSettings.logo_data && <img src={appSettings.logo_data} alt="Logo" style={{ marginTop: 'var(--space-3)', maxHeight: '80px', borderRadius: 'var(--radius-md)' }} />}
+              </div>
+              <div style={{ marginTop: 'var(--space-6)', paddingTop: 'var(--space-4)', borderTop: '1px solid var(--border)' }}>
+                <h2 style={{ marginTop: 0, marginBottom: 'var(--space-4)' }}>{t('admin.mailSettings')}</h2>
+                <div className="form-group">
+                  <label className="form-label">
+                    <input
+                      type="checkbox"
+                      checked={!!appSettings.mail_enabled}
+                      onChange={e => setAppSettings({ ...appSettings, mail_enabled: e.target.checked })}
+                      style={{ marginRight: 'var(--space-2)' }}
+                    />
+                    {t('admin.mailEnabled')}
+                  </label>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">{t('admin.mailFromAddress')}</label>
+                  <input className="form-input" type="email" value={appSettings.mail_from_address || ''} onChange={e => setAppSettings({ ...appSettings, mail_from_address: e.target.value })} placeholder="noreply@example.com" />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">{t('admin.mailFromName')}</label>
+                  <input className="form-input" value={appSettings.mail_from_name || ''} onChange={e => setAppSettings({ ...appSettings, mail_from_name: e.target.value })} placeholder="PAW" />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">{t('admin.mailReplyTo')}</label>
+                  <input className="form-input" type="email" value={appSettings.mail_reply_to || ''} onChange={e => setAppSettings({ ...appSettings, mail_reply_to: e.target.value })} placeholder="support@example.com" />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">{t('admin.smtpHost')}</label>
+                  <input className="form-input" value={appSettings.smtp_host || ''} onChange={e => setAppSettings({ ...appSettings, smtp_host: e.target.value })} placeholder="smtp.example.com" />
+                </div>
+                <div style={{ display: 'grid', gap: 'var(--space-4)', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
+                  <div className="form-group">
+                    <label className="form-label">{t('admin.smtpPort')}</label>
+                    <input className="form-input" type="number" value={appSettings.smtp_port || 587} onChange={e => setAppSettings({ ...appSettings, smtp_port: e.target.value })} min={1} max={65535} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">{t('admin.smtpSecurityMode')}</label>
+                    <select className="form-input" value={appSettings.smtp_security_mode || 'starttls'} onChange={e => setAppSettings({ ...appSettings, smtp_security_mode: e.target.value as AdminSettingsState['smtp_security_mode'] })}>
+                      <option value="starttls">STARTTLS</option>
+                      <option value="ssl">SSL/TLS</option>
+                      <option value="none">None</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">{t('admin.smtpAuthMode')}</label>
+                    <select className="form-input" value={appSettings.smtp_auth_mode || 'password'} onChange={e => setAppSettings({ ...appSettings, smtp_auth_mode: e.target.value as AdminSettingsState['smtp_auth_mode'] })}>
+                      <option value="password">Password</option>
+                      <option value="oauth2">OAuth2</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">{t('admin.smtpUsername')}</label>
+                  <input className="form-input" value={appSettings.smtp_username || ''} onChange={e => setAppSettings({ ...appSettings, smtp_username: e.target.value })} placeholder="noreply@example.com" />
+                </div>
+
+                {appSettings.smtp_auth_mode === 'password' ? (
+                  <div className="form-group">
+                    <label className="form-label">{t('admin.smtpPassword')}</label>
+                    <input className="form-input" type="password" value={appSettings.smtp_password || ''} onChange={e => setAppSettings({ ...appSettings, smtp_password: e.target.value })} placeholder={appSettings.has_smtp_password ? t('admin.secretConfigured') : '••••••••'} />
+                    <p className="text-muted" style={{ marginTop: 'var(--space-2)' }}>
+                      {appSettings.has_smtp_password ? t('admin.secretConfiguredHint') : t('admin.secretMissingHint')}
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="form-group">
+                      <label className="form-label">{t('admin.oauth2Provider')}</label>
+                      <input className="form-input" value={appSettings.oauth2_provider || ''} onChange={e => setAppSettings({ ...appSettings, oauth2_provider: e.target.value })} placeholder="google / microsoft / custom" />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">{t('admin.oauth2ClientId')}</label>
+                      <input className="form-input" value={appSettings.oauth2_client_id || ''} onChange={e => setAppSettings({ ...appSettings, oauth2_client_id: e.target.value })} />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">{t('admin.oauth2ClientSecret')}</label>
+                      <input className="form-input" type="password" value={appSettings.oauth2_client_secret || ''} onChange={e => setAppSettings({ ...appSettings, oauth2_client_secret: e.target.value })} placeholder={appSettings.has_oauth2_client_secret ? t('admin.secretConfigured') : '••••••••'} />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">{t('admin.oauth2RefreshToken')}</label>
+                      <input className="form-input" type="password" value={appSettings.oauth2_refresh_token || ''} onChange={e => setAppSettings({ ...appSettings, oauth2_refresh_token: e.target.value })} placeholder={appSettings.has_oauth2_refresh_token ? t('admin.secretConfigured') : '••••••••'} />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">{t('admin.oauth2Tenant')}</label>
+                      <input className="form-input" value={appSettings.oauth2_tenant || ''} onChange={e => setAppSettings({ ...appSettings, oauth2_tenant: e.target.value })} />
+                    </div>
+                  </>
+                )}
+                <div style={{ display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap', marginTop: 'var(--space-4)' }}>
+                  <button className="btn btn-outline" onClick={testMailSettings} disabled={mailSettingsTesting}>
+                    {mailSettingsTesting ? t('common.loading') : t('admin.testMailSettings')}
+                  </button>
+                </div>
               </div>
               <button className="btn btn-primary" onClick={saveSettings} disabled={settingsSaving} style={{ marginTop: 'var(--space-4)' }}>
                 {settingsSaving ? t('common.loading') : t('admin.saveSettings')}

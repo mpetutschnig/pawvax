@@ -8,27 +8,72 @@ import { logAudit } from '../services/audit.js'
 import { saveImageChunks, getUploadPath } from '../services/storage.js'
 import { encrypt, decrypt } from '../utils/crypto.js'
 import { ALLOWED_CLAUDE_MODELS, ALLOWED_GEMINI_MODELS, ALLOWED_OPENAI_MODELS } from '../utils/aiModels.js'
+import { sendAuthEmail, shouldExposeAuthTokens } from '../services/authMail.js'
 
 const UPLOADS_DIR = process.env.UPLOADS_DIR
   ? resolve(process.env.UPLOADS_DIR)
   : resolve('./uploads')
+
+const EMAIL_VERIFICATION_TTL_SECONDS = 24 * 60 * 60
+const PASSWORD_RESET_TTL_SECONDS = 60 * 60
+
+function hashToken(token) {
+  return crypto.createHash('sha256').update(token).digest('hex')
+}
+
+function createRawToken() {
+  return crypto.randomBytes(32).toString('hex')
+}
+
+async function createEmailVerificationToken(db, accountId) {
+  const token = createRawToken()
+  const tokenHash = hashToken(token)
+  const expiresAt = Math.floor(Date.now() / 1000) + EMAIL_VERIFICATION_TTL_SECONDS
+
+  await db.query('DELETE FROM email_verification_tokens WHERE account_id = $1 AND consumed_at IS NULL', [accountId])
+  await db.query(
+    'INSERT INTO email_verification_tokens (id, account_id, token_hash, expires_at) VALUES ($1, $2, $3, $4)',
+    [uuid(), accountId, tokenHash, expiresAt]
+  )
+
+  return token
+}
+
+async function createPasswordResetToken(db, accountId) {
+  const token = createRawToken()
+  const tokenHash = hashToken(token)
+  const expiresAt = Math.floor(Date.now() / 1000) + PASSWORD_RESET_TTL_SECONDS
+
+  await db.query('DELETE FROM password_reset_tokens WHERE account_id = $1 AND consumed_at IS NULL', [accountId])
+  await db.query(
+    'INSERT INTO password_reset_tokens (id, account_id, token_hash, expires_at) VALUES ($1, $2, $3, $4)',
+    [uuid(), accountId, tokenHash, expiresAt]
+  )
+
+  return token
+}
 
 export default async function authRoutes(fastify) {
   fastify.post('/api/auth/register', {
     schema: {
       body: {
         type: 'object',
-        required: ['name', 'email', 'password'],
+        required: ['name', 'email', 'password', 'confirmPassword'],
         properties: {
           name: { type: 'string', minLength: 1 },
           email: { type: 'string', format: 'email' },
-          password: { type: 'string', minLength: 6 }
+          password: { type: 'string', minLength: 8 },
+          confirmPassword: { type: 'string', minLength: 8 }
         }
       }
     }
   }, async (req, reply) => {
-    const { name, email, password } = req.body
+    const { name, email, password, confirmPassword } = req.body
     const db = getDb()
+
+    if (password !== confirmPassword) {
+      return reply.code(400).send({ error: 'Passwort und Passwort-Bestaetigung stimmen nicht ueberein' })
+    }
 
     const { rows: [existing] } = await db.query('SELECT id FROM accounts WHERE email = $1', [email])
     if (existing) {
@@ -38,14 +83,162 @@ export default async function authRoutes(fastify) {
     const password_hash = await bcrypt.hash(password, 10)
     const id = uuid()
 
-    await db.query('INSERT INTO accounts (id, name, email, password_hash) VALUES ($1, $2, $3, $4)', [id, name, email, password_hash])
+    await db.query(
+      'INSERT INTO accounts (id, name, email, password_hash, email_verified, email_verification_required) VALUES ($1, $2, $3, $4, 0, 1)',
+      [id, name, email, password_hash]
+    )
+
+    const verificationToken = await createEmailVerificationToken(db, id)
+    await sendAuthEmail({ type: 'verify-email', to: email, name, token: verificationToken, fastify })
 
     await logAudit(db, { accountId: id, role: 'user', action: 'register', resource: 'account', resourceId: id, ip: req.ip })
 
     const roles = ['user']
-    const jti = crypto.randomUUID()
-    const token = fastify.jwt.sign({ accountId: id, name, email, role: 'user', roles, verified: 0, jti })
-    return reply.code(201).send({ token, account: { id, name, email, role: 'user', roles, verified: 0 } })
+    const response = {
+      message: 'Registrierung erfolgreich. Bitte bestaetigen Sie Ihre E-Mail-Adresse.',
+      requiresEmailVerification: true,
+      account: { id, name, email, role: 'user', roles, verified: 0, email_verified: 0, email_verification_required: 1 }
+    }
+
+    if (shouldExposeAuthTokens()) {
+      response.verificationToken = verificationToken
+    }
+
+    return reply.code(201).send(response)
+  })
+
+  fastify.post('/api/auth/verify-email', {
+    schema: {
+      body: {
+        type: 'object',
+        required: ['token'],
+        properties: {
+          token: { type: 'string', minLength: 32 }
+        }
+      }
+    }
+  }, async (req, reply) => {
+    const { token } = req.body
+    const db = getDb()
+    const now = Math.floor(Date.now() / 1000)
+    const tokenHash = hashToken(token)
+
+    const { rows: [verification] } = await db.query(`
+      SELECT evt.id, evt.account_id, a.email, a.name
+      FROM email_verification_tokens evt
+      JOIN accounts a ON a.id = evt.account_id
+      WHERE evt.token_hash = $1
+        AND evt.consumed_at IS NULL
+        AND evt.expires_at >= $2
+    `, [tokenHash, now])
+
+    if (!verification) {
+      return reply.code(400).send({ error: 'Ungueltiger oder abgelaufener Bestaetigungslink' })
+    }
+
+    await db.query('UPDATE email_verification_tokens SET consumed_at = $1 WHERE id = $2', [now, verification.id])
+    await db.query(
+      'UPDATE accounts SET email_verified = 1, email_verified_at = CURRENT_TIMESTAMP WHERE id = $1',
+      [verification.account_id]
+    )
+
+    await logAudit(db, {
+      accountId: verification.account_id,
+      role: 'user',
+      action: 'verify_email',
+      resource: 'account',
+      resourceId: verification.account_id,
+      ip: req.ip
+    })
+
+    return { message: 'E-Mail-Adresse bestaetigt' }
+  })
+
+  fastify.post('/api/auth/forgot-password', {
+    schema: {
+      body: {
+        type: 'object',
+        required: ['email'],
+        properties: {
+          email: { type: 'string', format: 'email' }
+        }
+      }
+    },
+    config: {
+      rateLimit: {
+        max: 5,
+        timeWindow: '15 minutes'
+      }
+    }
+  }, async (req) => {
+    const { email } = req.body
+    const db = getDb()
+    const genericResponse = { message: 'Falls ein passender Account existiert, wurde ein Link zum Zuruecksetzen versendet.' }
+
+    const { rows: [account] } = await db.query('SELECT id, name, email FROM accounts WHERE email = $1', [email])
+    if (!account) {
+      return genericResponse
+    }
+
+    const resetToken = await createPasswordResetToken(db, account.id)
+    await sendAuthEmail({ type: 'reset-password', to: account.email, name: account.name, token: resetToken, fastify })
+    await logAudit(db, { accountId: account.id, role: 'user', action: 'forgot_password', resource: 'account', resourceId: account.id, ip: req.ip })
+
+    if (shouldExposeAuthTokens()) {
+      return { ...genericResponse, resetToken }
+    }
+
+    return genericResponse
+  })
+
+  fastify.post('/api/auth/reset-password', {
+    schema: {
+      body: {
+        type: 'object',
+        required: ['token', 'password', 'confirmPassword'],
+        properties: {
+          token: { type: 'string', minLength: 32 },
+          password: { type: 'string', minLength: 8 },
+          confirmPassword: { type: 'string', minLength: 8 }
+        }
+      }
+    }
+  }, async (req, reply) => {
+    const { token, password, confirmPassword } = req.body
+    const db = getDb()
+
+    if (password !== confirmPassword) {
+      return reply.code(400).send({ error: 'Passwort und Passwort-Bestaetigung stimmen nicht ueberein' })
+    }
+
+    const now = Math.floor(Date.now() / 1000)
+    const tokenHash = hashToken(token)
+    const { rows: [resetRequest] } = await db.query(`
+      SELECT prt.id, prt.account_id
+      FROM password_reset_tokens prt
+      WHERE prt.token_hash = $1
+        AND prt.consumed_at IS NULL
+        AND prt.expires_at >= $2
+    `, [tokenHash, now])
+
+    if (!resetRequest) {
+      return reply.code(400).send({ error: 'Ungueltiger oder abgelaufener Reset-Link' })
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10)
+    await db.query('UPDATE password_reset_tokens SET consumed_at = $1 WHERE id = $2', [now, resetRequest.id])
+    await db.query('UPDATE accounts SET password_hash = $1 WHERE id = $2', [passwordHash, resetRequest.account_id])
+
+    await logAudit(db, {
+      accountId: resetRequest.account_id,
+      role: 'user',
+      action: 'reset_password',
+      resource: 'account',
+      resourceId: resetRequest.account_id,
+      ip: req.ip
+    })
+
+    return { message: 'Passwort erfolgreich aktualisiert' }
   })
 
   fastify.post('/api/auth/login', {
@@ -79,6 +272,10 @@ export default async function authRoutes(fastify) {
       return reply.code(401).send({ error: 'Ungültige Anmeldedaten' })
     }
 
+    if ((account.email_verification_required ?? 0) === 1 && (account.email_verified ?? 0) !== 1) {
+      return reply.code(403).send({ error: 'Bitte bestaetigen Sie zuerst Ihre E-Mail-Adresse' })
+    }
+
     const roleStr = account.role ?? 'user'
     const roles = roleStr.split(',').map(r => r.trim())
     const role = roles[0]
@@ -88,7 +285,7 @@ export default async function authRoutes(fastify) {
 
     const jti = crypto.randomUUID()
     const token = fastify.jwt.sign({ accountId: account.id, name: account.name, email: account.email, role, roles, verified, jti })
-    return { token, account: { id: account.id, name: account.name, email: account.email, role, roles, verified } }
+    return { token, account: { id: account.id, name: account.name, email: account.email, role, roles, verified, email_verified: account.email_verified ?? 0 } }
   })
 
   // Logout — blacklist the JWT token
@@ -216,7 +413,7 @@ export default async function authRoutes(fastify) {
   // Eigenes Profil lesen
   fastify.get('/api/accounts/me', { onRequest: [fastify.authenticate] }, async (req) => {
     const db = getDb()
-    const { rows: [account] } = await db.query('SELECT id, name, email, role, verified, verification_status, gemini_model, claude_model, created_at FROM accounts WHERE id = $1', [req.user.accountId])
+    const { rows: [account] } = await db.query('SELECT id, name, email, role, verified, verification_status, email_verified, email_verification_required, gemini_model, claude_model, created_at FROM accounts WHERE id = $1', [req.user.accountId])
     if (!account) return { error: 'Account nicht gefunden' }
     const roles = (account.role ?? 'user').split(',').map(r => r.trim())
     const { rows: [fullAccount] } = await db.query('SELECT gemini_token, anthropic_token FROM accounts WHERE id = $1', [account.id])

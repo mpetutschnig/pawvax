@@ -3,6 +3,9 @@ CREATE TABLE IF NOT EXISTS accounts (
   name          TEXT NOT NULL,
   email         TEXT UNIQUE NOT NULL,
   password_hash TEXT NOT NULL,
+  email_verified INTEGER NOT NULL DEFAULT 0,
+  email_verification_required INTEGER NOT NULL DEFAULT 0,
+  email_verified_at TEXT,
   role          TEXT NOT NULL DEFAULT 'user',
   verified      INTEGER NOT NULL DEFAULT 0,
   verification_status TEXT NOT NULL DEFAULT 'none',
@@ -110,6 +113,24 @@ CREATE TABLE IF NOT EXISTS animal_public_shares (
 CREATE TABLE IF NOT EXISTS jwt_blacklist (
   jti TEXT PRIMARY KEY,
   expires_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS email_verification_tokens (
+  id TEXT PRIMARY KEY,
+  account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  token_hash TEXT NOT NULL UNIQUE,
+  expires_at INTEGER NOT NULL,
+  consumed_at INTEGER,
+  created_at INTEGER DEFAULT (EXTRACT(EPOCH FROM CURRENT_TIMESTAMP)::INTEGER)
+);
+
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+  id TEXT PRIMARY KEY,
+  account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  token_hash TEXT NOT NULL UNIQUE,
+  expires_at INTEGER NOT NULL,
+  consumed_at INTEGER,
+  created_at INTEGER DEFAULT (EXTRACT(EPOCH FROM CURRENT_TIMESTAMP)::INTEGER)
 );
 
 CREATE TABLE IF NOT EXISTS settings (
@@ -265,6 +286,10 @@ CREATE TABLE IF NOT EXISTS animal_scans (
 
 CREATE INDEX IF NOT EXISTS idx_verification_requests_account ON verification_requests(account_id);
 CREATE INDEX IF NOT EXISTS idx_verification_requests_status ON verification_requests(status);
+CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_account ON email_verification_tokens(account_id);
+CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_expires ON email_verification_tokens(expires_at);
+CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_account ON password_reset_tokens(account_id);
+CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_expires ON password_reset_tokens(expires_at);
 CREATE INDEX IF NOT EXISTS idx_animal_scans_animal ON animal_scans(animal_id);
 CREATE INDEX IF NOT EXISTS idx_animal_scans_account ON animal_scans(account_id);
 CREATE INDEX IF NOT EXISTS idx_animal_scans_time ON animal_scans(scanned_at);

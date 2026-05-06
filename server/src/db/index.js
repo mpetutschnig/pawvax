@@ -82,6 +82,8 @@ export async function initDb(connectionString) {
   // Cleanup expired tokens on startup
   const now = Math.floor(Date.now() / 1000)
   await pool.query('DELETE FROM jwt_blacklist WHERE expires_at < $1', [now])
+  await pool.query('DELETE FROM email_verification_tokens WHERE expires_at < $1 OR consumed_at IS NOT NULL', [now]).catch(() => {})
+  await pool.query('DELETE FROM password_reset_tokens WHERE expires_at < $1 OR consumed_at IS NOT NULL', [now]).catch(() => {})
 
   // Clean up stale upload stubs
   try {
@@ -92,6 +94,49 @@ export async function initDb(connectionString) {
   try {
     await pool.query("ALTER TABLE documents ADD COLUMN IF NOT EXISTS record_permissions TEXT DEFAULT NULL")
   } catch { /* column may already exist */ }
+
+  // Migration: email verification support for new accounts without breaking legacy users.
+  try {
+    await pool.query("ALTER TABLE accounts ADD COLUMN IF NOT EXISTS email_verified INTEGER NOT NULL DEFAULT 0")
+    await pool.query("ALTER TABLE accounts ADD COLUMN IF NOT EXISTS email_verification_required INTEGER NOT NULL DEFAULT 0")
+    await pool.query("ALTER TABLE accounts ADD COLUMN IF NOT EXISTS email_verified_at TEXT")
+    await pool.query(`
+      UPDATE accounts
+      SET email_verified = 1,
+          email_verified_at = COALESCE(email_verified_at, created_at)
+      WHERE email_verification_required = 0 AND email_verified = 0
+    `)
+  } catch { /* columns may already exist */ }
+
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS email_verification_tokens (
+        id TEXT PRIMARY KEY,
+        account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+        token_hash TEXT NOT NULL UNIQUE,
+        expires_at INTEGER NOT NULL,
+        consumed_at INTEGER,
+        created_at INTEGER DEFAULT (EXTRACT(EPOCH FROM CURRENT_TIMESTAMP)::INTEGER)
+      )
+    `)
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_account ON email_verification_tokens(account_id)')
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_expires ON email_verification_tokens(expires_at)')
+  } catch { /* table may already exist */ }
+
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS password_reset_tokens (
+        id TEXT PRIMARY KEY,
+        account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+        token_hash TEXT NOT NULL UNIQUE,
+        expires_at INTEGER NOT NULL,
+        consumed_at INTEGER,
+        created_at INTEGER DEFAULT (EXTRACT(EPOCH FROM CURRENT_TIMESTAMP)::INTEGER)
+      )
+    `)
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_account ON password_reset_tokens(account_id)')
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_expires ON password_reset_tokens(expires_at)')
+  } catch { /* table may already exist */ }
 
   return pool
 }
