@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { formatDate } from '../utils/date'
 import {
   adminGetStats, adminGetAccounts, adminGetAnimals,
   adminPatchAccount, adminGetAuditLog, adminDeleteAnimal, adminDeleteAccount, adminGetTestResults,
@@ -27,6 +28,7 @@ interface Stats {
   documents: number
   auditEntries: number
   pendingVerifications: number
+  lastTestRun: { status: string; date: string; passedTests: number; failedTests: number; totalTests: number } | null
 }
 
 interface AuditLog {
@@ -315,13 +317,7 @@ export default function AdminPage() {
     }
   }
 
-  let lastTestRun: TestResults['summary'] = null
-  try {
-    if ((appSettings as any).last_test_run) {
-      lastTestRun = JSON.parse((appSettings as any).last_test_run)
-    }
-  } catch {}
-
+  const lastTestRun = stats?.lastTestRun ?? null
   const lastTestRunPassed = lastTestRun?.status === 'passed'
   const lastTestRunIncomplete = lastTestRun?.status === 'incomplete'
 
@@ -461,7 +457,7 @@ export default function AdminPage() {
                       </span>
                     </div>
                     <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
-                      {new Date(lastTestRun.date).toLocaleString(i18n.language === 'de' ? 'de-AT' : 'en-GB')}
+                      {formatDate(lastTestRun.date, i18n.language === 'de' ? 'de-AT' : 'en-GB')}
                     </div>
                     {typeof lastTestRun.totalTests === 'number' && (
                       <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', marginTop: '4px' }}>
@@ -570,7 +566,7 @@ export default function AdminPage() {
                           <p style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'var(--font-size-base)', margin: '0 0 2px 0' }}>{req.name}</p>
                           <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', margin: 0 }}>{req.email}</p>
                           <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', margin: '4px 0 0 0' }}>
-                            {new Date(req.created_at).toLocaleString()}
+                            {formatDate(req.created_at)}
                           </p>
                         </div>
                         <span className="badge" style={{ background: req.status === 'pending' ? 'var(--warning-500)' : req.status === 'approved' ? 'var(--success-500)' : 'var(--danger-500)' }}>
@@ -706,7 +702,7 @@ export default function AdminPage() {
                         </td>
                         <td style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>{entry.ip || '—'}</td>
                         <td style={{ fontSize: '11px', color: 'var(--text-tertiary)', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={detailsText}>{detailsText}</td>
-                        <td className="text-tertiary" style={{ fontSize: '12px', whiteSpace: 'nowrap' }}>{new Date(entry.created_at).toLocaleString(i18n.language === 'de' ? 'de-AT' : 'en-GB')}</td>
+                        <td className="text-tertiary" style={{ fontSize: '12px', whiteSpace: 'nowrap' }}>{formatDate(entry.created_at, i18n.language === 'de' ? 'de-AT' : 'en-GB')}</td>
                       </tr>
                     )
                   })}
@@ -1044,7 +1040,7 @@ export default function AdminPage() {
                 <tbody>
                   {testRuns.map((run) => (
                     <tr key={run.id} onClick={() => { setSelectedRunId(run.id); adminGetTestRunDetail(run.id).then(res => setSelectedRunDetail(res.data)).catch(console.error) }} style={{ cursor: 'pointer' }}>
-                      <td>{new Date(run.date).toLocaleString(i18n.language === 'de' ? 'de-AT' : 'en-GB')}</td>
+                      <td>{formatDate(run.date, i18n.language === 'de' ? 'de-AT' : 'en-GB')}</td>
                       <td><span style={{ color: run.status === 'passed' ? 'var(--success-600)' : 'var(--danger-600)', fontWeight: 600 }}>{run.status === 'passed' ? '✅' : '❌'}</span></td>
                       <td><span style={{ color: 'var(--success-600)' }}>{run.pass_count}</span></td>
                       <td><span style={{ color: run.fail_count > 0 ? 'var(--danger-600)' : 'var(--text-secondary)' }}>{run.fail_count}</span></td>
@@ -1062,7 +1058,7 @@ export default function AdminPage() {
           <div className="animate-fade-in">
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
               <button className="btn btn-secondary" onClick={() => { setSelectedRunId(null); setSelectedRunDetail(null) }}>← Back</button>
-              <h1 style={{ margin: 0 }}>{t('admin.tests')} - {new Date(selectedRunDetail.summary?.date || '').toLocaleString(i18n.language === 'de' ? 'de-AT' : 'en-GB')}</h1>
+              <h1 style={{ margin: 0 }}>{t('admin.tests')} - {formatDate(selectedRunDetail.summary?.date, i18n.language === 'de' ? 'de-AT' : 'en-GB')}</h1>
             </div>
             <div className="card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', height: 'calc(100vh - 250px)' }}>
               <div style={{ padding: 'var(--space-4)', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
@@ -1390,9 +1386,7 @@ export default function AdminPage() {
                     fontSize: 'var(--font-size-xs)',
                   }}
                 >
-                  {new Date(selectedAuditEntry.created_at).toLocaleString(
-                    i18n.language === 'de' ? 'de-AT' : 'en-GB'
-                  )}
+                  {formatDate(selectedAuditEntry.created_at, i18n.language === 'de' ? 'de-AT' : 'en-GB')}
                 </SheetDescription>
               </SheetHeader>
 

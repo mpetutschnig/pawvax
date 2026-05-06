@@ -7,6 +7,7 @@ import { PageHeader } from '../components/PageHeader'
 import { Search, Plus, PawPrint, ArrowRightLeft, Clock } from 'lucide-react'
 import { AnimalListItemDTO } from '../types/animal'
 import { getRecentlyViewedAnimals, RecentlyViewedAnimal } from '../hooks/useRecentlyViewed'
+import { formatDate } from '../utils/date'
 
 export default function AnimalsPage() {
   const { t } = useTranslation()
@@ -285,7 +286,7 @@ export default function AnimalsPage() {
                       </div>
                     </div>
                     <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>
-                      {item.source === 'scan' ? t('recent.sourceScan') : t('recent.sourceShare')} · {new Date(item.viewedAt).toLocaleTimeString()}
+                      {item.source === 'scan' ? t('recent.sourceScan') : t('recent.sourceShare')} · {formatDate(item.viewedAt, undefined, { timeStyle: 'short' })}
                     </div>
                   </Link>
                 ))}
@@ -323,7 +324,7 @@ export default function AnimalsPage() {
                       </div>
                     </div>
                     <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>
-                      {new Date(animal.scanned_at).toLocaleString()}
+                      {formatDate(animal.scanned_at)}
                     </div>
                   </Link>
                 ))}

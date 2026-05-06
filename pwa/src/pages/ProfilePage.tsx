@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { getMe, patchMe, deleteMe, requestVerification, getMyVerifications, getUserApiKeys, createUserApiKey, deleteUserApiKey } from '../api/rest'
 import { PageHeader } from '../components/PageHeader'
+import { formatDate, formatDateOnly } from '../utils/date'
 import { User, Shield, Stethoscope, Settings, Trash2, CheckCircle, Clock, AlertTriangle, Key, BookOpen, Download, Upload, X } from 'lucide-react'
 import { DEFAULT_AVAILABLE_MODELS, DEFAULT_MODEL_BY_PROVIDER } from '../utils/documentAnalysis'
 
@@ -454,7 +455,7 @@ export default function ProfilePage() {
                               {req.type === 'vet' ? t('profile.vetVerification') : t('profile.authorityVerification')}
                             </p>
                             <p className="text-muted" style={{ margin: '4px 0 0 0', fontSize: 'var(--font-size-xs)' }}>
-                              {new Date(req.created_at).toLocaleString()}
+                              {formatDate(req.created_at)}
                             </p>
                           </div>
                           <span className="badge" style={{ background: req.status === 'pending' ? 'var(--warning-500)' : req.status === 'approved' ? 'var(--success-500)' : 'var(--danger-500)' }}>
@@ -822,7 +823,7 @@ export default function ProfilePage() {
               <div key={key.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 'var(--space-2)', background: 'var(--surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
                 <div>
                   <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>{key.description}</div>
-                  <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>{key.key_prefix} · {new Date(key.created_at).toLocaleDateString()}</div>
+                  <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>{key.key_prefix} · {formatDateOnly(key.created_at)}</div>
                 </div>
                 <button className="btn btn-ghost btn-icon" onClick={() => handleDeleteApiKey(key.id)}>
                   <X size={16} />

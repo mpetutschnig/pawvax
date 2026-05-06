@@ -530,24 +530,44 @@ export default async function adminRoutes(fastify) {
   // Statistiken
   fastify.get('/api/admin/stats', async (req) => {
     const db = getDb()
-    const { rows: [{ cnt: accounts }] } = await db.query('SELECT COUNT(*)::int as cnt FROM accounts')
-    const { rows: [{ cnt: animals }] } = await db.query('SELECT COUNT(*)::int as cnt FROM animals')
-    const { rows: [{ cnt: animals_active }] } = await db.query('SELECT COUNT(*)::int as cnt FROM animals WHERE is_archived = 0')
-    const { rows: [{ cnt: animals_archived }] } = await db.query('SELECT COUNT(*)::int as cnt FROM animals WHERE is_archived = 1')
-    const { rows: [{ cnt: animals_with_docs }] } = await db.query(`
-      SELECT COUNT(DISTINCT a.id)::int as cnt FROM animals a
-      JOIN documents d ON d.animal_id = a.id
-    `)
-    const { rows: [{ cnt: documents }] } = await db.query('SELECT COUNT(*)::int as cnt FROM documents')
-    const { rows: [{ cnt: auditEntries }] } = await db.query('SELECT COUNT(*)::int as cnt FROM audit_log')
-    const { rows: [{ cnt: pendingVerifications }] } = await db.query("SELECT COUNT(*)::int as cnt FROM accounts WHERE verification_status = 'pending'")
+    const [
+      { rows: [{ cnt: accounts }] },
+      { rows: [{ cnt: animals }] },
+      { rows: [{ cnt: animals_active }] },
+      { rows: [{ cnt: animals_archived }] },
+      { rows: [{ cnt: animals_with_docs }] },
+      { rows: [{ cnt: documents }] },
+      { rows: [{ cnt: auditEntries }] },
+      { rows: [{ cnt: pendingVerifications }] },
+      { rows: latestTestRows }
+    ] = await Promise.all([
+      db.query('SELECT COUNT(*)::int as cnt FROM accounts'),
+      db.query('SELECT COUNT(*)::int as cnt FROM animals'),
+      db.query('SELECT COUNT(*)::int as cnt FROM animals WHERE is_archived = 0'),
+      db.query('SELECT COUNT(*)::int as cnt FROM animals WHERE is_archived = 1'),
+      db.query('SELECT COUNT(DISTINCT a.id)::int as cnt FROM animals a JOIN documents d ON d.animal_id = a.id'),
+      db.query('SELECT COUNT(*)::int as cnt FROM documents'),
+      db.query('SELECT COUNT(*)::int as cnt FROM audit_log'),
+      db.query("SELECT COUNT(*)::int as cnt FROM accounts WHERE verification_status = 'pending'"),
+      db.query('SELECT test_timestamp, pass_count, fail_count, total_count, status FROM test_results ORDER BY test_timestamp DESC LIMIT 1')
+    ])
+
+    const latestTest = latestTestRows[0]
+    const lastTestRun = latestTest ? {
+      status: latestTest.status,
+      date: new Date(latestTest.test_timestamp * 1000).toISOString(),
+      passedTests: latestTest.pass_count,
+      failedTests: latestTest.fail_count,
+      totalTests: latestTest.total_count
+    } : null
 
     return {
       accounts,
       animals: { total: animals, active: animals_active, archived: animals_archived, with_documents: animals_with_docs },
       documents,
       auditEntries,
-      pendingVerifications
+      pendingVerifications,
+      lastTestRun
     }
   })
 
@@ -608,7 +628,7 @@ export default async function adminRoutes(fastify) {
     const runs = allRuns.map(run => ({
       id: run.id,
       test_timestamp: run.test_timestamp,
-      date: new Date(run.test_timestamp).toISOString(),
+      date: new Date(run.test_timestamp * 1000).toISOString(),
       pass_count: run.pass_count,
       fail_count: run.fail_count,
       total_count: run.total_count,
