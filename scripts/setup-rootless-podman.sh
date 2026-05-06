@@ -13,6 +13,8 @@ DB_TEST_NAME="${DB_TEST_NAME:-pawvax_test}"
 DB_USER="${DB_USER:-pawvax}"
 TLS_HOSTNAME="${TLS_HOSTNAME:-localhost}"
 ENV_SOURCE="${ENV_SOURCE:-$REPO_DIR/.env.podman}"
+TEST_NODE_IMAGE="${TEST_NODE_IMAGE:-docker.io/node:22-alpine}"
+TEST_TIMER_ON_CALENDAR="${TEST_TIMER_ON_CALENDAR:-hourly}"
 
 usage() {
   cat <<EOF
@@ -21,12 +23,14 @@ Usage: $(basename "$0") <prepare|deploy|cleanup|status>
 Commands:
   prepare  Create users, directories, env files and TLS placeholders for rootless operation.
   deploy   Build images, recreate the rootless pod, and generate user systemd units.
+  test     Run the API test suite against the dedicated test database and persist the result into PostgreSQL.
   cleanup  Stop and remove the pod plus prune unused Podman resources for the app user.
   status   Show pod, container and systemd user-unit status for the app user.
 
 Environment overrides:
   APP_USER, GIT_USER, REPO_DIR, POD_NAME, HTTP_PORT, HTTPS_PORT,
-  DB_NAME, DB_TEST_NAME, DB_USER, TLS_HOSTNAME, ENV_SOURCE
+  DB_NAME, DB_TEST_NAME, DB_USER, TLS_HOSTNAME, ENV_SOURCE,
+  TEST_NODE_IMAGE, TEST_TIMER_ON_CALENDAR
 EOF
 }
 
@@ -110,6 +114,91 @@ EOF
   chmod 600 "$app_home_dir/.config/pawvax/paw.env"
 }
 
+create_test_runner_assets() {
+  local app_home_dir
+  app_home_dir="$(app_home)"
+
+  mkdir -p "$app_home_dir/bin" "$app_home_dir/.config/systemd/user"
+  chown -R "$APP_USER:$APP_USER" "$app_home_dir/bin" "$app_home_dir/.config/systemd"
+  chmod 755 "$app_home_dir/bin" "$app_home_dir/.config" "$app_home_dir/.config/systemd" "$app_home_dir/.config/systemd/user"
+
+  cat > "$app_home_dir/bin/run-paw-tests.sh" <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+
+REPO_DIR="${REPO_DIR}"
+ENV_FILE="\$HOME/.config/pawvax/paw.env"
+DB_NAME="${DB_NAME}"
+DB_TEST_NAME="${DB_TEST_NAME}"
+DB_USER="${DB_USER}"
+TEST_NODE_IMAGE="${TEST_NODE_IMAGE}"
+
+if [[ ! -f "\$ENV_FILE" ]]; then
+  echo "Missing env file: \$ENV_FILE" >&2
+  exit 1
+fi
+
+set -a
+source "\$ENV_FILE"
+set +a
+
+mkdir -p "\$HOME/.npm"
+
+podman pull "\$TEST_NODE_IMAGE" >/dev/null 2>&1 || true
+
+podman run --rm --network host \
+  -e DATABASE_URL="postgresql://\$DB_USER:\$DB_PASSWORD@127.0.0.1:5432/\$DB_TEST_NAME" \
+  -e PERSIST_DATABASE_URL="postgresql://\$DB_USER:\$DB_PASSWORD@127.0.0.1:5432/\$DB_NAME" \
+  -e PAW_MOCK_OCR=1 \
+  -v "\$REPO_DIR:/workspace:Z" \
+  -v "\$HOME/.npm:/root/.npm:Z" \
+  -w /workspace/server \
+  "\$TEST_NODE_IMAGE" sh -lc '
+    set -e
+    npm ci
+    test_exit=0
+    node scripts/run-api-tests.js || test_exit=$?
+    if [ -f /tmp/jest-raw.json ]; then
+      node scripts/persist-test-results.js /tmp/jest-raw.json "$PERSIST_DATABASE_URL"
+    fi
+    exit "$test_exit"
+  '
+EOF
+
+  chmod 750 "$app_home_dir/bin/run-paw-tests.sh"
+  chown "$APP_USER:$APP_USER" "$app_home_dir/bin/run-paw-tests.sh"
+
+  cat > "$app_home_dir/.config/systemd/user/paw-run-tests.service" <<EOF
+[Unit]
+Description=Run PAW API regression tests and persist results
+After=pod-${POD_NAME}.service
+Requires=pod-${POD_NAME}.service
+
+[Service]
+Type=oneshot
+ExecStart=%h/bin/run-paw-tests.sh
+
+[Install]
+WantedBy=default.target
+EOF
+
+  cat > "$app_home_dir/.config/systemd/user/paw-run-tests.timer" <<EOF
+[Unit]
+Description=Scheduled PAW API regression tests
+
+[Timer]
+OnCalendar=${TEST_TIMER_ON_CALENDAR}
+Persistent=true
+Unit=paw-run-tests.service
+
+[Install]
+WantedBy=timers.target
+EOF
+
+  chown "$APP_USER:$APP_USER" "$app_home_dir/.config/systemd/user/paw-run-tests.service" "$app_home_dir/.config/systemd/user/paw-run-tests.timer"
+  chmod 644 "$app_home_dir/.config/systemd/user/paw-run-tests.service" "$app_home_dir/.config/systemd/user/paw-run-tests.timer"
+}
+
 prepare_proxy_assets() {
   local app_home_dir
   app_home_dir="$(app_home)"
@@ -169,9 +258,17 @@ prepare_host() {
   chmod -R a+rX "$REPO_DIR"
 
   prepare_env_file
+  create_test_runner_assets
   prepare_proxy_assets
 
   echo "Prepared host for $APP_USER using repo $REPO_DIR"
+}
+
+run_host_tests() {
+  require_root
+  local app_home_dir
+  app_home_dir="$(app_home)"
+  run_as_app "'$app_home_dir/bin/run-paw-tests.sh'"
 }
 
 deploy_stack() {
@@ -250,10 +347,12 @@ deploy_stack() {
     -v '$app_home_dir/data/caddy-data:/root/.local/share/caddy:Z' \
     localhost/paw-caddy:latest"
 
-  run_as_app "rm -f '$app_home_dir/.config/systemd/user/'*.service"
+  run_as_app "rm -f '$app_home_dir/.config/systemd/user/pod-'*.service '$app_home_dir/.config/systemd/user/container-'*.service"
   run_as_app "cd '$app_home_dir/.config/systemd/user' && podman generate systemd --new --files --name '$POD_NAME' --restart-policy=always"
   run_as_app "systemctl --user daemon-reload"
   run_as_app "systemctl --user enable --now 'pod-$POD_NAME.service'"
+  run_as_app "systemctl --user enable --now paw-run-tests.timer"
+  run_host_tests
 }
 
 cleanup_stack() {
@@ -284,6 +383,10 @@ main() {
     deploy)
       prepare_host
       deploy_stack
+      ;;
+    test)
+      prepare_host
+      run_host_tests
       ;;
     cleanup)
       cleanup_stack
