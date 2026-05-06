@@ -2382,7 +2382,7 @@ describe('Suite 16: EU Pet Passport + Chip Tag Type', () => {
     test('17c. GET /api/admin/test-runs returns empty list when no runs exist', async () => {
       // Register and verify admin user
       const { data: adminReg } = await registerAndVerifyUser('Admin Test', `admin-${Date.now()}@example.com`, 'Password123!')
-      const adminAccountId = adminReg.id
+      const adminAccountId = adminReg.account.id
 
       // Mark user as admin in DB
       const db17c = await getTestDb()
@@ -2390,7 +2390,7 @@ describe('Suite 16: EU Pet Passport + Chip Tag Type', () => {
 
       // Login to get token
       const { data: loginRes } = await apiCallWithToken(null, 'POST', '/auth/login', {
-        email: adminReg.email,
+        email: adminReg.account.email,
         password: 'Password123!'
       })
       const adminToken = loginRes.token
@@ -2410,7 +2410,7 @@ describe('Suite 16: EU Pet Passport + Chip Tag Type', () => {
     test('17d. GET /api/admin/test-runs/:id returns 404 for unknown run', async () => {
       // Register and verify admin user
       const { data: adminReg } = await registerAndVerifyUser('Admin2 Test', `admin2-${Date.now()}@example.com`, 'Password123!')
-      const adminAccountId = adminReg.id
+      const adminAccountId = adminReg.account.id
 
       // Mark user as admin in DB
       const db17d = await getTestDb()
@@ -2418,7 +2418,7 @@ describe('Suite 16: EU Pet Passport + Chip Tag Type', () => {
 
       // Login to get token
       const { data: loginRes } = await apiCallWithToken(null, 'POST', '/auth/login', {
-        email: adminReg.email,
+        email: adminReg.account.email,
         password: 'Password123!'
       })
       const adminToken = loginRes.token
