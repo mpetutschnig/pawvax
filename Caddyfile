@@ -1,10 +1,15 @@
 # Caddy configuration for PAW (Tierimpfpass)
-# Reverse proxy with Let's Encrypt SSL termination
+# Reverse proxy with Let's Encrypt SSL termination (production)
 # Runs as container in pod, proxies to API and PWA services
 
-paw.oxs.at, vetzsucht.oxs.at {
+# HTTP → HTTPS redirect
+http://vetzsucht.oxs.at {
+  redir https://{host}{uri} permanent
+}
+
+vetzsucht.oxs.at {
   encode gzip
-  
+
   # API routes - proxy to Node.js API on port 3000
   @api {
     path /api/* /ws*

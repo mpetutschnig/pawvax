@@ -20,6 +20,42 @@ import { join } from 'node:path'
 import { computeRecordHash, flagDuplicates } from '../src/services/dedup.js'
 import { buildExtractedDocumentData, getPromptForDocumentType, normalizeDocumentType, parseStructuredModelResponse, PROMPTS } from '../src/services/ocr.js'
 
+async function registerAndVerifyUser(name, email, password, role = 'user') {
+  const registration = await apiCallWithToken(null, 'POST', '/auth/register', {
+    name,
+    email,
+    password,
+    confirmPassword: password
+  })
+  expect(registration.status).toBe(201)
+  expect(registration.data.verificationToken).toBeTruthy()
+
+  const verify = await apiCallWithToken(null, 'POST', '/auth/verify-email', {
+    token: registration.data.verificationToken
+  })
+  expect(verify.status).toBe(200)
+
+  const login = await apiCallWithToken(null, 'POST', '/auth/login', {
+    email,
+    password
+  })
+  expect(login.status).toBe(200)
+
+  if (role !== 'user') {
+    const db = await getTestDb()
+    try {
+      await db.query('UPDATE accounts SET role = $1 WHERE id = $2', [role, login.data.account.id])
+    } finally {
+      await db.end()
+    }
+    const relogin = await apiCallWithToken(null, 'POST', '/auth/login', { email, password })
+    expect(relogin.status).toBe(200)
+    return relogin
+  }
+
+  return login
+}
+
 async function getTestDb() {
   const client = new pg.Client({ connectionString: process.env.DATABASE_URL || 'postgresql://pawvax:pawvax@localhost:5432/pawvax_test' })
   await client.connect()
@@ -166,7 +202,7 @@ describe('PAWvax API Tests', () => {
   // ════════════════════════════════════════════════════════════════
 
   describe('1. Authentication (Auth)', () => {
-    let testEmail, testPassword
+    let testEmail, testPassword, verificationToken
 
     beforeAll(() => {
       testEmail = `test${Date.now()}@example.com`
@@ -177,37 +213,40 @@ describe('PAWvax API Tests', () => {
       const { status, data } = await apiCall('POST', '/auth/register', {
         name: 'Test User',
         email: testEmail,
-        password: testPassword
+        password: testPassword,
+        confirmPassword: testPassword
       })
 
       expect(status).toBe(201)
-      expect(data.token).toBeTruthy()
+      expect(data.requiresEmailVerification).toBe(true)
+      expect(data.token).toBeFalsy()
       
       const id = data.userId || data.id || data.user?.id || data.account?.id
       expect(id).toBeTruthy()
+      expect(data.account?.email_verified).toBe(0)
+      expect(data.verificationToken).toBeTruthy()
 
-      testState.token = data.token
       testState.userId = id
+      verificationToken = data.verificationToken
     })
 
-    test('1b. Get Profile — Eigenes Profil abrufen', async () => {
-      const { status, data } = await apiCall('GET', '/accounts/me')
+    test('1b. Login vor E-Mail-Bestätigung — 403 Forbidden', async () => {
+      const { status, data } = await apiCall('POST', '/auth/login', {
+        email: testEmail,
+        password: testPassword
+      })
 
-      expect(status).toBe(200)
-      expect(data.id).toBe(testState.userId)
-      expect(data.email).toBe(testEmail)
-      expect(data.name).toBe('Test User')
+      expect(status).toBe(403)
+      expect(data.error).toMatch(/e-mail|email/i)
     })
 
-    test('1c. Patch Profile — Profildaten aktualisieren', async () => {
-      const { status, data } = await apiCall('PATCH', '/accounts/me', {
-        name: 'Updated Name'
+    test('1c. Verify Email — Bestätigungslink einlösen', async () => {
+      const { status, data } = await apiCall('POST', '/auth/verify-email', {
+        token: verificationToken
       })
 
       expect(status).toBe(200)
-      if (data && data.name) {
-        expect(data.name).toBe('Updated Name')
-      }
+      expect(data.message).toBeTruthy()
     })
 
     test('1d. Login — Mit Credentials anmelden (neuer Token)', async () => {
@@ -218,11 +257,31 @@ describe('PAWvax API Tests', () => {
 
       expect(status).toBe(200)
       expect(data.token).toBeTruthy()
-      // Aktualisiere Token (neuer Login generiert neuen Token)
       testState.token = data.token
     })
 
-    test('1e. Request Verification — Als Tierarzt anmelden', async () => {
+    test('1e. Get Profile — Eigenes Profil abrufen', async () => {
+      const { status, data } = await apiCall('GET', '/accounts/me')
+
+      expect(status).toBe(200)
+      expect(data.id).toBe(testState.userId)
+      expect(data.email).toBe(testEmail)
+      expect(data.name).toBe('Test User')
+      expect(data.email_verified).toBe(1)
+    })
+
+    test('1f. Patch Profile — Profildaten aktualisieren', async () => {
+      const { status, data } = await apiCall('PATCH', '/accounts/me', {
+        name: 'Updated Name'
+      })
+
+      expect(status).toBe(200)
+      if (data && data.name) {
+        expect(data.name).toBe('Updated Name')
+      }
+    })
+
+    test('1g. Request Verification — Als Tierarzt anmelden', async () => {
       const { status } = await apiCall('POST', '/accounts/request-verification', {
         roles: ['vet']
       })
@@ -230,7 +289,7 @@ describe('PAWvax API Tests', () => {
       expect(status).toBe(200)
     })
 
-    test('1f. Logout — Abmelden (JWT blacklist)', async () => {
+    test('1h. Logout — Abmelden (JWT blacklist)', async () => {
       const { status } = await apiCall('POST', '/auth/logout', {})
 
       expect([200, 204]).toContain(status)
@@ -245,6 +304,35 @@ describe('PAWvax API Tests', () => {
         password: testPassword
       })
       testState.token = loginData.token
+    })
+
+    test('1i. Forgot Password + Reset Password — Tokenbasierter Passwort-Reset', async () => {
+      const nextPassword = 'EvenMoreSecure123!'
+      const forgotResponse = await apiCall('POST', '/auth/forgot-password', {
+        email: testEmail
+      })
+
+      expect(forgotResponse.status).toBe(200)
+      expect(forgotResponse.data.message).toBeTruthy()
+      expect(forgotResponse.data.resetToken).toBeTruthy()
+
+      const resetResponse = await apiCall('POST', '/auth/reset-password', {
+        token: forgotResponse.data.resetToken,
+        password: nextPassword,
+        confirmPassword: nextPassword
+      })
+
+      expect(resetResponse.status).toBe(200)
+
+      const { status, data } = await apiCall('POST', '/auth/login', {
+        email: testEmail,
+        password: nextPassword
+      })
+
+      expect(status).toBe(200)
+      expect(data.token).toBeTruthy()
+      testState.token = data.token
+      testPassword = nextPassword
     })
   })
 
@@ -700,7 +788,8 @@ describe('PAWvax API Tests', () => {
       const { status } = await apiCall('POST', '/auth/register', {
         name: 'Test',
         email: 'invalid-email',
-        password: 'Password123!'
+        password: 'Password123!',
+        confirmPassword: 'Password123!'
       })
 
       expect(status).toBe(400)
@@ -713,7 +802,8 @@ describe('PAWvax API Tests', () => {
       const { status: status1 } = await apiCall('POST', '/auth/register', {
         name: 'Test 1',
         email: email,
-        password: 'Password123!'
+        password: 'Password123!',
+        confirmPassword: 'Password123!'
       })
       expect(status1).toBe(201)
 
@@ -721,9 +811,21 @@ describe('PAWvax API Tests', () => {
       const { status: status2 } = await apiCall('POST', '/auth/register', {
         name: 'Test 2',
         email: email,
-        password: 'Password123!'
+        password: 'Password123!',
+        confirmPassword: 'Password123!'
       })
       expect([400, 409]).toContain(status2)
+    })
+
+    test('7f. Register mit abweichender Passwort-Bestätigung — 400 Bad Request', async () => {
+      const { status } = await apiCall('POST', '/auth/register', {
+        name: 'Mismatch User',
+        email: `mismatch${Date.now()}@example.com`,
+        password: 'Password123!',
+        confirmPassword: 'Password1234!'
+      })
+
+      expect(status).toBe(400)
     })
   })
 
@@ -1094,7 +1196,62 @@ describe('9. Extended Regression Tests', () => {
     }
   })
 
-  test('9k. GET /documents/:id returns all stored document pages', async () => {
+  test('9k. Secure mail settings stay out of public settings', async () => {
+    const saveResponse = await apiCallWithToken(adminToken9, 'PATCH', '/admin/settings', {
+      mail_enabled: true,
+      mail_from_address: 'noreply@example.com',
+      mail_from_name: 'PAW Mail',
+      smtp_host: 'smtp.example.com',
+      smtp_port: 587,
+      smtp_security_mode: 'starttls',
+      smtp_auth_mode: 'password',
+      smtp_username: 'noreply@example.com',
+      smtp_password: 'SuperSecret123!'
+    })
+    expect(saveResponse.status).toBe(200)
+
+    const publicResponse = await apiCallWithToken(null, 'GET', '/settings')
+    expect(publicResponse.status).toBe(200)
+    expect(publicResponse.data.mail_enabled).toBe(true)
+    expect(publicResponse.data.smtp_password).toBeUndefined()
+    expect(publicResponse.data.smtp_host).toBeUndefined()
+
+    const adminResponse = await apiCallWithToken(adminToken9, 'GET', '/admin/settings')
+    expect(adminResponse.status).toBe(200)
+    expect(adminResponse.data.smtp_password).toBeUndefined()
+    expect(adminResponse.data.has_smtp_password).toBe(true)
+  })
+
+  test('9l. Non-admin cannot update secure mail settings', async () => {
+    const response = await apiCallWithToken(token9, 'PATCH', '/admin/settings', {
+      mail_enabled: true,
+      mail_from_address: 'blocked@example.com',
+      smtp_host: 'smtp.example.com',
+      smtp_port: 587,
+      smtp_security_mode: 'starttls',
+      smtp_auth_mode: 'password',
+      smtp_username: 'blocked@example.com',
+      smtp_password: 'Blocked123!'
+    })
+
+    expect(response.status).toBe(403)
+  })
+
+  test('9m. Audit log masks SMTP secrets', async () => {
+    const { rows: [entry] } = await adminDb9.query(`
+      SELECT details
+      FROM audit_log
+      WHERE action = 'update_settings'
+      ORDER BY created_at DESC
+      LIMIT 1
+    `)
+
+    expect(entry).toBeTruthy()
+    const details = JSON.parse(entry.details)
+    expect(details.smtp_password).toBe('***')
+  })
+
+  test('9n. GET /documents/:id returns all stored document pages', async () => {
     const db = await getTestDb()
     const docId = uuid()
     const page1 = writeTinyPng(`page-1-${Date.now()}.png`)

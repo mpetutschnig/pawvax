@@ -1,6 +1,6 @@
 {
   "name": "paw-server",
-  "version": "2026-05-06_1147",
+  "version": "2026-05-06_1354",
   "type": "module",
   "scripts": {
     "start": "node src/app.js",
@@ -29,6 +29,7 @@
     "better-sqlite3": "^12.9.0",
     "dotenv": "^16.4.5",
     "fastify": "^5.8.5",
+    "nodemailer": "^6.10.0",
     "pg": "^8.13.0",
     "sharp": "^0.34.5",
     "uuid": "^14.0.0"
