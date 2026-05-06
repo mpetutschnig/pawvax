@@ -146,12 +146,12 @@ mkdir -p "\$HOME/.cache/pawvax/npm-cache"
 
 podman pull "\$TEST_NODE_IMAGE" >/dev/null 2>&1 || true
 
-podman run --rm --network host \
+podman run --rm --network host --security-opt label=disable \
   -e DATABASE_URL="postgresql://\$DB_USER:\$DB_PASSWORD@127.0.0.1:5432/\$DB_TEST_NAME" \
   -e PERSIST_DATABASE_URL="postgresql://\$DB_USER:\$DB_PASSWORD@127.0.0.1:5432/\$DB_NAME" \
   -e PAW_MOCK_OCR=1 \
-  -v "\$REPO_DIR:/workspace:Z" \
-  -v "\$HOME/.cache/pawvax/npm-cache:/root/.npm:Z" \
+  -v "\$REPO_DIR:/workspace:ro" \
+  -v "\$HOME/.cache/pawvax/npm-cache:/root/.npm" \
   -w /workspace/server \
   "\$TEST_NODE_IMAGE" sh -lc '
     set -e
@@ -209,9 +209,9 @@ prepare_proxy_assets() {
   chmod 755 "$app_home_dir/.cache" "$app_home_dir/.local" "$app_home_dir/.local/share"
 
   # Create directories with proper ownership
-  mkdir -p "$app_home_dir/data/proxy/ssl" "$app_home_dir/data/pwa" "$app_home_dir/data/caddy" "$app_home_dir/data/caddy-data"
-  chown -R "$APP_USER:$APP_USER" "$app_home_dir/data/proxy" "$app_home_dir/data/pwa" "$app_home_dir/data/caddy" "$app_home_dir/data/caddy-data"
-  chmod 755 "$app_home_dir/data/proxy" "$app_home_dir/data/proxy/ssl" "$app_home_dir/data/pwa" "$app_home_dir/data/caddy" "$app_home_dir/data/caddy-data"
+  mkdir -p "$app_home_dir/data/proxy/ssl" "$app_home_dir/data/pwa" "$app_home_dir/data/caddy" "$app_home_dir/data/caddy-data" "$app_home_dir/data/caddy-config"
+  chown -R "$APP_USER:$APP_USER" "$app_home_dir/data/proxy" "$app_home_dir/data/pwa" "$app_home_dir/data/caddy" "$app_home_dir/data/caddy-data" "$app_home_dir/data/caddy-config"
+  chmod 755 "$app_home_dir/data/proxy" "$app_home_dir/data/proxy/ssl" "$app_home_dir/data/pwa" "$app_home_dir/data/caddy" "$app_home_dir/data/caddy-data" "$app_home_dir/data/caddy-config"
 
   # Copy config files with proper ownership
   cp "$REPO_DIR/podman/proxy.nginx.conf" "$app_home_dir/data/proxy/default.conf"
@@ -355,7 +355,8 @@ deploy_stack() {
 
   run_as_app "podman run -d --replace --name paw-caddy --pod '$POD_NAME' \
     -v '$app_home_dir/data/caddy/Caddyfile:/etc/caddy/Caddyfile:ro' \
-    -v '$app_home_dir/data/caddy-data:/root/.local/share/caddy:Z' \
+    -v '$app_home_dir/data/caddy-data:/data:Z,U' \
+    -v '$app_home_dir/data/caddy-config:/config:Z,U' \
     localhost/paw-caddy:latest"
 
   run_as_app "rm -f '$app_home_dir/.config/systemd/user/pod-'*.service '$app_home_dir/.config/systemd/user/container-'*.service"
