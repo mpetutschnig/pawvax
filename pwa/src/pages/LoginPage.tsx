@@ -18,6 +18,10 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [logoData, setLogoData] = useState<string>('')
   const [tokenActionInProgress, setTokenActionInProgress] = useState(false)
+  const [showAdvanced, setShowAdvanced] = useState(false)
+  const [serverUrl, setServerUrl] = useState<string>(() => {
+    return localStorage.getItem('paw_server_url') || 'https://vetsucht.oxs.at'
+  })
 
   useEffect(() => {
     fetch('/api/settings').then(res => res.json()).then(data => { if (data.logo_data) setLogoData(data.logo_data) }).catch(() => {})
@@ -67,6 +71,11 @@ export default function LoginPage() {
     setInfo(null)
     setPassword('')
     setConfirmPassword('')
+  }
+
+  function handleServerUrlChange(newUrl: string) {
+    setServerUrl(newUrl)
+    localStorage.setItem('paw_server_url', newUrl)
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -136,6 +145,42 @@ export default function LoginPage() {
           <h1 style={{ margin: 0, fontSize: 'var(--font-size-xl)' }}>{t('app.title')}</h1>
           <p className="text-muted" style={{ margin: '4px 0 0 0' }}>{t('app.subtitle')}</p>
         </div>
+
+        <button
+          style={{
+            background: 'none',
+            border: 'none',
+            color: 'var(--primary-600)',
+            cursor: 'pointer',
+            fontWeight: 600,
+            padding: '0 0 var(--space-2) 0',
+            textDecoration: 'underline',
+            fontSize: 'var(--font-size-xs)',
+            marginBottom: 'var(--space-3)',
+            width: '100%',
+            textAlign: 'right'
+          }}
+          onClick={() => setShowAdvanced(!showAdvanced)}
+        >
+          {showAdvanced ? '✕' : '⚙️'} {showAdvanced ? 'Advanced' : 'Advanced'}
+        </button>
+
+        {showAdvanced && (
+          <div className="form-group" style={{ marginBottom: 'var(--space-4)', padding: 'var(--space-3)', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-sm)' }}>
+            <label className="form-label" style={{ fontSize: 'var(--font-size-xs)' }}>Server URL</label>
+            <input
+              className="form-input"
+              type="url"
+              value={serverUrl}
+              onChange={e => handleServerUrlChange(e.target.value)}
+              placeholder="https://vetsucht.oxs.at"
+              style={{ fontSize: 'var(--font-size-xs)' }}
+            />
+            <p className="text-muted" style={{ margin: 'var(--space-2) 0 0 0', fontSize: 'var(--font-size-xs)' }}>
+              Tragen Sie Ihre PAW-Serveradresse ein. Standard: https://vetsucht.oxs.at
+            </p>
+          </div>
+        )}
 
         <h2 style={{ marginTop: 0, marginBottom: 'var(--space-4)', textAlign: 'center', fontSize: 'var(--font-size-lg)' }}>{title}</h2>
 

@@ -89,9 +89,21 @@ if (!jwtSecret || INSECURE_DEFAULTS.includes(jwtSecret)) {
   process.exit(1)
 }
 
-// Plugins
+// Plugins - CORS origins can be configured
+const defaultCorsOrigins = ['https://paw.oxs.at', 'https://vetsucht.oxs.at', 'https://pawapi.oxs.at', 'http://localhost:5173', 'http://localhost:3000']
 await fastify.register(fastifyCors, {
-  origin: ['https://paw.oxs.at', 'https://pawapi.oxs.at', 'http://localhost:5173', 'http://localhost:3000'],
+  origin: (origin, cb) => {
+    // Allow requests from configured origins or localhost
+    if (!origin || origin.includes('localhost') || origin.includes('127.0.0.1')) {
+      cb(null, true)
+    } else if (defaultCorsOrigins.includes(origin)) {
+      cb(null, true)
+    } else {
+      // Log and allow for now (admins can configure additional origins via admin settings later)
+      fastify.log.warn({ origin }, 'CORS origin not in whitelist')
+      cb(null, true)
+    }
+  },
   credentials: true
 })
 await fastify.register(fastifyHelmet, {
@@ -142,6 +154,11 @@ await fastify.register(fastifySwagger, {
 
 await fastify.register(fastifySwaggerUi, {
   routePrefix: '/documentation'
+})
+
+// Also expose docs at /api/docs for convenience
+fastify.get('/api/docs', (req, reply) => {
+  reply.redirect('/documentation')
 })
 
 // Fastify v5: Allow empty JSON body (e.g. DELETE requests with Content-Type: application/json but no body)

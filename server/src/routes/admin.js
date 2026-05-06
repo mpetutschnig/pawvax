@@ -380,26 +380,19 @@ export default async function adminRoutes(fastify) {
       WHERE id = $1
     `, [id])
 
-    // Assign role based on verification type
+    // Assign role based on verification type (exclusive role)
     const roleMap = {
       'vet': 'veterinarian',
       'authority': 'authority'
     }
-    const roleToAdd = roleMap[vr.type] || vr.type
-    
-    // Get current roles and add new one (if not already present)
-    const currentRoles = (account.role || 'user').split(',').map(r => r.trim()).filter(r => r)
-    if (!currentRoles.includes(roleToAdd)) {
-      currentRoles.push(roleToAdd)
-    }
-    const updatedRoles = currentRoles.join(',')
+    const newRole = roleMap[vr.type] || vr.type
 
-    // Update accounts table with new roles
+    // Update accounts table with exclusive role (replace user role)
     await db.query(`
-      UPDATE accounts 
+      UPDATE accounts
       SET verified = 1, verification_status = 'approved', role = $1
       WHERE id = $2
-    `, [updatedRoles, vr.account_id])
+    `, [newRole, vr.account_id])
 
     await logAudit(db, {
       accountId: adminId,

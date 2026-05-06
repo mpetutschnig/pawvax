@@ -330,12 +330,15 @@ export default async function documentRoutes(fastify) {
 
     const isOwner = doc.owner_id === accountId
     const isUploader = doc.added_by_account === accountId
+    const isAdmin = role === 'admin'
 
-    if (doc.added_by_role === 'vet' && !isUploader) {
+    // Vet documents can only be deleted by the vet who uploaded them or admin
+    if (doc.added_by_role === 'vet' && !isUploader && !isAdmin) {
       return reply.code(403).send({ error: 'Dieses verifizierte Dokument kann nur vom Tierarzt gelöscht werden' })
     }
 
-    if (!isOwner && !isUploader) {
+    // User documents can be deleted by owner, uploader, or admin
+    if (!isOwner && !isUploader && !isAdmin) {
       return reply.code(403).send({ error: 'Keine Berechtigung dieses Dokument zu löschen' })
     }
 

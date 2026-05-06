@@ -1063,8 +1063,16 @@ export default async function animalRoutes(fastify) {
 
     const { rows: [animal] } = await db.query('SELECT id, account_id FROM animals WHERE id = $1', [id])
     if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden' })
-    if (animal.account_id !== accountId && !isVet) {
-      return reply.code(403).send({ error: 'Keine Berechtigung' })
+
+    // Owner can always add vaccinations; vet must have scanned the animal first
+    if (animal.account_id !== accountId) {
+      if (!isVet) {
+        return reply.code(403).send({ error: 'Keine Berechtigung' })
+      }
+      const { rows: [scanHistory] } = await db.query('SELECT id FROM animal_scans WHERE animal_id = $1 AND account_id = $2 LIMIT 1', [id, accountId])
+      if (!scanHistory) {
+        return reply.code(403).send({ error: 'Sie müssen dieses Tier zuerst scannen, um Daten hinzuzufügen' })
+      }
     }
 
     const docId = uuid()
@@ -1132,8 +1140,16 @@ export default async function animalRoutes(fastify) {
 
     const { rows: [animal] } = await db.query('SELECT id, account_id FROM animals WHERE id = $1', [id])
     if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden' })
-    if (animal.account_id !== accountId && !isVet) {
-      return reply.code(403).send({ error: 'Keine Berechtigung' })
+
+    // Owner can always add treatments; vet must have scanned the animal first
+    if (animal.account_id !== accountId) {
+      if (!isVet) {
+        return reply.code(403).send({ error: 'Keine Berechtigung' })
+      }
+      const { rows: [scanHistory] } = await db.query('SELECT id FROM animal_scans WHERE animal_id = $1 AND account_id = $2 LIMIT 1', [id, accountId])
+      if (!scanHistory) {
+        return reply.code(403).send({ error: 'Sie müssen dieses Tier zuerst scannen, um Daten hinzuzufügen' })
+      }
     }
 
     const docId = uuid()

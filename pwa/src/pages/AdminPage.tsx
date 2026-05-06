@@ -155,6 +155,7 @@ export default function AdminPage() {
   const [rejectionReason, setRejectionReason] = useState('')
   const [verificationProcessing, setVerificationProcessing] = useState<string | null>(null)
   const [version, setVersion] = useState<any>(null)
+  const [settingsTab, setSettingsTab] = useState<'general' | 'mail' | 'ai' | 'auth'>('general')
 
   useEffect(() => {
     fetch('/api/settings').then(res => res.json()).then(data => setAppSettings(current => ({ ...current, ...data }))).catch(console.error)

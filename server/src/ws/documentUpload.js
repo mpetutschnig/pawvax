@@ -25,12 +25,16 @@ async function canAccessAnimalForUpload(db, animalId, accountId, userRole) {
   if (ownerCheck) {
     return true
   }
-  
-  // Vet/Authority can access ANY animal (to add documents)
+
+  // Vet/Authority must have scanned the animal first to upload documents
   if (userRole === 'vet' || userRole === 'authority') {
-    return true
+    const { rows: [scanHistory] } = await db.query(
+      'SELECT 1 FROM animal_scans WHERE animal_id = $1 AND account_id = $2 LIMIT 1',
+      [animalId, accountId]
+    )
+    return !!scanHistory
   }
-  
+
   // Guests cannot upload
   return false
 }

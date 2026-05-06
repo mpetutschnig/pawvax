@@ -143,5 +143,18 @@ export async function initDb(connectionString) {
     await pool.query('CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_expires ON password_reset_tokens(expires_at)')
   } catch { /* table may already exist */ }
 
+  // Migration: Consolidate comma-separated roles to single exclusive role
+  // Priority: admin > veterinarian > authority > user
+  try {
+    const { rows: accountsWithCommaRoles } = await pool.query("SELECT id, role FROM accounts WHERE role LIKE '%,%'")
+    for (const account of accountsWithCommaRoles) {
+      const roles = account.role.split(',').map(r => r.trim()).filter(r => r)
+      const uniqueRoles = [...new Set(roles)]
+      const roleMap = { admin: 4, veterinarian: 3, authority: 2, user: 1 }
+      const newRole = uniqueRoles.sort((a, b) => (roleMap[b] || 0) - (roleMap[a] || 0))[0] || 'user'
+      await pool.query('UPDATE accounts SET role = $1 WHERE id = $2', [newRole, account.id])
+    }
+  } catch { /* table or column may not exist, or no accounts need migration */ }
+
   return pool
 }

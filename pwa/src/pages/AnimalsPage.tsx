@@ -109,79 +109,6 @@ export default function AnimalsPage() {
     <div className="container page">
       <PageHeader title={`${t('animals.myAnimals')} (${animals.length})`} showThemeToggle />
 
-      {recentlyViewed.length > 0 && (
-        <div className="card" style={{ marginBottom: 'var(--space-4)' }}>
-          <h3 style={{ marginBottom: 'var(--space-3)' }}>{t('recent.title')}</h3>
-          <div style={{ display: 'grid', gap: 'var(--space-2)' }}>
-            {recentlyViewed.map((item) => (
-              <Link
-                key={item.id}
-                to={`/animals/${item.id}`}
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  padding: 'var(--space-2) var(--space-3)',
-                  border: '1px solid var(--border-subtle)',
-                  borderRadius: 'var(--radius-sm)',
-                  textDecoration: 'none',
-                  color: 'inherit',
-                  background: 'var(--surface)'
-                }}
-              >
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>{item.name}</div>
-                  <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>
-                    {item.species || ''}{item.breed ? ` · ${item.breed}` : ''}
-                  </div>
-                </div>
-                <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>
-                  {item.source === 'scan' ? t('recent.sourceScan') : t('recent.sourceShare')} · {new Date(item.viewedAt).toLocaleTimeString()}
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {recentlyScanned.length > 0 && (
-        <div className="card" style={{ marginBottom: 'var(--space-4)', borderLeft: '4px solid var(--warning-500)', background: 'var(--warning-50)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
-            <Clock size={18} color="var(--warning-600)" />
-            <h3 style={{ margin: 0 }}>{t('profile.scannedHistory')}</h3>
-          </div>
-          <div style={{ display: 'grid', gap: 'var(--space-2)' }}>
-            {recentlyScanned.map((animal, idx) => (
-              <Link
-                key={`${animal.id}-${idx}`}
-                to={`/animals/${animal.id}`}
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  padding: 'var(--space-2) var(--space-3)',
-                  border: '1px solid var(--border-subtle)',
-                  borderRadius: 'var(--radius-sm)',
-                  textDecoration: 'none',
-                  color: 'inherit',
-                  background: 'white'
-                }}
-              >
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>{animal.name}</div>
-                  <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>
-                    {animal.species || ''}{animal.breed ? ` · ${animal.breed}` : ''}
-                  </div>
-                </div>
-                <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>
-                  {new Date(animal.scanned_at).toLocaleString()}
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
-
       <div style={{ position: 'relative', marginBottom: 'var(--space-4)' }}>
         <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
         <input
@@ -330,6 +257,79 @@ export default function AnimalsPage() {
               <ArrowRightLeft size={18} /> {t('animals.acceptTransferBtn')}
             </button>
           </div>
+
+          {recentlyViewed.length > 0 && (
+            <div className="card" style={{ marginTop: 'var(--space-4)', marginBottom: 'var(--space-4)' }}>
+              <h3 style={{ marginBottom: 'var(--space-3)' }}>{t('recent.title')}</h3>
+              <div style={{ display: 'grid', gap: 'var(--space-2)' }}>
+                {recentlyViewed.map((item) => (
+                  <Link
+                    key={item.id}
+                    to={`/animals/${item.id}`}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: 'var(--space-2) var(--space-3)',
+                      border: '1px solid var(--border-subtle)',
+                      borderRadius: 'var(--radius-sm)',
+                      textDecoration: 'none',
+                      color: 'inherit',
+                      background: 'var(--surface)'
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>{item.name}</div>
+                      <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>
+                        {item.species || ''}{item.breed ? ` · ${item.breed}` : ''}
+                      </div>
+                    </div>
+                    <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>
+                      {item.source === 'scan' ? t('recent.sourceScan') : t('recent.sourceShare')} · {new Date(item.viewedAt).toLocaleTimeString()}
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {recentlyScanned.length > 0 && (
+            <div className="card" style={{ marginBottom: 'var(--space-4)', borderLeft: '4px solid var(--warning-500)', background: 'var(--warning-50)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
+                <Clock size={18} color="var(--warning-600)" />
+                <h3 style={{ margin: 0 }}>{t('profile.scannedHistory')}</h3>
+              </div>
+              <div style={{ display: 'grid', gap: 'var(--space-2)' }}>
+                {recentlyScanned.map((animal, idx) => (
+                  <Link
+                    key={`${animal.id}-${idx}`}
+                    to={`/animals/${animal.id}`}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: 'var(--space-2) var(--space-3)',
+                      border: '1px solid var(--border-subtle)',
+                      borderRadius: 'var(--radius-sm)',
+                      textDecoration: 'none',
+                      color: 'inherit',
+                      background: 'var(--surface)'
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>{animal.name}</div>
+                      <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>
+                        {animal.species || ''}{animal.breed ? ` · ${animal.breed}` : ''}
+                      </div>
+                    </div>
+                    <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>
+                      {new Date(animal.scanned_at).toLocaleString()}
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>
