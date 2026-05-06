@@ -668,6 +668,16 @@ export default async function authRoutes(fastify) {
     return reply.code(204).send()
   })
 
+  // OAuth Provider Status — GET /api/auth/oauth/providers (public)
+  fastify.get('/api/auth/oauth/providers', async (_req, reply) => {
+    const providers = {}
+    for (const [name, config] of Object.entries(OAUTH_PROVIDERS)) {
+      providers[name] = !!process.env[config.clientIdEnv]
+    }
+    providers.supabase = !!process.env.SUPABASE_JWT_SECRET
+    return reply.send(providers)
+  })
+
   // OAuth Login — GET /api/auth/oauth/:provider
   fastify.get('/api/auth/oauth/:provider', async (req, reply) => {
     const { provider } = req.params
