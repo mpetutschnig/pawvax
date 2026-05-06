@@ -250,7 +250,8 @@ prepare_host() {
   app_uid_value="$(app_uid)"
 
   mkdir -p "$app_home_dir/data/postgres" "$app_home_dir/data/uploads" "$app_home_dir/.config/systemd/user" "$app_home_dir/.local/share/containers"
-  chown -R "$APP_USER:$APP_USER" "$app_home_dir/data" "$app_home_dir/.config" "$app_home_dir/.local"
+  chown "$APP_USER:$APP_USER" "$app_home_dir/data" "$app_home_dir/data/uploads" "$app_home_dir/.config" "$app_home_dir/.local" "$app_home_dir/.local/share" "$app_home_dir/.local/share/containers"
+  chown -R "$APP_USER:$APP_USER" "$app_home_dir/.config/systemd" "$app_home_dir/.config/pawvax" 2>/dev/null || true
   chmod 755 "$app_home_dir/data" "$app_home_dir/data/postgres" "$app_home_dir/data/uploads" "$app_home_dir/.config" "$app_home_dir/.local" "$app_home_dir/.local/share" "$app_home_dir/.local/share/containers"
 
   loginctl enable-linger "$APP_USER" 2>/dev/null || true
@@ -280,6 +281,7 @@ run_host_tests() {
   require_root
   local app_home_dir
   app_home_dir="$(app_home)"
+  prepare_postgres_permissions
   run_as_app "'$app_home_dir/bin/run-paw-tests.sh'"
 }
 
