@@ -3,11 +3,11 @@
 # Runs as container in pod, proxies to API and PWA services
 
 # HTTP → HTTPS redirect
-http://vetzsucht.oxs.at {
+http://vetsucht.oxs.at {
   redir https://{host}{uri} permanent
 }
 
-vetzsucht.oxs.at {
+vetsucht.oxs.at {
   encode gzip
 
   # API routes - proxy to Node.js API on port 3000
