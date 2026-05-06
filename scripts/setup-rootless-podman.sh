@@ -264,6 +264,15 @@ prepare_host() {
   echo "Prepared host for $APP_USER using repo $REPO_DIR"
 }
 
+prepare_postgres_permissions() {
+  local app_home_dir
+  app_home_dir="$(app_home)"
+
+  # postgres:16-alpine runs as uid/gid 70 inside the container.
+  # In rootless Podman, the host bind mount must be owned through the user namespace.
+  run_as_app "podman unshare chown -R 70:70 '$app_home_dir/data/postgres'"
+}
+
 run_host_tests() {
   require_root
   local app_home_dir
@@ -278,6 +287,8 @@ deploy_stack() {
 
   local app_home_dir
   app_home_dir="$(app_home)"
+
+  prepare_postgres_permissions
 
   run_as_app "cd '$REPO_DIR'; podman build --no-cache -t localhost/paw-api:latest -f server/Dockerfile server"
   run_as_app "cd '$REPO_DIR'; podman build --no-cache -t localhost/paw-pwa:latest -f pwa/Dockerfile pwa"
@@ -320,7 +331,7 @@ deploy_stack() {
     -e POSTGRES_DB='$DB_NAME' \
     -e POSTGRES_USER='$DB_USER' \
     -e POSTGRES_PASSWORD=\"\$DB_PASSWORD\" \
-    -v '$app_home_dir/data/postgres:/var/lib/postgresql/data:Z' \
+    -v '$app_home_dir/data/postgres:/var/lib/postgresql/data:Z,U' \
     --health-cmd 'pg_isready -U $DB_USER' --health-interval 10s --health-timeout 5s --health-retries 5 \
     docker.io/postgres:16-alpine"
 
