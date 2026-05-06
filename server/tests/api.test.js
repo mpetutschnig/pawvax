@@ -928,13 +928,9 @@ describe('PAWvax API Tests', () => {
     let journeyState = { token: null, animalId: null }
 
     test('8a. Journey: Register → Create Animal → Add Tag → Get Animal', async () => {
-      // 1. Register
+      // 1. Register and Verify
       const email = `journey${Date.now()}@test.com`
-      const { data: registerData } = await apiCall('POST', '/auth/register', {
-        name: 'Journey Tester',
-        email,
-        password: 'Password123!'
-      })
+      const { data: registerData } = await registerAndVerifyUser('Journey Tester', email, 'Password123!')
       journeyState.token = registerData.token
 
       // 2. Get Profile
@@ -1035,15 +1031,10 @@ describe('9. Extended Regression Tests', () => {
     animalId9 = animal.data.id
 
     const adminEmail = `reg9-admin-${Date.now()}@example.com`
-    const adminReg = await apiCallWithToken(null, 'POST', '/auth/register', {
-      name: 'Regression Admin',
-      email: adminEmail,
-      password: 'SecurePassword123!'
-    })
-    expect(adminReg.status).toBe(201)
+    const { data: adminRegData } = await registerAndVerifyUser('Regression Admin', adminEmail, 'SecurePassword123!')
 
     adminDb9 = await getTestDb()
-    const adminAccountId = adminReg.data.account?.id || adminReg.data.userId || adminReg.data.id
+    const adminAccountId = adminRegData.id
     expect(adminAccountId).toBeTruthy()
     await adminDb9.query('UPDATE accounts SET role = $1 WHERE id = $2', ['user,admin', adminAccountId])
 
@@ -1805,14 +1796,10 @@ describe('Suite 14: Re-Analysis (Phase 4)', () => {
 
   beforeAll(async () => {
     db14 = await getTestDb()
-    
+
     // Register and login user for Suite 14
-    const regRes = await apiCall('POST', '/auth/register', {
-      name: 'ReAnalyzer User',
-      email: `reanalyzer_${Date.now()}@test.com`,
-      password: 'test123456'
-    }, { 'Authorization': '' })
-    testUser14Token = regRes.data.token
+    const { data: regRes } = await registerAndVerifyUser('ReAnalyzer User', `reanalyzer_${Date.now()}@test.com`, 'test123456')
+    testUser14Token = regRes.token
 
     // Create animal for Suite 14
     const animalRes = await apiCallWithToken(testUser14Token, 'POST', '/animals', {
@@ -2393,20 +2380,26 @@ describe('Suite 16: EU Pet Passport + Chip Tag Type', () => {
     })
 
     test('17c. GET /api/admin/test-runs returns empty list when no runs exist', async () => {
-      // Register admin user
-      const adminEmail = `admin-${Date.now()}@example.com`
-      const { data: adminReg } = await apiCall('POST', '/auth/register', {
-        name: 'Admin',
-        email: adminEmail,
+      // Register and verify admin user
+      const { data: adminReg } = await registerAndVerifyUser('Admin Test', `admin-${Date.now()}@example.com`, 'Password123!')
+      const adminAccountId = adminReg.id
+
+      // Mark user as admin in DB
+      const db17c = await getTestDb()
+      await db17c.query('UPDATE accounts SET role = $1 WHERE id = $2', ['user,admin', adminAccountId])
+
+      // Login to get token
+      const { data: loginRes } = await apiCallWithToken(null, 'POST', '/auth/login', {
+        email: adminReg.email,
         password: 'Password123!'
       })
-      const { data: adminCreated } = await apiCallWithToken(null, 'GET', `/auth/profile/${adminEmail}`)
-      const adminToken = adminReg.token
+      const adminToken = loginRes.token
 
       // Delete all test runs from DB first
       const db = await getTestDb()
       await db.query('DELETE FROM test_results')
       await db.end()
+      await db17c.end()
 
       const { status, data } = await apiCallWithToken(adminToken, 'GET', '/admin/test-runs')
       expect(status).toBe(200)
@@ -2415,13 +2408,21 @@ describe('Suite 16: EU Pet Passport + Chip Tag Type', () => {
     })
 
     test('17d. GET /api/admin/test-runs/:id returns 404 for unknown run', async () => {
-      const adminEmail = `admin2-${Date.now()}@example.com`
-      const { data: adminReg } = await apiCall('POST', '/auth/register', {
-        name: 'Admin2',
-        email: adminEmail,
+      // Register and verify admin user
+      const { data: adminReg } = await registerAndVerifyUser('Admin2 Test', `admin2-${Date.now()}@example.com`, 'Password123!')
+      const adminAccountId = adminReg.id
+
+      // Mark user as admin in DB
+      const db17d = await getTestDb()
+      await db17d.query('UPDATE accounts SET role = $1 WHERE id = $2', ['user,admin', adminAccountId])
+
+      // Login to get token
+      const { data: loginRes } = await apiCallWithToken(null, 'POST', '/auth/login', {
+        email: adminReg.email,
         password: 'Password123!'
       })
-      const adminToken = adminReg.token
+      const adminToken = loginRes.token
+      await db17d.end()
 
       const { status } = await apiCallWithToken(adminToken, 'GET', '/admin/test-runs/unknown-id-12345')
       expect(status).toBe(404)
