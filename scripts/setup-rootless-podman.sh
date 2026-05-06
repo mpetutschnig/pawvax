@@ -229,8 +229,8 @@ deploy_stack() {
 
   run_as_app "i=0; while [ \$i -lt 60 ]; do podman exec paw-postgres pg_isready -U '$DB_USER' >/dev/null 2>&1 && break; sleep 3; i=\$((i+1)); done; podman exec paw-postgres pg_isready -U '$DB_USER' || { echo 'PostgreSQL did not become ready in time.' >&2; exit 1; }"
 
-  run_as_app "podman exec paw-postgres psql -U '$DB_USER' -d postgres -c \"CREATE DATABASE IF NOT EXISTS $DB_NAME\" 2>&1 | grep -v 'already exists' || true"
-  run_as_app "podman exec paw-postgres psql -U '$DB_USER' -d postgres -c \"CREATE DATABASE IF NOT EXISTS $DB_TEST_NAME\" 2>&1 | grep -v 'already exists' || true"
+  run_as_app "podman exec paw-postgres psql -U '$DB_USER' -d postgres -tc \"SELECT 1 FROM pg_database WHERE datname='$DB_NAME'\" | grep -q 1 || podman exec paw-postgres psql -U '$DB_USER' -d postgres -c \"CREATE DATABASE $DB_NAME OWNER $DB_USER\""
+  run_as_app "podman exec paw-postgres psql -U '$DB_USER' -d postgres -tc \"SELECT 1 FROM pg_database WHERE datname='$DB_TEST_NAME'\" | grep -q 1 || podman exec paw-postgres psql -U '$DB_USER' -d postgres -c \"CREATE DATABASE $DB_TEST_NAME OWNER $DB_USER\""
 
   run_as_app "source '$app_home_dir/.config/pawvax/paw.env'; podman run -d --replace --name paw-api --pod '$POD_NAME' \
     --env-file '$app_home_dir/.config/pawvax/paw.env' \
