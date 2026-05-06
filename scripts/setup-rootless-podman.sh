@@ -146,7 +146,7 @@ mkdir -p "\$HOME/.cache/pawvax/npm-cache"
 
 podman pull "\$TEST_NODE_IMAGE" >/dev/null 2>&1 || true
 
-podman run --rm --network host --security-opt label=disable \
+podman run --rm --pod "${POD_NAME}" --security-opt label=disable \
   -e DATABASE_URL="postgresql://\$DB_USER:\$DB_PASSWORD@127.0.0.1:5432/\$DB_TEST_NAME" \
   -e PERSIST_DATABASE_URL="postgresql://\$DB_USER:\$DB_PASSWORD@127.0.0.1:5432/\$DB_NAME" \
   -e PAW_MOCK_OCR=1 \
