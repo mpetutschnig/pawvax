@@ -186,13 +186,17 @@ deploy_stack() {
   run_as_app "cd '$REPO_DIR'; podman build --no-cache -t localhost/paw-pwa:latest -f pwa/Dockerfile pwa"
   run_as_app "cd '$REPO_DIR'; podman build --no-cache -t localhost/paw-caddy:latest -f podman/Dockerfile.caddy ."
 
+  # Stop systemd service FIRST — otherwise it restarts the pod immediately after pod rm
+  run_as_app "systemctl --user disable --now 'pod-$POD_NAME.service' 2>/dev/null || true"
+  run_as_app "systemctl --user stop 'pod-$POD_NAME.service' 2>/dev/null || true"
+  sleep 3
+
   # Remove stale PostgreSQL PID file that SIGKILL leaves behind (runs as root, has direct access)
   local pg_pid_file
   pg_pid_file="$(app_home)/data/postgres/postmaster.pid"
   [ -f "$pg_pid_file" ] && rm -f "$pg_pid_file" && echo "Removed stale PostgreSQL PID file" || true
 
   # Stop each container individually with grace period, then remove pod
-  # This prevents SIGKILL leaving Podman state dirty
   run_as_app "
     for c in paw-api paw-pwa paw-caddy paw-postgres; do
       podman stop --time 15 \$c 2>/dev/null || true
