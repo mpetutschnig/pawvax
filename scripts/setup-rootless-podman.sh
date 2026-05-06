@@ -152,9 +152,12 @@ podman run --rm --network host --security-opt label=disable \
   -e PAW_MOCK_OCR=1 \
   -v "\$REPO_DIR:/workspace:ro" \
   -v "\$HOME/.cache/pawvax/npm-cache:/root/.npm" \
-  -w /workspace/server \
   "\$TEST_NODE_IMAGE" sh -lc '
     set -e
+    rm -rf /tmp/pawvax-test-server
+    mkdir -p /tmp/pawvax-test-server
+    cp -a /workspace/server/. /tmp/pawvax-test-server/
+    cd /tmp/pawvax-test-server
     npm ci
     test_exit=0
     node scripts/run-api-tests.js || test_exit=\$?
