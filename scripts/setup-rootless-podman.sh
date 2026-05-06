@@ -187,7 +187,9 @@ deploy_stack() {
   run_as_app "cd '$REPO_DIR'; podman build --no-cache -t localhost/paw-caddy:latest -f podman/Dockerfile.caddy ."
 
   run_as_app "podman pod exists '$POD_NAME' && podman pod rm -f '$POD_NAME' || true"
-  sleep 3  # Wait for old containers/ports to fully release
+  # Wait until pod is fully gone from Podman state
+  run_as_app "i=0; while podman pod exists '$POD_NAME' 2>/dev/null; do sleep 2; i=\$((i+1)); [ \$i -ge 15 ] && { echo 'Pod did not disappear in time' >&2; exit 1; }; done"
+  sleep 2  # Extra buffer for ports/network to release
   # Remove stale PostgreSQL PID file that SIGKILL leaves behind
   local pg_pid_file
   pg_pid_file="$(app_home)/data/postgres/postmaster.pid"
