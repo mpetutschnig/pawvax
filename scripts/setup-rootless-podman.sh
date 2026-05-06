@@ -142,7 +142,7 @@ set -a
 source "\$ENV_FILE"
 set +a
 
-mkdir -p "\$HOME/.npm"
+mkdir -p "\$HOME/.cache/pawvax/npm-cache"
 
 podman pull "\$TEST_NODE_IMAGE" >/dev/null 2>&1 || true
 
@@ -151,7 +151,7 @@ podman run --rm --network host \
   -e PERSIST_DATABASE_URL="postgresql://\$DB_USER:\$DB_PASSWORD@127.0.0.1:5432/\$DB_NAME" \
   -e PAW_MOCK_OCR=1 \
   -v "\$REPO_DIR:/workspace:Z" \
-  -v "\$HOME/.npm:/root/.npm:Z" \
+  -v "\$HOME/.cache/pawvax/npm-cache:/root/.npm:Z" \
   -w /workspace/server \
   "\$TEST_NODE_IMAGE" sh -lc '
     set -e
