@@ -3,8 +3,27 @@
 # Runs as container in pod, proxies to API and PWA services
 
 # HTTP → HTTPS redirect
-http://vetsucht.oxs.at {
+http://vetsucht.oxs.at, http://pawapi.oxs.at {
   redir https://{host}{uri} permanent
+}
+
+# API subdomain — Swagger docs + direct API access
+pawapi.oxs.at {
+  encode gzip
+
+  reverse_proxy localhost:3000 {
+    header_up X-Real-IP {http.request.remote.host}
+    header_up X-Forwarded-For {http.request.remote.host}
+    header_up X-Forwarded-Proto {http.request.scheme}
+    header_up Host {http.request.host}
+    header_up Connection {http.request.header.Connection}
+    header_up Upgrade {http.request.header.Upgrade}
+  }
+
+  log {
+    output stdout
+    format json
+  }
 }
 
 vetsucht.oxs.at {
