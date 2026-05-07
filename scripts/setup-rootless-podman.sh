@@ -444,15 +444,24 @@ deploy_stack() {
   prepare_postgres_permissions
 
   # Build container images — prune dangling layers after each build to prevent accumulation
+  echo ""; echo ">>> [1/3] Building paw-api image..."
   run_as_app "cd '$REPO_DIR'; podman build --no-cache -t localhost/paw-api:latest -f server/Dockerfile server"
   prune_images
+  echo ">>> paw-api build done."; sleep 3
+
+  echo ""; echo ">>> [2/3] Building paw-pwa image..."
   run_as_app "cd '$REPO_DIR'; podman build --no-cache -t localhost/paw-pwa:latest -f pwa/Dockerfile pwa"
   prune_images
+  echo ">>> paw-pwa build done."; sleep 3
+
+  echo ""; echo ">>> [3/3] Building paw-caddy image..."
   run_as_app "cd '$REPO_DIR'; podman build --no-cache -t localhost/paw-caddy:latest -f podman/Dockerfile.caddy ."
   prune_images
+  echo ">>> paw-caddy build done."; sleep 3
 
   # Stop all services — both old pod-based units and any existing quadlet units
   # (quadlet units are generated and cannot be disabled, only stopped)
+  echo ""; echo ">>> Stopping running services..."
   run_as_app "systemctl --user stop \
     'pod-$POD_NAME.service' \
     'paw-caddy.service' 'paw-pwa.service' 'paw-api.service' 'paw-postgres.service' \
@@ -464,6 +473,7 @@ deploy_stack() {
   [ -f "$pg_pid_file" ] && rm -f "$pg_pid_file" && echo "Removed stale PostgreSQL PID file" || true
 
   # Stop and remove any lingering containers and pods
+  echo ""; echo ">>> Removing containers and pod..."
   run_as_app "
     for c in paw-api paw-pwa paw-caddy paw-postgres; do
       podman stop --time 15 \$c 2>/dev/null || true
@@ -472,14 +482,18 @@ deploy_stack() {
     podman pod rm -f '$POD_NAME' 2>/dev/null || true
     sleep 2
   "
+  echo ">>> Containers removed."; sleep 3
 
   # Write quadlet files and reload systemd to register them
+  echo ""; echo ">>> Writing quadlet files and reloading systemd..."
   write_quadlet_files
   run_as_app "systemctl --user daemon-reload"
+  echo ">>> systemd reloaded."; sleep 2
 
   # Start postgres first and wait for it to be healthy
   # (quadlet units are generated — [Install] in the .container file handles boot auto-start;
   #  we only need 'start' here, not 'enable --now')
+  echo ""; echo ">>> Starting PostgreSQL..."
   run_as_app "systemctl --user start 'paw-postgres.service'"
   run_as_app "
     i=0
@@ -490,20 +504,26 @@ deploy_stack() {
     done
     echo 'PostgreSQL is ready.'
   "
+  sleep 2
 
   # Ensure databases exist (CREATE is idempotent via error suppression)
+  echo ""; echo ">>> Ensuring databases exist..."
   run_as_app "podman exec paw-postgres psql -U '$DB_USER' -d postgres -c \
     \"CREATE DATABASE $DB_NAME OWNER $DB_USER\" 2>/dev/null || true"
   run_as_app "podman exec paw-postgres psql -U '$DB_USER' -d postgres -c \
     \"CREATE DATABASE $DB_TEST_NAME OWNER $DB_USER\" 2>/dev/null || true"
+  sleep 2
 
   # Start remaining services
+  echo ""; echo ">>> Starting API, PWA and Caddy..."
   run_as_app "systemctl --user start 'paw-api.service' 'paw-pwa.service' 'paw-caddy.service'"
   run_as_app "systemctl --user enable --now paw-run-tests.timer"
+  echo ">>> All services started."; sleep 3
 
   # Final prune: remove any remaining dangling images from this or previous builds
   prune_images
 
+  echo ""; echo ">>> Running API test suite..."
   run_host_tests
 }
 
