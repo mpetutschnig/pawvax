@@ -428,6 +428,11 @@ EOF
     "$quadlet_dir/paw-caddy.container"
 }
 
+prune_images() {
+  # Remove dangling intermediate build layers and build cache; keeps tagged images in use.
+  run_as_app "podman image prune -f; podman builder prune -f" || true
+}
+
 deploy_stack() {
   require_root
   require_command podman
@@ -438,10 +443,13 @@ deploy_stack() {
 
   prepare_postgres_permissions
 
-  # Build container images
+  # Build container images — prune dangling layers after each build to prevent accumulation
   run_as_app "cd '$REPO_DIR'; podman build --no-cache -t localhost/paw-api:latest -f server/Dockerfile server"
+  prune_images
   run_as_app "cd '$REPO_DIR'; podman build --no-cache -t localhost/paw-pwa:latest -f pwa/Dockerfile pwa"
+  prune_images
   run_as_app "cd '$REPO_DIR'; podman build --no-cache -t localhost/paw-caddy:latest -f podman/Dockerfile.caddy ."
+  prune_images
 
   # Stop all services — both old pod-based units and any existing quadlet units
   # (quadlet units are generated and cannot be disabled, only stopped)
@@ -496,6 +504,9 @@ deploy_stack() {
   # Start remaining services
   run_as_app "systemctl --user start 'paw-api.service' 'paw-pwa.service' 'paw-caddy.service'"
   run_as_app "systemctl --user enable --now paw-run-tests.timer"
+
+  # Final prune: remove any remaining dangling images from this or previous builds
+  prune_images
 
   run_host_tests
 }
