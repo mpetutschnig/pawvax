@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Routes, Route, Navigate, useLocation, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { PawPrint, ScanLine, User, Settings } from 'lucide-react'
+import { PawPrint, ScanLine, User, Settings, Receipt } from 'lucide-react'
 import { useGlobalNfc } from './hooks/useGlobalNfc'
 import { api } from './api/rest'
 import { ErrorBoundary } from './components/ErrorBoundary'
@@ -19,6 +19,7 @@ import DocumentationPage from './pages/DocumentationPage'
 import WelcomePage from './pages/WelcomePage'
 import PublicSharePage from './pages/PublicSharePage'
 import RemindersPage from './pages/RemindersPage'
+import BillingPage from './pages/BillingPage'
 
 function GlobalBrand() {
   const location = useLocation()
@@ -112,6 +113,14 @@ function BottomNav() {
         </div>
         <span>{t('nav.profile')}</span>
       </Link>
+      {!(roles.length > 0 && roles.every((r: string) => r === 'guest')) && (
+        <Link to="/billing" className={location.pathname.startsWith('/billing') ? 'active' : ''}>
+          <div className="nav-icon-wrap">
+            <Receipt size={22} strokeWidth={1.8} />
+          </div>
+          <span>{t('nav.billing')}</span>
+        </Link>
+      )}
       {roles.includes('admin') && (
         <Link to="/admin" className={location.pathname.startsWith('/admin') ? 'active' : ''}>
           <div className="nav-icon-wrap">
@@ -159,6 +168,7 @@ export default function App() {
         <Route path="/scan" element={<RequireAuth><ScanPage /></RequireAuth>} />
         <Route path="/docs" element={<RequireAuth><DocumentationPage /></RequireAuth>} />
         <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
+        <Route path="/billing" element={<RequireAuth><BillingPage /></RequireAuth>} />
         <Route path="/admin" element={<RequireAuth adminOnly><AdminPage /></RequireAuth>} />
         <Route path="*" element={<Navigate to="/animals" replace />} />
       </Routes>

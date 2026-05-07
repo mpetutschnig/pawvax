@@ -6,7 +6,8 @@ export const PUBLIC_SETTINGS_KEYS = new Set([
   'theme_color',
   'logo_data',
   'last_test_run',
-  'mail_enabled'
+  'mail_enabled',
+  'billing_price_per_page'
 ])
 
 export const MAIL_SETTINGS_KEYS = [
@@ -36,7 +37,7 @@ export const SECRET_SETTINGS_KEYS = new Set([
 ])
 
 const BOOLEAN_SETTING_KEYS = new Set(['mail_enabled'])
-const NUMERIC_SETTING_KEYS = new Set(['smtp_port'])
+const NUMERIC_SETTING_KEYS = new Set(['smtp_port', 'billing_price_per_page'])
 
 function normalizeBoolean(value) {
   return value === true || value === 'true' || value === 1 || value === '1'

@@ -702,5 +702,29 @@
   "docDetail.hideDuplicates": "Duplikate ausblenden",
   "landing": {
     "description": "Nahtloser Zugang via NFC/Barcode. Die Oberfläche passt sich deiner Rolle an. Eigene Tiere zeigen vollständige Profile; fremde Tags nur freigegebene Dokumente."
-  }
+  },
+  "nav.billing": "Abrechnung",
+  "billing.title": "Nutzungsprotokoll",
+  "billing.myUsage": "Meine Nutzung",
+  "billing.adminOverview": "Alle Nutzer",
+  "billing.totalPages": "Seiten gesamt",
+  "billing.billablePages": "Kostenpflichtige Seiten",
+  "billing.totalCost": "Gesamtbetrag",
+  "billing.pricePerPage": "Preis pro Seite (System-KI)",
+  "billing.priceHint": "In Cent (z.B. 50 = 0,50 €). Wird nur für Analysen mit System-KI berechnet.",
+  "billing.history": "Analyseverlauf",
+  "billing.noEntries": "Keine Einträge vorhanden",
+  "billing.date": "Datum",
+  "billing.animal": "Tier",
+  "billing.pages": "Seiten",
+  "billing.provider": "KI-Anbieter",
+  "billing.cost": "Kosten",
+  "billing.user": "Nutzer",
+  "billing.allUsers": "Alle Nutzer",
+  "billing.noConsentYet": "Du hast noch keine kostenpflichtigen Analysen durchgeführt.",
+  "billing.consentTitle": "Kostenpflichtige KI-Analyse",
+  "billing.consentDesc": "Diese Analyse wird mit dem System-KI-Modell durchgeführt. Dafür fallen Kosten an.",
+  "billing.consentNote": "Mit dem Klick auf 'Zustimmen' erlaubst du die Nutzung des System-KI-Modells. Deine Zustimmung gilt dauerhaft für alle zukünftigen Analysen mit System-KI.",
+  "billing.consentAccept": "Zustimmen & analysieren",
+  "billing.total": "Gesamt"
 }

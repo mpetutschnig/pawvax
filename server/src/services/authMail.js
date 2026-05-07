@@ -104,19 +104,19 @@ export async function sendAuthEmail({ type, to, name, token, fastify }) {
     type
   }
 
+  const smtpConfig = { host: config.host, port: config.port }
   try {
     if (!isMailConfigured(config)) {
       fastify.log.warn({ to, type, actionUrl }, 'Mail delivery skipped because mail configuration is incomplete or disabled')
-      return { delivered: false, skipped: true, actionUrl }
+      return { delivered: false, skipped: true, actionUrl, config: smtpConfig }
     }
 
     const nodemailer = await loadMailer()
     const transport = nodemailer.createTransport(buildTransportOptions(config))
-    await transport.sendMail(payload)
-    const delivered = true
-    return { delivered, actionUrl }
+    const info = await transport.sendMail(payload)
+    return { delivered: true, actionUrl, messageId: info.messageId, smtpResponse: info.response, config: smtpConfig }
   } catch (error) {
     fastify.log.error({ err: error, to, type, actionUrl }, 'Failed to deliver auth email')
-    return { delivered: false, actionUrl, error }
+    return { delivered: false, actionUrl, error: error.message, smtpCode: error.responseCode, config: smtpConfig }
   }
 }

@@ -137,9 +137,14 @@ export default async function authRoutes(fastify) {
     )
 
     const verificationToken = await createEmailVerificationToken(db, id)
-    await sendAuthEmail({ type: 'verify-email', to: email, name, token: verificationToken, fastify })
+    const mailResult = await sendAuthEmail({ type: 'verify-email', to: email, name, token: verificationToken, fastify })
 
     await logAudit(db, { accountId: id, role: 'user', action: 'register', resource: 'account', resourceId: id, ip: req.ip })
+    await logAudit(db, {
+      accountId: id, role: 'system', action: 'mail_delivery', resource: 'mail', resourceId: email,
+      details: { type: 'verify-email', to: email, delivered: mailResult.delivered, skipped: mailResult.skipped ?? false, host: mailResult.config?.host, port: mailResult.config?.port, messageId: mailResult.messageId, smtpResponse: mailResult.smtpResponse, error: mailResult.error, smtpCode: mailResult.smtpCode },
+      ip: req.ip
+    })
 
     const roles = ['user']
     const response = {
@@ -229,8 +234,13 @@ export default async function authRoutes(fastify) {
     }
 
     const resetToken = await createPasswordResetToken(db, account.id)
-    await sendAuthEmail({ type: 'reset-password', to: account.email, name: account.name, token: resetToken, fastify })
+    const resetMailResult = await sendAuthEmail({ type: 'reset-password', to: account.email, name: account.name, token: resetToken, fastify })
     await logAudit(db, { accountId: account.id, role: 'user', action: 'forgot_password', resource: 'account', resourceId: account.id, ip: req.ip })
+    await logAudit(db, {
+      accountId: account.id, role: 'system', action: 'mail_delivery', resource: 'mail', resourceId: account.email,
+      details: { type: 'reset-password', to: account.email, delivered: resetMailResult.delivered, skipped: resetMailResult.skipped ?? false, host: resetMailResult.config?.host, port: resetMailResult.config?.port, messageId: resetMailResult.messageId, smtpResponse: resetMailResult.smtpResponse, error: resetMailResult.error, smtpCode: resetMailResult.smtpCode },
+      ip: req.ip
+    })
 
     if (shouldExposeAuthTokens()) {
       return { ...genericResponse, resetToken }

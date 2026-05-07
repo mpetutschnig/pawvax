@@ -6,7 +6,8 @@ import { CheckCircle, AlertCircle, Syringe, FileText, BookOpen, Camera, RefreshC
 import { PageHeader } from '../components/PageHeader'
 import { DocumentAnalysisForm } from '../components/DocumentAnalysisForm'
 import { uploadMultiPageDocument } from '../api/ws'
-import { analyzeDocument, patchDocument, getMe, patchMe } from '../api/rest'
+import { analyzeDocument, patchDocument, getMe, patchMe, getBillingMe } from '../api/rest'
+import { BillingConsentModal } from '../components/BillingConsentModal'
 import { DEFAULT_AVAILABLE_MODELS, DEFAULT_MODEL_BY_PROVIDER, DOCUMENT_TYPE_PLACEHOLDER, type DocumentTypeSelectValue } from '../utils/documentAnalysis'
 
 type Phase = 'capture' | 'uploading' | 'analysing' | 'done' | 'error'
@@ -85,6 +86,10 @@ export default function DocumentScanPage() {
   const [hasOpenai, setHasOpenai] = useState(false)
   const [hasSystemAi, setHasSystemAi] = useState(true)
   const hasAnyKey = hasGemini || hasAnthropic || hasOpenai || hasSystemAi
+  const [billingConsentAccepted, setBillingConsentAccepted] = useState(true)
+  const [billingPricePerPage, setBillingPricePerPage] = useState(0)
+  const [showConsentModal, setShowConsentModal] = useState(false)
+  const [pendingUploadTypes, setPendingUploadTypes] = useState<DocumentTypeSelectValue[] | undefined>(undefined)
   const [availableModels, setAvailableModels] = useState<any>(DEFAULT_AVAILABLE_MODELS)
   const docTypes = [
     { id: 'vaccination', label: t('animal.docTypeVaccination'), icon: <Syringe size={16} /> },
@@ -103,6 +108,13 @@ export default function DocumentScanPage() {
     const interval = setInterval(() => setElapsedTime(Math.floor((Date.now() - startTime) / 1000)), 1000)
     return () => clearInterval(interval)
   }, [phase])
+
+  useEffect(() => {
+    getBillingMe().then(r => {
+      setBillingConsentAccepted(!!r.data.consentAcceptedAt)
+      setBillingPricePerPage(r.data.pricePerPage ?? 0)
+    }).catch(() => {})
+  }, [])
 
   useEffect(() => {
     getMe().then(res => {
@@ -378,6 +390,16 @@ export default function DocumentScanPage() {
     else if (prov === 'openai') setRetryModel(DEFAULT_MODEL_BY_PROVIDER.openai)
   }
 
+  function maybeUpload(types?: DocumentTypeSelectValue[]) {
+    const willUseSystemFallback = !hasGemini && !hasAnthropic && !hasOpenai && hasSystemAi
+    if (willUseSystemFallback && !billingConsentAccepted && billingPricePerPage > 0) {
+      setPendingUploadTypes(types)
+      setShowConsentModal(true)
+      return
+    }
+    handleUpload(types)
+  }
+
   async function startUploadWithModel() {
     setIsAnalyzing(true)
     try {
@@ -389,13 +411,13 @@ export default function DocumentScanPage() {
       const res = await getMe()
       let currentPrio = ['google', 'anthropic', 'openai']
       try { if (res.data.ai_provider_priority) currentPrio = JSON.parse(res.data.ai_provider_priority) } catch {}
-      
+
       const newPrio = [retryProvider, ...currentPrio.filter((p: string) => p !== retryProvider)]
       updates.ai_provider_priority = JSON.stringify(newPrio)
 
       await patchMe(updates)
       setShowModelSelection(false)
-      handleUpload(groupTypes.length > 0 ? groupTypes : undefined)
+      maybeUpload(groupTypes.length > 0 ? groupTypes : undefined)
     } catch (err: any) {
       setErrorMsg(err.message || t('common.error'))
     } finally {
@@ -479,8 +501,18 @@ export default function DocumentScanPage() {
     }
   }
 
+  const totalPagesToUpload = groups.filter(g => g.pages.length > 0).reduce((s, g) => s + g.pages.length, 0)
+
   return (
     <div className="container page">
+      {showConsentModal && (
+        <BillingConsentModal
+          pricePerPage={billingPricePerPage}
+          pageCount={totalPagesToUpload}
+          onAccept={() => { setBillingConsentAccepted(true); setShowConsentModal(false); handleUpload(pendingUploadTypes) }}
+          onCancel={() => setShowConsentModal(false)}
+        />
+      )}
       <PageHeader title={t('docScan.title')} backTo={`/animals/${animalId}`} showThemeToggle />
 
       {phase === 'capture' && (

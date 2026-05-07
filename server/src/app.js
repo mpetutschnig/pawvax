@@ -22,6 +22,7 @@ import settingsRoutes from './routes/settings.js'
 import aiRoutes from './routes/ai.js'
 import vetApiRoutes from './routes/vetApi.js'
 import reminderRoutes from './routes/reminders.js'
+import billingRoutes from './routes/billing.js'
 import { setOcrLogger } from './services/ocr.js'
 import { logAudit } from './services/audit.js'
 
@@ -315,6 +316,7 @@ await fastify.register(settingsRoutes)
 await fastify.register(aiRoutes)
 await fastify.register(vetApiRoutes)
 await fastify.register(reminderRoutes)
+await fastify.register(billingRoutes)
 
 // Healthcheck
 fastify.get('/health', async () => ({ status: 'ok' }))

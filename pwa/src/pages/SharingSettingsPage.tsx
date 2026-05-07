@@ -141,11 +141,15 @@ export default function SharingSettingsPage() {
             <p className="text-muted" style={{ margin: 0, fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-2)' }}>
               {t('sharing.expiresIn')} 14 {t('sharing.days')}.
             </p>
-            <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+            <div style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-4)' }}>
               <input type="text" className="form-input" value={tempLink} readOnly />
               <button className="btn btn-primary" onClick={() => copyLink(tempLink)}>
                 {t('sharing.copyLink')}
               </button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-3)', padding: 'var(--space-4)', background: 'var(--surface-2)', borderRadius: 'var(--radius-md)' }}>
+              <QRCodeSVG value={tempLink} size={200} />
+              <span className="text-muted" style={{ fontSize: 'var(--font-size-xs)', wordBreak: 'break-all', textAlign: 'center' }}>{tempLink}</span>
             </div>
           </div>
         )}

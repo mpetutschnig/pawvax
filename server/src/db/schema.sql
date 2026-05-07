@@ -249,6 +249,21 @@ CREATE TABLE IF NOT EXISTS medical_administrations (
   created_at       TEXT DEFAULT (CURRENT_TIMESTAMP)
 );
 
+CREATE TABLE IF NOT EXISTS usage_logs (
+  id TEXT PRIMARY KEY,
+  account_id TEXT REFERENCES accounts(id) ON DELETE CASCADE,
+  document_id TEXT REFERENCES documents(id) ON DELETE SET NULL,
+  pages_analyzed INTEGER NOT NULL DEFAULT 1,
+  ocr_provider TEXT NOT NULL,
+  model_used TEXT,
+  is_system_fallback INTEGER NOT NULL DEFAULT 0,
+  analyzed_at TEXT DEFAULT (CURRENT_TIMESTAMP)
+);
+CREATE INDEX IF NOT EXISTS idx_usage_logs_account ON usage_logs(account_id);
+CREATE INDEX IF NOT EXISTS idx_usage_logs_analyzed ON usage_logs(analyzed_at);
+
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS billing_consent_accepted_at TEXT;
+
 CREATE TABLE IF NOT EXISTS test_results (
   id               TEXT PRIMARY KEY,
   test_timestamp   INTEGER NOT NULL,

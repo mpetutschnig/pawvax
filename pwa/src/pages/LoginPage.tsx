@@ -207,11 +207,11 @@ export default function LoginPage() {
             fontSize: 'var(--font-size-xs)',
             marginBottom: 'var(--space-3)',
             width: '100%',
-            textAlign: 'right'
+            textAlign: 'center'
           }}
           onClick={() => setShowAdvanced(!showAdvanced)}
         >
-          {showAdvanced ? '✕' : '⚙️'} {showAdvanced ? 'Advanced' : 'Advanced'}
+          {showAdvanced ? '✕ Server-Adresse ausblenden' : '⚙️ Server-Adresse ändern'}
         </button>
 
         {showAdvanced && (
@@ -269,7 +269,7 @@ export default function LoginPage() {
 
         {!isForgot && !isReset && (
           <p className="text-muted" style={{ marginTop: 'var(--space-6)', textAlign: 'center', fontSize: 'var(--font-size-sm)' }}>
-            {mode === 'login' ? t('auth.noAccount') : t('auth.hasAccount')}
+            {mode === 'login' ? t('auth.noAccount') : t('auth.hasAccount')}{' '}
             <button
               style={{ background: 'none', border: 'none', color: 'var(--primary-600)', cursor: 'pointer', fontWeight: 600, padding: 0 }}
               onClick={() => { resetFormState(mode === 'login' ? 'register' : 'login') }}

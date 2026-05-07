@@ -7,7 +7,7 @@ import { normalizeVaccinationRecord } from '../utils/vaccination'
 import { DocumentAnalysisForm } from '../components/DocumentAnalysisForm'
 import { DEFAULT_AVAILABLE_MODELS, DEFAULT_MODEL_BY_PROVIDER, DOCUMENT_TYPE_PLACEHOLDER, type DocumentTypeSelectValue } from '../utils/documentAnalysis'
 import { PageHeader } from '../components/PageHeader'
-import { Shield, Pill, FileText, PawPrint, Landmark, Calendar, Download, Mail, Tag, Save, X, Edit2, Trash2, CheckCircle, Award, GraduationCap, ChevronLeft, ChevronRight, Bell, AlertTriangle } from 'lucide-react'
+import { Shield, Pill, FileText, PawPrint, Landmark, Calendar, Download, Mail, Tag, Save, X, Edit2, Trash2, CheckCircle, Award, GraduationCap, ChevronLeft, ChevronRight, Bell, AlertTriangle, Syringe, BookOpen, Camera } from 'lucide-react'
 import { TagCombobox } from '../components/TagCombobox'
 
 export default function DocumentDetailPage() {
@@ -39,6 +39,7 @@ export default function DocumentDetailPage() {
   const [historyLoading, setHistoryLoading] = useState(false)
   
   const [showRetryModal, setShowRetryModal] = useState(false)
+  const [showTypeStep, setShowTypeStep] = useState(false)
   const [analysisAction, setAnalysisAction] = useState<'retry' | 'reanalyze'>('retry')
   const [retryProvider, setRetryProvider] = useState('google')
   const [retryModel, setRetryModel] = useState(DEFAULT_MODEL_BY_PROVIDER.google)
@@ -403,7 +404,66 @@ export default function DocumentDetailPage() {
   const canEditTags = doc.isUploader || doc.added_by_role !== 'vet'
   const canEditVisibility = doc.isOwner
 
-  // Eigener "Screen" für die Analyse, der die Detailansicht komplett überlagert
+  const docTypes = [
+    { id: 'vaccination', label: t('animal.docTypeVaccination'), icon: <Syringe size={16} /> },
+    { id: 'treatment', label: t('animal.docTypeTreatment'), icon: <BookOpen size={16} /> },
+    { id: 'medical_product', label: t('animal.docTypeMedicalProduct'), icon: <FileText size={16} /> },
+    { id: 'pet_passport', label: t('animal.docTypePetPassport'), icon: <Camera size={16} /> },
+    { id: 'pedigree', label: t('animal.docTypePedigree'), icon: <BookOpen size={16} /> },
+    { id: 'dog_certificate', label: t('animal.docTypeDogCertificate'), icon: <FileText size={16} /> },
+    { id: 'general', label: t('animal.docTypeGeneral'), icon: <FileText size={16} /> }
+  ]
+
+  // Schritt 1: Typ-Auswahl mit Dokumentvorschau
+  if (showTypeStep) {
+    const docImages = [doc.image_path, ...(doc.pages || [])].filter(Boolean)
+    return (
+      <div className="container page">
+        <PageHeader title={config.label} backTo={`/animals/${animalId}`} showThemeToggle />
+        <div className="card animate-slide-up">
+          {docImages.length > 0 && (
+            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: 'var(--space-4)' }}>
+              {docImages.map((src: string, i: number) => (
+                <img key={i} src={src} alt={`Seite ${i + 1}`} style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }} />
+              ))}
+            </div>
+          )}
+          <h3 style={{ marginBottom: 'var(--space-4)', fontSize: 'var(--font-size-base)' }}>{t('docScan.docType')}</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)', marginBottom: 'var(--space-4)' }}>
+            {docTypes.map(type => (
+              <button
+                key={type.id}
+                onClick={() => setRequestedDocumentType(type.id as DocumentTypeSelectValue)}
+                style={{
+                  padding: 'var(--space-2)', borderRadius: 'var(--radius-md)',
+                  border: requestedDocumentType === type.id ? '2px solid var(--primary-500)' : '1px solid var(--border)',
+                  background: requestedDocumentType === type.id ? 'var(--primary-50)' : 'var(--surface)',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
+                  fontSize: 'var(--font-size-sm)', fontWeight: requestedDocumentType === type.id ? 600 : 400,
+                  transition: 'all 0.15s'
+                }}
+              >
+                {type.icon}{type.label}
+              </button>
+            ))}
+          </div>
+          <button
+            className="btn btn-primary btn-full"
+            disabled={requestedDocumentType === DOCUMENT_TYPE_PLACEHOLDER}
+            onClick={() => { setShowTypeStep(false); setShowRetryModal(true) }}
+          >
+            Weiter — KI-Modell wählen
+          </button>
+          <button className="btn btn-ghost btn-full" style={{ marginTop: 'var(--space-2)' }}
+            onClick={() => { setShowTypeStep(false); setError(null) }}>
+            {t('common.cancel')}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // Schritt 2: Modell-Auswahl (Typ bereits gesetzt)
   if (showRetryModal) {
     return (
       <DocumentAnalysisForm
@@ -422,6 +482,7 @@ export default function DocumentDetailPage() {
         submitLabel={analysisAction === 'reanalyze' ? t('docDetail.reanalyze') : t('animal.analyzeBtn')}
         cancelLabel={t('docDetail.cancel')}
         isSubmitting={isAnalyzing}
+        hideDocumentType={true}
         onProviderChange={handleProviderChange}
         onModelChange={setRetryModel}
         onRequestedDocumentTypeChange={setRequestedDocumentType}
@@ -601,7 +662,7 @@ export default function DocumentDetailPage() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-3)' }}>
             <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0 }}>{t('docDetail.analysisHistory')}</h3>
             {canReanalyze && (
-              <button className="btn btn-secondary" onClick={() => { setAnalysisAction('reanalyze'); setRequestedDocumentType(DOCUMENT_TYPE_PLACEHOLDER); setShowRetryModal(true); setError(null) }} disabled={saving}>
+              <button className="btn btn-secondary" onClick={() => { setAnalysisAction('reanalyze'); setRequestedDocumentType((doc.doc_type as DocumentTypeSelectValue) ?? DOCUMENT_TYPE_PLACEHOLDER); setShowTypeStep(true); setError(null) }} disabled={saving}>
                 {t('docDetail.reanalyze')}
               </button>
             )}
@@ -1217,7 +1278,7 @@ export default function DocumentDetailPage() {
 
         {!rawText && doc.analysis_status === 'pending_analysis' ? (
           <div style={{ marginTop: 'var(--space-4)' }}>
-            <button className="btn btn-primary btn-full" onClick={() => { setAnalysisAction('retry'); setRequestedDocumentType(DOCUMENT_TYPE_PLACEHOLDER); setShowRetryModal(true) }}>
+            <button className="btn btn-primary btn-full" onClick={() => { setAnalysisAction('retry'); setRequestedDocumentType((doc.doc_type as DocumentTypeSelectValue) ?? DOCUMENT_TYPE_PLACEHOLDER); setShowTypeStep(true) }}>
               {t('animal.retry')}
             </button>
           </div>

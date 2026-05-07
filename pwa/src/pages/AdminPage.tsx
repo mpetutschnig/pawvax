@@ -102,6 +102,7 @@ interface AdminSettingsState {
   has_smtp_password?: boolean
   has_oauth2_client_secret?: boolean
   has_oauth2_refresh_token?: boolean
+  billing_price_per_page?: number
 }
 
 const defaultAdminSettings: AdminSettingsState = {
@@ -782,6 +783,11 @@ export default function AdminPage() {
                   }
                 }} />
                 {appSettings.logo_data && <img src={appSettings.logo_data} alt="Logo" style={{ marginTop: 'var(--space-3)', maxHeight: '80px', borderRadius: 'var(--radius-md)' }} />}
+              </div>
+              <div className="form-group">
+                <label className="form-label">{t('billing.pricePerPage')} (Cent, 0 = kostenlos)</label>
+                <input className="form-input" type="number" min={0} value={appSettings.billing_price_per_page ?? 0} onChange={e => setAppSettings({...appSettings, billing_price_per_page: Number(e.target.value)})} placeholder="0" />
+                <p className="text-muted" style={{ fontSize: 'var(--font-size-xs)', marginTop: 4 }}>{t('billing.priceHint')}</p>
               </div>
               <button className="btn btn-primary" onClick={saveSettings} disabled={settingsSaving} style={{ marginTop: 'var(--space-4)' }}>
                 {settingsSaving ? t('common.loading') : t('admin.saveSettings')}

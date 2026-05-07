@@ -208,3 +208,8 @@ export const getOAuthUrl = (provider: 'google' | 'github' | 'microsoft') =>
 // Supabase Auth Handshake
 export const supabaseLogin = (token: string) =>
   api.post('/auth/supabase', { token })
+
+// Billing
+export const getBillingMe = () => api.get('/billing/me')
+export const postBillingConsent = () => api.post('/billing/consent')
+export const adminGetBilling = () => api.get('/admin/billing')
