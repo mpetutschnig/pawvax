@@ -444,7 +444,8 @@ deploy_stack() {
   run_as_app "cd '$REPO_DIR'; podman build --no-cache -t localhost/paw-caddy:latest -f podman/Dockerfile.caddy ."
 
   # Stop all services — both old pod-based units and any existing quadlet units
-  run_as_app "systemctl --user disable --now \
+  # (quadlet units are generated and cannot be disabled, only stopped)
+  run_as_app "systemctl --user stop \
     'pod-$POD_NAME.service' \
     'paw-caddy.service' 'paw-pwa.service' 'paw-api.service' 'paw-postgres.service' \
     2>/dev/null || true"
@@ -469,7 +470,9 @@ deploy_stack() {
   run_as_app "systemctl --user daemon-reload"
 
   # Start postgres first and wait for it to be healthy
-  run_as_app "systemctl --user enable --now 'paw-postgres.service'"
+  # (quadlet units are generated — [Install] in the .container file handles boot auto-start;
+  #  we only need 'start' here, not 'enable --now')
+  run_as_app "systemctl --user start 'paw-postgres.service'"
   run_as_app "
     i=0
     until podman exec paw-postgres pg_isready -U '$DB_USER' >/dev/null 2>&1; do
@@ -491,7 +494,7 @@ deploy_stack() {
     \"CREATE DATABASE $DB_TEST_NAME OWNER $DB_USER\""
 
   # Start remaining services
-  run_as_app "systemctl --user enable --now 'paw-api.service' 'paw-pwa.service' 'paw-caddy.service'"
+  run_as_app "systemctl --user start 'paw-api.service' 'paw-pwa.service' 'paw-caddy.service'"
   run_as_app "systemctl --user enable --now paw-run-tests.timer"
 
   run_host_tests
@@ -516,7 +519,7 @@ cleanup_stack() {
   local app_home_dir
   app_home_dir="$(app_home)"
 
-  run_as_app "systemctl --user disable --now \
+  run_as_app "systemctl --user stop \
     'paw-caddy.service' 'paw-pwa.service' 'paw-api.service' 'paw-postgres.service' \
     'paw-stack-pod.service' 'pod-$POD_NAME.service' 2>/dev/null || true"
 
