@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { QRCodeSVG } from 'qrcode.react'
 import { createTemporaryShare, getAnimalShares, getSharing, revokeAnimalShare, updateSharing } from '../api/rest'
 import { PageHeader } from '../components/PageHeader'
-import { Eye, Landmark, Stethoscope, User, PawPrint, Cake, Link as LinkIcon } from 'lucide-react'
+import { Eye, Landmark, Stethoscope, User, PawPrint, Cake, Link as LinkIcon, QrCode } from 'lucide-react'
 
 interface SharingRow {
   id: string
@@ -34,6 +35,7 @@ export default function SharingSettingsPage() {
   const [generatingLink, setGeneratingLink] = useState(false)
   const [shares, setShares] = useState<ShareLink[]>([])
   const [revokingShareId, setRevokingShareId] = useState<string | null>(null)
+  const [qrOpenId, setQrOpenId] = useState<string | null>(null)
 
   const roleConfig: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
     guest: { label: t('docScan.guestAccess'), icon: <Eye size={18} />, color: 'var(--primary-600)' },
@@ -171,9 +173,16 @@ export default function SharingSettingsPage() {
                         {t('sharing.expiresAt')}: {new Date(share.expiresAt).toLocaleString()}
                       </div>
                     </div>
-                    <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                    <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                       <button className="btn btn-secondary" onClick={() => copyLink(shareUrl)}>
                         {t('sharing.copyLink')}
+                      </button>
+                      <button
+                        className="btn btn-secondary"
+                        onClick={() => setQrOpenId(qrOpenId === share.id ? null : share.id)}
+                        style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                      >
+                        <QrCode size={16} /> QR
                       </button>
                       <button
                         className="btn btn-danger"
@@ -184,6 +193,12 @@ export default function SharingSettingsPage() {
                       </button>
                     </div>
                   </div>
+                  {qrOpenId === share.id && (
+                    <div style={{ marginTop: 'var(--space-4)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-3)' }}>
+                      <QRCodeSVG value={shareUrl} size={200} />
+                      <span className="text-muted" style={{ fontSize: 'var(--font-size-xs)', wordBreak: 'break-all', textAlign: 'center' }}>{shareUrl}</span>
+                    </div>
+                  )}
                 </div>
               )
             })}

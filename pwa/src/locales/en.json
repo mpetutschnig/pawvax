@@ -329,6 +329,7 @@
   "docScan.rotateImage": "Rotate image",
   "docScan.pages": "Pages",
   "docScan.uploadAndAnalyze": "Upload & Analyze",
+  "docScan.chooseModel": "Continue — Choose AI model",
   "docScan.chooseAnother": "Choose another photo",
   "docScan.saveForLater": "Save for later",
   "docScan.retry": "Try again",

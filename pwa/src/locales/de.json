@@ -312,6 +312,7 @@
   "docScan.rotateImage": "Bild drehen",
   "docScan.pages": "Seiten",
   "docScan.uploadAndAnalyze": "Hochladen & analysieren",
+  "docScan.chooseModel": "Weiter — KI-Modell wählen",
   "docScan.chooseAnother": "Anderes Foto wählen",
   "docScan.saveForLater": "Für später speichern",
   "docScan.retry": "Erneut versuchen",

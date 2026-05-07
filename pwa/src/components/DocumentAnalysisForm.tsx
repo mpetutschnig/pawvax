@@ -26,6 +26,7 @@ interface DocumentAnalysisFormProps {
   submitLabel: string
   cancelLabel: string
   isSubmitting: boolean
+  hideDocumentType?: boolean
   onProviderChange: (provider: string) => void
   onModelChange: (model: string) => void
   onRequestedDocumentTypeChange: (documentType: DocumentTypeSelectValue) => void
@@ -49,6 +50,7 @@ export function DocumentAnalysisForm({
   submitLabel,
   cancelLabel,
   isSubmitting,
+  hideDocumentType,
   onProviderChange,
   onModelChange,
   onRequestedDocumentTypeChange,
@@ -56,7 +58,7 @@ export function DocumentAnalysisForm({
   onCancel
 }: DocumentAnalysisFormProps) {
   const { t } = useTranslation()
-  const isPlaceholderSelected = requestedDocumentType === DOCUMENT_TYPE_PLACEHOLDER
+  const isPlaceholderSelected = !hideDocumentType && requestedDocumentType === DOCUMENT_TYPE_PLACEHOLDER
 
   const docTypeLabel = (type: RequestedDocumentType) => {
     const labels: Record<RequestedDocumentType, string> = {
@@ -92,20 +94,22 @@ export function DocumentAnalysisForm({
       <div className="card animate-slide-up" style={{ borderColor: 'var(--primary-200)' }}>
         <p className="text-muted" style={{ marginBottom: 'var(--space-4)' }}>{description}</p>
 
-        <div className="form-group">
-          <label className="form-label">{t('docScan.docType')}</label>
-          <select className="form-select" value={requestedDocumentType} onChange={e => onRequestedDocumentTypeChange(e.target.value as DocumentTypeSelectValue)}>
-            <option value={DOCUMENT_TYPE_PLACEHOLDER} disabled>{t('docScan.docTypePlaceholder')}</option>
-            {DOCUMENT_TYPE_OPTIONS.map((type) => (
-              <option key={type} value={type}>{docTypeLabel(type)}</option>
-            ))}
-          </select>
-          {requestedDocumentType === 'auto' && (
-            <div style={{ marginTop: 'var(--space-2)', padding: 'var(--space-3)', background: 'var(--warning-50)', border: '1px solid var(--warning-200)', borderRadius: 'var(--radius-sm)', fontSize: 'var(--font-size-sm)', color: 'var(--warning-700)' }}>
-              ⚠️ {t('docScan.autoCostWarning')}
-            </div>
-          )}
-        </div>
+        {!hideDocumentType && (
+          <div className="form-group">
+            <label className="form-label">{t('docScan.docType')}</label>
+            <select className="form-select" value={requestedDocumentType} onChange={e => onRequestedDocumentTypeChange(e.target.value as DocumentTypeSelectValue)}>
+              <option value={DOCUMENT_TYPE_PLACEHOLDER} disabled>{t('docScan.docTypePlaceholder')}</option>
+              {DOCUMENT_TYPE_OPTIONS.map((type) => (
+                <option key={type} value={type}>{docTypeLabel(type)}</option>
+              ))}
+            </select>
+            {requestedDocumentType === 'auto' && (
+              <div style={{ marginTop: 'var(--space-2)', padding: 'var(--space-3)', background: 'var(--warning-50)', border: '1px solid var(--warning-200)', borderRadius: 'var(--radius-sm)', fontSize: 'var(--font-size-sm)', color: 'var(--warning-700)' }}>
+                ⚠️ {t('docScan.autoCostWarning')}
+              </div>
+            )}
+          </div>
+        )}
 
         {!hasAnyKey ? (
           <div className="error-card" style={{ marginBottom: 'var(--space-4)' }}>

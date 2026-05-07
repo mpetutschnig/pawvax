@@ -97,6 +97,14 @@ export default function DocumentScanPage() {
   ]
 
   useEffect(() => {
+    if (phase !== 'analysing') return
+    setElapsedTime(0)
+    const startTime = Date.now()
+    const interval = setInterval(() => setElapsedTime(Math.floor((Date.now() - startTime) / 1000)), 1000)
+    return () => clearInterval(interval)
+  }, [phase])
+
+  useEffect(() => {
     getMe().then(res => {
       setHasGemini(res.data.has_gemini_token)
       setHasAnthropic(res.data.has_anthropic_token)
@@ -133,10 +141,14 @@ export default function DocumentScanPage() {
       <div className="container page">
         <PageHeader title={t('docScan.title')} backTo={`/animals/${animalId}`} showThemeToggle />
         <div className="card animate-slide-up">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
-            <span className="badge badge-info">Dokument {typeWizardIdx + 1} von {filledGroups.length}</span>
-            <span className="text-muted" style={{ fontSize: 'var(--font-size-sm)' }}>{currentGroup?.pages.length} {currentGroup?.pages.length === 1 ? 'Seite' : 'Seiten'}</span>
-          </div>
+          {filledGroups.length > 1 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
+              <span className="badge badge-info">Dokument {typeWizardIdx + 1} von {filledGroups.length}</span>
+              {(currentGroup?.pages.length ?? 0) > 1 && (
+                <span className="text-muted" style={{ fontSize: 'var(--font-size-sm)' }}>{currentGroup?.pages.length} Seiten</span>
+              )}
+            </div>
+          )}
           {currentGroup?.previews[0] && (
             <img src={currentGroup.previews[0]} alt="Vorschau" style={{ width: '100%', maxHeight: '180px', objectFit: 'contain', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-4)', background: 'var(--surface-2)' }} />
           )}
@@ -175,7 +187,7 @@ export default function DocumentScanPage() {
               }
             }}
           >
-            {isLast ? t('docScan.uploadAndAnalyze') : `Weiter → Dok. ${typeWizardIdx + 2} von ${filledGroups.length}`}
+            {isLast ? t('docScan.chooseModel') : `Weiter → Dok. ${typeWizardIdx + 2} von ${filledGroups.length}`}
           </button>
           <button className="btn btn-ghost btn-full" style={{ marginTop: 'var(--space-2)' }} onClick={() => { setTypeWizardIdx(null); setGroupTypes([]) }}>
             {t('common.cancel')}
@@ -203,6 +215,7 @@ export default function DocumentScanPage() {
         submitLabel={documentId ? t('animal.analyzeBtn') : t('docScan.uploadAndAnalyze')}
         cancelLabel={documentId ? t('docScan.saveForLater') : t('common.cancel')}
         isSubmitting={isAnalyzing}
+        hideDocumentType={true}
         onProviderChange={handleProviderChange}
         onModelChange={setRetryModel}
         onRequestedDocumentTypeChange={setRequestedDocumentType}
@@ -551,103 +564,140 @@ export default function DocumentScanPage() {
                   {t('docScan.pages')}: {totalPages}
                   {groups.length > 1 && <span style={{ marginLeft: 'var(--space-2)', color: 'var(--primary-600)' }}>· {groups.length} Dokumente</span>}
                 </div>
-                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center', marginBottom: 'var(--space-3)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
                   {(() => {
-                    const items: React.ReactNode[] = []
+                    const groupItems: React.ReactNode[] = []
                     let globalIdx = 0
                     groups.forEach((group, groupIdx) => {
-                      if (groups.length > 1) {
-                        items.push(
-                          <span key={`label-${groupIdx}`} style={{ fontSize: '10px', fontWeight: 700, color: 'var(--primary-600)', background: 'var(--primary-50)', borderRadius: '4px', padding: '2px 5px', whiteSpace: 'nowrap' }}>
-                            Dok. {groupIdx + 1}
-                          </span>
-                        )
-                      }
+                      // Thumbnails einer Gruppe
+                      const thumbRow: React.ReactNode[] = []
                       group.previews.forEach((preview, pageIdx) => {
                         const myGlobalIdx = globalIdx
                         const isActive = groupIdx === activeGroupIdx && pageIdx === activePageIdx
+                        // Trenn-Button zwischen Seiten (gleiche Gruppe)
                         if (pageIdx > 0) {
-                          items.push(
+                          thumbRow.push(
                             <button
                               key={`split-${myGlobalIdx}`}
                               onClick={() => insertGroupDivider(myGlobalIdx)}
-                              title="Hier trennen (neues Dokument)"
-                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)', fontSize: '14px', padding: '0 1px', lineHeight: 1 }}
+                              title="Hier trennen — neues Dokument"
+                              style={{
+                                background: 'var(--surface-2)', border: '1px solid var(--border)',
+                                borderRadius: 'var(--radius-sm)', cursor: 'pointer',
+                                color: 'var(--text-secondary)', fontSize: '16px', fontWeight: 700,
+                                padding: '0 6px', minHeight: '44px', minWidth: '32px',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                flexShrink: 0, lineHeight: 1
+                              }}
+                              aria-label="Seite trennen"
                             >÷</button>
                           )
                         }
-                        items.push(
+                        thumbRow.push(
                           <div
                             key={`thumb-${groupIdx}-${pageIdx}`}
                             onClick={() => { setActiveGroupIdx(groupIdx); setActivePageIdx(pageIdx) }}
                             style={{
-                              position: 'relative', width: '56px', height: '56px',
-                              borderRadius: 'var(--radius-sm)', overflow: 'hidden',
-                              border: `2px solid ${isActive ? 'var(--primary-500)' : 'var(--border)'}`,
-                              cursor: 'pointer', opacity: isActive ? 1 : 0.65,
+                              position: 'relative', width: '64px', height: '64px',
+                              borderRadius: 'var(--radius-sm)', overflow: 'visible',
+                              border: `3px solid ${isActive ? 'var(--primary-500)' : 'var(--border)'}`,
+                              cursor: 'pointer', opacity: isActive ? 1 : 0.7,
                               transition: 'all var(--t-fast)', flexShrink: 0
                             }}
                           >
-                            <img src={preview} alt={`Seite ${pageIdx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            <img src={preview} alt={`Seite ${pageIdx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'calc(var(--radius-sm) - 2px)', display: 'block' }} />
+                            {/* Seitennummer-Badge */}
+                            {group.pages.length > 1 && (
+                              <span style={{
+                                position: 'absolute', bottom: '2px', left: '2px',
+                                background: 'rgba(0,0,0,0.55)', color: 'white',
+                                fontSize: '10px', fontWeight: 700, lineHeight: 1,
+                                padding: '2px 4px', borderRadius: '3px'
+                              }}>{pageIdx + 1}</span>
+                            )}
                             {totalPages > 1 && (
                               <button
                                 onClick={(e) => { e.stopPropagation(); handleRemovePage(groupIdx, pageIdx) }}
                                 style={{
-                                  position: 'absolute', top: '-5px', right: '-5px',
-                                  width: '18px', height: '18px', background: 'var(--danger-600)',
-                                  border: 'none', borderRadius: '50%', color: 'white',
+                                  position: 'absolute', top: '-8px', right: '-8px',
+                                  width: '22px', height: '22px', background: 'var(--danger-600)',
+                                  border: '2px solid var(--surface)', borderRadius: '50%', color: 'white',
                                   cursor: 'pointer', padding: 0, display: 'flex',
                                   alignItems: 'center', justifyContent: 'center'
                                 }}
-                              ><X size={11} /></button>
+                                aria-label="Seite entfernen"
+                              ><X size={12} /></button>
                             )}
                           </div>
                         )
                         globalIdx++
                       })
-                      if (groupIdx < groups.length - 1) {
-                        items.push(
-                          <button
-                            key={`merge-${groupIdx}`}
-                            onClick={() => removeGroupDivider(groupIdx)}
-                            title="Trennung entfernen (Dokumente zusammenführen)"
-                            style={{
-                              background: 'var(--danger-50)', border: '1px solid var(--danger-200)',
-                              borderRadius: '4px', cursor: 'pointer', color: 'var(--danger-600)',
-                              fontSize: '12px', fontWeight: 700, padding: '2px 5px', lineHeight: 1
-                            }}
-                          >×</button>
-                        )
-                      }
-                    })
-                    items.push(
-                      <React.Fragment key="add-btns">
-                        <input type="file" id="addPageCameraInput" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={handleAddPage} />
-                        <input type="file" id="addPageFileInput" accept="image/*" style={{ display: 'none' }} onChange={handleAddPage} />
-                        <div style={{ width: '56px', height: '56px', border: '2px dashed var(--border)', borderRadius: 'var(--radius-sm)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '3px', background: 'var(--surface)', flexShrink: 0 }}>
-                          <label htmlFor="addPageCameraInput" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2px' }} title="Kamera">
-                            <Camera size={16} color="var(--text-secondary)" />
-                          </label>
-                          <label htmlFor="addPageFileInput" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2px' }} title="Datei">
-                            <Plus size={16} color="var(--text-secondary)" />
-                          </label>
+
+                      groupItems.push(
+                        <div key={`group-${groupIdx}`}>
+                          {groups.length > 1 && (
+                            <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--primary-600)', background: 'var(--primary-50)', borderRadius: '4px', padding: '2px 6px', display: 'inline-block', marginBottom: 'var(--space-2)' }}>
+                              Dok. {groupIdx + 1}
+                            </div>
+                          )}
+                          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+                            {thumbRow}
+                          </div>
+                          {/* Zusammenführen-Button zwischen Gruppen */}
+                          {groupIdx < groups.length - 1 && (
+                            <button
+                              onClick={() => removeGroupDivider(groupIdx)}
+                              style={{
+                                marginTop: 'var(--space-2)', width: '100%',
+                                padding: 'var(--space-2) var(--space-3)', minHeight: '44px',
+                                background: 'var(--danger-50)', border: '1px solid var(--danger-200)',
+                                borderRadius: 'var(--radius-sm)', cursor: 'pointer',
+                                color: 'var(--danger-600)', fontSize: 'var(--font-size-sm)',
+                                fontWeight: 600, display: 'flex', alignItems: 'center',
+                                justifyContent: 'center', gap: 'var(--space-2)'
+                              }}
+                              aria-label="Trennung entfernen"
+                            >
+                              ← Zusammenführen →
+                            </button>
+                          )}
                         </div>
-                      </React.Fragment>
-                    )
-                    return items
+                      )
+                    })
+                    return groupItems
                   })()}
+                </div>
+
+                {/* Seite hinzufügen — eigene Buttons unterhalb der Leiste */}
+                <input type="file" id="addPageCameraInput" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={handleAddPage} />
+                <input type="file" id="addPageFileInput" accept="image/*" style={{ display: 'none' }} onChange={handleAddPage} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
+                  <label htmlFor="addPageCameraInput" style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)',
+                    minHeight: '44px', padding: 'var(--space-2) var(--space-3)',
+                    border: '1px dashed var(--border)', borderRadius: 'var(--radius-sm)',
+                    background: 'var(--surface)', cursor: 'pointer',
+                    fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', fontWeight: 500
+                  }}>
+                    <Camera size={18} /> Weitere Seite fotografieren
+                  </label>
+                  <label htmlFor="addPageFileInput" style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)',
+                    minHeight: '44px', padding: 'var(--space-2) var(--space-3)',
+                    border: '1px dashed var(--border)', borderRadius: 'var(--radius-sm)',
+                    background: 'var(--surface)', cursor: 'pointer',
+                    fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', fontWeight: 500
+                  }}>
+                    <Plus size={18} /> Weitere Seite aus Galerie
+                  </label>
                 </div>
               </div>
 
               <button className="btn btn-primary btn-full" onClick={() => {
                 const filled = groups.filter(g => g.pages.length > 0)
                 setRequestedDocumentType(DOCUMENT_TYPE_PLACEHOLDER)
-                if (filled.length > 1) {
-                  setGroupTypes(new Array(filled.length).fill(DOCUMENT_TYPE_PLACEHOLDER))
-                  setTypeWizardIdx(0)
-                } else {
-                  setShowModelSelection(true)
-                }
+                setGroupTypes(new Array(filled.length).fill(DOCUMENT_TYPE_PLACEHOLDER))
+                setTypeWizardIdx(0)
               }}>
                 {groups.filter(g => g.pages.length > 0).length > 1
                   ? `${groups.filter(g => g.pages.length > 0).length} Dokumente hochladen & analysieren`
