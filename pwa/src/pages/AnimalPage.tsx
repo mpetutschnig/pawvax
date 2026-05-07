@@ -884,7 +884,7 @@ export default function AnimalPage() {
                 </div>
               )}
 
-              {isOwner && animal.is_archived && (
+              {isOwner && !!animal.is_archived && (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
                   {!showDeleteConfirm ? (
                     <button className="btn btn-outline" onClick={() => { setShowDeleteConfirm(true); setDeleteConfirmText('') }} disabled={submitting} style={{ borderColor: 'var(--danger-500)', color: 'var(--danger-500)' }}>
