@@ -11,7 +11,7 @@ export function generateICS(event: { title: string; date: string; description?: 
     `DTEND;VALUE=DATE:${dt}`,
     `SUMMARY:${escapeICS(event.title)}`,
     `DESCRIPTION:${escapeICS(event.description ?? '')}`,
-    `UID:paw-${Date.now()}-${Math.random().toString(36).slice(2)}@paw.oxs.at`,
+    `UID:paw-${Date.now()}-${Math.random().toString(36).slice(2)}@${new URL(window.location.origin).hostname}`,
     `DTSTAMP:${formatDateISO(new Date())}`,
     'STATUS:CONFIRMED',
     'END:VEVENT',

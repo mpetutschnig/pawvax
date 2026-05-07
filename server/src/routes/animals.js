@@ -364,7 +364,7 @@ export default async function animalRoutes(fastify) {
     }
   }, async (req, reply) => {
     const db = getDb()
-    const { name, species, breed, birthdate, address, tagId, tagType } = req.body
+    const { name, species, breed, pedigree_name, birthdate, address, tagId, tagType } = req.body
     const { accountId, role } = req.user
     const animalId = uuid()
 
@@ -379,8 +379,8 @@ export default async function animalRoutes(fastify) {
     try {
       await client.query('BEGIN')
 
-      await client.query('INSERT INTO animals (id, account_id, name, species, breed, birthdate, address) VALUES ($1, $2, $3, $4, $5, $6, $7)',
-        [animalId, accountId, name, species, breed ?? null, birthdate ?? null, address ?? null])
+      await client.query('INSERT INTO animals (id, account_id, name, species, breed, pedigree_name, birthdate, address) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+        [animalId, accountId, name, species, breed ?? null, pedigree_name ?? null, birthdate ?? null, address ?? null])
 
       if (tagId && tagType) {
         await client.query('INSERT INTO animal_tags (tag_id, animal_id, tag_type) VALUES ($1, $2, $3)',
@@ -469,8 +469,8 @@ export default async function animalRoutes(fastify) {
       avatarPath = saveBase64Image(filename, req.body.avatar_base64)
     }
 
-    await db.query('UPDATE animals SET name=$1, species=$2, breed=$3, birthdate=$4, address=$5, dynamic_fields=$6, avatar_path=$7 WHERE id=$8',
-      [updated.name, updated.species, updated.breed, updated.birthdate, updated.address, updated.dynamic_fields ?? animal.dynamic_fields, avatarPath, id])
+    await db.query('UPDATE animals SET name=$1, species=$2, breed=$3, pedigree_name=$4, birthdate=$5, address=$6, dynamic_fields=$7, avatar_path=$8 WHERE id=$9',
+      [updated.name, updated.species, updated.breed, updated.pedigree_name ?? animal.pedigree_name ?? null, updated.birthdate, updated.address, updated.dynamic_fields ?? animal.dynamic_fields, avatarPath, id])
 
     await logAudit(db, { accountId, role, action: 'update_animal', resource: 'animal', resourceId: id,
       details: { before: animal, after: updated }, ip: req.ip })

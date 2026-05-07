@@ -3,8 +3,7 @@ import axios from 'axios'
 function getServerUrl(): string {
   const stored = localStorage.getItem('paw_server_url')
   if (stored) return stored
-  // Default tenant URL
-  return 'https://vetsucht.oxs.at'
+  return window.location.origin
 }
 
 function getApiBaseUrl(): string {

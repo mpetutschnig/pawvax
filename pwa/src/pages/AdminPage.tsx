@@ -157,11 +157,18 @@ export default function AdminPage() {
   const [rejectionReason, setRejectionReason] = useState('')
   const [verificationProcessing, setVerificationProcessing] = useState<string | null>(null)
   const [version, setVersion] = useState<any>(null)
+  const [oauthStatus, setOauthStatus] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     fetch('/api/settings').then(res => res.json()).then(data => setAppSettings(current => ({ ...current, ...data }))).catch(console.error)
     adminGetVersion().then(res => setVersion(res.data)).catch(console.error)
   }, [])
+
+  useEffect(() => {
+    if (section === 'settings-auth') {
+      fetch('/api/auth/oauth/providers').then(res => res.json()).then(data => setOauthStatus(data)).catch(console.error)
+    }
+  }, [section])
 
   useEffect(() => {
     loadData()
@@ -893,37 +900,118 @@ export default function AdminPage() {
           <div className="animate-fade-in">
             <h1 style={{ marginBottom: 'var(--space-2)' }}>{t('admin.settingsAuth')}</h1>
             <p className="text-muted" style={{ marginBottom: 'var(--space-6)' }}>OAuth-Login-Provider, Supabase-Integration und Sicherheitseinstellungen</p>
-            <div className="card">
-              <h3 style={{ marginTop: 0 }}>OAuth Social Login</h3>
+
+            {/* OAuth Social Login */}
+            <div className="card" style={{ marginBottom: 'var(--space-4)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-4)', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+                <h3 style={{ margin: 0 }}>OAuth Social Login</h3>
+                <button
+                  className="btn btn-outline"
+                  style={{ fontSize: 'var(--font-size-xs)', padding: '4px 10px' }}
+                  onClick={() => fetch('/api/auth/oauth/providers').then(r => r.json()).then(d => setOauthStatus(d)).catch(console.error)}
+                >
+                  Status aktualisieren
+                </button>
+              </div>
               <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-4)' }}>
-                Aktivieren Sie Social Login über Google, GitHub oder Microsoft. Credentials werden als ENV-Variablen gesetzt.
+                Social Login wird über ENV-Variablen auf dem Server aktiviert. Erstelle zuerst eine OAuth-App beim jeweiligen Anbieter.
               </p>
-              <div style={{ display: 'grid', gap: 'var(--space-3)', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', marginBottom: 'var(--space-6)' }}>
+              <div style={{ display: 'grid', gap: 'var(--space-3)', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
                 {[
-                  { name: 'Google', envPrefix: 'GOOGLE', hint: 'GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET' },
-                  { name: 'GitHub', envPrefix: 'GITHUB', hint: 'GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET' },
-                  { name: 'Microsoft', envPrefix: 'MICROSOFT', hint: 'MICROSOFT_CLIENT_ID, MICROSOFT_CLIENT_SECRET, MICROSOFT_TENANT_ID' },
-                ].map(p => (
-                  <div key={p.name} className="card card-sm" style={{ marginBottom: 0, background: 'var(--surface)' }}>
-                    <div style={{ fontWeight: 600, marginBottom: 'var(--space-2)' }}>{p.name}</div>
-                    <p className="text-muted" style={{ fontSize: 'var(--font-size-xs)', margin: 0 }}>ENV: <code>{p.hint}</code></p>
-                  </div>
-                ))}
+                  {
+                    name: 'Google',
+                    key: 'google',
+                    hint: 'OAUTH_GOOGLE_CLIENT_ID\nOAUTH_GOOGLE_CLIENT_SECRET',
+                    consoleUrl: 'https://console.cloud.google.com/apis/credentials',
+                    consoleLabel: 'Google Cloud Console öffnen',
+                  },
+                  {
+                    name: 'GitHub',
+                    key: 'github',
+                    hint: 'OAUTH_GITHUB_CLIENT_ID\nOAUTH_GITHUB_CLIENT_SECRET',
+                    consoleUrl: 'https://github.com/settings/developers',
+                    consoleLabel: 'GitHub Developer Settings öffnen',
+                  },
+                  {
+                    name: 'Microsoft',
+                    key: 'microsoft',
+                    hint: 'OAUTH_MICROSOFT_CLIENT_ID\nOAUTH_MICROSOFT_CLIENT_SECRET\nOAUTH_MICROSOFT_TENANT_ID',
+                    consoleUrl: 'https://portal.azure.com/#blade/Microsoft_AAD_RegisteredApps/ApplicationsListBlade',
+                    consoleLabel: 'Azure App-Registrierungen öffnen',
+                  },
+                ].map(p => {
+                  const configured = oauthStatus[p.key]
+                  return (
+                    <div key={p.name} className="card card-sm" style={{ marginBottom: 0, background: 'var(--surface)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-2)' }}>
+                        <div style={{ fontWeight: 600 }}>{p.name}</div>
+                        {configured !== undefined && (
+                          <span style={{
+                            fontSize: 10, padding: '2px 8px', borderRadius: 99,
+                            background: configured ? 'var(--success-50)' : 'var(--surface)',
+                            color: configured ? 'var(--success-700)' : 'var(--text-tertiary)',
+                            border: `1px solid ${configured ? 'var(--success-300)' : 'var(--border)'}`,
+                          }}>
+                            {configured ? '✓ Aktiv' : '✗ Nicht konfiguriert'}
+                          </span>
+                        )}
+                      </div>
+                      <pre style={{ fontSize: 'var(--font-size-xs)', margin: '0 0 var(--space-2) 0', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)', whiteSpace: 'pre-wrap' }}>{p.hint}</pre>
+                      <a href={p.consoleUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 'var(--font-size-xs)', color: 'var(--primary-600)' }}>
+                        → {p.consoleLabel}
+                      </a>
+                    </div>
+                  )
+                })}
               </div>
-              <hr style={{ margin: 'var(--space-4) 0', border: 'none', borderTop: '1px solid var(--border)' }} />
-              <h3>Supabase Integration</h3>
-              <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-4)' }}>
-                Erlaubt Login via Supabase-JWT-Token (z.B. von externen Apps per ?token= URL-Parameter).
+              <p className="text-muted" style={{ fontSize: 'var(--font-size-xs)', marginTop: 'var(--space-3)', marginBottom: 0 }}>
+                Redirect-URL für alle Provider: <code>{window.location.origin}/api/auth/{'<provider>'}/callback</code>
               </p>
-              <div className="form-group">
-                <label className="form-label">Supabase JWT Secret</label>
-                <input className="form-input" type="password" placeholder="SUPABASE_JWT_SECRET (ENV-Variable)" disabled />
-                <p className="text-muted" style={{ marginTop: 'var(--space-2)', fontSize: 'var(--font-size-xs)' }}>Setzen Sie SUPABASE_JWT_SECRET in der Server-Konfiguration</p>
+            </div>
+
+            {/* Supabase Integration */}
+            <div className="card">
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-2)', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+                <h3 style={{ margin: 0 }}>Supabase Integration</h3>
+                {oauthStatus['supabase'] !== undefined && (
+                  <span style={{
+                    fontSize: 10, padding: '2px 8px', borderRadius: 99,
+                    background: oauthStatus['supabase'] ? 'var(--success-50)' : 'var(--surface)',
+                    color: oauthStatus['supabase'] ? 'var(--success-700)' : 'var(--text-tertiary)',
+                    border: `1px solid ${oauthStatus['supabase'] ? 'var(--success-300)' : 'var(--border)'}`,
+                  }}>
+                    {oauthStatus['supabase'] ? '✓ Aktiv' : '✗ Nicht konfiguriert'}
+                  </span>
+                )}
               </div>
+              <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-4)' }}>
+                Erlaubt Login via Supabase-JWT-Token von externen Apps (z.B. per <code>?token=</code> URL-Parameter).
+              </p>
+
+              <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-md)', padding: 'var(--space-4)', marginBottom: 'var(--space-4)', border: '1px solid var(--border)' }}>
+                <div style={{ fontWeight: 600, marginBottom: 'var(--space-3)', fontSize: 'var(--font-size-sm)' }}>Setup-Anleitung</div>
+                <ol style={{ margin: 0, paddingLeft: 'var(--space-5)', display: 'grid', gap: 'var(--space-2)', fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
+                  <li>Supabase-Projekt anlegen auf <a href="https://supabase.com" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary-600)' }}>supabase.com</a></li>
+                  <li>JWT Secret kopieren: <em>Supabase Dashboard → Settings → API → JWT Secret</em></li>
+                  <li>ENV-Variable auf dem PAW-Server setzen: <code>SUPABASE_JWT_SECRET=&lt;secret&gt;</code></li>
+                  <li>In deiner externen App: Supabase-JWT als URL-Parameter übergeben</li>
+                </ol>
+              </div>
+
               <div className="form-group">
                 <label className="form-label">Callback URL</label>
-                <code style={{ fontSize: 'var(--font-size-xs)', background: 'var(--surface)', padding: 'var(--space-2)', borderRadius: 'var(--radius-sm)', display: 'block' }}>
+                <code style={{ fontSize: 'var(--font-size-xs)', background: 'var(--surface)', padding: 'var(--space-2)', borderRadius: 'var(--radius-sm)', display: 'block', wordBreak: 'break-all' }}>
                   {(appSettings as any).server_url || window.location.origin}/api/auth/supabase
+                </code>
+                <p className="text-muted" style={{ marginTop: 'var(--space-2)', fontSize: 'var(--font-size-xs)' }}>
+                  Diese URL in Supabase unter Authentication → URL Configuration → Redirect URLs eintragen.
+                </p>
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">ENV-Variable</label>
+                <code style={{ fontSize: 'var(--font-size-xs)', background: 'var(--surface)', padding: 'var(--space-2)', borderRadius: 'var(--radius-sm)', display: 'block' }}>
+                  SUPABASE_JWT_SECRET=&lt;aus Supabase Dashboard kopieren&gt;
                 </code>
               </div>
             </div>

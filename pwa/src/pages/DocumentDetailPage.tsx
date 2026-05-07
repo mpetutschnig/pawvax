@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { getDocument, deleteDocument, patchDocument, getAnimalDocuments, getMe, createReminder, analyzeDocument, getDocumentHistory, patchDocumentRecord } from '../api/rest'
+import { getDocument, deleteDocument, patchDocument, getAnimalDocuments, getMe, createReminder, analyzeDocument, getDocumentHistory, patchDocumentRecord, getAnimal, updateAnimal } from '../api/rest'
 import { generateICS, downloadBlob } from '../utils/ics'
 import { normalizeVaccinationRecord } from '../utils/vaccination'
 import { DocumentAnalysisForm } from '../components/DocumentAnalysisForm'
@@ -58,6 +58,10 @@ export default function DocumentDetailPage() {
   // Image sharing with guests
   const [shareImageWithGuest, setShareImageWithGuest] = useState(false)
 
+  // Profile suggestion banner
+  const [animalProfile, setAnimalProfile] = useState<any>(null)
+  const [suggestionDismissed, setSuggestionDismissed] = useState(false)
+
   // Determine effective role for image visibility
   const effectiveRole: 'owner' | 'vet' | 'authority' | 'guest' = (() => {
     if (doc?.isOwner) return 'owner'
@@ -73,6 +77,32 @@ export default function DocumentDetailPage() {
   })()
 
   const canSeeImage = doc?.isOwner || effectiveRole === 'vet' || effectiveRole === 'authority' || !!doc?.share_image_with_guest
+
+  const profileSuggestions = useMemo(() => {
+    if (!doc?.isOwner || !animalProfile || suggestionDismissed) return []
+    if (!['vaccination', 'pet_passport', 'pedigree', 'treatment'].includes(doc.doc_type)) return []
+    const ext = doc.extracted_json || {}
+    const docAnimal = ext.animal || (doc.doc_type === 'pedigree' ? { name: ext.animal_name, breed: ext.breed, birthdate: ext.birth_date } : null)
+    if (!docAnimal) return []
+    const suggestions: { field: string; label: string; value: string }[] = []
+    if (docAnimal.name && docAnimal.name !== animalProfile.name)
+      suggestions.push({ field: 'name', label: 'Name', value: docAnimal.name })
+    if (docAnimal.breed && docAnimal.breed !== animalProfile.breed)
+      suggestions.push({ field: 'breed', label: 'Rasse', value: docAnimal.breed })
+    if (docAnimal.birthdate && docAnimal.birthdate !== animalProfile.birthdate)
+      suggestions.push({ field: 'birthdate', label: 'Geburtsdatum', value: docAnimal.birthdate })
+    return suggestions
+  }, [doc, animalProfile, suggestionDismissed])
+
+  const handleApplySuggestions = async () => {
+    if (!animalId || profileSuggestions.length === 0) return
+    const patch = Object.fromEntries(profileSuggestions.map(s => [s.field, s.value]))
+    try {
+      await updateAnimal(animalId, patch)
+      setAnimalProfile((prev: any) => ({ ...prev, ...patch }))
+    } catch { /* silent */ }
+    setSuggestionDismissed(true)
+  }
 
   const getRecordPerms = (key: string): string[] => {
     if (!doc) return ['vet', 'authority', 'guest']
@@ -107,6 +137,12 @@ export default function DocumentDetailPage() {
   useEffect(() => {
     if (docId) loadDocument()
   }, [docId])
+
+  useEffect(() => {
+    if (animalId && doc?.isOwner) {
+      getAnimal(animalId).then(res => setAnimalProfile(res.data)).catch(() => {})
+    }
+  }, [animalId, doc?.isOwner])
 
   useEffect(() => {
     setCurrentImageIndex(0)
@@ -621,6 +657,32 @@ export default function DocumentDetailPage() {
             </div>
           )
         })()}
+
+        {/* Profile suggestion banner */}
+        {profileSuggestions.length > 0 && (
+          <div className="card" style={{ marginBottom: 'var(--space-4)', borderLeft: '4px solid var(--primary-500)', background: 'var(--primary-50)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 'var(--space-3)' }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', color: 'var(--primary-700)', marginBottom: 'var(--space-2)' }}>
+                  Tierprofil aus Dokument übernehmen?
+                </div>
+                <div style={{ display: 'grid', gap: 4, marginBottom: 'var(--space-3)' }}>
+                  {profileSuggestions.map(s => (
+                    <div key={s.field} style={{ fontSize: 'var(--font-size-sm)', color: 'var(--primary-800)' }}>
+                      {s.label}: <strong>{s.value}</strong>
+                    </div>
+                  ))}
+                </div>
+                <button className="btn btn-primary" style={{ fontSize: 'var(--font-size-xs)', padding: '6px 12px' }} onClick={handleApplySuggestions}>
+                  Übernehmen
+                </button>
+              </div>
+              <button onClick={() => setSuggestionDismissed(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: 'var(--text-tertiary)', flexShrink: 0 }}>
+                <X size={16} />
+              </button>
+            </div>
+          </div>
+        )}
 
         {doc.doc_type === 'pet_passport' && (() => {
           const identification = extracted.identification || extracted.payload?.identification || {}

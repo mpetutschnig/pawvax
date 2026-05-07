@@ -216,6 +216,7 @@
   "animalEdit.name": "Name",
   "animalEdit.species": "Tierart",
   "animalEdit.breed": "Rasse",
+  "animal.pedigreeName": "Zuchtname",
   "animalEdit.birthdate": "Geburtsdatum",
   "animalEdit.saving": "Wird gespeichert...",
   "animalEdit.save": "Speichern",

@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS animals (
   name       TEXT NOT NULL,
   species    TEXT NOT NULL CHECK(species IN ('dog', 'cat', 'other')),
   breed      TEXT,
+  pedigree_name TEXT,
   birthdate  TEXT,
   address    TEXT,
   dynamic_fields TEXT DEFAULT '{}',
@@ -310,3 +311,6 @@ CREATE TABLE IF NOT EXISTS reminders (
 CREATE INDEX IF NOT EXISTS idx_reminders_account ON reminders(account_id);
 CREATE INDEX IF NOT EXISTS idx_reminders_due ON reminders(due_date);
 CREATE INDEX IF NOT EXISTS idx_reminders_animal ON reminders(animal_id);
+
+-- Migration: add pedigree_name to animals
+ALTER TABLE animals ADD COLUMN IF NOT EXISTS pedigree_name TEXT;

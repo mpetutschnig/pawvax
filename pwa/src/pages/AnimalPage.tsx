@@ -732,6 +732,11 @@ export default function AnimalPage() {
                   </div>
                   <div>
                     <h2 style={{ color: 'white', margin: 0, fontFamily: 'var(--font-display)' }}>{animal.name}</h2>
+                    {animal.pedigree_name && (
+                      <p style={{ color: 'oklch(100% 0 0 / 0.55)', margin: 0, fontSize: 'var(--font-size-xs)', fontStyle: 'italic' }}>
+                        {t('animal.pedigreeName')}: {animal.pedigree_name}
+                      </p>
+                    )}
                     <p style={{ color: 'oklch(100% 0 0 / 0.70)', margin: 0, fontSize: 'var(--font-size-sm)' }}>
                       {animal.breed} {animal.birthdate ? `· ${new Date().getFullYear() - new Date(animal.birthdate).getFullYear()} ${t('animal.yearsOld')}` : ''}
                     </p>
@@ -966,6 +971,17 @@ export default function AnimalPage() {
                 </div>
 
                 <div className="form-group">
+                  <label className="form-label">{t('animal.pedigreeName')}</label>
+                  <input
+                    className="form-input"
+                    type="text"
+                    value={(editData as any)?.pedigree_name || ''}
+                    onChange={(e) => setEditData({ ...editData!, pedigree_name: e.target.value } as any)}
+                    placeholder="z.B. Out of Control vom Waldhaus"
+                  />
+                </div>
+
+                <div className="form-group">
                   <label className="form-label">{t('animalEdit.birthdate')}</label>
                   <input
                     type="date"
@@ -1062,15 +1078,15 @@ export default function AnimalPage() {
                   </button>
                 )}
               </div>
-              <div style={{ overflowX: 'auto' }}>
+              <div>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)', minWidth: 0 }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid var(--border)' }}>
                       <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) 0', whiteSpace: 'nowrap' }}>{t('animal.vaccinations')}</th>
                       <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{t('vaccine.administrationDate')}</th>
                       <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{t('vaccine.validUntil')}</th>
-                      <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{t('vaccine.batchNumber')}</th>
-                      {isOwner && <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Rollen</th>}
+                      <th className="col-mobile-hidden" style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{t('vaccine.batchNumber')}</th>
+                      {isOwner && <th className="col-mobile-hidden" style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Rollen</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -1088,9 +1104,9 @@ export default function AnimalPage() {
                             </td>
                             <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{record.administrationDate || '—'}</td>
                             <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{record.validUntil || '—'}</td>
-                            <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{record.batchNumber || '—'}</td>
+                            <td className="col-mobile-hidden" style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{record.batchNumber || '—'}</td>
                             {isOwner && (
-                              <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>
+                              <td className="col-mobile-hidden" style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>
                                 <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                                   {['guest', 'vet', 'authority'].map(r => (
                                     <span key={r} style={{ fontSize: 10, padding: '1px 6px', borderRadius: 99, border: '1px solid', borderColor: recPerms.includes(r) ? 'var(--primary-500)' : 'var(--border)', background: recPerms.includes(r) ? 'var(--primary-50)' : 'transparent', color: recPerms.includes(r) ? 'var(--primary-700)' : 'var(--text-tertiary)' }}>{r}</span>
@@ -1141,15 +1157,15 @@ export default function AnimalPage() {
               {treatmentRecords.length === 0 ? (
                 <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', margin: 0 }}>Noch keine Behandlungen eingetragen.</p>
               ) : (
-                <div style={{ overflowX: 'auto' }}>
+                <div>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)', minWidth: 0 }}>
                     <thead>
                       <tr style={{ borderBottom: '1px solid var(--border)' }}>
                         <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) 0', whiteSpace: 'nowrap' }}>Substanz</th>
                         <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Datum</th>
-                        <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Dosierung</th>
+                        <th className="col-mobile-hidden" style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Dosierung</th>
                         <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Nächste Fälligkeit</th>
-                        {isOwner && <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Rollen</th>}
+                        {isOwner && <th className="col-mobile-hidden" style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Rollen</th>}
                       </tr>
                     </thead>
                     <tbody>
@@ -1165,10 +1181,10 @@ export default function AnimalPage() {
                                 </Link>
                               </td>
                               <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{record.administeredAt || '—'}</td>
-                              <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{record.dosage || '—'}</td>
+                              <td className="col-mobile-hidden" style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{record.dosage || '—'}</td>
                               <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{record.nextDue || '—'}</td>
                               {isOwner && (
-                                <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>
+                                <td className="col-mobile-hidden" style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>
                                   <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                                     {['guest', 'vet', 'authority'].map(r => (
                                       <span key={r} style={{ fontSize: 10, padding: '1px 6px', borderRadius: 99, border: '1px solid', borderColor: recPerms.includes(r) ? 'var(--success-500)' : 'var(--border)', background: recPerms.includes(r) ? 'oklch(97% 0.05 145)' : 'transparent', color: recPerms.includes(r) ? 'var(--success-700)' : 'var(--text-tertiary)' }}>{r}</span>
@@ -1218,16 +1234,16 @@ export default function AnimalPage() {
                 <h3 style={{ margin: 0 }}>Heimtierausweis</h3>
                 <span className="badge">{petPassportDocs.length}</span>
               </div>
-              <div style={{ overflowX: 'auto' }}>
+              <div>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)', minWidth: 0 }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid var(--border)' }}>
                       <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) 0', whiteSpace: 'nowrap' }}>Titel</th>
                       <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Reisepass-Nr.</th>
-                      <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Abschnitt</th>
-                      <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Chip-Nr.</th>
+                      <th className="col-mobile-hidden" style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Abschnitt</th>
+                      <th className="col-mobile-hidden" style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Chip-Nr.</th>
                       <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Datum</th>
-                      {isOwner && <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Rollen</th>}
+                      {isOwner && <th className="col-mobile-hidden" style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Rollen</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -1244,11 +1260,11 @@ export default function AnimalPage() {
                               </Link>
                             </td>
                             <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{extracted.passport_number || '—'}</td>
-                            <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{extracted.section_type || '—'}</td>
-                            <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{extracted.identification?.chip_code || '—'}</td>
+                            <td className="col-mobile-hidden" style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{extracted.section_type || '—'}</td>
+                            <td className="col-mobile-hidden" style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{extracted.identification?.chip_code || '—'}</td>
                             <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{extracted.document_date || formatDateOnly(doc.created_at, i18n.language === 'de' ? 'de-AT' : 'en-GB')}</td>
                             {isOwner && (
-                              <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>
+                              <td className="col-mobile-hidden" style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>
                                 <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                                   {['guest', 'vet', 'authority'].map(r => (
                                     <span key={r} style={{ fontSize: 10, padding: '1px 6px', borderRadius: 99, border: '1px solid', borderColor: docRoles.includes(r) ? 'var(--info-500)' : 'var(--border)', background: docRoles.includes(r) ? 'var(--info-50)' : 'transparent', color: docRoles.includes(r) ? 'var(--info-700)' : 'var(--text-tertiary)' }}>{r}</span>
@@ -1292,15 +1308,15 @@ export default function AnimalPage() {
                 <h3 style={{ margin: 0 }}>Medizinische Produkte</h3>
                 <span className="badge">{medicalProductDocs.length}</span>
               </div>
-              <div style={{ overflowX: 'auto' }}>
+              <div>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)', minWidth: 0 }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid var(--border)' }}>
                       <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) 0', whiteSpace: 'nowrap' }}>Produkt</th>
                       <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Wirkstoff</th>
-                      <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Charge</th>
+                      <th className="col-mobile-hidden" style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Charge</th>
                       <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Datum</th>
-                      {isOwner && <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Rollen</th>}
+                      {isOwner && <th className="col-mobile-hidden" style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Rollen</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -1317,10 +1333,10 @@ export default function AnimalPage() {
                               </Link>
                             </td>
                             <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{extracted.active_ingredient || '—'}</td>
-                            <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{extracted.batch_number || '—'}</td>
+                            <td className="col-mobile-hidden" style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{extracted.batch_number || '—'}</td>
                             <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{extracted.document_date || formatDateOnly(doc.created_at, i18n.language === 'de' ? 'de-AT' : 'en-GB')}</td>
                             {isOwner && (
-                              <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>
+                              <td className="col-mobile-hidden" style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>
                                 <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                                   {['guest', 'vet', 'authority'].map(r => (
                                     <span key={r} style={{ fontSize: 10, padding: '1px 6px', borderRadius: 99, border: '1px solid', borderColor: docRoles.includes(r) ? 'var(--warning-500)' : 'var(--border)', background: docRoles.includes(r) ? 'oklch(97% 0.08 70)' : 'transparent', color: docRoles.includes(r) ? 'var(--warning-700)' : 'var(--text-tertiary)' }}>{r}</span>
@@ -1364,13 +1380,13 @@ export default function AnimalPage() {
                 <h3 style={{ margin: 0 }}>Stammbaum</h3>
                 <span className="badge">{pedigreeDocs.length}</span>
               </div>
-              <div style={{ overflowX: 'auto' }}>
+              <div>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)', minWidth: 0 }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid var(--border)' }}>
                       <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) 0', whiteSpace: 'nowrap' }}>Titel</th>
                       <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Datum</th>
-                      {isOwner && <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Rollen</th>}
+                      {isOwner && <th className="col-mobile-hidden" style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Rollen</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -1388,7 +1404,7 @@ export default function AnimalPage() {
                             </td>
                             <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{extracted.document_date || formatDateOnly(doc.created_at, i18n.language === 'de' ? 'de-AT' : 'en-GB')}</td>
                             {isOwner && (
-                              <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>
+                              <td className="col-mobile-hidden" style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>
                                 <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                                   {['guest', 'vet', 'authority'].map(r => (
                                     <span key={r} style={{ fontSize: 10, padding: '1px 6px', borderRadius: 99, border: '1px solid', borderColor: docRoles.includes(r) ? 'var(--primary-500)' : 'var(--border)', background: docRoles.includes(r) ? 'var(--primary-50)' : 'transparent', color: docRoles.includes(r) ? 'var(--primary-700)' : 'var(--text-tertiary)' }}>{r}</span>
@@ -1432,14 +1448,14 @@ export default function AnimalPage() {
                 <h3 style={{ margin: 0 }}>Hundeführerschein</h3>
                 <span className="badge">{dogCertificateDocs.length}</span>
               </div>
-              <div style={{ overflowX: 'auto' }}>
+              <div>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)', minWidth: 0 }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid var(--border)' }}>
                       <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) 0', whiteSpace: 'nowrap' }}>Titel</th>
                       <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Ergebnis</th>
                       <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Datum</th>
-                      {isOwner && <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Rollen</th>}
+                      {isOwner && <th className="col-mobile-hidden" style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Rollen</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -1458,7 +1474,7 @@ export default function AnimalPage() {
                             <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{extracted.result || '—'}</td>
                             <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{extracted.exam_date || extracted.document_date || formatDateOnly(doc.created_at, i18n.language === 'de' ? 'de-AT' : 'en-GB')}</td>
                             {isOwner && (
-                              <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>
+                              <td className="col-mobile-hidden" style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>
                                 <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                                   {['guest', 'vet', 'authority'].map(r => (
                                     <span key={r} style={{ fontSize: 10, padding: '1px 6px', borderRadius: 99, border: '1px solid', borderColor: docRoles.includes(r) ? 'var(--success-500)' : 'var(--border)', background: docRoles.includes(r) ? 'oklch(97% 0.05 145)' : 'transparent', color: docRoles.includes(r) ? 'var(--success-700)' : 'var(--text-tertiary)' }}>{r}</span>
@@ -1502,14 +1518,14 @@ export default function AnimalPage() {
                 <h3 style={{ margin: 0 }}>Sonstige Dokumente</h3>
                 <span className="badge">{generalDocs.length}</span>
               </div>
-              <div style={{ overflowX: 'auto' }}>
+              <div>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)', minWidth: 0 }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid var(--border)' }}>
                       <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) 0', whiteSpace: 'nowrap' }}>Titel</th>
-                      <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Zusammenfassung</th>
+                      <th className="col-mobile-hidden" style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Zusammenfassung</th>
                       <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Datum</th>
-                      {isOwner && <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Rollen</th>}
+                      {isOwner && <th className="col-mobile-hidden" style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Rollen</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -1526,10 +1542,10 @@ export default function AnimalPage() {
                                 {extracted.title || 'Dokument'}
                               </Link>
                             </td>
-                            <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '300px' }}>{summary || '—'}</td>
+                            <td className="col-mobile-hidden" style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '300px' }}>{summary || '—'}</td>
                             <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{extracted.document_date || formatDateOnly(doc.created_at, i18n.language === 'de' ? 'de-AT' : 'en-GB')}</td>
                             {isOwner && (
-                              <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>
+                              <td className="col-mobile-hidden" style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>
                                 <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                                   {['guest', 'vet', 'authority'].map(r => (
                                     <span key={r} style={{ fontSize: 10, padding: '1px 6px', borderRadius: 99, border: '1px solid', borderColor: docRoles.includes(r) ? 'var(--primary-500)' : 'var(--border)', background: docRoles.includes(r) ? 'var(--primary-50)' : 'transparent', color: docRoles.includes(r) ? 'var(--primary-700)' : 'var(--text-tertiary)' }}>{r}</span>
@@ -1563,6 +1579,12 @@ export default function AnimalPage() {
                 </table>
               </div>
             </div>
+          )}
+
+          {(isOwner || isVet) && !animal.is_archived && (
+            <Link to={`/animals/${id}/scan`} className="btn btn-primary btn-full" style={{ marginBottom: 'var(--space-3)' }}>
+              <Camera size={18} /> {t('animal.addDocument')}
+            </Link>
           )}
 
           {/* Document Tabs */}
@@ -1772,11 +1794,6 @@ export default function AnimalPage() {
             </>
           )}
 
-          {(isOwner || isVet) && !animal.is_archived && (
-            <Link to={`/animals/${id}/scan`} className="btn btn-primary btn-full" style={{ marginBottom: 'var(--space-4)', marginTop: documents.length === 0 ? 'var(--space-4)' : 0 }}>
-              <Camera size={18} /> {t('animal.addDocument')}
-            </Link>
-          )}
           <p className="text-muted" style={{ fontSize: '11px', textAlign: 'center', marginTop: 'var(--space-2)', paddingBottom: 'var(--space-4)' }}>
             {t('docDetail.ocrDisclaimer')}
           </p>

@@ -1118,6 +1118,10 @@ html[data-theme="dark"] .nav-bar h2 {
   }
 }
 
+@media (max-width: 768px) {
+  .col-mobile-hidden { display: none !important; }
+}
+
 /* ════════════════════════════════════════════════════════════════
    PROGRESS & LOADERS
    ════════════════════════════════════════════════════════════════ */

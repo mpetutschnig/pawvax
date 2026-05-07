@@ -20,7 +20,7 @@ export default function LoginPage() {
   const [tokenActionInProgress, setTokenActionInProgress] = useState(false)
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [serverUrl, setServerUrl] = useState<string>(() => {
-    return localStorage.getItem('paw_server_url') || 'https://vetsucht.oxs.at'
+    return localStorage.getItem('paw_server_url') || window.location.origin
   })
   const [oauthProviders, setOauthProviders] = useState<Record<string, boolean>>({})
 
@@ -222,11 +222,11 @@ export default function LoginPage() {
               type="url"
               value={serverUrl}
               onChange={e => handleServerUrlChange(e.target.value)}
-              placeholder="https://vetsucht.oxs.at"
+              placeholder={window.location.origin}
               style={{ fontSize: 'var(--font-size-xs)' }}
             />
             <p className="text-muted" style={{ margin: 'var(--space-2) 0 0 0', fontSize: 'var(--font-size-xs)' }}>
-              Tragen Sie Ihre PAW-Serveradresse ein. Standard: https://vetsucht.oxs.at
+              {`Tragen Sie Ihre PAW-Serveradresse ein. Standard: ${window.location.origin}`}
             </p>
           </div>
         )}

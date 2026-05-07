@@ -2,6 +2,7 @@ export interface AnimalDTO {
   id: string
   unique_id?: string
   name: string
+  pedigree_name?: string
   species: 'dog' | 'cat' | 'other'
   breed?: string
   birthdate?: string

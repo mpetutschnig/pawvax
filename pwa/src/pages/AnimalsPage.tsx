@@ -295,7 +295,7 @@ export default function AnimalsPage() {
           )}
 
           {recentlyScanned.length > 0 && (
-            <div className="card" style={{ marginBottom: 'var(--space-4)', borderLeft: '4px solid var(--warning-500)', background: 'var(--warning-50)' }}>
+            <div className="card" style={{ marginTop: 'var(--space-4)', marginBottom: 'var(--space-4)', borderLeft: '4px solid var(--warning-500)', background: 'var(--warning-50)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
                 <Clock size={18} color="var(--warning-600)" />
                 <h3 style={{ margin: 0 }}>{t('profile.scannedHistory')}</h3>

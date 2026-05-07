@@ -233,6 +233,7 @@
   "animalEdit.name": "Name",
   "animalEdit.species": "Species",
   "animalEdit.breed": "Breed",
+  "animal.pedigreeName": "Pedigree Name",
   "animalEdit.birthdate": "Date of Birth",
   "animalEdit.saving": "Saving...",
   "animalEdit.save": "Save",
