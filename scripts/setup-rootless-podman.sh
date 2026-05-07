@@ -507,9 +507,10 @@ update_stack() {
   su -s /bin/bash "$GIT_USER" -c "cd '$REPO_DIR' && git pull"
 
   echo ""
-  echo "=== Rebuilding images and restarting pod ==="
-  prepare_host
-  deploy_stack
+  echo "=== Re-executing updated script for deploy ==="
+  # exec replaces this process with a fresh invocation so the updated
+  # script functions (not the old in-memory ones) are used for deploy.
+  exec bash "$REPO_DIR/scripts/setup-rootless-podman.sh" deploy
 }
 
 cleanup_stack() {
