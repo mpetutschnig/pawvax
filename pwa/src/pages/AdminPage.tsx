@@ -103,6 +103,15 @@ interface AdminSettingsState {
   has_oauth2_client_secret?: boolean
   has_oauth2_refresh_token?: boolean
   billing_price_per_page?: number
+  system_gemini_token?: string
+  system_gemini_model?: string
+  system_anthropic_token?: string
+  system_anthropic_model?: string
+  system_openai_token?: string
+  system_openai_model?: string
+  has_system_gemini_token?: boolean
+  has_system_anthropic_token?: boolean
+  has_system_openai_token?: boolean
 }
 
 const defaultAdminSettings: AdminSettingsState = {
@@ -123,7 +132,13 @@ const defaultAdminSettings: AdminSettingsState = {
   oauth2_client_id: '',
   oauth2_client_secret: '',
   oauth2_refresh_token: '',
-  oauth2_tenant: ''
+  oauth2_tenant: '',
+  system_gemini_token: '',
+  system_gemini_model: '',
+  system_anthropic_token: '',
+  system_anthropic_model: '',
+  system_openai_token: '',
+  system_openai_model: '',
 }
 
 export default function AdminPage() {
@@ -203,7 +218,7 @@ export default function AdminPage() {
         setAuditLog(res.data)
       } else if (section === 'settings-general' || section === 'settings-mail' || section === 'settings-ai' || section === 'settings-auth') {
         const res = await adminGetSettings()
-        setAppSettings({ ...defaultAdminSettings, ...res.data, smtp_password: '', oauth2_client_secret: '', oauth2_refresh_token: '' })
+        setAppSettings({ ...defaultAdminSettings, ...res.data, smtp_password: '', oauth2_client_secret: '', oauth2_refresh_token: '', system_gemini_token: '', system_anthropic_token: '', system_openai_token: '' })
       } else if (section === 'tests') {
         // Load test runs list (Level 1)
         const runsRes = await adminGetTestRuns(20, 0)
@@ -903,24 +918,52 @@ export default function AdminPage() {
         {section === 'settings-ai' && !loading && (
           <div className="animate-fade-in">
             <h1 style={{ marginBottom: 'var(--space-2)' }}>{t('admin.settingsAi')}</h1>
-            <p className="text-muted" style={{ marginBottom: 'var(--space-6)' }}>KI-Provider-Priorität und globale API-Keys für OCR-Analyse</p>
-            <div className="card">
-              <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)' }}>
-                Individuelle KI-API-Keys können Nutzer in ihrem Profil hinterlegen. Hier können System-Keys für alle Nutzer ohne eigenen Key konfiguriert werden.
-              </p>
-              <div className="form-group" style={{ marginTop: 'var(--space-4)' }}>
-                <label className="form-label">Gemini API Key (System-Fallback)</label>
-                <input className="form-input" type="password" placeholder="Aktuell per ENV-Variable (GEMINI_API_KEY)" disabled />
-                <p className="text-muted" style={{ marginTop: 'var(--space-2)', fontSize: 'var(--font-size-xs)' }}>System-Keys werden über ENV-Variablen gesetzt: GEMINI_API_KEY, ANTHROPIC_API_KEY, OPENAI_API_KEY</p>
-              </div>
-              <div className="form-group">
-                <label className="form-label">Standard-Provider-Priorität</label>
-                <p className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>Reihenfolge: system → google → anthropic → openai (konfigurierbar per Nutzer im Profil)</p>
-              </div>
-              <button className="btn btn-primary" onClick={saveSettings} disabled={settingsSaving} style={{ marginTop: 'var(--space-4)' }}>
-                {settingsSaving ? t('common.loading') : t('admin.saveSettings')}
-              </button>
-            </div>
+            <p className="text-muted" style={{ marginBottom: 'var(--space-6)' }}>{t('admin.settingsAiDesc')}</p>
+
+            {(['gemini', 'anthropic', 'openai'] as const).map(provider => {
+              const tokenKey = `system_${provider}_token` as keyof AdminSettingsState
+              const modelKey = `system_${provider}_model` as keyof AdminSettingsState
+              const hasKey = `has_system_${provider}_token` as keyof AdminSettingsState
+              const labels: Record<string, string> = { gemini: 'Google Gemini', anthropic: 'Anthropic Claude', openai: 'OpenAI' }
+              const placeholders: Record<string, string> = { gemini: 'AIza...', anthropic: 'sk-ant-...', openai: 'sk-...' }
+              const modelHints: Record<string, string> = {
+                gemini: 'gemini-2.0-flash-lite',
+                anthropic: 'claude-haiku-4-5-20251001',
+                openai: 'gpt-4o-mini',
+              }
+              return (
+                <div key={provider} className="card" style={{ marginBottom: 'var(--space-4)' }}>
+                  <h3 style={{ marginBottom: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                    {labels[provider]}
+                    {appSettings[hasKey] && <span className="badge badge-success" style={{ fontSize: 10 }}>{t('admin.secretConfigured')}</span>}
+                  </h3>
+                  <div className="form-group">
+                    <label className="form-label">{t('admin.systemAiToken')}</label>
+                    <input
+                      className="form-input"
+                      type="password"
+                      placeholder={appSettings[hasKey] ? t('admin.secretConfiguredHint') : placeholders[provider]}
+                      value={String(appSettings[tokenKey] ?? '')}
+                      onChange={e => setAppSettings(s => ({ ...s, [tokenKey]: e.target.value }))}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">{t('admin.systemAiModel')}</label>
+                    <input
+                      className="form-input"
+                      type="text"
+                      placeholder={modelHints[provider]}
+                      value={String(appSettings[modelKey] ?? '')}
+                      onChange={e => setAppSettings(s => ({ ...s, [modelKey]: e.target.value }))}
+                    />
+                  </div>
+                </div>
+              )
+            })}
+
+            <button className="btn btn-primary" onClick={saveSettings} disabled={settingsSaving}>
+              {settingsSaving ? t('common.loading') : t('admin.saveSettings')}
+            </button>
           </div>
         )}
 

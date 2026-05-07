@@ -7,7 +7,7 @@ import { decrypt } from '../utils/crypto.js'
 import { logAudit } from '../services/audit.js'
 import { flagDuplicates } from '../services/dedup.js'
 import { resolveModel } from '../utils/aiModels.js'
-import { getSettingsMap } from '../services/appSettings.js'
+import { getSettingsMap, getSystemAiKeys } from '../services/appSettings.js'
 
 function normalizeRole(role) {
   return role === 'readonly' ? 'guest' : role
@@ -67,6 +67,7 @@ export default async function wsDocumentUpload(fastify) {
     let accountId, userRole, userGeminiKey = null, userGeminiModel = null, userAnthropicKey = null, userClaudeModel = null
     let userOpenAiKey = null, userOpenAiModel = null, userPriority = ['system', 'google', 'anthropic', 'openai']
     let userSystemFallbackEnabled = 1, userBillingBudgetEur = null, userPricePerPageCents = 0
+    let hasUserOwnKey = false
     let authenticated = false
     let uploadState = null
     const MAX_UPLOAD_SIZE = 15 * 1024 * 1024 // 15MB per document
@@ -158,9 +159,20 @@ export default async function wsDocumentUpload(fastify) {
 
           userSystemFallbackEnabled = acc?.system_fallback_enabled ?? 1
           userBillingBudgetEur = acc?.billing_budget_eur ?? null
+
+          hasUserOwnKey = !!(userGeminiKey || userAnthropicKey || userOpenAiKey)
+
           try {
             const settingsMap = await getSettingsMap(db)
             userPricePerPageCents = Number(settingsMap.billing_price_per_page ?? 0)
+
+            // Inject system AI keys for providers where user has no own key
+            if (userPriority.includes('system') && userSystemFallbackEnabled) {
+              const sysKeys = await getSystemAiKeys(db)
+              if (!userGeminiKey) userGeminiKey = sysKeys.geminiKey
+              if (!userAnthropicKey) userAnthropicKey = sysKeys.anthropicKey
+              if (!userOpenAiKey) userOpenAiKey = sysKeys.openaiKey
+            }
           } catch { /* settings unavailable */ }
           authenticated = true
           fastify.log.info({ accountId, role: userRole, hasGemini: !!userGeminiKey, hasAnthropic: !!userAnthropicKey }, 'WS: client authenticated')
@@ -271,10 +283,9 @@ export default async function wsDocumentUpload(fastify) {
               ORDER BY page_number ASC
             `, [uploadState.documentId])
 
-            // Check if analysis should be skipped (fallback disabled or budget exceeded)
-            const hasOwnKey = !!(userGeminiKey || userAnthropicKey || userOpenAiKey)
+            // Check if analysis should be skipped
             let skipReason = null
-            if (!hasOwnKey) {
+            if (!hasUserOwnKey) {
               if (!userSystemFallbackEnabled) {
                 skipReason = 'fallback_disabled'
               } else if (userBillingBudgetEur !== null && userPricePerPageCents > 0) {
@@ -288,6 +299,10 @@ export default async function wsDocumentUpload(fastify) {
                   skipReason = 'budget_exceeded'
                 }
               }
+            }
+            // Skip immediately if no AI provider is available at all
+            if (!skipReason && !(userGeminiKey || userAnthropicKey || userOpenAiKey)) {
+              skipReason = 'no_ai_available'
             }
             if (skipReason) {
               send(socket, { type: 'status', status: 'pending', reason: skipReason })
@@ -424,7 +439,7 @@ export default async function wsDocumentUpload(fastify) {
 
             if (analysisStatus === 'completed') {
               try {
-                const isSystemFallback = !userGeminiKey && !userAnthropicKey && !userOpenAiKey ? 1 : 0
+                const isSystemFallback = hasUserOwnKey ? 0 : 1
                 await db.query(
                   `INSERT INTO usage_logs (id, account_id, document_id, pages_analyzed, ocr_provider, model_used, is_system_fallback, analyzed_at)
                    VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP)`,

@@ -1,6 +1,7 @@
 import { getDb } from '../db/index.js'
 import { decrypt } from '../utils/crypto.js'
 import { AI_MODEL_OPTIONS } from '../utils/aiModels.js'
+import { getSystemAiKeys } from '../services/appSettings.js'
 
 export default async function aiRoutes(fastify) {
   fastify.get('/api/ai/models', { onRequest: [fastify.authenticate] }, async (req, reply) => {
@@ -16,10 +17,11 @@ export default async function aiRoutes(fastify) {
     let priority = ['system', 'google', 'anthropic', 'openai']
     try { if (acc?.ai_provider_priority) priority = JSON.parse(acc.ai_provider_priority) } catch {}
     const useSystem = priority.includes('system')
+    const sysKeys = useSystem ? await getSystemAiKeys(db) : { geminiKey: null, openaiKey: null }
 
     try {
       let key = null; try { key = acc?.gemini_token ? decrypt(acc.gemini_token) : null } catch {}
-      if (!key && useSystem) key = process.env.GEMINI_API_KEY || null
+      if (!key && useSystem) key = sysKeys.geminiKey
       if (key) {
         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`)
         if (res.ok) {
@@ -33,7 +35,7 @@ export default async function aiRoutes(fastify) {
 
     try {
       let key = null; try { key = acc?.openai_token ? decrypt(acc.openai_token) : null } catch {}
-      if (!key && useSystem) key = process.env.OPENAI_API_KEY || null
+      if (!key && useSystem) key = sysKeys.openaiKey
       if (key) {
         const res = await fetch('https://api.openai.com/v1/models', { headers: { 'Authorization': `Bearer ${key}` } })
         if (res.ok) {

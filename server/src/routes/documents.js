@@ -8,7 +8,7 @@ import { resolve } from 'path'
 import { flagDuplicates } from '../services/dedup.js'
 import { randomUUID } from 'crypto'
 import { isAllowedModel, resolveModel } from '../utils/aiModels.js'
-import { getSettingsMap } from '../services/appSettings.js'
+import { getSettingsMap, getSystemAiKeys } from '../services/appSettings.js'
 
 async function getDocumentPages(db, documentId) {
   const { rows } = await db.query(`
@@ -472,11 +472,11 @@ export default async function documentRoutes(fastify) {
         priority = ['system', 'google', 'anthropic', 'openai']
       }
 
-      const useSystem = priority.includes('system')
-      if (useSystem) {
-        if (!userGeminiKey) userGeminiKey = process.env.GEMINI_API_KEY || null
-        if (!userAnthropicKey) userAnthropicKey = process.env.ANTHROPIC_API_KEY || null
-        if (!userOpenAiKey) userOpenAiKey = process.env.OPENAI_API_KEY || null
+      if (priority.includes('system')) {
+        const sysKeys = await getSystemAiKeys(db)
+        if (!userGeminiKey) userGeminiKey = sysKeys.geminiKey
+        if (!userAnthropicKey) userAnthropicKey = sysKeys.anthropicKey
+        if (!userOpenAiKey) userOpenAiKey = sysKeys.openaiKey
       }
 
       // Setze status auf 'analyzing'
@@ -716,11 +716,11 @@ export default async function documentRoutes(fastify) {
         priority = ['system', 'google', 'anthropic', 'openai']
       }
 
-      const useSystem = priority.includes('system')
-      if (useSystem) {
-        if (!userGeminiKey) userGeminiKey = process.env.GEMINI_API_KEY || null
-        if (!userAnthropicKey) userAnthropicKey = process.env.ANTHROPIC_API_KEY || null
-        if (!userOpenAiKey) userOpenAiKey = process.env.OPENAI_API_KEY || null
+      if (priority.includes('system')) {
+        const sysKeys = await getSystemAiKeys(db)
+        if (!userGeminiKey) userGeminiKey = sysKeys.geminiKey
+        if (!userAnthropicKey) userAnthropicKey = sysKeys.anthropicKey
+        if (!userOpenAiKey) userOpenAiKey = sysKeys.openaiKey
       }
 
       const pages = await getDocumentPages(db, docId)

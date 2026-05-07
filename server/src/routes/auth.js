@@ -11,6 +11,7 @@ import { ALLOWED_CLAUDE_MODELS, ALLOWED_GEMINI_MODELS, ALLOWED_OPENAI_MODELS } f
 import { sendAuthEmail, shouldExposeAuthTokens } from '../services/authMail.js'
 import { generateApiKey, hashApiKey } from '../utils/apikey.js'
 import { createVerify } from 'crypto'
+import { getSystemAiKeys } from '../services/appSettings.js'
 
 const oauthStates = new Map()
 
@@ -497,7 +498,7 @@ export default async function authRoutes(fastify) {
       has_anthropic_token: !!fullAccount?.anthropic_token,
       has_openai_token: !!fullAccount?.openai_token,
       ai_provider_priority: fullAccount?.ai_provider_priority ?? null,
-      has_system_ai: !!(process.env.GEMINI_API_KEY || process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY)
+      has_system_ai: await getSystemAiKeys(db).then(k => !!(k.geminiKey || k.anthropicKey || k.openaiKey)).catch(() => false)
     }
   })
 

@@ -5,6 +5,7 @@ import { logAudit } from '../services/audit.js'
 import { analyzeDocument, normalizeDocumentType } from '../services/ocr.js'
 import { decrypt } from '../utils/crypto.js'
 import { resolveModel } from '../utils/aiModels.js'
+import { getSystemAiKeys } from '../services/appSettings.js'
 import { writeFileSync, mkdirSync } from 'fs'
 import { resolve, join, sep } from 'path'
 import fastifyMultipart from '@fastify/multipart'
@@ -298,10 +299,11 @@ export default async function vetApiRoutes(fastify) {
         try { anthropicKey = account?.anthropic_token ? decrypt(account.anthropic_token) : null } catch {}
         try { openaiKey = account?.openai_token ? decrypt(account.openai_token) : null } catch {}
 
-        // Fallback to system keys
-        if (!geminiKey) geminiKey = process.env.GEMINI_API_KEY || null
-        if (!anthropicKey) anthropicKey = process.env.ANTHROPIC_API_KEY || null
-        if (!openaiKey) openaiKey = process.env.OPENAI_API_KEY || null
+        // Fallback to system keys (settings > env var)
+        const sysKeys = await getSystemAiKeys(db)
+        if (!geminiKey) geminiKey = sysKeys.geminiKey
+        if (!anthropicKey) anthropicKey = sysKeys.anthropicKey
+        if (!openaiKey) openaiKey = sysKeys.openaiKey
 
         const priority = account?.ai_provider_priority ? JSON.parse(account.ai_provider_priority) : ['google', 'anthropic', 'openai']
 

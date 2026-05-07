@@ -10,6 +10,15 @@ export const PUBLIC_SETTINGS_KEYS = new Set([
   'billing_price_per_page'
 ])
 
+export const AI_SETTINGS_KEYS = [
+  'system_gemini_token',
+  'system_gemini_model',
+  'system_anthropic_token',
+  'system_anthropic_model',
+  'system_openai_token',
+  'system_openai_model',
+]
+
 export const MAIL_SETTINGS_KEYS = [
   'mail_enabled',
   'mail_from_address',
@@ -33,7 +42,10 @@ export const SECRET_SETTINGS_KEYS = new Set([
   'smtp_password',
   'oauth2_client_secret',
   'oauth2_refresh_token',
-  'oauth2_access_token'
+  'oauth2_access_token',
+  'system_gemini_token',
+  'system_anthropic_token',
+  'system_openai_token',
 ])
 
 const BOOLEAN_SETTING_KEYS = new Set(['mail_enabled'])
@@ -140,6 +152,14 @@ function applySecretStatus(settings) {
   delete settings.oauth2_client_secret
   delete settings.oauth2_refresh_token
   delete settings.oauth2_access_token
+
+  settings.has_system_gemini_token = !!settings.system_gemini_token
+  settings.has_system_anthropic_token = !!settings.system_anthropic_token
+  settings.has_system_openai_token = !!settings.system_openai_token
+  delete settings.system_gemini_token
+  delete settings.system_anthropic_token
+  delete settings.system_openai_token
+
   return settings
 }
 
@@ -160,7 +180,10 @@ export async function getAdminSettings(db = getDb()) {
     smtp_username: raw.smtp_username || '',
     oauth2_provider: raw.oauth2_provider || '',
     oauth2_client_id: raw.oauth2_client_id || '',
-    oauth2_tenant: raw.oauth2_tenant || ''
+    oauth2_tenant: raw.oauth2_tenant || '',
+    system_gemini_model: raw.system_gemini_model || '',
+    system_anthropic_model: raw.system_anthropic_model || '',
+    system_openai_model: raw.system_openai_model || '',
   }
 
   for (const secretKey of SECRET_SETTINGS_KEYS) {
@@ -234,6 +257,19 @@ export async function getMailTransportConfig(db = getDb()) {
   }
 
   return config
+}
+
+export async function getSystemAiKeys(db = getDb()) {
+  const settings = await getSettingsMap(db)
+  const decryptSetting = (val) => { try { return val ? decrypt(val) : null } catch { return null } }
+  return {
+    geminiKey: decryptSetting(settings.system_gemini_token) || process.env.GEMINI_API_KEY || null,
+    anthropicKey: decryptSetting(settings.system_anthropic_token) || process.env.ANTHROPIC_API_KEY || null,
+    openaiKey: decryptSetting(settings.system_openai_token) || process.env.OPENAI_API_KEY || null,
+    geminiModel: settings.system_gemini_model || null,
+    anthropicModel: settings.system_anthropic_model || null,
+    openaiModel: settings.system_openai_model || null,
+  }
 }
 
 export function isMailConfigured(config) {
