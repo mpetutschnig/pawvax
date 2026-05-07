@@ -18,11 +18,12 @@ TEST_TIMER_ON_CALENDAR="${TEST_TIMER_ON_CALENDAR:-hourly}"
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") <prepare|deploy|cleanup|status>
+Usage: $(basename "$0") <prepare|deploy|update|cleanup|status>
 
 Commands:
   prepare  Create users, directories, env files and TLS placeholders for rootless operation.
   deploy   Build images, recreate the rootless pod, and generate user systemd units.
+  update   Pull latest code from git, rebuild images (incl. npm run build), and restart pod.
   test     Run the API test suite against the dedicated test database and persist the result into PostgreSQL.
   cleanup  Stop and remove the pod plus prune unused Podman resources for the app user.
   status   Show pod, container and systemd user-unit status for the app user.
@@ -372,6 +373,18 @@ deploy_stack() {
   run_host_tests
 }
 
+update_stack() {
+  require_root
+
+  echo "=== Pulling latest code (as $GIT_USER) ==="
+  su -s /bin/bash "$GIT_USER" -c "cd '$REPO_DIR' && git pull"
+
+  echo ""
+  echo "=== Rebuilding images and restarting pod ==="
+  prepare_host
+  deploy_stack
+}
+
 cleanup_stack() {
   require_root
   require_command podman
@@ -400,6 +413,9 @@ main() {
     deploy)
       prepare_host
       deploy_stack
+      ;;
+    update)
+      update_stack
       ;;
     test)
       prepare_host
