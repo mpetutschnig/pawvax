@@ -22,21 +22,23 @@ export default async function billingRoutes(fastify) {
     )
 
     const { rows: [acc] } = await db.query(
-      'SELECT billing_consent_accepted_at, system_fallback_enabled, billing_page_limit FROM accounts WHERE id = $1',
+      'SELECT billing_consent_accepted_at, system_fallback_enabled, billing_budget_eur FROM accounts WHERE id = $1',
       [accountId]
     )
 
     const totalPages = rows.reduce((s, r) => s + r.pages_analyzed, 0)
     const billablePages = rows.filter(r => r.is_system_fallback).reduce((s, r) => s + r.pages_analyzed, 0)
+    const totalCostEur = (billablePages * pricePerPage) / 100
 
     return reply.send({
       pricePerPage,
       totalPages,
       billablePages,
-      totalCost: (billablePages * pricePerPage) / 100,
+      totalCost: totalCostEur,
+      totalCostEur,
       consentAcceptedAt: acc?.billing_consent_accepted_at ?? null,
       systemFallbackEnabled: acc?.system_fallback_enabled ?? 1,
-      pageLimit: acc?.billing_page_limit ?? null,
+      budgetEur: acc?.billing_budget_eur ?? null,
       entries: rows
     })
   })
@@ -54,7 +56,7 @@ export default async function billingRoutes(fastify) {
   fastify.patch('/api/billing/settings', { onRequest: [fastify.authenticate] }, async (req, reply) => {
     const db = getDb()
     const accountId = req.user.accountId
-    const { systemFallbackEnabled, pageLimit } = req.body ?? {}
+    const { systemFallbackEnabled, budgetEur } = req.body ?? {}
 
     const updates = []
     const values = []
@@ -64,9 +66,9 @@ export default async function billingRoutes(fastify) {
       updates.push(`system_fallback_enabled = $${idx++}`)
       values.push(systemFallbackEnabled ? 1 : 0)
     }
-    if (pageLimit !== undefined) {
-      updates.push(`billing_page_limit = $${idx++}`)
-      values.push(pageLimit === null ? null : Number(pageLimit))
+    if (budgetEur !== undefined) {
+      updates.push(`billing_budget_eur = $${idx++}`)
+      values.push(budgetEur === null ? null : Number(budgetEur))
     }
 
     if (updates.length === 0) return reply.code(400).send({ error: 'Nichts zu aktualisieren' })

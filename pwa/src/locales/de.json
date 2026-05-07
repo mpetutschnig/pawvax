@@ -733,10 +733,10 @@
   "billing.settings": "Einstellungen",
   "billing.fallbackEnabled": "System-AI-Fallback aktivieren",
   "billing.fallbackEnabledHint": "Wenn du keinen eigenen API-Key hast, wird das System-KI-Modell verwendet. Hier kannst du das deaktivieren.",
-  "billing.pageLimit": "Seitenlimit (System-KI)",
-  "billing.pageLimitHint": "Maximale Anzahl kostenpflichtiger Seiten. Leer = kein Limit.",
+  "billing.budgetEur": "Budget-Limit (System-KI)",
+  "billing.budgetEurHint": "Maximale Kosten in Euro. Leer = kein Limit.",
   "billing.settingsSaved": "Einstellungen gespeichert",
-  "billing.limitReached": "Seitenlimit erreicht – neue Dokumente werden nicht automatisch analysiert.",
-  "billing.limitWarning": "Du erreichst dein Seitenlimit bald.",
+  "billing.limitReached": "Budget-Limit erreicht – neue Dokumente werden nicht automatisch analysiert.",
+  "billing.limitWarning": "Du erreichst dein Budget-Limit bald.",
   "billing.fallbackDisabledInfo": "System-AI-Fallback ist deaktiviert. Analysen werden nur mit deinem eigenen API-Key durchgeführt."
 }

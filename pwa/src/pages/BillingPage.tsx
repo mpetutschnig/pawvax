@@ -21,9 +21,10 @@ interface BillingMe {
   totalPages: number
   billablePages: number
   totalCost: number
+  totalCostEur: number
   consentAcceptedAt: string | null
   systemFallbackEnabled: number
-  pageLimit: number | null
+  budgetEur: number | null
   entries: UsageEntry[]
 }
 
@@ -53,14 +54,14 @@ export default function BillingPage() {
   const [tab, setTab] = useState<'me' | 'admin'>('me')
 
   const [fallbackEnabled, setFallbackEnabled] = useState(true)
-  const [pageLimitInput, setPageLimitInput] = useState('')
+  const [budgetEurInput, setBudgetEurInput] = useState('')
   const [savingSettings, setSavingSettings] = useState(false)
   const [settingsSaved, setSettingsSaved] = useState(false)
 
   const fetchMyBilling = () => getBillingMe().then(r => {
     setMyBilling(r.data)
     setFallbackEnabled(!!r.data.systemFallbackEnabled)
-    setPageLimitInput(r.data.pageLimit != null ? String(r.data.pageLimit) : '')
+    setBudgetEurInput(r.data.budgetEur != null ? String(r.data.budgetEur) : '')
   })
 
   useEffect(() => {
@@ -81,8 +82,8 @@ export default function BillingPage() {
     setSavingSettings(true)
     setSettingsSaved(false)
     try {
-      const pageLimit = pageLimitInput.trim() === '' ? null : Number(pageLimitInput)
-      await patchBillingSettings({ systemFallbackEnabled: fallbackEnabled, pageLimit })
+      const budgetEur = budgetEurInput.trim() === '' ? null : Number(budgetEurInput)
+      await patchBillingSettings({ systemFallbackEnabled: fallbackEnabled, budgetEur })
       await fetchMyBilling()
       setSettingsSaved(true)
       setTimeout(() => setSettingsSaved(false), 3000)
@@ -91,10 +92,10 @@ export default function BillingPage() {
     }
   }
 
-  const pageLimit = myBilling?.pageLimit ?? null
-  const billablePages = myBilling?.billablePages ?? 0
-  const limitNear = pageLimit !== null && billablePages >= pageLimit * 0.9 && billablePages < pageLimit
-  const limitReached = pageLimit !== null && billablePages >= pageLimit
+  const budgetEur = myBilling?.budgetEur ?? null
+  const totalCostEur = myBilling?.totalCostEur ?? myBilling?.totalCost ?? 0
+  const limitNear = budgetEur !== null && totalCostEur >= budgetEur * 0.9 && totalCostEur < budgetEur
+  const limitReached = budgetEur !== null && totalCostEur >= budgetEur
 
   return (
     <div className="container page">
@@ -120,14 +121,14 @@ export default function BillingPage() {
             </div>
             <div>
               <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)', marginBottom: 4 }}>{t('billing.billablePages')}</div>
-              <div style={{ fontWeight: 700, fontSize: '1.5rem' }}>
-                {myBilling.billablePages}
-                {pageLimit !== null && <span className="text-muted" style={{ fontSize: 'var(--font-size-sm)', fontWeight: 400 }}> / {pageLimit}</span>}
-              </div>
+              <div style={{ fontWeight: 700, fontSize: '1.5rem' }}>{myBilling.billablePages}</div>
             </div>
             <div>
               <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)', marginBottom: 4 }}>{t('billing.totalCost')}</div>
-              <div style={{ fontWeight: 700, fontSize: '1.5rem' }}>{priceFormatted(myBilling.totalCost * 100)}</div>
+              <div style={{ fontWeight: 700, fontSize: '1.5rem' }}>
+                {totalCostEur.toFixed(2).replace('.', ',')} €
+                {budgetEur !== null && <span className="text-muted" style={{ fontSize: 'var(--font-size-sm)', fontWeight: 400 }}> / {budgetEur.toFixed(2).replace('.', ',')} €</span>}
+              </div>
             </div>
           </div>
 
@@ -167,17 +168,20 @@ export default function BillingPage() {
               <p className="text-muted" style={{ margin: '4px 0 0 30px', fontSize: 'var(--font-size-xs)' }}>{t('billing.fallbackEnabledHint')}</p>
             </div>
             <div className="form-group">
-              <label className="form-label">{t('billing.pageLimit')}</label>
-              <input
-                type="number"
-                className="form-input"
-                min={1}
-                placeholder={t('billing.pageLimitHint')}
-                value={pageLimitInput}
-                onChange={e => setPageLimitInput(e.target.value)}
-                style={{ maxWidth: 200 }}
-              />
-              <p className="text-muted" style={{ margin: '4px 0 0', fontSize: 'var(--font-size-xs)' }}>{t('billing.pageLimitHint')}</p>
+              <label className="form-label">{t('billing.budgetEur')}</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, maxWidth: 200 }}>
+                <input
+                  type="number"
+                  className="form-input"
+                  min={0}
+                  step={0.01}
+                  placeholder="0.00"
+                  value={budgetEurInput}
+                  onChange={e => setBudgetEurInput(e.target.value)}
+                />
+                <span style={{ fontWeight: 600 }}>€</span>
+              </div>
+              <p className="text-muted" style={{ margin: '4px 0 0', fontSize: 'var(--font-size-xs)' }}>{t('billing.budgetEurHint')}</p>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginTop: 'var(--space-2)' }}>
               <button className="btn btn-primary" onClick={handleSaveSettings} disabled={savingSettings}>

@@ -182,5 +182,12 @@ export async function initDb(connectionString) {
     await pool.query('CREATE INDEX IF NOT EXISTS idx_oauth_accounts_account ON oauth_accounts(account_id)')
   } catch { /* table may already exist */ }
 
+  // Migration: AI fallback control + billing budget in euros
+  try { await pool.query("ALTER TABLE accounts ADD COLUMN IF NOT EXISTS system_fallback_enabled INTEGER DEFAULT 1") } catch { /* already exists */ }
+  try { await pool.query("ALTER TABLE accounts ADD COLUMN IF NOT EXISTS billing_budget_eur REAL DEFAULT NULL") } catch { /* already exists */ }
+
+  // Migration: vet raw image sharing for unanalyzed documents
+  try { await pool.query("ALTER TABLE animal_sharing ADD COLUMN IF NOT EXISTS share_raw_images INTEGER DEFAULT 0") } catch { /* already exists */ }
+
   return pool
 }

@@ -7,6 +7,7 @@ import { decrypt } from '../utils/crypto.js'
 import { logAudit } from '../services/audit.js'
 import { flagDuplicates } from '../services/dedup.js'
 import { resolveModel } from '../utils/aiModels.js'
+import { getSettingsMap } from '../services/appSettings.js'
 
 function normalizeRole(role) {
   return role === 'readonly' ? 'guest' : role
@@ -65,7 +66,7 @@ export default async function wsDocumentUpload(fastify) {
   fastify.get('/ws', { websocket: true }, async (socket, req) => {
     let accountId, userRole, userGeminiKey = null, userGeminiModel = null, userAnthropicKey = null, userClaudeModel = null
     let userOpenAiKey = null, userOpenAiModel = null, userPriority = ['system', 'google', 'anthropic', 'openai']
-    let userSystemFallbackEnabled = 1, userBillingPageLimit = null
+    let userSystemFallbackEnabled = 1, userBillingBudgetEur = null, userPricePerPageCents = 0
     let authenticated = false
     let uploadState = null
     const MAX_UPLOAD_SIZE = 15 * 1024 * 1024 // 15MB per document
@@ -119,7 +120,7 @@ export default async function wsDocumentUpload(fastify) {
                    : 'user'
 
           const db = getDb()
-          const { rows: [acc] } = await db.query('SELECT gemini_token, gemini_model, anthropic_token, claude_model, openai_token, openai_model, ai_provider_priority, system_fallback_enabled, billing_page_limit FROM accounts WHERE id = $1', [accountId])
+          const { rows: [acc] } = await db.query('SELECT gemini_token, gemini_model, anthropic_token, claude_model, openai_token, openai_model, ai_provider_priority, system_fallback_enabled, billing_budget_eur FROM accounts WHERE id = $1', [accountId])
           
           try {
             userGeminiKey = acc?.gemini_token ? decrypt(acc.gemini_token) : null
@@ -156,7 +157,11 @@ export default async function wsDocumentUpload(fastify) {
           }
 
           userSystemFallbackEnabled = acc?.system_fallback_enabled ?? 1
-          userBillingPageLimit = acc?.billing_page_limit ?? null
+          userBillingBudgetEur = acc?.billing_budget_eur ?? null
+          try {
+            const settingsMap = await getSettingsMap(db)
+            userPricePerPageCents = Number(settingsMap.billing_price_per_page ?? 0)
+          } catch { /* settings unavailable */ }
           authenticated = true
           fastify.log.info({ accountId, role: userRole, hasGemini: !!userGeminiKey, hasAnthropic: !!userAnthropicKey }, 'WS: client authenticated')
           send(socket, { type: 'auth_ok' })
@@ -189,6 +194,12 @@ export default async function wsDocumentUpload(fastify) {
             send(socket, { type: 'error', message: 'Zugriff verweigert' })
             return
           }
+
+          // Clean up stale uploading stubs from this account before starting a new one
+          await db.query(
+            "DELETE FROM documents WHERE added_by_account = $1 AND analysis_status = 'uploading'",
+            [accountId]
+          ).catch(() => {})
 
           // Insert stub document so document_pages FK is satisfied
           const { rows: [existingCheck] } = await db.query('SELECT id FROM documents WHERE id = $1', [docId])
@@ -266,12 +277,14 @@ export default async function wsDocumentUpload(fastify) {
             if (!hasOwnKey) {
               if (!userSystemFallbackEnabled) {
                 skipReason = 'fallback_disabled'
-              } else if (userBillingPageLimit !== null) {
+              } else if (userBillingBudgetEur !== null && userPricePerPageCents > 0) {
                 const { rows: [usageRow] } = await db.query(
                   `SELECT COALESCE(SUM(pages_analyzed), 0) AS used FROM usage_logs WHERE account_id = $1 AND is_system_fallback = 1`,
                   [accountId]
                 )
-                if (Number(usageRow?.used ?? 0) + pages.length > userBillingPageLimit) {
+                const usedCostEur = (Number(usageRow?.used ?? 0) * userPricePerPageCents) / 100
+                const newCostEur = (pages.length * userPricePerPageCents) / 100
+                if (usedCostEur + newCostEur > userBillingBudgetEur) {
                   skipReason = 'budget_exceeded'
                 }
               }
@@ -461,6 +474,18 @@ export default async function wsDocumentUpload(fastify) {
     })
 
     socket.on('error', (err) => fastify.log.error({ err }, 'WS socket error'))
+
+    socket.on('close', async () => {
+      if (uploadState?.documentId) {
+        const db = getDb()
+        await db.query(
+          "DELETE FROM documents WHERE id = $1 AND analysis_status = 'uploading'",
+          [uploadState.documentId]
+        ).catch(() => {})
+        try { uploadState.writer?.end() } catch {}
+      }
+      uploadState = null
+    })
   })
 }
 
