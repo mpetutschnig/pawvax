@@ -1017,7 +1017,7 @@ export default async function animalRoutes(fastify) {
       SELECT DISTINCT ON (a.id) a.*, ast.scanned_at
       FROM animal_scans ast
       JOIN animals a ON a.id = ast.animal_id
-      WHERE ast.account_id = $1
+      WHERE ast.account_id = $1 AND a.account_id != $1
       ORDER BY a.id, ast.scanned_at DESC
     `, [accountId])
     scans.sort((a, b) => new Date(b.scanned_at).getTime() - new Date(a.scanned_at).getTime())
