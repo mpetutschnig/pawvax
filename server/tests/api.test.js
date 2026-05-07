@@ -2537,3 +2537,142 @@ describe('Suite 21: Mail Settings Endpoints', () => {
     expect(data).not.toHaveProperty('oauth2_refresh_token')
   })
 })
+
+// ════════════════════════════════════════════════════════════════
+// Suite 22: Billing Endpoints
+// ════════════════════════════════════════════════════════════════
+
+describe('Suite 22: Billing Endpoints', () => {
+  let userToken
+  let userId
+  let adminToken
+
+  beforeAll(async () => {
+    const ts = Date.now()
+
+    // Regular user
+    const userResult = await registerAndVerifyUser(`Billing User ${ts}`, `billing-user-${ts}@example.com`, 'test1234')
+    userToken = userResult.data.token
+    userId = userResult.data.account.id
+
+    // Admin user
+    const adminEmail = `billing-admin-${ts}@example.com`
+    const adminResult = await registerAndVerifyUser(`Billing Admin ${ts}`, adminEmail, 'test1234')
+    const adminId = adminResult.data.account.id
+    const db = await getTestDb()
+    try {
+      // Promote to admin
+      await db.query("UPDATE accounts SET role = 'admin' WHERE id = $1", [adminId])
+
+      // Set price per page (500 cents = 5.00 €)
+      await db.query(
+        "INSERT INTO settings (key, value) VALUES ('billing_price_per_page', '500') ON CONFLICT (key) DO UPDATE SET value = '500'"
+      )
+
+      // Insert 3 usage_log rows for the regular user:
+      // rows 1+2: system_fallback=1, 3 pages each → billablePages=6
+      // row 3:   system_fallback=0, 2 pages       → not billable, totalPages=8
+      await db.query(
+        `INSERT INTO usage_logs (id, account_id, document_id, pages_analyzed, ocr_provider, model_used, is_system_fallback)
+         VALUES ($1, $2, NULL, 3, 'gemini', 'gemini', 1),
+                ($3, $2, NULL, 3, 'gemini', 'gemini', 1),
+                ($4, $2, NULL, 2, 'tesseract', 'tesseract', 0)`,
+        [uuid(), userId, uuid(), uuid()]
+      )
+    } finally {
+      await db.end()
+    }
+
+    // Re-login as admin to get admin token with updated role
+    const relogin = await apiCallWithToken(null, 'POST', '/auth/login', { email: adminEmail, password: 'test1234' })
+    adminToken = relogin.data.token
+  })
+
+  test('22a. GET /billing/me — returns correct structure', async () => {
+    const { status, data } = await apiCallWithToken(userToken, 'GET', '/billing/me')
+    expect(status).toBe(200)
+    expect(data).toHaveProperty('pricePerPage')
+    expect(data).toHaveProperty('totalPages')
+    expect(data).toHaveProperty('billablePages')
+    expect(data).toHaveProperty('totalCost')
+    expect(data).toHaveProperty('consentAcceptedAt')
+    expect(Array.isArray(data.entries)).toBe(true)
+  })
+
+  test('22b. GET /billing/me — totals and cost are correct', async () => {
+    const { status, data } = await apiCallWithToken(userToken, 'GET', '/billing/me')
+    expect(status).toBe(200)
+    expect(data.pricePerPage).toBe(500)
+    expect(data.totalPages).toBe(8)
+    expect(data.billablePages).toBe(6)
+    expect(data.totalCost).toBeCloseTo(30, 2)
+  })
+
+  test('22c. GET /billing/me — consentAcceptedAt is null before consent', async () => {
+    const { status, data } = await apiCallWithToken(userToken, 'GET', '/billing/me')
+    expect(status).toBe(200)
+    expect(data.consentAcceptedAt).toBeNull()
+  })
+
+  test('22d. GET /billing/me — 401 without token', async () => {
+    const { status } = await apiCallWithToken(null, 'GET', '/billing/me')
+    expect(status).toBe(401)
+  })
+
+  test('22e. POST /billing/consent — returns { ok: true }', async () => {
+    const { status, data } = await apiCallWithToken(userToken, 'POST', '/billing/consent')
+    expect(status).toBe(200)
+    expect(data.ok).toBe(true)
+  })
+
+  test('22f. GET /billing/me — consentAcceptedAt is set after consent', async () => {
+    const { status, data } = await apiCallWithToken(userToken, 'GET', '/billing/me')
+    expect(status).toBe(200)
+    expect(data.consentAcceptedAt).not.toBeNull()
+    expect(typeof data.consentAcceptedAt).toBe('string')
+  })
+
+  test('22g. POST /billing/consent — 401 without token', async () => {
+    const { status } = await apiCallWithToken(null, 'POST', '/billing/consent')
+    expect(status).toBe(401)
+  })
+
+  test('22h. GET /admin/billing — 200 as admin, correct structure', async () => {
+    const { status, data } = await apiCallWithToken(adminToken, 'GET', '/admin/billing')
+    expect(status).toBe(200)
+    expect(data.pricePerPage).toBe(500)
+    expect(Array.isArray(data.accounts)).toBe(true)
+    const entry = data.accounts.find(a => a.account_id === userId)
+    expect(entry).toBeDefined()
+  })
+
+  test('22i. GET /admin/billing — per-account aggregates are correct', async () => {
+    const { status, data } = await apiCallWithToken(adminToken, 'GET', '/admin/billing')
+    expect(status).toBe(200)
+    const entry = data.accounts.find(a => a.account_id === userId)
+    expect(Number(entry.total_pages)).toBe(8)
+    expect(Number(entry.billable_pages)).toBe(6)
+    expect(entry.cost).toBeCloseTo(30, 2)
+  })
+
+  test('22j. GET /admin/billing — 403 for regular user', async () => {
+    const { status } = await apiCallWithToken(userToken, 'GET', '/admin/billing')
+    expect(status).toBe(403)
+  })
+
+  test('22k. GET /admin/billing — 401 without token', async () => {
+    const { status } = await apiCallWithToken(null, 'GET', '/admin/billing')
+    expect(status).toBe(401)
+  })
+
+  test('22l. GET /billing/me — entries contain expected fields', async () => {
+    const { status, data } = await apiCallWithToken(userToken, 'GET', '/billing/me')
+    expect(status).toBe(200)
+    expect(data.entries.length).toBeGreaterThanOrEqual(3)
+    const entry = data.entries[0]
+    expect(entry).toHaveProperty('pages_analyzed')
+    expect(entry).toHaveProperty('ocr_provider')
+    expect(entry).toHaveProperty('is_system_fallback')
+    expect(entry).toHaveProperty('analyzed_at')
+  })
+})
