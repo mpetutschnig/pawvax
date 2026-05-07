@@ -22,7 +22,7 @@ export default async function billingRoutes(fastify) {
     )
 
     const { rows: [acc] } = await db.query(
-      'SELECT billing_consent_accepted_at FROM accounts WHERE id = $1',
+      'SELECT billing_consent_accepted_at, system_fallback_enabled, billing_page_limit FROM accounts WHERE id = $1',
       [accountId]
     )
 
@@ -35,6 +35,8 @@ export default async function billingRoutes(fastify) {
       billablePages,
       totalCost: (billablePages * pricePerPage) / 100,
       consentAcceptedAt: acc?.billing_consent_accepted_at ?? null,
+      systemFallbackEnabled: acc?.system_fallback_enabled ?? 1,
+      pageLimit: acc?.billing_page_limit ?? null,
       entries: rows
     })
   })
@@ -46,6 +48,31 @@ export default async function billingRoutes(fastify) {
       'UPDATE accounts SET billing_consent_accepted_at = CURRENT_TIMESTAMP WHERE id = $1',
       [accountId]
     )
+    return reply.send({ ok: true })
+  })
+
+  fastify.patch('/api/billing/settings', { onRequest: [fastify.authenticate] }, async (req, reply) => {
+    const db = getDb()
+    const accountId = req.user.accountId
+    const { systemFallbackEnabled, pageLimit } = req.body ?? {}
+
+    const updates = []
+    const values = []
+    let idx = 1
+
+    if (systemFallbackEnabled !== undefined) {
+      updates.push(`system_fallback_enabled = $${idx++}`)
+      values.push(systemFallbackEnabled ? 1 : 0)
+    }
+    if (pageLimit !== undefined) {
+      updates.push(`billing_page_limit = $${idx++}`)
+      values.push(pageLimit === null ? null : Number(pageLimit))
+    }
+
+    if (updates.length === 0) return reply.code(400).send({ error: 'Nichts zu aktualisieren' })
+
+    values.push(accountId)
+    await db.query(`UPDATE accounts SET ${updates.join(', ')} WHERE id = $${idx}`, values)
     return reply.send({ ok: true })
   })
 

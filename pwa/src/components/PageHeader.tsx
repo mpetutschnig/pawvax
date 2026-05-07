@@ -21,7 +21,7 @@ export function PageHeader({
   actions
 }: PageHeaderProps) {
   const navigate = useNavigate()
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { theme, toggleTheme } = useTheme()
   const [loggingOut, setLoggingOut] = useState(false)
 
@@ -89,6 +89,25 @@ export function PageHeader({
             )}
           </button>
         )}
+        <button
+          onClick={() => i18n.changeLanguage(i18n.language === 'de' ? 'en' : 'de')}
+          style={{
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            color: 'var(--text)',
+            padding: 'var(--space-2)',
+            display: 'flex',
+            alignItems: 'center',
+            opacity: 0.7,
+            fontWeight: 600,
+            fontSize: 'var(--font-size-sm)',
+            transition: 'opacity 0.2s'
+          }}
+          title="Switch language"
+        >
+          {i18n.language === 'de' ? 'EN' : 'DE'}
+        </button>
         {showLogout && (
           <button
             onClick={() => navigate('/profile')}

@@ -292,6 +292,9 @@
   "sharing.roleGuest": "Gast (Standard)",
   "sharing.roleVet": "Tierarzt",
   "sharing.roleAuthority": "Behörde",
+  "sharing.shareRawImages": "Unanalysierte Bilder für Tierärzte sichtbar",
+  "sharing.shareRawImagesHint": "Im Notfall kann der Tierarzt das Rohbild sehen, auch wenn das Dokument noch nicht analysiert wurde.",
+  "animal.rawImageLabel": "Rohbild – nicht analysiert",
   "docScan.title": "Dokument scannen",
   "docScan.uploadMethod": "Wie möchtest du das Dokument hinzufügen?",
   "docScan.camera": "Mit Kamera fotografieren",
@@ -726,5 +729,14 @@
   "billing.consentDesc": "Diese Analyse wird mit dem System-KI-Modell durchgeführt. Dafür fallen Kosten an.",
   "billing.consentNote": "Mit dem Klick auf 'Zustimmen' erlaubst du die Nutzung des System-KI-Modells. Deine Zustimmung gilt dauerhaft für alle zukünftigen Analysen mit System-KI.",
   "billing.consentAccept": "Zustimmen & analysieren",
-  "billing.total": "Gesamt"
+  "billing.total": "Gesamt",
+  "billing.settings": "Einstellungen",
+  "billing.fallbackEnabled": "System-AI-Fallback aktivieren",
+  "billing.fallbackEnabledHint": "Wenn du keinen eigenen API-Key hast, wird das System-KI-Modell verwendet. Hier kannst du das deaktivieren.",
+  "billing.pageLimit": "Seitenlimit (System-KI)",
+  "billing.pageLimitHint": "Maximale Anzahl kostenpflichtiger Seiten. Leer = kein Limit.",
+  "billing.settingsSaved": "Einstellungen gespeichert",
+  "billing.limitReached": "Seitenlimit erreicht – neue Dokumente werden nicht automatisch analysiert.",
+  "billing.limitWarning": "Du erreichst dein Seitenlimit bald.",
+  "billing.fallbackDisabledInfo": "System-AI-Fallback ist deaktiviert. Analysen werden nur mit deinem eigenen API-Key durchgeführt."
 }

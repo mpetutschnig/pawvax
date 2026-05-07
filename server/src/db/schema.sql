@@ -263,6 +263,9 @@ CREATE INDEX IF NOT EXISTS idx_usage_logs_account ON usage_logs(account_id);
 CREATE INDEX IF NOT EXISTS idx_usage_logs_analyzed ON usage_logs(analyzed_at);
 
 ALTER TABLE accounts ADD COLUMN IF NOT EXISTS billing_consent_accepted_at TEXT;
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS system_fallback_enabled INTEGER DEFAULT 1;
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS billing_page_limit INTEGER DEFAULT NULL;
+ALTER TABLE animal_sharing ADD COLUMN IF NOT EXISTS share_raw_images INTEGER DEFAULT 0;
 
 CREATE TABLE IF NOT EXISTS test_results (
   id               TEXT PRIMARY KEY,

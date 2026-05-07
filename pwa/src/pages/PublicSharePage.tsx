@@ -174,9 +174,13 @@ export default function PublicSharePage() {
         const vaccinationRecords: any[] = []
         const treatmentRecords: any[] = []
         const otherDocs: any[] = []
+        const rawImageDocs: any[] = []
 
         for (const doc of animal.documents) {
-          if (doc.doc_type === 'vaccination') {
+          const isRaw = doc.extracted_json === null
+          if (isRaw) {
+            rawImageDocs.push(doc)
+          } else if (doc.doc_type === 'vaccination') {
             const records = doc.extracted_json?.payload?.vaccinations || doc.extracted_json?.vaccinations || []
             records.forEach((r: any, i: number) => {
               if (canSeeRecord(doc, `vaccinations.${i}`)) {
@@ -324,6 +328,27 @@ export default function PublicSharePage() {
                     </div>
                   )
                 })}
+              </div>
+            )}
+            {rawImageDocs.length > 0 && (
+              <div style={{ marginBottom: 'var(--space-4)' }}>
+                <h3 style={{ fontSize: 'var(--font-size-base)', marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                  <FileText size={18} /> {t('animal.rawImageLabel')} ({rawImageDocs.length})
+                </h3>
+                <div style={{ display: 'grid', gap: 'var(--space-3)', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }}>
+                  {rawImageDocs.map((doc: any) => (
+                    <div key={doc.id} className="card card-sm" style={{ padding: 0, overflow: 'hidden', position: 'relative' }}>
+                      <img
+                        src={`/uploads/${doc.image_path?.split('/').pop()}`}
+                        alt={t('animal.rawImageLabel')}
+                        style={{ width: '100%', display: 'block', maxHeight: 300, objectFit: 'cover' }}
+                      />
+                      <div style={{ padding: 'var(--space-2)', background: 'var(--warning-50)', borderTop: '1px solid var(--warning-200)', fontSize: 'var(--font-size-xs)', color: 'var(--warning-700)' }}>
+                        ⚠️ {t('animal.rawImageLabel')}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>

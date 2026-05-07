@@ -213,3 +213,5 @@ export const supabaseLogin = (token: string) =>
 export const getBillingMe = () => api.get('/billing/me')
 export const postBillingConsent = () => api.post('/billing/consent')
 export const adminGetBilling = () => api.get('/admin/billing')
+export const patchBillingSettings = (body: { systemFallbackEnabled?: boolean; pageLimit?: number | null }) =>
+  api.patch('/billing/settings', body)

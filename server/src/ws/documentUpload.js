@@ -65,6 +65,7 @@ export default async function wsDocumentUpload(fastify) {
   fastify.get('/ws', { websocket: true }, async (socket, req) => {
     let accountId, userRole, userGeminiKey = null, userGeminiModel = null, userAnthropicKey = null, userClaudeModel = null
     let userOpenAiKey = null, userOpenAiModel = null, userPriority = ['system', 'google', 'anthropic', 'openai']
+    let userSystemFallbackEnabled = 1, userBillingPageLimit = null
     let authenticated = false
     let uploadState = null
     const MAX_UPLOAD_SIZE = 15 * 1024 * 1024 // 15MB per document
@@ -118,7 +119,7 @@ export default async function wsDocumentUpload(fastify) {
                    : 'user'
 
           const db = getDb()
-          const { rows: [acc] } = await db.query('SELECT gemini_token, gemini_model, anthropic_token, claude_model, openai_token, openai_model, ai_provider_priority FROM accounts WHERE id = $1', [accountId])
+          const { rows: [acc] } = await db.query('SELECT gemini_token, gemini_model, anthropic_token, claude_model, openai_token, openai_model, ai_provider_priority, system_fallback_enabled, billing_page_limit FROM accounts WHERE id = $1', [accountId])
           
           try {
             userGeminiKey = acc?.gemini_token ? decrypt(acc.gemini_token) : null
@@ -154,6 +155,8 @@ export default async function wsDocumentUpload(fastify) {
             fastify.log.warn({ err: parseErr.message }, 'WS: could not parse ai_provider_priority')
           }
 
+          userSystemFallbackEnabled = acc?.system_fallback_enabled ?? 1
+          userBillingPageLimit = acc?.billing_page_limit ?? null
           authenticated = true
           fastify.log.info({ accountId, role: userRole, hasGemini: !!userGeminiKey, hasAnthropic: !!userAnthropicKey }, 'WS: client authenticated')
           send(socket, { type: 'auth_ok' })
@@ -257,12 +260,33 @@ export default async function wsDocumentUpload(fastify) {
               ORDER BY page_number ASC
             `, [uploadState.documentId])
 
+            // Check if analysis should be skipped (fallback disabled or budget exceeded)
+            const hasOwnKey = !!(userGeminiKey || userAnthropicKey || userOpenAiKey)
+            let skipReason = null
+            if (!hasOwnKey) {
+              if (!userSystemFallbackEnabled) {
+                skipReason = 'fallback_disabled'
+              } else if (userBillingPageLimit !== null) {
+                const { rows: [usageRow] } = await db.query(
+                  `SELECT COALESCE(SUM(pages_analyzed), 0) AS used FROM usage_logs WHERE account_id = $1 AND is_system_fallback = 1`,
+                  [accountId]
+                )
+                if (Number(usageRow?.used ?? 0) + pages.length > userBillingPageLimit) {
+                  skipReason = 'budget_exceeded'
+                }
+              }
+            }
+            if (skipReason) {
+              send(socket, { type: 'status', status: 'pending', reason: skipReason })
+            }
+
             // Analyze each page and combine text
             let combinedText = ''
             const pageResults = []
             const detectedTypes = []
             let lastProvider = 'gemini'
-            let analysisError = null
+            let analysisError = skipReason ? Object.assign(new Error(skipReason), { skipReason }) : null
+            if (!skipReason) {
             for (const page of pages) {
               try {
                 const pageStartTime = Date.now()
@@ -308,6 +332,7 @@ export default async function wsDocumentUpload(fastify) {
                 }
               }
             }
+            } // end if (!skipReason)
 
             // Use Gemini to suggest type and tags from combined text
             let suggestedType = normalizeDocumentType(uploadState.requestedDocumentType) || detectedTypes[0] || 'general'

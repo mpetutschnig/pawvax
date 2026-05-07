@@ -436,12 +436,12 @@ export default async function documentRoutes(fastify) {
 
     try {
       // Get user's keys and models
-      const { rows: [acc] } = await db.query('SELECT gemini_token, gemini_model, anthropic_token, claude_model, openai_token, openai_model, ai_provider_priority FROM accounts WHERE id = $1', [accountId])
-      
+      const { rows: [acc] } = await db.query('SELECT gemini_token, gemini_model, anthropic_token, claude_model, openai_token, openai_model, ai_provider_priority, system_fallback_enabled, billing_page_limit FROM accounts WHERE id = $1', [accountId])
+
       let userGeminiKey = null
       let userAnthropicKey = null
       let userOpenAiKey = null
-      
+
       try { userGeminiKey = acc?.gemini_token ? decrypt(acc.gemini_token) : null } catch {}
       try { userAnthropicKey = acc?.anthropic_token ? decrypt(acc.anthropic_token) : null } catch {}
       try { userOpenAiKey = acc?.openai_token ? decrypt(acc.openai_token) : null } catch {}
@@ -461,7 +461,7 @@ export default async function documentRoutes(fastify) {
       } catch (parseErr) {
         req.log.warn({ err: parseErr.message }, 'Retry: Could not parse ai_provider_priority')
       }
-      
+
       if (requestedProvider && typeof requestedProvider === 'string') {
         priority = [requestedProvider]
       }
@@ -488,6 +488,25 @@ export default async function documentRoutes(fastify) {
 
       if (!analysisPages[0]?.image_path) {
         throw new Error('Keine gespeicherten Dokumentseiten für die Analyse gefunden')
+      }
+
+      // Budget/fallback check (only relevant when using system AI)
+      const accHasOwnKeyRetry = !!(acc?.gemini_token || acc?.anthropic_token || acc?.openai_token)
+      if (!accHasOwnKeyRetry) {
+        if (!(acc?.system_fallback_enabled ?? 1)) {
+          await db.query('UPDATE documents SET analysis_status = $1 WHERE id = $2', ['pending_analysis', docId])
+          return reply.code(422).send({ error: 'fallback_disabled' })
+        }
+        if (acc?.billing_page_limit != null) {
+          const { rows: [usageRow] } = await db.query(
+            `SELECT COALESCE(SUM(pages_analyzed), 0) AS used FROM usage_logs WHERE account_id = $1 AND is_system_fallback = 1`,
+            [accountId]
+          )
+          if (Number(usageRow?.used ?? 0) + analysisPages.length > acc.billing_page_limit) {
+            await db.query('UPDATE documents SET analysis_status = $1 WHERE id = $2', ['pending_analysis', docId])
+            return reply.code(422).send({ error: 'budget_exceeded' })
+          }
+        }
       }
 
       const result = await analyzeDocumentPages(analysisPages, {
@@ -655,12 +674,12 @@ export default async function documentRoutes(fastify) {
       `, [historyId, docId, oldExtractedJson, maxversion + 1, doc.ocr_provider])
 
       // Get user's keys and models
-      const { rows: [acc] } = await db.query('SELECT gemini_token, gemini_model, anthropic_token, claude_model, openai_token, openai_model, ai_provider_priority FROM accounts WHERE id = $1', [accountId])
-      
+      const { rows: [acc] } = await db.query('SELECT gemini_token, gemini_model, anthropic_token, claude_model, openai_token, openai_model, ai_provider_priority, system_fallback_enabled, billing_page_limit FROM accounts WHERE id = $1', [accountId])
+
       let userGeminiKey = null
       let userAnthropicKey = null
       let userOpenAiKey = null
-      
+
       try { userGeminiKey = acc?.gemini_token ? decrypt(acc.gemini_token) : null } catch {}
       try { userAnthropicKey = acc?.anthropic_token ? decrypt(acc.anthropic_token) : null } catch {}
       try { userOpenAiKey = acc?.openai_token ? decrypt(acc.openai_token) : null } catch {}
@@ -680,7 +699,7 @@ export default async function documentRoutes(fastify) {
       } catch (parseErr) {
         req.log.warn({ err: parseErr.message }, 'Re-analyze: Could not parse ai_provider_priority')
       }
-      
+
       if (requestedProvider && typeof requestedProvider === 'string') {
         priority = [requestedProvider]
       }
@@ -704,6 +723,23 @@ export default async function documentRoutes(fastify) {
 
       if (!analysisPages[0]?.image_path) {
         throw new Error('Keine gespeicherten Dokumentseiten für die Analyse gefunden')
+      }
+
+      // Budget/fallback check (only relevant when using system AI)
+      const accHasOwnKeyReanalyze = !!(acc?.gemini_token || acc?.anthropic_token || acc?.openai_token)
+      if (!accHasOwnKeyReanalyze) {
+        if (!(acc?.system_fallback_enabled ?? 1)) {
+          return reply.code(422).send({ error: 'fallback_disabled' })
+        }
+        if (acc?.billing_page_limit != null) {
+          const { rows: [usageRow] } = await db.query(
+            `SELECT COALESCE(SUM(pages_analyzed), 0) AS used FROM usage_logs WHERE account_id = $1 AND is_system_fallback = 1`,
+            [accountId]
+          )
+          if (Number(usageRow?.used ?? 0) + analysisPages.length > acc.billing_page_limit) {
+            return reply.code(422).send({ error: 'budget_exceeded' })
+          }
+        }
       }
 
       const result = await analyzeDocumentPages(analysisPages, {

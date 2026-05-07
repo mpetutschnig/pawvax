@@ -12,6 +12,7 @@ interface SharingRow {
   share_contact: number
   share_breed: number
   share_birthdate: number
+  share_raw_images?: number
 }
 
 interface ShareLink {
@@ -253,6 +254,24 @@ export default function SharingSettingsPage() {
                   />
                   <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}><Cake size={16} className="text-tertiary" /> {t('sharing.birthdate')}</span>
                 </label>
+
+                {row.role === 'vet' && (
+                  <div style={{ borderTop: '1px solid var(--border)', paddingTop: 'var(--space-3)', marginTop: 'var(--space-1)' }}>
+                    <label style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'flex-start', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={!!row.share_raw_images}
+                        onChange={e => handleSave(row.role, { share_raw_images: e.target.checked ? 1 : 0 })}
+                        disabled={saving}
+                        style={{ width: 18, height: 18, marginTop: 2, accentColor: 'var(--primary-500)' }}
+                      />
+                      <div>
+                        <div>{t('sharing.shareRawImages')}</div>
+                        <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)', marginTop: 2 }}>{t('sharing.shareRawImagesHint')}</div>
+                      </div>
+                    </label>
+                  </div>
+                )}
               </div>
             </div>
           )

@@ -86,11 +86,12 @@ async function applySharing(db, animal, requestRole, ownerName, ownerEmail, effe
   if (sharing.share_address) result.address = animal.address
   if (sharing.share_dynamic_fields) result.dynamic_fields = animal.dynamic_fields
 
+  const includeRawImages = sharing.share_raw_images
   const { rows: docs } = await db.query(`
     SELECT d.*, uploader.name AS added_by_name, uploader.verified AS added_by_verified
     FROM documents d
     LEFT JOIN accounts uploader ON uploader.id = d.added_by_account
-    WHERE d.animal_id = $1 AND d.analysis_status = 'completed'
+    WHERE d.animal_id = $1 ${includeRawImages ? '' : "AND d.analysis_status = 'completed'"}
     ORDER BY d.created_at DESC
   `, [animal.id])
 
@@ -98,7 +99,12 @@ async function applySharing(db, animal, requestRole, ownerName, ownerEmail, effe
   result.documents = docs.filter(d => docRoles.some(r => canRoleSeeDocument(d.allowed_roles, r)))
 
   for (const d of result.documents) {
-    try { d.extracted_json = JSON.parse(d.extracted_json) } catch { d.extracted_json = {} }
+    if (d.analysis_status !== 'completed') {
+      // Raw image only — strip analysis data for unanalysed documents
+      d.extracted_json = null
+    } else {
+      try { d.extracted_json = JSON.parse(d.extracted_json) } catch { d.extracted_json = {} }
+    }
     try { d.record_permissions = d.record_permissions ? JSON.parse(d.record_permissions) : {} } catch { d.record_permissions = {} }
     const { rows: pages } = await db.query('SELECT image_path FROM document_pages WHERE document_id = $1 ORDER BY id ASC', [d.id])
     d.pages = pages.map(p => p.image_path)
@@ -809,7 +815,8 @@ export default async function animalRoutes(fastify) {
           share_breed: { type: 'integer' },
           share_birthdate: { type: 'integer' },
           share_address: { type: 'integer' },
-          share_dynamic_fields: { type: 'integer' }
+          share_dynamic_fields: { type: 'integer' },
+          share_raw_images: { type: 'integer' }
         }
       }
     }
@@ -821,7 +828,7 @@ export default async function animalRoutes(fastify) {
     const { rows: [animal] } = await db.query('SELECT id FROM animals WHERE id = $1 AND account_id = $2', [id, accountId])
     if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden' })
 
-    const { role, share_contact, share_breed, share_birthdate, share_address, share_dynamic_fields } = req.body
+    const { role, share_contact, share_breed, share_birthdate, share_address, share_dynamic_fields, share_raw_images } = req.body
     const targetRole = normalizeRole(role)
 
     const { rows: [existing] } = await db.query('SELECT * FROM animal_sharing WHERE animal_id = $1 AND role = $2', [id, targetRole])
@@ -833,15 +840,16 @@ export default async function animalRoutes(fastify) {
         d: share_birthdate ?? existing.share_birthdate,
         a: share_address ?? existing.share_address,
         df: share_dynamic_fields ?? existing.share_dynamic_fields,
+        ri: share_raw_images ?? existing.share_raw_images ?? 0,
       }
-      await db.query(`UPDATE animal_sharing SET share_contact=$1, share_breed=$2, share_birthdate=$3, share_address=$4, share_dynamic_fields=$5
-                  WHERE animal_id=$6 AND role=$7`,
-        [merged.c, merged.b, merged.d, merged.a, merged.df, id, targetRole])
+      await db.query(`UPDATE animal_sharing SET share_contact=$1, share_breed=$2, share_birthdate=$3, share_address=$4, share_dynamic_fields=$5, share_raw_images=$6
+                  WHERE animal_id=$7 AND role=$8`,
+        [merged.c, merged.b, merged.d, merged.a, merged.df, merged.ri, id, targetRole])
     } else {
-      await db.query(`INSERT INTO animal_sharing (id, animal_id, role, share_contact, share_breed, share_birthdate, share_address, share_dynamic_fields)
-                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      await db.query(`INSERT INTO animal_sharing (id, animal_id, role, share_contact, share_breed, share_birthdate, share_address, share_dynamic_fields, share_raw_images)
+                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
         [uuid(), id, targetRole,
-          share_contact ?? 0, share_breed ?? 1, share_birthdate ?? 1, share_address ?? 0, share_dynamic_fields ?? 0])
+          share_contact ?? 0, share_breed ?? 1, share_birthdate ?? 1, share_address ?? 0, share_dynamic_fields ?? 0, share_raw_images ?? 0])
     }
 
     await logAudit(db, { accountId, role: userRole, action: 'update_sharing', resource: 'sharing', resourceId: id,
