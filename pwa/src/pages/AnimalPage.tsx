@@ -7,6 +7,7 @@ import { DocumentAnalysisForm } from '../components/DocumentAnalysisForm'
 import { PawPrint, Cat, Edit2, Trash2, Camera, Search, Radio, ShieldAlert, AlertTriangle, RefreshCw, X, Syringe, FileText, CheckCircle, ArrowDownAZ, ArrowUpAZ, SlidersHorizontal, ArrowRightLeft, Share2, Plus, Pill, ChevronDown, ChevronUp, Landmark, Award, GraduationCap } from 'lucide-react'
 import { AnimalDTO } from '../types/animal'
 import { normalizeVaccinationRecord } from '../utils/vaccination'
+import { formatDate, formatDateOnly } from '../utils/date'
 import { DEFAULT_AVAILABLE_MODELS, DEFAULT_MODEL_BY_PROVIDER, DOCUMENT_TYPE_PLACEHOLDER, type DocumentTypeSelectValue } from '../utils/documentAnalysis'
 import { VerifiedBadge } from '../components/VerifiedBadge'
 
@@ -572,7 +573,7 @@ export default function AnimalPage() {
       (d.doc_type ? docTypeLabel(d.doc_type).toLowerCase().includes(documentSearch) : false) ||
       (d.extracted_json?.title ?? '').toLowerCase().includes(documentSearch) ||
       (d.extracted_json?.suggested_tags ?? []).some((t: string) => t.toLowerCase().includes(documentSearch)) ||
-      (d.created_at ? new Date(d.created_at).toLocaleString('de-AT').includes(documentSearch) : false)
+      (d.created_at ? formatDate(d.created_at).includes(documentSearch) : false)
     )
     .sort((a, b) => {
       const da = a.extracted_json?.document_date || a.created_at || ''
@@ -849,7 +850,7 @@ export default function AnimalPage() {
                             border: '1px solid var(--border-subtle)', fontSize: 'var(--font-size-xs)'
                           }}>
                             <div style={{ flex: 1 }}>
-                              <div className="text-muted">{new Date(share.createdAt).toLocaleDateString()}</div>
+                              <div className="text-muted">{formatDateOnly(share.createdAt)}</div>
                               <div style={{
                                 color: share.isExpiringSoon ? 'var(--warning-500)' : 'var(--text-secondary)',
                                 fontWeight: share.isExpiringSoon ? 600 : 400
@@ -1147,7 +1148,6 @@ export default function AnimalPage() {
                         <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) 0', whiteSpace: 'nowrap' }}>Substanz</th>
                         <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Datum</th>
                         <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Dosierung</th>
-                        <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Tierarzt</th>
                         <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Nächste Fälligkeit</th>
                         {isOwner && <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Rollen</th>}
                       </tr>
@@ -1166,7 +1166,6 @@ export default function AnimalPage() {
                               </td>
                               <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{record.administeredAt || '—'}</td>
                               <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{record.dosage || '—'}</td>
-                              <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{record.vetName || '—'}</td>
                               <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{record.nextDue || '—'}</td>
                               {isOwner && (
                                 <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>
@@ -1181,8 +1180,13 @@ export default function AnimalPage() {
                             </tr>
                             {isOwner && isExpanded && (
                               <tr key={`${record.id}-expand`} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                                <td colSpan={6} style={{ padding: 'var(--space-1) 0 var(--space-2) 0' }}>
+                                <td colSpan={5} style={{ padding: 'var(--space-1) 0 var(--space-2) 0' }}>
                                   <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                                    {record.vetName && (
+                                      <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', marginRight: 4 }}>
+                                        Tierarzt: <strong>{record.vetName}</strong>
+                                      </span>
+                                    )}
                                     <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Freigabe:</span>
                                     {(['guest', 'vet', 'authority'] as const).map(r => (
                                       <label key={r} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 'var(--font-size-xs)', cursor: 'pointer' }}>
@@ -1242,7 +1246,7 @@ export default function AnimalPage() {
                             <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{extracted.passport_number || '—'}</td>
                             <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{extracted.section_type || '—'}</td>
                             <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{extracted.identification?.chip_code || '—'}</td>
-                            <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{extracted.document_date || new Date(doc.created_at).toLocaleDateString(i18n.language === 'de' ? 'de-AT' : 'en-GB')}</td>
+                            <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{extracted.document_date || formatDateOnly(doc.created_at, i18n.language === 'de' ? 'de-AT' : 'en-GB')}</td>
                             {isOwner && (
                               <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>
                                 <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
@@ -1314,7 +1318,7 @@ export default function AnimalPage() {
                             </td>
                             <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{extracted.active_ingredient || '—'}</td>
                             <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{extracted.batch_number || '—'}</td>
-                            <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{extracted.document_date || new Date(doc.created_at).toLocaleDateString(i18n.language === 'de' ? 'de-AT' : 'en-GB')}</td>
+                            <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{extracted.document_date || formatDateOnly(doc.created_at, i18n.language === 'de' ? 'de-AT' : 'en-GB')}</td>
                             {isOwner && (
                               <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>
                                 <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
@@ -1382,7 +1386,7 @@ export default function AnimalPage() {
                                 {extracted.title || 'Stammbaum'}
                               </Link>
                             </td>
-                            <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{extracted.document_date || new Date(doc.created_at).toLocaleDateString(i18n.language === 'de' ? 'de-AT' : 'en-GB')}</td>
+                            <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{extracted.document_date || formatDateOnly(doc.created_at, i18n.language === 'de' ? 'de-AT' : 'en-GB')}</td>
                             {isOwner && (
                               <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>
                                 <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
@@ -1452,7 +1456,7 @@ export default function AnimalPage() {
                               </Link>
                             </td>
                             <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{extracted.result || '—'}</td>
-                            <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{extracted.exam_date || extracted.document_date || new Date(doc.created_at).toLocaleDateString(i18n.language === 'de' ? 'de-AT' : 'en-GB')}</td>
+                            <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{extracted.exam_date || extracted.document_date || formatDateOnly(doc.created_at, i18n.language === 'de' ? 'de-AT' : 'en-GB')}</td>
                             {isOwner && (
                               <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>
                                 <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
@@ -1523,7 +1527,7 @@ export default function AnimalPage() {
                               </Link>
                             </td>
                             <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '300px' }}>{summary || '—'}</td>
-                            <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{extracted.document_date || new Date(doc.created_at).toLocaleDateString(i18n.language === 'de' ? 'de-AT' : 'en-GB')}</td>
+                            <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{extracted.document_date || formatDateOnly(doc.created_at, i18n.language === 'de' ? 'de-AT' : 'en-GB')}</td>
                             {isOwner && (
                               <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>
                                 <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
@@ -1710,7 +1714,7 @@ export default function AnimalPage() {
                               )}
                             </div>
                             <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
-                              {doc.created_at ? new Date(doc.created_at).toLocaleString(i18n.language === 'de' ? 'de-AT' : 'en-GB') : '—'}
+                              {doc.created_at ? formatDate(doc.created_at, i18n.language === 'de' ? 'de-AT' : 'en-GB') : '—'}
                             </div>
                           </div>
                           <div style={{ display: 'flex', gap: '4px', flexDirection: 'column', alignItems: 'flex-end' }}>
@@ -1748,7 +1752,7 @@ export default function AnimalPage() {
                           )}
                         </div>
                         <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
-                          {doc.created_at ? new Date(doc.created_at).toLocaleString(i18n.language === 'de' ? 'de-AT' : 'en-GB') : '—'}
+                          {doc.created_at ? formatDate(doc.created_at, i18n.language === 'de' ? 'de-AT' : 'en-GB') : '—'}
                         </div>
                       </div>
                       <div style={{ display: 'flex', gap: '4px', flexDirection: 'column', alignItems: 'flex-end' }}>
@@ -1803,7 +1807,7 @@ export default function AnimalPage() {
                   {t('animal.waitGemini')}
                 </div>
                 <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
-                  {new Date(doc.created_at).toLocaleString(i18n.language === 'de' ? 'de-AT' : 'en-GB')}
+                  {formatDate(doc.created_at, i18n.language === 'de' ? 'de-AT' : 'en-GB')}
                 </div>
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>

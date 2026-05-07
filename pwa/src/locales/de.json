@@ -671,5 +671,8 @@
   "docDetail.duplicateViewOriginal": "Original ansehen",
   "docDetail.duplicateNoReminder": "Für Duplikate wird keine Erinnerung gesetzt.",
   "docDetail.showDuplicates": "{{count}} Duplikat(e) anzeigen",
-  "docDetail.hideDuplicates": "Duplikate ausblenden"
+  "docDetail.hideDuplicates": "Duplikate ausblenden",
+  "landing": {
+    "description": "Nahtloser Zugang via NFC/Barcode. Die Oberfläche passt sich deiner Rolle an. Eigene Tiere zeigen vollständige Profile; fremde Tags nur freigegebene Dokumente."
+  }
 }
