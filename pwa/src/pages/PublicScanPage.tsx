@@ -55,6 +55,28 @@ export default function PublicScanPage() {
       // Keine URL, bleibt unverändert
     }
 
+    // Vet/Authority/Admin: authenticated lookup → redirect to full animal view
+    const token = localStorage.getItem('token')
+    const roleStr = localStorage.getItem('role') || ''
+    const isPowerUser = roleStr.split(',').some(r => ['vet', 'authority', 'admin'].includes(r.trim()))
+    if (token && isPowerUser) {
+      try {
+        const res = await api.get(`/animals/by-tag/${encodeURIComponent(tagId)}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+        const animalId = res.data?.id
+        if (animalId) {
+          api.post(`/animals/${animalId}/track-scan`, {}, {
+            headers: { Authorization: `Bearer ${token}` }
+          }).catch(() => {})
+          navigate(`/animals/${animalId}`, { replace: true })
+          return
+        }
+      } catch {
+        // Kein Zugriff via Sharing → weiter mit public scan
+      }
+    }
+
     try {
       const res = await api.get(`/public/tag/${encodeURIComponent(tagId)}`)
       if (localStorage.getItem('token') && res.data?.id) {
