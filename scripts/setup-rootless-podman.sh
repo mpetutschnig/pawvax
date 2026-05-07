@@ -491,15 +491,11 @@ deploy_stack() {
     echo 'PostgreSQL is ready.'
   "
 
-  # Ensure databases exist
-  run_as_app "podman exec paw-postgres psql -U '$DB_USER' -d postgres -tc \
-    \"SELECT 1 FROM pg_database WHERE datname='$DB_NAME'\" | grep -q 1 || \
-    podman exec paw-postgres psql -U '$DB_USER' -d postgres -c \
-    \"CREATE DATABASE $DB_NAME OWNER $DB_USER\""
-  run_as_app "podman exec paw-postgres psql -U '$DB_USER' -d postgres -tc \
-    \"SELECT 1 FROM pg_database WHERE datname='$DB_TEST_NAME'\" | grep -q 1 || \
-    podman exec paw-postgres psql -U '$DB_USER' -d postgres -c \
-    \"CREATE DATABASE $DB_TEST_NAME OWNER $DB_USER\""
+  # Ensure databases exist (CREATE is idempotent via error suppression)
+  run_as_app "podman exec paw-postgres psql -U '$DB_USER' -d postgres -c \
+    \"CREATE DATABASE $DB_NAME OWNER $DB_USER\" 2>/dev/null || true"
+  run_as_app "podman exec paw-postgres psql -U '$DB_USER' -d postgres -c \
+    \"CREATE DATABASE $DB_TEST_NAME OWNER $DB_USER\" 2>/dev/null || true"
 
   # Start remaining services
   run_as_app "systemctl --user start 'paw-api.service' 'paw-pwa.service' 'paw-caddy.service'"
