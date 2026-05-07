@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from 'react'
+import React, { useRef, useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import i18next from 'i18next'
@@ -50,11 +50,16 @@ export default function DocumentScanPage() {
     )
   }
 
+  type Group = { pages: File[]; previews: string[] }
+
   const cameraRef = useRef<HTMLInputElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
-  const [previews, setPreviews] = useState<string[]>([])
-  const [pages, setPages] = useState<File[]>([])
-  const [currentPageIndex, setCurrentPageIndex] = useState(0)
+  const [groups, setGroups] = useState<Group[]>([{ pages: [], previews: [] }])
+  const [activeGroupIdx, setActiveGroupIdx] = useState(0)
+  const [activePageIdx, setActivePageIdx] = useState(0)
+  const hasPages = groups.some(g => g.pages.length > 0)
+  const totalPages = groups.reduce((s, g) => s + g.pages.length, 0)
+  const activePreview = groups[activeGroupIdx]?.previews[activePageIdx]
   const [phase, setPhase] = useState<Phase>('capture')
   const [uploadProgress, setUploadProgress] = useState(0)
   const [elapsedTime, setElapsedTime] = useState(0)
@@ -192,12 +197,11 @@ export default function DocumentScanPage() {
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0]
     if (!f) return
-
     try {
       const { file, preview } = await processImage(f)
-      setPages([file])
-      setPreviews([preview])
-      setCurrentPageIndex(0)
+      setGroups([{ pages: [file], previews: [preview] }])
+      setActiveGroupIdx(0)
+      setActivePageIdx(0)
     } catch (err) {
       console.error(err)
       setErrorMsg(t('docScan.imageProcessError'))
@@ -207,30 +211,65 @@ export default function DocumentScanPage() {
   async function handleAddPage(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0]
     if (!f) return
-
     try {
       const { file, preview } = await processImage(f)
-      setPages([...pages, file])
-      setPreviews([...previews, preview])
-      setCurrentPageIndex(pages.length)
+      const newGroups = groups.map(g => ({ pages: [...g.pages], previews: [...g.previews] }))
+      const lastIdx = newGroups.length - 1
+      newGroups[lastIdx].pages.push(file)
+      newGroups[lastIdx].previews.push(preview)
+      setGroups(newGroups)
+      setActiveGroupIdx(lastIdx)
+      setActivePageIdx(newGroups[lastIdx].pages.length - 1)
     } catch (err) {
       console.error(err)
       setErrorMsg(t('docScan.pageAddError'))
     }
   }
 
-  function handleRemovePage(index: number) {
-    const newPages = pages.filter((_, i) => i !== index)
-    const newPreviews = previews.filter((_, i) => i !== index)
-    setPages(newPages)
-    setPreviews(newPreviews)
-    if (currentPageIndex >= newPages.length) {
-      setCurrentPageIndex(Math.max(0, newPages.length - 1))
+  function handleRemovePage(groupIdx: number, pageIdx: number) {
+    const newGroups = groups.map((g, gi) =>
+      gi !== groupIdx ? g : {
+        pages: g.pages.filter((_, i) => i !== pageIdx),
+        previews: g.previews.filter((_, i) => i !== pageIdx)
+      }
+    ).filter((g, _, arr) => g.pages.length > 0 || arr.length === 1)
+    const safeGroupIdx = Math.min(activeGroupIdx, newGroups.length - 1)
+    const safePageIdx = Math.min(activePageIdx, Math.max(0, (newGroups[safeGroupIdx]?.pages.length || 1) - 1))
+    setActiveGroupIdx(safeGroupIdx)
+    setActivePageIdx(safePageIdx)
+    setGroups(newGroups)
+  }
+
+  function insertGroupDivider(afterGlobalIdx: number) {
+    let offset = 0
+    const newGroups: Group[] = []
+    for (const g of groups) {
+      const local = afterGlobalIdx - offset
+      if (local > 0 && local < g.pages.length) {
+        newGroups.push({ pages: g.pages.slice(0, local), previews: g.previews.slice(0, local) })
+        newGroups.push({ pages: g.pages.slice(local), previews: g.previews.slice(local) })
+      } else {
+        newGroups.push(g)
+      }
+      offset += g.pages.length
     }
+    setGroups(newGroups)
+  }
+
+  function removeGroupDivider(groupIdx: number) {
+    if (groupIdx >= groups.length - 1) return
+    const newGroups = [...groups]
+    newGroups.splice(groupIdx, 2, {
+      pages: [...newGroups[groupIdx].pages, ...newGroups[groupIdx + 1].pages],
+      previews: [...newGroups[groupIdx].previews, ...newGroups[groupIdx + 1].previews]
+    })
+    setGroups(newGroups)
+    if (activeGroupIdx > groupIdx) setActiveGroupIdx(activeGroupIdx - 1)
   }
 
   async function handleRotate() {
-    if (!previews[currentPageIndex] || !pages[currentPageIndex]) return
+    const g = groups[activeGroupIdx]
+    if (!g?.previews[activePageIdx] || !g?.pages[activePageIdx]) return
     const img = new Image()
     img.onload = () => {
       const canvas = document.createElement('canvas')
@@ -244,17 +283,17 @@ export default function DocumentScanPage() {
       }
       canvas.toBlob((blob) => {
         if (blob) {
-          const rotatedFile = new File([blob], pages[currentPageIndex].name, { type: 'image/jpeg', lastModified: Date.now() })
-          const newPages = [...pages]
-          newPages[currentPageIndex] = rotatedFile
-          setPages(newPages)
-          const newPreviews = [...previews]
-          newPreviews[currentPageIndex] = URL.createObjectURL(rotatedFile)
-          setPreviews(newPreviews)
+          const rotatedFile = new File([blob], g.pages[activePageIdx].name, { type: 'image/jpeg', lastModified: Date.now() })
+          setGroups(prev => prev.map((pg, gi) => {
+            if (gi !== activeGroupIdx) return pg
+            const np = [...pg.pages]; np[activePageIdx] = rotatedFile
+            const nv = [...pg.previews]; nv[activePageIdx] = URL.createObjectURL(rotatedFile)
+            return { pages: np, previews: nv }
+          }))
         }
       }, 'image/jpeg', 0.8)
     }
-    img.src = previews[currentPageIndex]
+    img.src = g.previews[activePageIdx]
   }
 
   function handleProviderChange(prov: string) {
@@ -308,7 +347,8 @@ export default function DocumentScanPage() {
   }
 
   async function handleUpload() {
-    if (pages.length === 0 || !animalId) return
+    const filledGroups = groups.filter(g => g.pages.length > 0)
+    if (filledGroups.length === 0 || !animalId) return
     if (requestedDocumentType === DOCUMENT_TYPE_PLACEHOLDER) return
     setPhase('uploading')
     setUploadProgress(0)
@@ -317,45 +357,50 @@ export default function DocumentScanPage() {
     setErrorMsg(null)
     setShowModelSelection(false)
 
+    const collectedIds: string[] = []
+
     try {
-      await uploadMultiPageDocument(animalId, pages, {
-        onProgress: (percent: number) => setUploadProgress(Math.round(percent)),
-        onStatus: (msg: string) => {
-          setPhase('analysing')
-          setCurrentStatusMsg(msg)
-          if (msg.includes('Tesseract') || msg.includes('tesseract')) setOcrProvider('Lokales Tesseract OCR')
-          if (msg.includes('Gemini') || msg.includes('gemini') || msg.includes('Google API')) setOcrProvider('Gemini API')
-          if (msg.includes('Quota') || msg.includes('quota')) setOcrProvider('⚠️ Quota - Tesseract Fallback')
-        },
-        onResult: (data: any) => {
-          const nextDocumentId = data.data.documentId
-          setResult(data.data)
-          setSuggestedType(data.data.type || data.data.suggestedType || 'other')
-          setDocumentId(nextDocumentId)
-          setOcrProvider(data.data.ocrProvider || 'unknown')
-          setAutoSavedAt(new Date())
-
-          if (data.data.analysisStatus === 'pending_analysis') {
-            setErrorMsg(data.data.analysisError || t('docScan.analyzeFailedRetry'))
-            setPhase('error')
-            return
-          }
-
-          navigate(`/animals/${animalId}/documents/${nextDocumentId}`, { replace: true })
-        },
-        onError: (msg: string) => {
-          setErrorMsg(msg)
-          setPhase('error')
-        },
-        metadata: { 
-          allowedRoles,
-          language: i18next.language || 'de',
-          requestedDocumentType
-        }
-      })
+      for (let i = 0; i < filledGroups.length; i++) {
+        const docLabel = filledGroups.length > 1 ? `Dok. ${i + 1}/${filledGroups.length}: ` : ''
+        await new Promise<void>((resolve, reject) => {
+          uploadMultiPageDocument(animalId!, filledGroups[i].pages, {
+            onProgress: (percent: number) => setUploadProgress(Math.round(percent)),
+            onStatus: (msg: string) => {
+              setPhase('analysing')
+              setCurrentStatusMsg(docLabel + msg)
+              if (msg.includes('Tesseract') || msg.includes('tesseract')) setOcrProvider('Lokales Tesseract OCR')
+              if (msg.includes('Gemini') || msg.includes('gemini') || msg.includes('Google API')) setOcrProvider('Gemini API')
+              if (msg.includes('Quota') || msg.includes('quota')) setOcrProvider('⚠️ Quota - Tesseract Fallback')
+            },
+            onResult: (data: any) => {
+              const nextDocumentId = data.data.documentId
+              collectedIds.push(nextDocumentId)
+              setResult(data.data)
+              setSuggestedType(data.data.type || data.data.suggestedType || 'other')
+              setDocumentId(nextDocumentId)
+              setOcrProvider(data.data.ocrProvider || 'unknown')
+              setAutoSavedAt(new Date())
+              if (data.data.analysisStatus === 'pending_analysis') {
+                reject(new Error(data.data.analysisError || t('docScan.analyzeFailedRetry')))
+                return
+              }
+              resolve()
+            },
+            onError: (msg: string) => reject(new Error(msg)),
+            metadata: { allowedRoles, language: i18next.language || 'de', requestedDocumentType }
+          }).catch(reject)
+        })
+      }
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Unbekannter Fehler')
       setPhase('error')
+      return
+    }
+
+    if (collectedIds.length === 1) {
+      navigate(`/animals/${animalId}/documents/${collectedIds[0]}`, { replace: true })
+    } else {
+      navigate(`/animals/${animalId}`, { replace: true })
     }
   }
 
@@ -381,7 +426,7 @@ export default function DocumentScanPage() {
             style={{ display: 'none' }}
             onChange={handleFileChange}
           />
-          {previews.length === 0 ? (
+          {!hasPages ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
               <button
                 type="button"
@@ -403,14 +448,14 @@ export default function DocumentScanPage() {
           ) : (
             <>
               <div style={{ position: 'relative', marginBottom: 'var(--space-4)' }}>
-                <img src={previews[currentPageIndex]} alt="Vorschau" style={{ width: '100%', borderRadius: 'var(--radius-md)', display: 'block' }} />
-                <button 
-                  className="btn-secondary" 
+                <img src={activePreview} alt="Vorschau" style={{ width: '100%', borderRadius: 'var(--radius-md)', display: 'block' }} />
+                <button
+                  className="btn-secondary"
                   onClick={handleRotate}
-                  style={{ 
-                    position: 'absolute', top: 'var(--space-2)', right: 'var(--space-2)', 
-                    padding: '8px', borderRadius: '50%', background: 'rgba(255,255,255,0.9)', 
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)', border: 'none', cursor: 'pointer' 
+                  style={{
+                    position: 'absolute', top: 'var(--space-2)', right: 'var(--space-2)',
+                    padding: '8px', borderRadius: '50%', background: 'rgba(255,255,255,0.9)',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)', border: 'none', cursor: 'pointer'
                   }}
                   title={t('docScan.rotateImage')}
                 >
@@ -423,13 +468,13 @@ export default function DocumentScanPage() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
                   {[{ id: 'vet', label: t('docScan.vet') }, { id: 'authority', label: t('docScan.authority') }, { id: 'guest', label: t('docScan.guestAccess') }].map(r => (
                     <label key={r.id} style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
-                      <input 
-                        type="checkbox" 
-                        checked={allowedRoles.includes(r.id)} 
+                      <input
+                        type="checkbox"
+                        checked={allowedRoles.includes(r.id)}
                         onChange={(e) => {
                           if (e.target.checked) setAllowedRoles([...allowedRoles, r.id])
                           else setAllowedRoles(allowedRoles.filter(role => role !== r.id))
-                        }} 
+                        }}
                         style={{ width: 16, height: 16, accentColor: 'var(--primary-500)' }}
                       />
                       <span style={{ fontSize: 'var(--font-size-sm)' }}>{r.label}</span>
@@ -438,101 +483,106 @@ export default function DocumentScanPage() {
                 </div>
               </div>
 
-              {/* Page Thumbnails and Add Page Button */}
-              {previews.length > 0 && (
-                <div style={{ marginBottom: 'var(--space-4)' }}>
-                  <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: 'var(--space-2)', color: 'var(--text-secondary)' }}>
-                    {t('docScan.pages')}: {previews.length}
-                  </div>
-                  <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap', marginBottom: 'var(--space-3)' }}>
-                    {previews.map((preview, idx) => (
-                      <div
-                        key={idx}
-                        onClick={() => setCurrentPageIndex(idx)}
-                        style={{
-                          position: 'relative',
-                          width: '60px',
-                          height: '60px',
-                          borderRadius: 'var(--radius-sm)',
-                          overflow: 'hidden',
-                          border: `2px solid ${idx === currentPageIndex ? 'var(--primary-500)' : 'var(--border)'}`,
-                          cursor: 'pointer',
-                          opacity: idx === currentPageIndex ? 1 : 0.6,
-                          transition: 'all var(--t-fast)'
-                        }}
-                      >
-                        <img src={preview} alt={`Seite ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        {previews.length > 1 && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleRemovePage(idx)
-                            }}
+              {/* Thumbnail-Leiste mit Gruppen */}
+              <div style={{ marginBottom: 'var(--space-4)' }}>
+                <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: 'var(--space-2)', color: 'var(--text-secondary)' }}>
+                  {t('docScan.pages')}: {totalPages}
+                  {groups.length > 1 && <span style={{ marginLeft: 'var(--space-2)', color: 'var(--primary-600)' }}>· {groups.length} Dokumente</span>}
+                </div>
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center', marginBottom: 'var(--space-3)' }}>
+                  {(() => {
+                    const items: React.ReactNode[] = []
+                    let globalIdx = 0
+                    groups.forEach((group, groupIdx) => {
+                      if (groups.length > 1) {
+                        items.push(
+                          <span key={`label-${groupIdx}`} style={{ fontSize: '10px', fontWeight: 700, color: 'var(--primary-600)', background: 'var(--primary-50)', borderRadius: '4px', padding: '2px 5px', whiteSpace: 'nowrap' }}>
+                            Dok. {groupIdx + 1}
+                          </span>
+                        )
+                      }
+                      group.previews.forEach((preview, pageIdx) => {
+                        const myGlobalIdx = globalIdx
+                        const isActive = groupIdx === activeGroupIdx && pageIdx === activePageIdx
+                        if (pageIdx > 0) {
+                          items.push(
+                            <button
+                              key={`split-${myGlobalIdx}`}
+                              onClick={() => insertGroupDivider(myGlobalIdx)}
+                              title="Hier trennen (neues Dokument)"
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)', fontSize: '14px', padding: '0 1px', lineHeight: 1 }}
+                            >÷</button>
+                          )
+                        }
+                        items.push(
+                          <div
+                            key={`thumb-${groupIdx}-${pageIdx}`}
+                            onClick={() => { setActiveGroupIdx(groupIdx); setActivePageIdx(pageIdx) }}
                             style={{
-                              position: 'absolute',
-                              top: '-5px',
-                              right: '-5px',
-                              width: '20px',
-                              height: '20px',
-                              background: 'var(--danger-600)',
-                              border: 'none',
-                              borderRadius: '50%',
-                              color: 'white',
-                              cursor: 'pointer',
-                              padding: 0,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              fontSize: '12px'
+                              position: 'relative', width: '56px', height: '56px',
+                              borderRadius: 'var(--radius-sm)', overflow: 'hidden',
+                              border: `2px solid ${isActive ? 'var(--primary-500)' : 'var(--border)'}`,
+                              cursor: 'pointer', opacity: isActive ? 1 : 0.65,
+                              transition: 'all var(--t-fast)', flexShrink: 0
                             }}
                           >
-                            <X size={14} />
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                    <input
-                      type="file"
-                      id="addPageCameraInput"
-                      accept="image/*"
-                      capture="environment"
-                      style={{ display: 'none' }}
-                      onChange={handleAddPage}
-                    />
-                    <input
-                      type="file"
-                      id="addPageFileInput"
-                      accept="image/*"
-                      style={{ display: 'none' }}
-                      onChange={handleAddPage}
-                    />
-                    <div
-                      style={{
-                        width: '60px',
-                        height: '60px',
-                        border: '2px dashed var(--border)',
-                        borderRadius: 'var(--radius-sm)',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '4px',
-                        background: 'var(--surface)'
-                      }}
-                    >
-                      <label htmlFor="addPageCameraInput" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2px' }} title="Kamera">
-                        <Camera size={18} color="var(--text-secondary)" />
-                      </label>
-                      <label htmlFor="addPageFileInput" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2px' }} title="Datei">
-                        <Plus size={18} color="var(--text-secondary)" />
-                      </label>
-                    </div>
-                  </div>
+                            <img src={preview} alt={`Seite ${pageIdx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            {totalPages > 1 && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleRemovePage(groupIdx, pageIdx) }}
+                                style={{
+                                  position: 'absolute', top: '-5px', right: '-5px',
+                                  width: '18px', height: '18px', background: 'var(--danger-600)',
+                                  border: 'none', borderRadius: '50%', color: 'white',
+                                  cursor: 'pointer', padding: 0, display: 'flex',
+                                  alignItems: 'center', justifyContent: 'center'
+                                }}
+                              ><X size={11} /></button>
+                            )}
+                          </div>
+                        )
+                        globalIdx++
+                      })
+                      if (groupIdx < groups.length - 1) {
+                        items.push(
+                          <button
+                            key={`merge-${groupIdx}`}
+                            onClick={() => removeGroupDivider(groupIdx)}
+                            title="Trennung entfernen (Dokumente zusammenführen)"
+                            style={{
+                              background: 'var(--danger-50)', border: '1px solid var(--danger-200)',
+                              borderRadius: '4px', cursor: 'pointer', color: 'var(--danger-600)',
+                              fontSize: '12px', fontWeight: 700, padding: '2px 5px', lineHeight: 1
+                            }}
+                          >×</button>
+                        )
+                      }
+                    })
+                    items.push(
+                      <React.Fragment key="add-btns">
+                        <input type="file" id="addPageCameraInput" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={handleAddPage} />
+                        <input type="file" id="addPageFileInput" accept="image/*" style={{ display: 'none' }} onChange={handleAddPage} />
+                        <div style={{ width: '56px', height: '56px', border: '2px dashed var(--border)', borderRadius: 'var(--radius-sm)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '3px', background: 'var(--surface)', flexShrink: 0 }}>
+                          <label htmlFor="addPageCameraInput" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2px' }} title="Kamera">
+                            <Camera size={16} color="var(--text-secondary)" />
+                          </label>
+                          <label htmlFor="addPageFileInput" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2px' }} title="Datei">
+                            <Plus size={16} color="var(--text-secondary)" />
+                          </label>
+                        </div>
+                      </React.Fragment>
+                    )
+                    return items
+                  })()}
                 </div>
-              )}
+              </div>
 
-              <button className="btn btn-primary btn-full" onClick={() => { setRequestedDocumentType(DOCUMENT_TYPE_PLACEHOLDER); setShowModelSelection(true) }}>{t('docScan.uploadAndAnalyze')}</button>
-              <button className="btn btn-ghost btn-full" style={{ marginTop: 'var(--space-2)' }} onClick={() => { setPreviews([]); setPages([]) }}>
+              <button className="btn btn-primary btn-full" onClick={() => { setRequestedDocumentType(DOCUMENT_TYPE_PLACEHOLDER); setShowModelSelection(true) }}>
+                {groups.filter(g => g.pages.length > 0).length > 1
+                  ? `${groups.filter(g => g.pages.length > 0).length} Dokumente hochladen & analysieren`
+                  : t('docScan.uploadAndAnalyze')}
+              </button>
+              <button className="btn btn-ghost btn-full" style={{ marginTop: 'var(--space-2)' }} onClick={() => { setGroups([{ pages: [], previews: [] }]); setActiveGroupIdx(0); setActivePageIdx(0) }}>
                 {t('docScan.chooseAnother')}
               </button>
             </>
@@ -612,7 +662,7 @@ export default function DocumentScanPage() {
                     <button className="btn btn-primary flex-1" onClick={() => navigate(`/animals/${animalId}`)} type="button">
                       {t('docScan.saveForLater')}
                     </button>
-                    <button className="btn btn-ghost flex-1" onClick={() => { setPhase('capture'); setErrorMsg(null); setPreviews([]); setPages([]) }} type="button">
+                    <button className="btn btn-ghost flex-1" onClick={() => { setPhase('capture'); setErrorMsg(null); setGroups([{ pages: [], previews: [] }]); setActiveGroupIdx(0); setActivePageIdx(0) }} type="button">
                       {t('docScan.retry')}
                     </button>
                   </div>
