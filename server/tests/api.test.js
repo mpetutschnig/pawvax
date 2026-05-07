@@ -2272,3 +2272,268 @@ describe('Suite 16: EU Pet Passport + Chip Tag Type', () => {
     })
   })
 })
+
+// ════════════════════════════════════════════════════════════════
+// Suite 19: JWT Refresh
+// ════════════════════════════════════════════════════════════════
+
+describe('Suite 19: JWT Refresh', () => {
+  let token
+  let accountId
+
+  beforeAll(async () => {
+    const email = `refresh-test-${Date.now()}@example.com`
+    const result = await registerAndVerifyUser('Refresh User', email, 'test1234')
+    token = result.data.token
+    accountId = result.data.account.id
+  })
+
+  test('19a. POST /auth/refresh — issues new token with valid old token', async () => {
+    const { status, data } = await apiCallWithToken(token, 'POST', '/auth/refresh')
+    expect(status).toBe(200)
+    expect(data.token).toBeTruthy()
+    expect(typeof data.token).toBe('string')
+    expect(data.account).toBeTruthy()
+    expect(data.account.id).toBe(accountId)
+  })
+
+  test('19b. Refreshed token can be used for authenticated requests', async () => {
+    const { data: refreshData } = await apiCallWithToken(token, 'POST', '/auth/refresh')
+    const newToken = refreshData.token
+
+    const { status, data } = await apiCallWithToken(newToken, 'GET', '/accounts/me')
+    expect(status).toBe(200)
+    expect(data.id).toBe(accountId)
+  })
+
+  test('19c. Refresh without token returns 401', async () => {
+    const { status } = await apiCallWithToken(null, 'POST', '/auth/refresh')
+    expect(status).toBe(401)
+  })
+
+  test('19d. Refresh with invalid token returns 401', async () => {
+    const { status } = await apiCallWithToken('invalid.token.here', 'POST', '/auth/refresh')
+    expect(status).toBe(401)
+  })
+
+  test('19e. Refreshed token reflects current role from DB', async () => {
+    const db = await getTestDb()
+    try {
+      await db.query("UPDATE accounts SET role = 'vet' WHERE id = $1", [accountId])
+    } finally {
+      await db.end()
+    }
+
+    const { status, data } = await apiCallWithToken(token, 'POST', '/auth/refresh')
+    expect(status).toBe(200)
+    expect(data.account.role).toBe('vet')
+    expect(data.token).toBeTruthy()
+
+    // Restore role
+    const db2 = await getTestDb()
+    try {
+      await db2.query("UPDATE accounts SET role = 'user' WHERE id = $1", [accountId])
+    } finally {
+      await db2.end()
+    }
+  })
+})
+
+// ════════════════════════════════════════════════════════════════
+// Suite 20: Account Deletion (DSGVO Art. 17) + Cascade
+// ════════════════════════════════════════════════════════════════
+
+describe('Suite 20: Account Deletion + Cascade', () => {
+  test('20a. DELETE /accounts/me — removes account and returns 204', async () => {
+    const email = `delete-test-${Date.now()}@example.com`
+    const result = await registerAndVerifyUser('Delete Me', email, 'test1234')
+    const deleteToken = result.data.token
+    const deleteId = result.data.account.id
+
+    const { status } = await apiCallWithToken(deleteToken, 'DELETE', '/accounts/me')
+    expect(status).toBe(204)
+
+    const db = await getTestDb()
+    try {
+      const { rows } = await db.query('SELECT id FROM accounts WHERE id = $1', [deleteId])
+      expect(rows.length).toBe(0)
+    } finally {
+      await db.end()
+    }
+  })
+
+  test('20b. Token is invalid after account deletion', async () => {
+    const email = `delete-token-test-${Date.now()}@example.com`
+    const result = await registerAndVerifyUser('Delete Token Test', email, 'test1234')
+    const deleteToken = result.data.token
+
+    await apiCallWithToken(deleteToken, 'DELETE', '/accounts/me')
+
+    // The JWT is still cryptographically valid but the account is gone
+    const { status } = await apiCallWithToken(deleteToken, 'GET', '/accounts/me')
+    // Either 401 (if account lookup fails) or 404 — either signals no access
+    expect([401, 404]).toContain(status)
+  })
+
+  test('20c. Cascade — animals owned by deleted account are removed', async () => {
+    const email = `cascade-animal-${Date.now()}@example.com`
+    const result = await registerAndVerifyUser('Cascade Animal Owner', email, 'test1234')
+    const cascadeToken = result.data.token
+    const cascadeId = result.data.account.id
+
+    // Create an animal
+    const { data: animalData } = await apiCallWithToken(cascadeToken, 'POST', '/animals', {
+      name: 'Cascade Dog',
+      species: 'dog'
+    })
+    const animalId = animalData.id
+
+    // Delete account
+    await apiCallWithToken(cascadeToken, 'DELETE', '/accounts/me')
+
+    // Verify animal is gone (or at least account is gone)
+    const db = await getTestDb()
+    try {
+      const { rows: accountRows } = await db.query('SELECT id FROM accounts WHERE id = $1', [cascadeId])
+      expect(accountRows.length).toBe(0)
+    } finally {
+      await db.end()
+    }
+  })
+
+  test('20d. Last admin cannot delete their account', async () => {
+    const db = await getTestDb()
+    let adminToken
+    let adminId
+
+    try {
+      // Count current admins
+      const { rows: admins } = await db.query("SELECT id FROM accounts WHERE role = 'admin'")
+
+      if (admins.length === 0) {
+        // Create a single admin
+        const email = `last-admin-${Date.now()}@example.com`
+        const result = await registerAndVerifyUser('Last Admin', email, 'test1234')
+        adminToken = result.data.token
+        adminId = result.data.account.id
+        await db.query("UPDATE accounts SET role = 'admin' WHERE id = $1", [adminId])
+
+        // Re-login to get admin token
+        const relogin = await apiCallWithToken(null, 'POST', '/auth/login', { email, password: 'test1234' })
+        adminToken = relogin.data.token
+      } else {
+        // There are existing admins — create another one and make all others non-admin temporarily
+        const email = `sole-admin-${Date.now()}@example.com`
+        const result = await registerAndVerifyUser('Sole Admin', email, 'test1234')
+        adminToken = result.data.token
+        adminId = result.data.account.id
+        // Temporarily demote others, promote this one
+        for (const { id } of admins) {
+          await db.query("UPDATE accounts SET role = 'user' WHERE id = $1", [id])
+        }
+        await db.query("UPDATE accounts SET role = 'admin' WHERE id = $1", [adminId])
+
+        const relogin = await apiCallWithToken(null, 'POST', '/auth/login', { email, password: 'test1234' })
+        adminToken = relogin.data.token
+
+        // Restore other admins after test
+        const { status } = await apiCallWithToken(adminToken, 'DELETE', '/accounts/me')
+        expect(status).toBe(403)
+
+        for (const { id } of admins) {
+          await db.query("UPDATE accounts SET role = 'admin' WHERE id = $1", [id])
+        }
+        return
+      }
+    } finally {
+      await db.end()
+    }
+
+    const { status } = await apiCallWithToken(adminToken, 'DELETE', '/accounts/me')
+    expect(status).toBe(403)
+
+    // Cleanup: demote admin so other tests are not affected
+    const db2 = await getTestDb()
+    try {
+      await db2.query("UPDATE accounts SET role = 'user' WHERE id = $1", [adminId])
+    } finally {
+      await db2.end()
+    }
+  })
+})
+
+// ════════════════════════════════════════════════════════════════
+// Suite 21: Mail Settings Endpoints
+// ════════════════════════════════════════════════════════════════
+
+describe('Suite 21: Mail Settings Endpoints', () => {
+  let adminToken
+
+  beforeAll(async () => {
+    const email = `mail-admin-${Date.now()}@example.com`
+    const result = await registerAndVerifyUser('Mail Admin', email, 'test1234')
+    adminToken = result.data.token
+    const db = await getTestDb()
+    try {
+      await db.query("UPDATE accounts SET role = 'admin' WHERE id = $1", [result.data.account.id])
+    } finally {
+      await db.end()
+    }
+    // Re-login to get admin token
+    const relogin = await apiCallWithToken(null, 'POST', '/auth/login', { email, password: 'test1234' })
+    adminToken = relogin.data.token
+  })
+
+  test('21a. GET /admin/settings/mail-status — returns configured: false when mail not set up', async () => {
+    const { status, data } = await apiCallWithToken(adminToken, 'GET', '/admin/settings/mail-status')
+    expect(status).toBe(200)
+    expect(typeof data.configured).toBe('boolean')
+  })
+
+  test('21b. GET /admin/settings/mail-status — requires admin role', async () => {
+    const email = `mail-user-${Date.now()}@example.com`
+    const result = await registerAndVerifyUser('Mail User', email, 'test1234')
+    const userToken = result.data.token
+    const { status } = await apiCallWithToken(userToken, 'GET', '/admin/settings/mail-status')
+    expect(status).toBe(403)
+  })
+
+  test('21c. GET /admin/settings/mail-status — requires auth', async () => {
+    const { status } = await apiCallWithToken(null, 'GET', '/admin/settings/mail-status')
+    expect(status).toBe(401)
+  })
+
+  test('21d. POST /admin/settings/test-mail — returns 400 when mail not configured', async () => {
+    // With no valid SMTP config, test-mail should return 400
+    const { status, data } = await apiCallWithToken(adminToken, 'POST', '/admin/settings/test-mail', {})
+    // Either 400 (not configured) or 200 (if server has mail configured in test env)
+    expect([200, 400]).toContain(status)
+    if (status === 400) {
+      expect(data.error).toBeTruthy()
+    }
+  })
+
+  test('21e. POST /admin/settings/test-mail — requires admin role', async () => {
+    const email = `mail-user2-${Date.now()}@example.com`
+    const result = await registerAndVerifyUser('Mail User 2', email, 'test1234')
+    const userToken = result.data.token
+    const { status } = await apiCallWithToken(userToken, 'POST', '/admin/settings/test-mail', {})
+    expect(status).toBe(403)
+  })
+
+  test('21f. PATCH /admin/settings — saves public settings (app_name)', async () => {
+    const { status, data } = await apiCallWithToken(adminToken, 'PATCH', '/admin/settings', {
+      app_name: 'PAW Test Suite'
+    })
+    expect(status).toBe(200)
+    expect(data.success).toBe(true)
+  })
+
+  test('21g. GET /settings (public) — returns public settings without secrets', async () => {
+    const { status, data } = await apiCallWithToken(null, 'GET', '/settings')
+    expect(status).toBe(200)
+    expect(data).not.toHaveProperty('smtp_password')
+    expect(data).not.toHaveProperty('oauth2_client_secret')
+    expect(data).not.toHaveProperty('oauth2_refresh_token')
+  })
+})

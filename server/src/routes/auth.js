@@ -476,10 +476,10 @@ export default async function authRoutes(fastify) {
   })
 
   // Eigenes Profil lesen
-  fastify.get('/api/accounts/me', { onRequest: [fastify.authenticate] }, async (req) => {
+  fastify.get('/api/accounts/me', { onRequest: [fastify.authenticate] }, async (req, reply) => {
     const db = getDb()
     const { rows: [account] } = await db.query('SELECT id, name, email, role, verified, verification_status, email_verified, email_verification_required, gemini_model, claude_model, created_at FROM accounts WHERE id = $1', [req.user.accountId])
-    if (!account) return { error: 'Account nicht gefunden' }
+    if (!account) return reply.code(404).send({ error: 'Account nicht gefunden' })
     const roles = (account.role ?? 'user').split(',').map(r => r.trim())
     const { rows: [fullAccount] } = await db.query('SELECT gemini_token, anthropic_token, openai_token, ai_provider_priority FROM accounts WHERE id = $1', [account.id])
     return { ...account, roles,
