@@ -490,15 +490,8 @@ export default async function wsDocumentUpload(fastify) {
 
     socket.on('error', (err) => fastify.log.error({ err }, 'WS socket error'))
 
-    socket.on('close', async () => {
-      if (uploadState?.documentId) {
-        const db = getDb()
-        await db.query(
-          "DELETE FROM documents WHERE id = $1 AND analysis_status = 'uploading'",
-          [uploadState.documentId]
-        ).catch(() => {})
-        try { uploadState.writer?.end() } catch {}
-      }
+    socket.on('close', () => {
+      try { uploadState?.writer?.end() } catch {}
       uploadState = null
     })
   })
