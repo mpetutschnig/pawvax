@@ -1376,10 +1376,10 @@ describe('Suite 11: Animal Scan Tracking', () => {
     const { status, data } = await apiCallWithToken(token11, 'GET', '/animals/recently-scanned')
     expect(status).toBe(200)
     // Own animals must not appear in the list
-    if (animalId11) expect(data.scans.some((s: any) => s.id === animalId11)).toBe(false)
+    if (animalId11) expect(data.scans.some((s) => s.id === animalId11)).toBe(false)
     // Foreign animal must appear if it was created and tracked
     if (foreignAnimalId) {
-      expect(data.scans.some((s: any) => s.id === foreignAnimalId)).toBe(true)
+      expect(data.scans.some((s) => s.id === foreignAnimalId)).toBe(true)
       expect(data.recent_count).toBeGreaterThanOrEqual(1)
     }
   })
