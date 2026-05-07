@@ -18,6 +18,21 @@ interface Document {
   id: string; doc_type: string; created_at: string; ocr_provider: string; added_by_role?: string; added_by_name?: string; added_by_verified?: number; analysis_status?: string; extracted_json?: any; record_permissions?: Record<string, string[]>; allowed_roles?: string; image_path?: string
 }
 
+function extractProviderError(data: any, fallback: string): string {
+  const main = data?.error || fallback
+  const details: string | undefined = data?.details
+  if (!details) return main
+  const jsonStart = details.indexOf('{')
+  if (jsonStart >= 0) {
+    try {
+      const inner = JSON.parse(details.slice(jsonStart))
+      const msg = inner?.error?.message || inner?.message
+      if (msg && msg !== main) return `${main}\n${msg}`
+    } catch {}
+  }
+  return main
+}
+
 export default function AnimalPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -195,7 +210,7 @@ export default function AnimalPage() {
 
       if (!res.ok) {
         const errData = await res.json()
-        throw new Error(errData.error || t('animal.documentFailed'))
+        throw new Error(extractProviderError(errData, t('animal.documentFailed')))
       }
 
       setPendingDocuments(prev => prev.filter(d => d.id !== retryDocId))

@@ -10,6 +10,21 @@ import { PageHeader } from '../components/PageHeader'
 import { Shield, Pill, FileText, PawPrint, Landmark, Calendar, Download, Mail, Tag, Save, X, Edit2, Trash2, CheckCircle, Award, GraduationCap, ChevronLeft, ChevronRight, Bell, AlertTriangle, Syringe, BookOpen, Camera } from 'lucide-react'
 import { TagCombobox } from '../components/TagCombobox'
 
+function extractProviderError(data: any, fallback: string): string {
+  const main = data?.error || fallback
+  const details: string | undefined = data?.details
+  if (!details) return main
+  const jsonStart = details.indexOf('{')
+  if (jsonStart >= 0) {
+    try {
+      const inner = JSON.parse(details.slice(jsonStart))
+      const msg = inner?.error?.message || inner?.message
+      if (msg && msg !== main) return `${main}\n${msg}`
+    } catch {}
+  }
+  return main
+}
+
 export default function DocumentDetailPage() {
   const { id: animalId, docId } = useParams<{ id: string; docId: string }>()
   const navigate = useNavigate()
@@ -357,7 +372,7 @@ export default function DocumentDetailPage() {
       setShowRetryModal(false)
       loadDocument()
     } catch (err: any) {
-      setError(err.response?.data?.error || err.message || t('animal.documentFailed'))
+      setError(extractProviderError(err.response?.data, err.message || t('animal.documentFailed')))
     } finally {
       setIsAnalyzing(false)
     }
@@ -372,7 +387,7 @@ export default function DocumentDetailPage() {
       setShowRetryModal(false)
       await loadDocument()
     } catch (err: any) {
-      setError(err.response?.data?.error || err.message || t('common.error'))
+      setError(extractProviderError(err.response?.data, err.message || t('common.error')))
     } finally {
       setIsAnalyzing(false)
     }

@@ -89,7 +89,7 @@ export function DocumentAnalysisForm({
         <h1 style={{ margin: 0, fontSize: 'var(--font-size-xl)' }}>{title}</h1>
       </div>
 
-      {errorMessage && <div className="error-card" style={{ marginBottom: 'var(--space-4)' }}><p>{errorMessage}</p></div>}
+      {errorMessage && <div className="error-card" style={{ marginBottom: 'var(--space-4)' }}><p style={{ margin: 0, whiteSpace: 'pre-line' }}>{errorMessage}</p></div>}
 
       <div className="card animate-slide-up" style={{ borderColor: 'var(--primary-200)' }}>
         <p className="text-muted" style={{ marginBottom: 'var(--space-4)' }}>{description}</p>
