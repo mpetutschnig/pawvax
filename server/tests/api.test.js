@@ -1306,7 +1306,8 @@ describe('9. Extended Regression Tests', () => {
 describe('Suite 11: Animal Scan Tracking', () => {
   let db11
   let token11
-  let animalId11
+  let animalId11       // owned by token11 — used for owner-specific tests
+  let foreignAnimalId  // owned by admin — used to test recently-scanned (own animals excluded)
 
   beforeAll(async () => {
     db11 = await getTestDb()
@@ -1327,6 +1328,20 @@ describe('Suite 11: Animal Scan Tracking', () => {
     })
     if (animalRes.status === 201) {
       animalId11 = animalRes.data.id
+
+      // Create a foreign animal (owned by admin) so we can test recently-scanned
+      // (own animals are excluded from the recently-scanned list)
+      const { rows: [admin] } = await db11.query(`SELECT id, email FROM accounts WHERE role = 'admin' LIMIT 1`)
+      if (admin) {
+        const adminLoginRes = await apiCall('POST', '/auth/login', { email: admin.email, password: 'SecurePassword123!' })
+        if (adminLoginRes.status === 200) {
+          const adminToken = adminLoginRes.data.token
+          const foreignRes = await apiCallWithToken(adminToken, 'POST', '/animals', {
+            name: 'ForeignScanTest-Tier', species: 'dog', breed: 'Labrador'
+          })
+          if (foreignRes.status === 201) foreignAnimalId = foreignRes.data.id
+        }
+      }
     }
   })
 
@@ -1346,16 +1361,27 @@ describe('Suite 11: Animal Scan Tracking', () => {
 
   test('11b. POST /animals/:id/track-scan records a scan', async () => {
     if (!token11 || !animalId11) return
+    // Track own animal (scan still recorded, just excluded from recently-scanned list)
     const { status } = await apiCallWithToken(token11, 'POST', `/animals/${animalId11}/track-scan`)
     expect([200, 201]).toContain(status)
+    // Also track foreign animal if available — this one should appear in recently-scanned
+    if (foreignAnimalId) {
+      const { status: s2 } = await apiCallWithToken(token11, 'POST', `/animals/${foreignAnimalId}/track-scan`)
+      expect([200, 201]).toContain(s2)
+    }
   })
 
   test('11c. GET /animals/recently-scanned shows the tracked animal', async () => {
-    if (!token11 || !animalId11) return
+    if (!token11) return
     const { status, data } = await apiCallWithToken(token11, 'GET', '/animals/recently-scanned')
     expect(status).toBe(200)
-    expect(data.scans.some((s) => s.id === animalId11)).toBe(true)
-    expect(data.recent_count).toBeGreaterThanOrEqual(1)
+    // Own animals must not appear in the list
+    if (animalId11) expect(data.scans.some((s: any) => s.id === animalId11)).toBe(false)
+    // Foreign animal must appear if it was created and tracked
+    if (foreignAnimalId) {
+      expect(data.scans.some((s: any) => s.id === foreignAnimalId)).toBe(true)
+      expect(data.recent_count).toBeGreaterThanOrEqual(1)
+    }
   })
 
   test('11d. GET /animals/:id/recent-scans accessible by owner', async () => {
