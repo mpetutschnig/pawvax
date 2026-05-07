@@ -63,6 +63,9 @@ export const resetPassword = (token: string, password: string, confirmPassword: 
 export const logout = () =>
   api.post('/auth/logout', {})
 
+export const refreshToken = () =>
+  api.post('/auth/refresh')
+
 // Animals
 export const getAnimals = () => api.get('/animals')
 export const getAnimal = (id: string) => api.get(`/animals/${id}`)

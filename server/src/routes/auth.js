@@ -349,6 +349,23 @@ export default async function authRoutes(fastify) {
     return reply.code(204).send()
   })
 
+  // Token refresh — issue new JWT with current role from DB
+  fastify.post('/api/auth/refresh', { onRequest: [fastify.authenticate] }, async (req, reply) => {
+    const db = getDb()
+    const { rows: [account] } = await db.query(
+      'SELECT id, name, email, role, verified, email_verified FROM accounts WHERE id = $1',
+      [req.user.accountId]
+    )
+    if (!account) return reply.code(404).send({ error: 'Account nicht gefunden' })
+    const roleStr = account.role ?? 'user'
+    const roles = roleStr.split(',').map(r => r.trim())
+    const role = roles[0]
+    const verified = account.verified ?? 0
+    const jti = crypto.randomUUID()
+    const token = fastify.jwt.sign({ accountId: account.id, name: account.name, email: account.email, role, roles, verified, jti })
+    return { token, account: { id: account.id, name: account.name, email: account.email, role, roles, verified } }
+  })
+
   // Tierarzt/Behörde beantragt Verifikation mit optionalem Dokument
   fastify.post('/api/accounts/request-verification', async (req, reply) => {
     try { await req.jwtVerify() } catch { return reply.code(401).send({ error: 'Nicht autorisiert' }) }

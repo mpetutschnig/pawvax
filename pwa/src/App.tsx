@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useLocation, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { PawPrint, ScanLine, User, Settings } from 'lucide-react'
 import { useGlobalNfc } from './hooks/useGlobalNfc'
+import { api } from './api/rest'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import LoginPage from './pages/LoginPage'
 import AnimalsPage from './pages/AnimalsPage'
@@ -125,6 +126,20 @@ function BottomNav() {
 
 export default function App() {
   useGlobalNfc()
+  const [, setTokenRefreshed] = useState(false)
+
+  useEffect(() => {
+    const token = localStorage.getItem('token')
+    if (!token) return
+    api.post('/auth/refresh')
+      .then((res: any) => {
+        localStorage.setItem('token', res.data.token)
+        localStorage.setItem('role', res.data.account?.role || 'user')
+        localStorage.setItem('verified', String(res.data.account?.verified || 0))
+        setTokenRefreshed(true)
+      })
+      .catch(() => {})
+  }, [])
 
   return (
     <ErrorBoundary>
