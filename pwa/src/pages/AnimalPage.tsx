@@ -102,10 +102,7 @@ export default function AnimalPage() {
       setHasGemini(res.data.has_gemini_token)
       setHasAnthropic(res.data.has_anthropic_token)
       setHasOpenai(res.data.has_openai_token)
-
-      let prio = ['system', 'google', 'anthropic', 'openai']
-      try { if (res.data.ai_provider_priority) prio = typeof res.data.ai_provider_priority === 'string' ? JSON.parse(res.data.ai_provider_priority) : res.data.ai_provider_priority } catch {}
-      setHasSystemAi(prio.includes('system'))
+      setHasSystemAi(!!res.data.has_system_ai)
 
       if (res.data.has_gemini_token) { setRetryProvider('google'); setRetryModel(DEFAULT_MODEL_BY_PROVIDER.google) }
       else if (res.data.has_anthropic_token) { setRetryProvider('anthropic'); setRetryModel(DEFAULT_MODEL_BY_PROVIDER.anthropic) }

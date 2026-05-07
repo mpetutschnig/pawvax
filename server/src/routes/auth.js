@@ -481,10 +481,13 @@ export default async function authRoutes(fastify) {
     const { rows: [account] } = await db.query('SELECT id, name, email, role, verified, verification_status, email_verified, email_verification_required, gemini_model, claude_model, created_at FROM accounts WHERE id = $1', [req.user.accountId])
     if (!account) return { error: 'Account nicht gefunden' }
     const roles = (account.role ?? 'user').split(',').map(r => r.trim())
-    const { rows: [fullAccount] } = await db.query('SELECT gemini_token, anthropic_token FROM accounts WHERE id = $1', [account.id])
+    const { rows: [fullAccount] } = await db.query('SELECT gemini_token, anthropic_token, openai_token, ai_provider_priority FROM accounts WHERE id = $1', [account.id])
     return { ...account, roles,
       has_gemini_token: !!fullAccount?.gemini_token,
-      has_anthropic_token: !!fullAccount?.anthropic_token
+      has_anthropic_token: !!fullAccount?.anthropic_token,
+      has_openai_token: !!fullAccount?.openai_token,
+      ai_provider_priority: fullAccount?.ai_provider_priority ?? null,
+      has_system_ai: !!(process.env.GEMINI_API_KEY || process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY)
     }
   })
 
