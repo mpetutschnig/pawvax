@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { getMe, patchMe, deleteMe, requestVerification, getMyVerifications, getUserApiKeys, createUserApiKey, deleteUserApiKey } from '../api/rest'
 import { PageHeader } from '../components/PageHeader'
 import { formatDate, formatDateOnly } from '../utils/date'
-import { User, Shield, Stethoscope, Settings, Trash2, CheckCircle, Clock, AlertTriangle, Key, BookOpen, Download, Upload, X } from 'lucide-react'
+import { User, Shield, Stethoscope, Settings, Trash2, CheckCircle, Clock, AlertTriangle, Key, BookOpen, Download, Upload, X, Cpu } from 'lucide-react'
 import { DEFAULT_AVAILABLE_MODELS, DEFAULT_MODEL_BY_PROVIDER } from '../utils/documentAnalysis'
 
 export default function ProfilePage() {
@@ -40,6 +40,7 @@ export default function ProfilePage() {
   const [apiKeys, setApiKeys] = useState<any[]>([])
   const [newKeyName, setNewKeyName] = useState('')
   const [creatingKey, setCreatingKey] = useState(false)
+  const [activeTab, setActiveTab] = useState<'account' | 'ai' | 'developer' | 'data'>('account')
 
   const renderModelHint = (message: string) => (
     <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-3)', padding: 'var(--space-3)', background: 'color-mix(in oklch, var(--info-500) 10%, var(--surface))', borderRadius: 'var(--radius-md)', border: '1px solid color-mix(in oklch, var(--info-500) 28%, transparent)' }}>
@@ -401,6 +402,13 @@ export default function ProfilePage() {
   const isOrg = roles.includes('authority') && !isPending
   const isAdmin = roles.includes('admin')
 
+  const TABS = [
+    { id: 'account' as const, label: t('profile.tabAccount'), icon: <User size={15} /> },
+    { id: 'ai'      as const, label: t('profile.tabAi'),      icon: <Cpu size={15} /> },
+    { id: 'developer' as const, label: t('profile.tabDeveloper'), icon: <Key size={15} /> },
+    { id: 'data'    as const, label: t('profile.tabData'),    icon: <Shield size={15} /> },
+  ]
+
   return (
     <div className="container page">
       <PageHeader title={t('profile.title')} showThemeToggle showLogout />
@@ -408,43 +416,67 @@ export default function ProfilePage() {
       {error && <div className="error-card" style={{ marginBottom: 'var(--space-4)' }}><p>{error}</p></div>}
       {success && <div className="card" style={{ background: 'var(--success-50)', borderColor: 'var(--success-500)', marginBottom: 'var(--space-4)', display: 'flex', gap: 'var(--space-2)' }}><CheckCircle size={20} color="var(--success-600)" /><p style={{ margin: 0, color: 'var(--success-600)', fontWeight: 500 }}>{success}</p></div>}
 
-      <div className="card animate-slide-up">
-        <h2 style={{ fontSize: 'var(--font-size-lg)', marginTop: 0, marginBottom: '2px' }}>{profile.name}</h2>
-        <p className="text-muted" style={{ margin: 0 }}>{profile.email}</p>
+      {/* Tab navigation */}
+      <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', marginBottom: 'var(--space-4)', overflowX: 'auto', scrollbarWidth: 'none' }}>
+        {TABS.map(tab => (
+          <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
+            background: 'none', border: 'none',
+            borderBottom: activeTab === tab.id ? '2px solid var(--primary-500)' : '2px solid transparent',
+            padding: 'var(--space-3) var(--space-3)',
+            cursor: 'pointer', fontWeight: activeTab === tab.id ? 600 : 400,
+            color: activeTab === tab.id ? 'var(--primary-500)' : 'var(--text-secondary)',
+            display: 'flex', alignItems: 'center', gap: '6px',
+            fontSize: 'var(--font-size-sm)', whiteSpace: 'nowrap', transition: 'color 0.15s',
+          }}>
+            {tab.icon} {tab.label}
+          </button>
+        ))}
+      </div>
 
-        <hr className="divider" style={{ margin: 'var(--space-4) 0' }} />
+      {/* ── Tab: Profil ───────────────────────────────────────── */}
+      {activeTab === 'account' && (
+        <>
+          <div className="card animate-fade-in">
+            <h2 style={{ fontSize: 'var(--font-size-lg)', marginTop: 0, marginBottom: '2px' }}>{profile.name}</h2>
+            <p className="text-muted" style={{ margin: 0 }}>{profile.email}</p>
+            <hr className="divider" style={{ margin: 'var(--space-4) 0' }} />
+            <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--space-3)' }}>{t('profile.roles')}</h3>
+            <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+              {roles.length > 0 ? (
+                roles.map((r: string) => (
+                  <span key={r} className="badge badge-primary" style={{ display: 'flex', alignItems: 'center', gap: '4px', textTransform: 'capitalize' }}>
+                    {r === 'user' ? <User size={12} /> : r === 'vet' ? <Stethoscope size={12} /> : r === 'authority' ? <Shield size={12} /> : <Settings size={12} />}
+                    {r}
+                  </span>
+                ))
+              ) : (
+                <span className="text-muted">{t('profile.account')}</span>
+              )}
+            </div>
+          </div>
 
-        <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--space-3)' }}>{t('profile.roles')}</h3>
-        <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
-          {roles.length > 0 ? (
-            roles.map((r: string) => (
-              <span key={r} className="badge badge-primary" style={{ display: 'flex', alignItems: 'center', gap: '4px', textTransform: 'capitalize' }}>
-                {r === 'user' ? <User size={12} /> : r === 'vet' ? <Stethoscope size={12} /> : r === 'authority' ? <Shield size={12} /> : <Settings size={12} />}
-                {r}
-              </span>
-            ))
-          ) : (
-            <span className="text-muted">{t('profile.account')}</span>
-          )}
-        </div>
+          <div className="card animate-fade-in" style={{ marginTop: 'var(--space-4)' }}>
+            <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginTop: 0, marginBottom: 'var(--space-3)' }}>{t('profile.language')}</h3>
+            <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-4)' }}>{t('profile.languageDesc')}</p>
+            <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+              <button className={`btn ${i18n.language === 'de' ? 'btn-primary' : 'btn-outline'}`} onClick={() => i18n.changeLanguage('de')}>{t('profile.german')}</button>
+              <button className={`btn ${i18n.language === 'en' ? 'btn-primary' : 'btn-outline'}`} onClick={() => i18n.changeLanguage('en')}>{t('profile.english')}</button>
+            </div>
+          </div>
 
-        {!isAdmin && (
-          <>
-            <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginTop: 'var(--space-6)', marginBottom: 'var(--space-3)' }}>{t('profile.verification')}</h3>
-            {isVet ? (
-              <p style={{ color: 'var(--success-600)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', margin: 0, fontWeight: 500 }}><CheckCircle size={18} /> {t('profile.verifiedVet')} (Zugriff aktiv)</p>
-            ) : isOrg ? (
-              <p style={{ color: 'var(--info-600)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', margin: 0, fontWeight: 500 }}><CheckCircle size={18} /> {t('profile.verifiedOrg')} (Zugriff aktiv)</p>
-            ) : isPending ? (
-              <p className="text-muted" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', margin: 0 }}><Clock size={18} /> {t('profile.verificationPending')}</p>
-            ) : (
-              <></>
-            )}
+          {!isAdmin && (
+            <div className="card animate-fade-in" style={{ marginTop: 'var(--space-4)' }}>
+              <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginTop: 0, marginBottom: 'var(--space-3)' }}>{t('profile.verification')}</h3>
+              {isVet ? (
+                <p style={{ color: 'var(--success-600)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', margin: 0, fontWeight: 500 }}><CheckCircle size={18} /> {t('profile.verifiedVet')} (Zugriff aktiv)</p>
+              ) : isOrg ? (
+                <p style={{ color: 'var(--info-600)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', margin: 0, fontWeight: 500 }}><CheckCircle size={18} /> {t('profile.verifiedOrg')} (Zugriff aktiv)</p>
+              ) : isPending ? (
+                <p className="text-muted" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', margin: 0 }}><Clock size={18} /> {t('profile.verificationPending')}</p>
+              ) : null}
 
-            {/* Verification History */}
-            <div style={{ marginTop: 'var(--space-4)' }}>
               {verificationRequests.length > 0 && (
-                <>
+                <div style={{ marginTop: 'var(--space-4)' }}>
                   <h4 style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: 'var(--space-3)' }}>{t('profile.verificationRequests')}</h4>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
                     {verificationRequests.map(req => (
@@ -472,433 +504,277 @@ export default function ProfilePage() {
                       </div>
                     ))}
                   </div>
-                </>
+                </div>
+              )}
+
+              {!hasVerifiedRole && !isPending && (
+                <div style={{ marginTop: 'var(--space-4)' }}>
+                  {!showVerificationForm ? (
+                    <button className="btn btn-primary" onClick={() => setShowVerificationForm(true)}>
+                      <CheckCircle size={16} /> {t('profile.requestVerification')}
+                    </button>
+                  ) : (
+                    <div className="card" style={{ background: 'var(--surface)', padding: 'var(--space-4)', marginTop: 'var(--space-3)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-3)' }}>
+                        <h4 style={{ margin: 0, fontSize: 'var(--font-size-base)', fontWeight: 600 }}>{t('profile.requestVerification')}</h4>
+                        <button className="btn btn-ghost" onClick={() => { setShowVerificationForm(false); setVerificationNotes(''); setVerificationDocument(null) }} style={{ padding: '4px' }}>
+                          <X size={18} />
+                        </button>
+                      </div>
+                      <div style={{ marginBottom: 'var(--space-3)' }}>
+                        <label style={{ display: 'block', fontWeight: 600, marginBottom: 'var(--space-2)', fontSize: 'var(--font-size-sm)' }}>{t('profile.verificationType')}</label>
+                        <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+                          <label style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center', cursor: 'pointer' }}>
+                            <input type="radio" name="requestRole" checked={requestedRole === 'vet'} onChange={() => setRequestedRole('vet')} style={{ width: 16, height: 16, accentColor: 'var(--primary-500)' }} />
+                            {t('profile.vetVerification')}
+                          </label>
+                          <label style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center', cursor: 'pointer' }}>
+                            <input type="radio" name="requestRole" checked={requestedRole === 'authority'} onChange={() => setRequestedRole('authority')} style={{ width: 16, height: 16, accentColor: 'var(--primary-500)' }} />
+                            {t('profile.authorityVerification')}
+                          </label>
+                        </div>
+                      </div>
+                      <div style={{ marginBottom: 'var(--space-3)' }}>
+                        <label style={{ display: 'block', fontWeight: 600, marginBottom: 'var(--space-2)', fontSize: 'var(--font-size-sm)' }}>{t('profile.verificationNotes')}</label>
+                        <textarea className="form-input" placeholder={t('profile.verificationNotes')} value={verificationNotes} onChange={(e) => setVerificationNotes(e.target.value)} rows={3} style={{ resize: 'vertical' }} />
+                      </div>
+                      <div style={{ marginBottom: 'var(--space-3)' }}>
+                        <label style={{ display: 'block', fontWeight: 600, marginBottom: 'var(--space-2)', fontSize: 'var(--font-size-sm)' }}>{t('profile.attachDocument')}</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                          <input type="file" accept=".pdf,.jpg,.jpeg,.png,.gif" onChange={(e) => setVerificationDocument(e.target.files?.[0] || null)} style={{ flex: 1 }} />
+                          {verificationDocument && <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--success-600)' }}>✓ {verificationDocument.name}</span>}
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 'var(--space-2)', justifyContent: 'flex-end' }}>
+                        <button className="btn btn-outline" onClick={() => { setShowVerificationForm(false); setVerificationNotes(''); setVerificationDocument(null) }} disabled={verificationSubmitting}>{t('common.cancel')}</button>
+                        <button className="btn btn-primary" onClick={requestVerify} disabled={verificationSubmitting}>
+                          {verificationSubmitting ? <Clock size={16} /> : <Upload size={16} />} {verificationSubmitting ? t('common.loading') : t('profile.submitVerification')}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
+          )}
+        </>
+      )}
 
-            {/* Verification Request Form */}
-            {!hasVerifiedRole && !isPending && (
-              <div style={{ marginTop: 'var(--space-4)' }}>
-                {!showVerificationForm ? (
-                  <button className="btn btn-primary" onClick={() => setShowVerificationForm(true)}>
-                    <CheckCircle size={16} /> {t('profile.requestVerification')}
-                  </button>
-                ) : (
-                  <div className="card" style={{ background: 'var(--surface)', padding: 'var(--space-4)', marginTop: 'var(--space-3)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-3)' }}>
-                      <h4 style={{ margin: 0, fontSize: 'var(--font-size-base)', fontWeight: 600 }}>{t('profile.requestVerification')}</h4>
-                      <button className="btn btn-ghost" onClick={() => { setShowVerificationForm(false); setVerificationNotes(''); setVerificationDocument(null) }} style={{ padding: '4px' }}>
-                        <X size={18} />
-                      </button>
-                    </div>
+      {/* ── Tab: KI & OCR ─────────────────────────────────────── */}
+      {activeTab === 'ai' && (
+        <>
+          {/* AI Priority */}
+          <div className="card animate-fade-in">
+            <h3 style={{ marginTop: 0, marginBottom: 'var(--space-3)', fontWeight: 600 }}>{t('profile.aiPriorityTitle')}</h3>
+            <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-4)' }}>{t('profile.aiPriorityDesc')}</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+              {aiPriority.map((provider, index) => (
+                <div key={provider} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', background: 'var(--surface)', padding: 'var(--space-2)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
+                  <span style={{ fontWeight: 600, width: '20px', color: 'var(--text-tertiary)' }}>{index + 1}.</span>
+                  <span style={{ flex: 1 }}>{provider === 'system' ? t('profile.systemAi') : provider === 'google' ? 'Google Gemini' : provider === 'anthropic' ? 'Anthropic Claude' : 'OpenAI'}</span>
+                  <button className="btn btn-ghost" style={{ padding: '4px' }} disabled={index === 0} onClick={() => { const p = [...aiPriority]; [p[index-1],p[index]]=[p[index],p[index-1]]; updatePriority(p) }}>↑</button>
+                  <button className="btn btn-ghost" style={{ padding: '4px' }} disabled={index === aiPriority.length-1} onClick={() => { const p = [...aiPriority]; [p[index+1],p[index]]=[p[index],p[index+1]]; updatePriority(p) }}>↓</button>
+                </div>
+              ))}
+            </div>
+          </div>
 
-                    <div style={{ marginBottom: 'var(--space-3)' }}>
-                      <label style={{ display: 'block', fontWeight: 600, marginBottom: 'var(--space-2)', fontSize: 'var(--font-size-sm)' }}>{t('profile.verificationType')}</label>
-                      <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
-                        <label style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center', cursor: 'pointer' }}>
-                          <input type="radio" name="requestRole" checked={requestedRole === 'vet'}
-                            onChange={() => setRequestedRole('vet')} 
-                            style={{ width: 16, height: 16, accentColor: 'var(--primary-500)' }} />
-                          {t('profile.vetVerification')}
-                        </label>
-                        <label style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center', cursor: 'pointer' }}>
-                          <input type="radio" name="requestRole" checked={requestedRole === 'authority'}
-                            onChange={() => setRequestedRole('authority')} 
-                            style={{ width: 16, height: 16, accentColor: 'var(--primary-500)' }} />
-                          {t('profile.authorityVerification')}
-                        </label>
-                      </div>
-                    </div>
+          {/* Google Gemini */}
+          <div className="card animate-fade-in" style={{ marginTop: 'var(--space-4)' }}>
+            <h3 style={{ marginTop: 0, marginBottom: 'var(--space-3)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+              <Key size={18} color="var(--primary-500)" /> {t('profile.gemini')}
+            </h3>
+            <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-2)' }}>{t('profile.geminiDesc')}</p>
+            <p style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-4)' }}>
+              <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary-500)', textDecoration: 'underline' }}>{t('profile.geminiCreateKey')}</a>
+            </p>
+            <div className="form-group">
+              <label className="form-label">{t('profile.model')}</label>
+              <p className="text-muted" style={{ fontSize: 'var(--font-size-xs)', marginBottom: 'var(--space-2)' }}>{t('profile.modelDesc')}</p>
+              <select className="form-select" value={geminiModel} onChange={(e) => saveGeminiModel(e.target.value)} disabled={modelSaving}>
+                {DEFAULT_AVAILABLE_MODELS.google.map((model, index) => (
+                  <option key={model.id} value={model.id}>{index === 0 ? `${model.name} (Standard)` : model.name}</option>
+                ))}
+              </select>
+            </div>
+            {renderModelHint(t('profile.geminiModelHint'))}
+            {profile.has_gemini_token
+              ? <p style={{ color: 'var(--success-600)', marginTop: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontWeight: 500 }}><CheckCircle size={16} /> {t('profile.geminiSaved')}</p>
+              : <div className="form-group" style={{ marginTop: 'var(--space-4)' }}><input className="form-input" type="password" placeholder="AIza..." value={geminiToken} onChange={e => setGeminiToken(e.target.value)} /></div>
+            }
+            <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-3)' }}>
+              {!profile.has_gemini_token
+                ? <button className="btn btn-primary" onClick={saveGeminiToken} disabled={saving || !geminiToken}>{saving ? t('profile.geminiChecking') : t('profile.geminiCheck')}</button>
+                : <button className="btn btn-danger" onClick={clearGeminiToken} disabled={saving}>{saving ? t('profile.geminiDeleting') : t('profile.geminiDelete')}</button>
+              }
+            </div>
+            {geminiError && <div className="error-card" style={{ marginTop: 'var(--space-3)', padding: 'var(--space-3)' }}><p style={{ margin: 0 }}>{geminiError}</p></div>}
+            {geminiSuccess && <div className="card" style={{ marginTop: 'var(--space-3)', padding: 'var(--space-3)', background: 'var(--success-50)', borderColor: 'var(--success-500)', display: 'flex', gap: 'var(--space-2)' }}><CheckCircle size={16} color="var(--success-600)" /><p style={{ margin: 0, color: 'var(--success-600)', fontWeight: 500, fontSize: 'var(--font-size-sm)' }}>{geminiSuccess}</p></div>}
+            <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-4)', padding: 'var(--space-3)', background: 'color-mix(in oklch, var(--warning-500) 12%, var(--surface))', borderRadius: 'var(--radius-md)', border: '1px solid color-mix(in oklch, var(--warning-500) 30%, transparent)' }}>
+              <AlertTriangle size={16} color="var(--warning-600)" style={{ flexShrink: 0, marginTop: '2px' }} />
+              <p style={{ fontSize: 'var(--font-size-xs)', margin: 0 }}>{t('profile.geminiWarning')}</p>
+            </div>
+          </div>
 
-                    <div style={{ marginBottom: 'var(--space-3)' }}>
-                      <label style={{ display: 'block', fontWeight: 600, marginBottom: 'var(--space-2)', fontSize: 'var(--font-size-sm)' }}>{t('profile.verificationNotes')}</label>
-                      <textarea
-                        className="form-input"
-                        placeholder={t('profile.verificationNotes')}
-                        value={verificationNotes}
-                        onChange={(e) => setVerificationNotes(e.target.value)}
-                        rows={3}
-                        style={{ resize: 'vertical' }}
-                      />
-                    </div>
+          {/* Anthropic Claude */}
+          <div className="card animate-fade-in" style={{ marginTop: 'var(--space-4)' }}>
+            <h3 style={{ marginTop: 0, marginBottom: 'var(--space-3)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+              <Key size={18} color="var(--primary-500)" /> {t('profile.claude')}
+            </h3>
+            <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-2)' }}>{t('profile.claudeDesc')}</p>
+            <p style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-4)' }}>
+              <a href="https://console.anthropic.com/account/keys" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary-500)', textDecoration: 'underline' }}>{t('profile.claudeCreateKey')}</a>
+            </p>
+            <div className="form-group">
+              <label className="form-label">{t('profile.model')}</label>
+              <p className="text-muted" style={{ fontSize: 'var(--font-size-xs)', marginBottom: 'var(--space-2)' }}>{t('profile.modelDesc')}</p>
+              <select className="form-select" value={claudeModel} onChange={(e) => saveClaudeModel(e.target.value)} disabled={modelSaving}>
+                {DEFAULT_AVAILABLE_MODELS.anthropic.map((model) => (
+                  <option key={model.id} value={model.id}>{model.id === DEFAULT_MODEL_BY_PROVIDER.anthropic ? `${model.name} (Standard)` : model.name}</option>
+                ))}
+              </select>
+            </div>
+            {renderModelHint(t('profile.claudeModelHint'))}
+            {profile.has_anthropic_token
+              ? <p style={{ color: 'var(--success-600)', marginTop: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontWeight: 500 }}><CheckCircle size={16} /> {t('profile.claudeSaved')}</p>
+              : <div className="form-group" style={{ marginTop: 'var(--space-4)' }}><input className="form-input" type="password" placeholder="sk-ant-..." value={anthropicToken} onChange={e => setAnthropicToken(e.target.value)} /></div>
+            }
+            <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-3)' }}>
+              {!profile.has_anthropic_token
+                ? <button className="btn btn-primary" onClick={saveAnthropicToken} disabled={saving || !anthropicToken}>{saving ? t('profile.claudeChecking') : t('profile.claudeCheck')}</button>
+                : <button className="btn btn-danger" onClick={clearAnthropicToken} disabled={saving}>{saving ? t('profile.claudeDeleting') : t('profile.claudeDelete')}</button>
+              }
+            </div>
+            {claudeError && <div className="error-card" style={{ marginTop: 'var(--space-3)', padding: 'var(--space-3)' }}><p style={{ margin: 0 }}>{claudeError}</p></div>}
+            {claudeSuccess && <div className="card" style={{ marginTop: 'var(--space-3)', padding: 'var(--space-3)', background: 'var(--success-50)', borderColor: 'var(--success-500)', display: 'flex', gap: 'var(--space-2)' }}><CheckCircle size={16} color="var(--success-600)" /><p style={{ margin: 0, color: 'var(--success-600)', fontWeight: 500, fontSize: 'var(--font-size-sm)' }}>{claudeSuccess}</p></div>}
+            <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-4)', padding: 'var(--space-3)', background: 'color-mix(in oklch, var(--warning-500) 12%, var(--surface))', borderRadius: 'var(--radius-md)', border: '1px solid color-mix(in oklch, var(--warning-500) 30%, transparent)' }}>
+              <AlertTriangle size={16} color="var(--warning-600)" style={{ flexShrink: 0, marginTop: '2px' }} />
+              <p style={{ fontSize: 'var(--font-size-xs)', margin: 0 }}>{t('profile.aiWarning')}</p>
+            </div>
+          </div>
 
-                    <div style={{ marginBottom: 'var(--space-3)' }}>
-                      <label style={{ display: 'block', fontWeight: 600, marginBottom: 'var(--space-2)', fontSize: 'var(--font-size-sm)' }}>{t('profile.attachDocument')}</label>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                        <input
-                          type="file"
-                          accept=".pdf,.jpg,.jpeg,.png,.gif"
-                          onChange={(e) => setVerificationDocument(e.target.files?.[0] || null)}
-                          style={{ flex: 1 }}
-                        />
-                        {verificationDocument && (
-                          <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--success-600)' }}>
-                            ✓ {verificationDocument.name}
-                          </span>
-                        )}
-                      </div>
-                    </div>
+          {/* OpenAI */}
+          <div className="card animate-fade-in" style={{ marginTop: 'var(--space-4)' }}>
+            <h3 style={{ marginTop: 0, marginBottom: 'var(--space-3)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+              <Key size={18} color="var(--primary-500)" /> OpenAI
+            </h3>
+            <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-4)' }}>{t('profile.openaiDesc')}</p>
+            <div className="form-group">
+              <label className="form-label">{t('profile.model')}</label>
+              <p className="text-muted" style={{ fontSize: 'var(--font-size-xs)', marginBottom: 'var(--space-2)' }}>{t('profile.modelDesc')}</p>
+              <select className="form-select" value={openaiModel} onChange={(e) => saveOpenaiModel(e.target.value)} disabled={modelSaving}>
+                {DEFAULT_AVAILABLE_MODELS.openai.map((model) => (
+                  <option key={model.id} value={model.id}>{model.id === DEFAULT_MODEL_BY_PROVIDER.openai ? `${model.name} (Standard)` : model.name}</option>
+                ))}
+              </select>
+            </div>
+            {renderModelHint(t('profile.openaiModelHint'))}
+            {profile.has_openai_token
+              ? <p style={{ color: 'var(--success-600)', marginTop: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontWeight: 500 }}><CheckCircle size={16} /> {t('profile.openaiSaved')}</p>
+              : <div className="form-group" style={{ marginTop: 'var(--space-4)' }}><input className="form-input" type="password" placeholder="sk-proj-..." value={openaiToken} onChange={e => setOpenaiToken(e.target.value)} /></div>
+            }
+            <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-3)' }}>
+              {!profile.has_openai_token
+                ? <button className="btn btn-primary" onClick={saveOpenaiToken} disabled={saving || !openaiToken}>{saving ? t('profile.openaiChecking') : t('profile.openaiCheck')}</button>
+                : <button className="btn btn-danger" onClick={clearOpenaiToken} disabled={saving}>{saving ? t('profile.openaiDeleting') : t('profile.openaiDelete')}</button>
+              }
+            </div>
+            {openaiError && <div className="error-card" style={{ marginTop: 'var(--space-3)', padding: 'var(--space-3)' }}><p style={{ margin: 0 }}>{openaiError}</p></div>}
+            {openaiSuccess && <div className="card" style={{ marginTop: 'var(--space-3)', padding: 'var(--space-3)', background: 'var(--success-50)', borderColor: 'var(--success-500)', display: 'flex', gap: 'var(--space-2)' }}><CheckCircle size={16} color="var(--success-600)" /><p style={{ margin: 0, color: 'var(--success-600)', fontWeight: 500, fontSize: 'var(--font-size-sm)' }}>{openaiSuccess}</p></div>}
+            <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-4)', padding: 'var(--space-3)', background: 'color-mix(in oklch, var(--warning-500) 12%, var(--surface))', borderRadius: 'var(--radius-md)', border: '1px solid color-mix(in oklch, var(--warning-500) 30%, transparent)' }}>
+              <AlertTriangle size={16} color="var(--warning-600)" style={{ flexShrink: 0, marginTop: '2px' }} />
+              <p style={{ fontSize: 'var(--font-size-xs)', margin: 0 }}>{t('profile.aiWarning')}</p>
+            </div>
+          </div>
+        </>
+      )}
 
-                    <div style={{ display: 'flex', gap: 'var(--space-2)', justifyContent: 'flex-end' }}>
-                      <button className="btn btn-outline" onClick={() => { setShowVerificationForm(false); setVerificationNotes(''); setVerificationDocument(null) }} disabled={verificationSubmitting}>
-                        {t('common.cancel')}
-                      </button>
-                      <button className="btn btn-primary" onClick={requestVerify} disabled={verificationSubmitting}>
-                        {verificationSubmitting ? <Clock size={16} /> : <Upload size={16} />} {verificationSubmitting ? t('common.loading') : t('profile.submitVerification')}
-                      </button>
+      {/* ── Tab: Entwickler ───────────────────────────────────── */}
+      {activeTab === 'developer' && (
+        <>
+          <div className="card animate-fade-in">
+            <h3 style={{ marginTop: 0, marginBottom: 'var(--space-2)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+              <Key size={18} color="var(--primary-500)" /> {t('profile.apiKeysTitle')}
+            </h3>
+            <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-4)' }}>{t('profile.apiKeysDesc')}</p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 'var(--space-2)', marginBottom: 'var(--space-4)' }}>
+              <input className="form-input" placeholder={t('profile.apiKeyNamePlaceholder')} value={newKeyName} onChange={e => setNewKeyName(e.target.value)} onKeyDown={e => e.key === 'Enter' && !creatingKey && newKeyName.trim() && handleCreateApiKey()} />
+              <button className="btn btn-primary" onClick={handleCreateApiKey} disabled={creatingKey || !newKeyName.trim()}>
+                {creatingKey ? t('common.loading') : t('common.create')}
+              </button>
+            </div>
+            {apiKeys.length > 0 && (
+              <div style={{ display: 'grid', gap: 'var(--space-2)' }}>
+                {apiKeys.map(key => (
+                  <div key={key.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 'var(--space-2) var(--space-3)', background: 'var(--surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>{key.description}</div>
+                      <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>{key.key_prefix} · {formatDateOnly(key.created_at)}</div>
                     </div>
+                    <button className="btn btn-ghost btn-icon" onClick={() => handleDeleteApiKey(key.id)}><X size={16} /></button>
                   </div>
-                )}
+                ))}
               </div>
             )}
-          </>
-        )}
-
-        <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginTop: 'var(--space-6)', marginBottom: 'var(--space-3)' }}>{t('profile.language')}</h3>
-        <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-4)' }}>{t('profile.languageDesc')}</p>
-        <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
-          <button
-            className={`btn ${i18n.language === 'de' ? 'btn-primary' : 'btn-outline'}`}
-            onClick={() => i18n.changeLanguage('de')}
-          >
-            {t('profile.german')}
-          </button>
-          <button
-            className={`btn ${i18n.language === 'en' ? 'btn-primary' : 'btn-outline'}`}
-            onClick={() => i18n.changeLanguage('en')}
-          >
-            {t('profile.english')}
-          </button>
-        </div>
-
-        <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginTop: 'var(--space-6)', marginBottom: 'var(--space-3)' }}>
-          {t('profile.aiPriorityTitle')}
-        </h3>
-        <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-4)' }}>
-          {t('profile.aiPriorityDesc')}
-        </p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-          {aiPriority.map((provider, index) => (
-            <div key={provider} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', background: 'var(--surface)', padding: 'var(--space-2)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
-              <span style={{ fontWeight: 600, width: '20px' }}>{index + 1}.</span>
-              <span style={{ flex: 1 }}>
-                {provider === 'system' ? t('profile.systemAi') : provider === 'google' ? 'Google Gemini' : provider === 'anthropic' ? 'Anthropic Claude' : 'OpenAI'}
-              </span>
-              <button className="btn btn-ghost" style={{ padding: '4px' }} disabled={index === 0} onClick={() => {
-                const newPrio = [...aiPriority]
-                ;[newPrio[index - 1], newPrio[index]] = [newPrio[index], newPrio[index - 1]]
-                updatePriority(newPrio)
-              }}>↑</button>
-              <button className="btn btn-ghost" style={{ padding: '4px' }} disabled={index === aiPriority.length - 1} onClick={() => {
-                const newPrio = [...aiPriority]
-                ;[newPrio[index + 1], newPrio[index]] = [newPrio[index], newPrio[index + 1]]
-                updatePriority(newPrio)
-              }}>↓</button>
-            </div>
-          ))}
-        </div>
-
-        <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginTop: 'var(--space-6)', marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-          <Key size={18} color="var(--primary-500)" /> {t('profile.gemini')}
-        </h3>
-        <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-4)' }}>
-          {t('profile.geminiDesc')}
-        </p>
-        <p style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-4)' }}>
-          <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary-500)', textDecoration: 'underline' }}>
-            {t('profile.geminiCreateKey')}
-          </a>
-        </p>
-
-        <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginTop: 'var(--space-4)', marginBottom: 'var(--space-3)' }}>{t('profile.model')}</h4>
-        <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-4)' }}>{t('profile.modelDesc')}</p>
-        <div className="form-group">
-          <select
-            className="form-select"
-            value={geminiModel}
-            onChange={(e) => saveGeminiModel(e.target.value)}
-            disabled={modelSaving}
-          >
-            {DEFAULT_AVAILABLE_MODELS.google.map((model, index) => (
-              <option key={model.id} value={model.id}>{index === 0 ? `${model.name} (Standard)` : model.name}</option>
-            ))}
-          </select>
-        </div>
-        {renderModelHint(t('profile.geminiModelHint'))}
-
-        {profile.has_gemini_token && (
-          <p style={{ color: 'var(--success-600)', marginBottom: 'var(--space-3)', marginTop: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontWeight: 500 }}><CheckCircle size={16} /> {t('profile.geminiSaved')}</p>
-        )}
-
-        {!profile.has_gemini_token && (
-          <div className="form-group" style={{ marginTop: 'var(--space-4)' }}>
-            <input
-              className="form-input"
-              type="password"
-              placeholder="AIza..."
-              value={geminiToken}
-              onChange={e => setGeminiToken(e.target.value)}
-            />
+            {apiKeys.length === 0 && <p className="text-muted" style={{ margin: 0, fontSize: 'var(--font-size-sm)' }}>{t('profile.apiKeysEmpty')}</p>}
           </div>
-        )}
 
-        <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
-          {!profile.has_gemini_token ? (
-            <button className="btn btn-primary" onClick={saveGeminiToken} disabled={saving || !geminiToken}>
-              {saving ? t('profile.geminiChecking') : t('profile.geminiCheck')}
-            </button>
-          ) : (
-            <button className="btn btn-danger" onClick={clearGeminiToken} disabled={saving}>
-              {saving ? t('profile.geminiDeleting') : t('profile.geminiDelete')}
-            </button>
-          )}
-        </div>
-
-        {geminiError && <div className="error-card" style={{ marginTop: 'var(--space-3)', padding: 'var(--space-3)' }}><p style={{ margin: 0 }}>{geminiError}</p></div>}
-        {geminiSuccess && <div className="card" style={{ marginTop: 'var(--space-3)', padding: 'var(--space-3)', background: 'var(--success-50)', borderColor: 'var(--success-500)', display: 'flex', gap: 'var(--space-2)' }}><CheckCircle size={16} color="var(--success-600)" /><p style={{ margin: 0, color: 'var(--success-600)', fontWeight: 500, fontSize: 'var(--font-size-sm)' }}>{geminiSuccess}</p></div>}
-
-        <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-4)', padding: 'var(--space-3)', background: 'color-mix(in oklch, var(--warning-500) 12%, var(--surface))', borderRadius: 'var(--radius-md)', border: '1px solid color-mix(in oklch, var(--warning-500) 30%, transparent)' }}>
-          <AlertTriangle size={16} color="var(--warning-600)" style={{ flexShrink: 0, marginTop: '2px' }} />
-          <p style={{ fontSize: 'var(--font-size-xs)', margin: 0, color: 'var(--text-primary)' }}>
-            {t('profile.geminiWarning')}
-          </p>
-        </div>
-
-        <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginTop: 'var(--space-6)', marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-          <Key size={18} color="var(--primary-500)" /> {t('profile.claude')}
-        </h3>
-        <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-4)' }}>
-          {t('profile.claudeDesc')}
-        </p>
-        <p style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-4)' }}>
-          <a href="https://console.anthropic.com/account/keys" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary-500)', textDecoration: 'underline' }}>
-            {t('profile.claudeCreateKey')}
-          </a>
-        </p>
-
-        <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginTop: 'var(--space-4)', marginBottom: 'var(--space-3)' }}>{t('profile.model')}</h4>
-        <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-4)' }}>{t('profile.modelDesc')}</p>
-        <div className="form-group">
-          <select
-            className="form-select"
-            value={claudeModel}
-            onChange={(e) => saveClaudeModel(e.target.value)}
-            disabled={modelSaving}
-          >
-            {DEFAULT_AVAILABLE_MODELS.anthropic.map((model) => (
-              <option key={model.id} value={model.id}>{model.id === DEFAULT_MODEL_BY_PROVIDER.anthropic ? `${model.name} (Standard)` : model.name}</option>
-            ))}
-          </select>
-        </div>
-        {renderModelHint(t('profile.claudeModelHint'))}
-
-        {profile.has_anthropic_token && (
-          <p style={{ color: 'var(--success-600)', marginBottom: 'var(--space-3)', marginTop: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontWeight: 500 }}><CheckCircle size={16} /> {t('profile.claudeSaved')}</p>
-        )}
-
-        {!profile.has_anthropic_token && (
-          <div className="form-group" style={{ marginTop: 'var(--space-4)' }}>
-            <input
-              className="form-input"
-              type="password"
-              placeholder="sk-ant-..."
-              value={anthropicToken}
-              onChange={e => setAnthropicToken(e.target.value)}
-            />
+          <div className="card animate-fade-in" style={{ marginTop: 'var(--space-4)' }}>
+            <h3 style={{ marginTop: 0, marginBottom: 'var(--space-3)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+              <BookOpen size={18} color="var(--primary-500)" /> {t('docs.title')}
+            </h3>
+            <button className="btn btn-outline btn-full" onClick={() => navigate('/docs')}>{t('docs.openDocs')}</button>
           </div>
-        )}
+        </>
+      )}
 
-        <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
-          {!profile.has_anthropic_token ? (
-            <button className="btn btn-primary" onClick={saveAnthropicToken} disabled={saving || !anthropicToken}>
-              {saving ? t('profile.claudeChecking') : t('profile.claudeCheck')}
-            </button>
-          ) : (
-            <button className="btn btn-danger" onClick={clearAnthropicToken} disabled={saving}>
-              {saving ? t('profile.claudeDeleting') : t('profile.claudeDelete')}
-            </button>
-          )}
-        </div>
-
-        {claudeError && <div className="error-card" style={{ marginTop: 'var(--space-3)', padding: 'var(--space-3)' }}><p style={{ margin: 0 }}>{claudeError}</p></div>}
-        {claudeSuccess && <div className="card" style={{ marginTop: 'var(--space-3)', padding: 'var(--space-3)', background: 'var(--success-50)', borderColor: 'var(--success-500)', display: 'flex', gap: 'var(--space-2)' }}><CheckCircle size={16} color="var(--success-600)" /><p style={{ margin: 0, color: 'var(--success-600)', fontWeight: 500, fontSize: 'var(--font-size-sm)' }}>{claudeSuccess}</p></div>}
-
-        <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-4)', padding: 'var(--space-3)', background: 'color-mix(in oklch, var(--warning-500) 12%, var(--surface))', borderRadius: 'var(--radius-md)', border: '1px solid color-mix(in oklch, var(--warning-500) 30%, transparent)' }}>
-          <AlertTriangle size={16} color="var(--warning-600)" style={{ flexShrink: 0, marginTop: '2px' }} />
-          <p style={{ fontSize: 'var(--font-size-xs)', margin: 0, color: 'var(--text-primary)' }}>
-            {t('profile.aiWarning')}
-          </p>
-        </div>
-
-        <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginTop: 'var(--space-6)', marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-          <Key size={18} color="var(--primary-500)" /> OpenAI
-        </h3>
-        <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-4)' }}>
-          {t('profile.openaiDesc')}
-        </p>
-        
-        <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginTop: 'var(--space-4)', marginBottom: 'var(--space-3)' }}>{t('profile.model')}</h4>
-        <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-4)' }}>{t('profile.modelDesc')}</p>
-        <div className="form-group">
-          <select
-            className="form-select"
-            value={openaiModel}
-            onChange={(e) => saveOpenaiModel(e.target.value)}
-            disabled={modelSaving}
-          >
-            {DEFAULT_AVAILABLE_MODELS.openai.map((model) => (
-              <option key={model.id} value={model.id}>{model.id === DEFAULT_MODEL_BY_PROVIDER.openai ? `${model.name} (Standard)` : model.name}</option>
-            ))}
-          </select>
-        </div>
-        {renderModelHint(t('profile.openaiModelHint'))}
-
-        {profile.has_openai_token && (
-          <p style={{ color: 'var(--success-600)', marginBottom: 'var(--space-3)', marginTop: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontWeight: 500 }}><CheckCircle size={16} /> {t('profile.openaiSaved')}</p>
-        )}
-
-        {!profile.has_openai_token && (
-          <div className="form-group" style={{ marginTop: 'var(--space-4)' }}>
-            <input
-              className="form-input"
-              type="password"
-              placeholder="sk-proj-..."
-              value={openaiToken}
-              onChange={e => setOpenaiToken(e.target.value)}
-            />
+      {/* ── Tab: Konto ────────────────────────────────────────── */}
+      {activeTab === 'data' && (
+        <>
+          <div className="card animate-fade-in">
+            <h3 style={{ marginTop: 0, marginBottom: 'var(--space-2)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+              <Download size={18} color="var(--primary-500)" /> {t('profile.dataExport')}
+            </h3>
+            <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-4)' }}>{t('profile.dataExportDesc')}</p>
+            <button className="btn btn-secondary" onClick={handleTakeout}>{t('profile.dataExportBtn')}</button>
           </div>
-        )}
 
-        <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
-          {!profile.has_openai_token ? (
-            <button className="btn btn-primary" onClick={saveOpenaiToken} disabled={saving || !openaiToken}>
-              {saving ? t('profile.openaiChecking') : t('profile.openaiCheck')}
+          <div className="card animate-fade-in" style={{ marginTop: 'var(--space-4)', borderLeft: '3px solid var(--danger-300)' }}>
+            <h3 style={{ marginTop: 0, marginBottom: 'var(--space-2)', fontWeight: 600, color: 'var(--danger-500)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+              <Trash2 size={18} /> {t('profile.deleteAccountTitle')}
+            </h3>
+            <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-4)' }}>{t('profile.deleteAccountDesc')}</p>
+            <button className="btn btn-danger" onClick={() => setShowConfirmDelete(true)}>
+              <Trash2 size={16} /> {t('profile.deleteAccountBtn')}
             </button>
-          ) : (
-            <button className="btn btn-danger" onClick={clearOpenaiToken} disabled={saving}>
-              {saving ? t('profile.openaiDeleting') : t('profile.openaiDelete')}
-            </button>
-          )}
-        </div>
-        {openaiError && <div className="error-card" style={{ marginTop: 'var(--space-3)', padding: 'var(--space-3)' }}><p style={{ margin: 0 }}>{openaiError}</p></div>}
-        {openaiSuccess && <div className="card" style={{ marginTop: 'var(--space-3)', padding: 'var(--space-3)', background: 'var(--success-50)', borderColor: 'var(--success-500)', display: 'flex', gap: 'var(--space-2)' }}><CheckCircle size={16} color="var(--success-600)" /><p style={{ margin: 0, color: 'var(--success-600)', fontWeight: 500, fontSize: 'var(--font-size-sm)' }}>{openaiSuccess}</p></div>}
 
-        <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-4)', padding: 'var(--space-3)', background: 'color-mix(in oklch, var(--warning-500) 12%, var(--surface))', borderRadius: 'var(--radius-md)', border: '1px solid color-mix(in oklch, var(--warning-500) 30%, transparent)' }}>
-          <AlertTriangle size={16} color="var(--warning-600)" style={{ flexShrink: 0, marginTop: '2px' }} />
-          <p style={{ fontSize: 'var(--font-size-xs)', margin: 0, color: 'var(--text-primary)' }}>
-            {t('profile.aiWarning')}
-          </p>
-        </div>
-
-        <hr className="divider" style={{ margin: 'var(--space-6) 0' }} />
-
-        <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-          <BookOpen size={18} color="var(--primary-500)" /> {t('docs.title')}
-        </h3>
-        <button className="btn btn-outline btn-full" onClick={() => navigate('/docs')}>
-          {t('docs.openDocs')}
-        </button>
-
-        <hr className="divider" style={{ margin: 'var(--space-6) 0' }} />
-
-        {/* Section: API Keys */}
-        <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--space-4)' }}>
-          <Key size={20} style={{ marginRight: 'var(--space-2)', verticalAlign: 'middle' }} />
-          API-Schlüssel für Automationen
-        </h3>
-        <p className="text-muted" style={{ fontSize: 'var(--font-size-xs)', marginBottom: 'var(--space-3)' }}>
-          Erstellen Sie API-Schlüssel für Integrationen und Automationen. Diese Schlüssel werden nach der Erstellung nicht erneut angezeigt.
-        </p>
-        <div style={{ display: 'grid', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 'var(--space-2)' }}>
-            <input className="form-input" placeholder="z.B. Workflow-Automation" value={newKeyName} onChange={e => setNewKeyName(e.target.value)} />
-            <button className="btn btn-primary" onClick={handleCreateApiKey} disabled={creatingKey || !newKeyName.trim()}>
-              {creatingKey ? 'Erstelle...' : 'Erstellen'}
-            </button>
-          </div>
-        </div>
-        {apiKeys.length > 0 && (
-          <div style={{ display: 'grid', gap: 'var(--space-2)', marginBottom: 'var(--space-4)' }}>
-            {apiKeys.map(key => (
-              <div key={key.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 'var(--space-2)', background: 'var(--surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>{key.description}</div>
-                  <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>{key.key_prefix} · {formatDateOnly(key.created_at)}</div>
+            {showConfirmDelete && (
+              <div className="card animate-slide-up" style={{ borderLeft: '4px solid var(--danger-500)', marginTop: 'var(--space-4)' }}>
+                <h3 style={{ color: 'var(--danger-500)', marginTop: 0, marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                  <AlertTriangle size={20} /> {t('profile.deleteConfirm')}
+                </h3>
+                <p className="text-muted" style={{ marginBottom: 'var(--space-2)' }}>{t('profile.deleteConfirmDesc')}</p>
+                <ul className="text-muted" style={{ marginLeft: 'var(--space-4)', marginBottom: 'var(--space-4)', fontSize: 'var(--font-size-sm)' }}>
+                  <li>{t('profile.deleteList1')}</li>
+                  <li>{t('profile.deleteList2')}</li>
+                  <li>{t('profile.deleteList3')}</li>
+                </ul>
+                <div style={{ background: 'var(--surface)', padding: 'var(--space-3)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-4)' }}>
+                  <p className="text-muted" style={{ margin: 0, fontSize: 'var(--font-size-sm)' }}>{t('profile.deleteTakeoutHint')}</p>
+                  <button className="btn btn-secondary" onClick={handleTakeout} style={{ marginTop: 'var(--space-2)' }}>{t('profile.dataExportBtn')}</button>
                 </div>
-                <button className="btn btn-ghost btn-icon" onClick={() => handleDeleteApiKey(key.id)}>
-                  <X size={16} />
-                </button>
+                <div style={{ marginBottom: 'var(--space-4)' }}>
+                  <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: 'var(--space-2)', color: 'var(--danger-700)' }}>{t('profile.confirmEmailLabel')}</label>
+                  <input className="form-input" type="email" value={deleteConfirmEmail} onChange={e => setDeleteConfirmEmail(e.target.value)} placeholder={profile?.email || ''} />
+                </div>
+                <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+                  <button className="btn btn-danger flex-1" onClick={handleDelete}>{t('profile.deleteYes')}</button>
+                  <button className="btn btn-ghost flex-1" onClick={() => setShowConfirmDelete(false)}>{t('common.cancel')}</button>
+                </div>
               </div>
-            ))}
+            )}
           </div>
-        )}
-
-        <hr className="divider" style={{ margin: 'var(--space-6) 0' }} />
-
-        {/* Main Section: Account & Data Management */}
-        <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--space-4)', color: 'var(--danger-500)' }}>
-          {t('profile.deleteAccountTitle')}
-        </h3>
-
-        {/* Subsection: Data Export (Takeout) */}
-        <h4 style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: 'var(--space-2)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-          <Download size={16} /> {t('profile.dataExport')}
-        </h4>
-        <p className="text-muted" style={{ fontSize: 'var(--font-size-xs)', marginBottom: 'var(--space-3)' }}>
-          {t('profile.dataExportDesc')}
-        </p>
-        <button className="btn btn-secondary" onClick={handleTakeout} style={{ marginBottom: 'var(--space-6)' }}>
-          {t('profile.dataExportBtn')}
-        </button>
-
-        {/* Subsection: Delete Account */}
-        <h4 style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: 'var(--space-2)' }}>
-          {t('profile.deleteAccountDesc')}
-        </h4>
-        <p className="text-muted" style={{ fontSize: 'var(--font-size-xs)', marginBottom: 'var(--space-3)' }}>
-          {t('profile.deleteAccountDesc')}
-        </p>
-        <button className="btn btn-danger" onClick={() => setShowConfirmDelete(true)}>
-          <Trash2 size={16} /> {t('profile.deleteAccountBtn')}
-        </button>
-      </div>
-
-      {showConfirmDelete && (
-        <div className="card animate-slide-up" style={{ borderLeft: '4px solid var(--danger-500)', marginTop: 'var(--space-4)' }}>
-          <h3 style={{ color: 'var(--danger-500)', marginTop: 0, marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-            <AlertTriangle size={20} /> {t('profile.deleteConfirm')}
-          </h3>
-          <p className="text-muted" style={{ marginBottom: 'var(--space-2)' }}>{t('profile.deleteConfirmDesc')}</p>
-          <ul className="text-muted" style={{ marginLeft: 'var(--space-4)', marginBottom: 'var(--space-4)', fontSize: 'var(--font-size-sm)' }}>
-            <li>{t('profile.deleteList1')}</li>
-            <li>{t('profile.deleteList2')}</li>
-            <li>{t('profile.deleteList3')}</li>
-          </ul>
-          <div style={{ background: 'var(--surface)', padding: 'var(--space-3)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-4)' }}>
-            <p className="text-muted" style={{ margin: 0, fontSize: 'var(--font-size-sm)' }}>{t('profile.deleteTakeoutHint')}</p>
-            <button className="btn btn-secondary" onClick={handleTakeout} style={{ marginTop: 'var(--space-2)' }}>
-              {t('profile.dataExportBtn')}
-            </button>
-          </div>
-          <div style={{ marginBottom: 'var(--space-4)' }}>
-            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: 'var(--space-2)', color: 'var(--danger-700)' }}>{t('profile.confirmEmailLabel')}</label>
-            <input
-              className="form-input"
-              type="email"
-              value={deleteConfirmEmail}
-              onChange={e => setDeleteConfirmEmail(e.target.value)}
-              placeholder={profile?.email || ''}
-            />
-          </div>
-          <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
-            <button className="btn btn-danger flex-1" onClick={handleDelete}>
-              {t('profile.deleteYes')}
-            </button>
-            <button className="btn btn-ghost flex-1" onClick={() => setShowConfirmDelete(false)}>
-              {t('common.cancel')}
-            </button>
-          </div>
-        </div>
+        </>
       )}
     </div>
   )

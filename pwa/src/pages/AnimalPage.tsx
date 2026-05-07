@@ -61,6 +61,7 @@ export default function AnimalPage() {
   const [transferCode, setTransferCode] = useState('')
   const [showShare, setShowShare] = useState(false)
   const [shareLink, setShareLink] = useState('')
+  const [shareName, setShareName] = useState('')
   const [generatingShare, setGeneratingShare] = useState(false)
   const [activeShares, setActiveShares] = useState<any[]>([])
   const [loadingShares, setLoadingShares] = useState(false)
@@ -457,11 +458,13 @@ export default function AnimalPage() {
       const token = localStorage.getItem('token')
       const res = await fetch(`/api/animals/${id}/sharing/temporary`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: shareName.trim() || undefined }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       setShareLink(`${window.location.origin}/share/${data.shareId}`)
+      await loadActiveShares()
     } catch (err) {
       setError(t('common.error'))
     } finally {
@@ -824,7 +827,7 @@ export default function AnimalPage() {
                 <div className="card animate-slide-up">
                   <h3 style={{ marginBottom: 'var(--space-2)' }}>{t('sharing.tempLink')}</h3>
                   <p className="text-muted" style={{ marginBottom: 'var(--space-4)' }}>{t('sharing.tempLinkDesc')}</p>
-                  
+
                   {shareLink ? (
                     <div style={{ background: 'var(--surface-alt)', padding: 'var(--space-4)', borderRadius: 'var(--radius-md)', textAlign: 'center', marginBottom: 'var(--space-4)' }}>
                       <input type="text" className="form-input" value={shareLink} readOnly style={{ marginBottom: 'var(--space-2)', textAlign: 'center' }} />
@@ -834,9 +837,20 @@ export default function AnimalPage() {
                       <p className="text-muted" style={{ margin: 'var(--space-2) 0 0 0', fontSize: 'var(--font-size-xs)' }}>{t('sharing.expiresIn')} 14 {t('sharing.days')}</p>
                     </div>
                   ) : (
-                    <button className="btn btn-primary btn-full" onClick={handleGenerateShare} disabled={generatingShare} style={{ marginBottom: 'var(--space-4)' }}>
-                      {generatingShare ? t('common.loading') : t('sharing.generateLink')}
-                    </button>
+                    <div style={{ marginBottom: 'var(--space-4)' }}>
+                      <label className="form-label" style={{ marginBottom: 'var(--space-2)' }}>{t('sharing.linkName')}</label>
+                      <input
+                        className="form-input"
+                        placeholder={t('sharing.linkNamePlaceholder')}
+                        value={shareName}
+                        onChange={e => setShareName(e.target.value)}
+                        style={{ marginBottom: 'var(--space-3)' }}
+                        onKeyDown={e => e.key === 'Enter' && !generatingShare && handleGenerateShare()}
+                      />
+                      <button className="btn btn-primary btn-full" onClick={handleGenerateShare} disabled={generatingShare}>
+                        {generatingShare ? t('common.loading') : t('sharing.generateLink')}
+                      </button>
+                    </div>
                   )}
 
                   {/* Active Shares List */}
@@ -851,13 +865,13 @@ export default function AnimalPage() {
                         {activeShares.map(share => (
                           <div key={share.id} style={{
                             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                            padding: 'var(--space-2)', background: 'var(--surface)', borderRadius: 'var(--radius-sm)',
+                            padding: 'var(--space-2) var(--space-3)', background: 'var(--surface)', borderRadius: 'var(--radius-sm)',
                             border: '1px solid var(--border-subtle)', fontSize: 'var(--font-size-xs)'
                           }}>
-                            <div style={{ flex: 1 }}>
-                              <div className="text-muted">{formatDateOnly(share.createdAt)}</div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontWeight: 600, marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{share.linkName}</div>
                               <div style={{
-                                color: share.isExpiringSoon ? 'var(--warning-500)' : 'var(--text-secondary)',
+                                color: share.isExpiringSoon ? 'var(--warning-500)' : 'var(--text-tertiary)',
                                 fontWeight: share.isExpiringSoon ? 600 : 400
                               }}>
                                 {t('sharing.expiresIn')} {Math.ceil(share.secondsRemaining / 3600)}h
@@ -867,8 +881,7 @@ export default function AnimalPage() {
                               className="btn btn-outline btn-sm"
                               onClick={() => handleRevokeShare(share.id)}
                               disabled={revokingShare === share.id}
-                              style={{
-                                borderColor: 'var(--danger-500)', color: 'var(--danger-500)',
+                              style={{ marginLeft: 'var(--space-2)', borderColor: 'var(--danger-500)', color: 'var(--danger-500)', flexShrink: 0,
                                 opacity: revokingShare === share.id ? 0.5 : 1
                               }}
                             >
@@ -880,7 +893,7 @@ export default function AnimalPage() {
                     )}
                   </div>
 
-                  <button className="btn btn-ghost btn-full" onClick={() => { setShowShare(false); setShareLink(''); }}>{t('common.cancel')}</button>
+                  <button className="btn btn-ghost btn-full" onClick={() => { setShowShare(false); setShareLink(''); setShareName('') }}>{t('common.cancel')}</button>
                 </div>
               )}
 
