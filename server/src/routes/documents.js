@@ -539,6 +539,20 @@ export default async function documentRoutes(fastify) {
         ip: req.ip
       })
 
+      if (nextStatus === 'completed') {
+        try {
+          const { rows: [accKeys] } = await db.query('SELECT gemini_token, anthropic_token, openai_token FROM accounts WHERE id = $1', [accountId])
+          const hasOwnKey = !!(accKeys?.gemini_token || accKeys?.anthropic_token || accKeys?.openai_token)
+          await db.query(
+            `INSERT INTO usage_logs (id, account_id, document_id, pages_analyzed, ocr_provider, model_used, is_system_fallback, analyzed_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP)`,
+            [randomUUID(), accountId, docId, analysisPages.length, provider, provider, hasOwnKey ? 0 : 1]
+          )
+        } catch (usageErr) {
+          req.log.warn({ err: usageErr }, 'Retry: Failed to insert usage_log')
+        }
+      }
+
       return reply.send({
         success: !requiresRetry,
         message: requiresRetry ? 'Analyse unvollständig. Erneuter Versuch empfohlen.' : 'Analyse erfolgreich abgeschlossen',
@@ -737,6 +751,20 @@ export default async function documentRoutes(fastify) {
         details: { ocr_provider: result.provider, pages: analysisPages.length, history_entry: historyId, requires_retry: requiresRetry, retry_reasons: extractedData?.extraction_quality?.retry_reasons || [] },
         ip: req.ip
       })
+
+      if (nextStatus === 'completed') {
+        try {
+          const { rows: [accKeys] } = await db.query('SELECT gemini_token, anthropic_token, openai_token FROM accounts WHERE id = $1', [accountId])
+          const hasOwnKey = !!(accKeys?.gemini_token || accKeys?.anthropic_token || accKeys?.openai_token)
+          await db.query(
+            `INSERT INTO usage_logs (id, account_id, document_id, pages_analyzed, ocr_provider, model_used, is_system_fallback, analyzed_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP)`,
+            [randomUUID(), accountId, docId, analysisPages.length, result.provider, result.provider, hasOwnKey ? 0 : 1]
+          )
+        } catch (usageErr) {
+          req.log.warn({ err: usageErr }, 'Re-analyze: Failed to insert usage_log')
+        }
+      }
 
       return reply.send({
         success: !requiresRetry,

@@ -384,15 +384,17 @@ export default async function wsDocumentUpload(fastify) {
               ip: req.ip
             })
 
-            try {
-              const isSystemFallback = !userGeminiKey && !userAnthropicKey && !userOpenAiKey ? 1 : 0
-              await db.query(
-                `INSERT INTO usage_logs (id, account_id, document_id, pages_analyzed, ocr_provider, model_used, is_system_fallback, analyzed_at)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP)`,
-                [uuid(), accountId, docId, pages.length, lastProvider, lastProvider, isSystemFallback]
-              )
-            } catch (usageErr) {
-              fastify.log.warn({ err: usageErr }, 'WS: Failed to insert usage_log')
+            if (analysisStatus === 'completed') {
+              try {
+                const isSystemFallback = !userGeminiKey && !userAnthropicKey && !userOpenAiKey ? 1 : 0
+                await db.query(
+                  `INSERT INTO usage_logs (id, account_id, document_id, pages_analyzed, ocr_provider, model_used, is_system_fallback, analyzed_at)
+                   VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP)`,
+                  [uuid(), accountId, docId, pages.length, lastProvider, lastProvider, isSystemFallback]
+                )
+              } catch (usageErr) {
+                fastify.log.warn({ err: usageErr }, 'WS: Failed to insert usage_log')
+              }
             }
 
             // Track animal scan for vets/authorities
