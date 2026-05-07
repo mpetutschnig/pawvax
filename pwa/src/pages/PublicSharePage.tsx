@@ -88,8 +88,34 @@ export default function PublicSharePage() {
     )
   }
 
+  const isLoggedIn = !!localStorage.getItem('token')
+
   return (
     <div className="container page" style={{ paddingTop: '2rem' }}>
+      {isLoggedIn && effectiveRole !== 'guest' && (
+        <div style={{
+          marginBottom: 'var(--space-3)', padding: 'var(--space-3) var(--space-4)',
+          background: 'var(--primary-50)', border: '1px solid var(--primary-200)',
+          borderRadius: 'var(--radius-md)', display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+        }}>
+          <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--primary-700)' }}>
+            Als <strong>{effectiveRole}</strong> angemeldet — erweiterte Ansicht aktiv
+          </span>
+          {animal && <Link to={`/animals/${animal.id}`} style={{ fontSize: 'var(--font-size-sm)', color: 'var(--primary-600)', fontWeight: 500 }}>Vollansicht →</Link>}
+        </div>
+      )}
+      {isLoggedIn && effectiveRole === 'guest' && (
+        <div style={{
+          marginBottom: 'var(--space-3)', padding: 'var(--space-3) var(--space-4)',
+          background: 'var(--surface-raised)', border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-md)', display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+        }}>
+          <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
+            Angemeldet als Benutzer
+          </span>
+          {animal && <Link to={`/animals/${animal.id}`} style={{ fontSize: 'var(--font-size-sm)', color: 'var(--primary-600)', fontWeight: 500 }}>Vollansicht →</Link>}
+        </div>
+      )}
       <div className="card text-center animate-slide-up" style={{ marginBottom: 'var(--space-4)' }}>
         <div style={{
           width: 80, height: 80, borderRadius: 'var(--radius-full)',

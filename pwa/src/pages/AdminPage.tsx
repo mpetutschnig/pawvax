@@ -512,6 +512,13 @@ export default function AdminPage() {
                           ))}
                         </div>
                       </td>
+                      <td>
+                        {acc.verified
+                          ? <span className="badge badge-success" style={{ fontSize: '10px', padding: '2px 6px' }}>✓</span>
+                          : acc.verification_status === 'pending'
+                            ? <span className="badge badge-warning" style={{ fontSize: '10px', padding: '2px 6px' }}>{t('profile.status')}</span>
+                            : <span className="text-muted" style={{ fontSize: '12px' }}>—</span>}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -1142,11 +1149,11 @@ export default function AdminPage() {
         )}
 
         {/* Tests Section - Level 2: Test Cases for Selected Run */}
-        {section === 'tests' && !loading && selectedRunId && selectedRunDetail && !selectedTest && (
+        {section === 'tests' && !loading && selectedRunId && selectedRunDetail && (
           <div className="animate-fade-in">
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
-              <button className="btn btn-secondary" onClick={() => { setSelectedRunId(null); setSelectedRunDetail(null) }}>← Back</button>
-              <h1 style={{ margin: 0 }}>{t('admin.tests')} - {formatDate(selectedRunDetail.summary?.date, i18n.language === 'de' ? 'de-AT' : 'en-GB')}</h1>
+              <button className="btn btn-secondary" onClick={() => { setSelectedRunId(null); setSelectedRunDetail(null); setSelectedTest(null) }}>← Back</button>
+              <h1 style={{ margin: 0 }}>{t('admin.tests')} – {formatDate(selectedRunDetail.summary?.date, i18n.language === 'de' ? 'de-AT' : 'en-GB')}</h1>
             </div>
             <div className="card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', height: 'calc(100vh - 250px - var(--bottom-nav-height))' }}>
               <div style={{ padding: 'var(--space-4)', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
@@ -1182,7 +1189,7 @@ export default function AdminPage() {
                         {groupName}
                       </div>
                       {tests.map((test, testIdx) => (
-                        <div key={`${groupName}-${testIdx}`} onClick={() => setSelectedTest(test)} style={{ padding: 'var(--space-3)', paddingLeft: 'var(--space-6)', borderBottom: '1px solid var(--border)', cursor: 'pointer', background: 'transparent', transition: 'all 0.2s' }}>
+                        <div key={`${groupName}-${testIdx}`} onClick={() => setSelectedTest(selectedTest === test ? null : test)} style={{ padding: 'var(--space-3)', paddingLeft: 'var(--space-6)', borderBottom: '1px solid var(--border)', cursor: 'pointer', background: selectedTest === test ? 'var(--primary-50)' : 'transparent', transition: 'background 0.15s' }}>
                           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-2)' }}>
                             <div style={{ marginTop: '2px', flexShrink: 0 }}>
                               {test.status === 'passed' ? <CheckCircle size={16} color="var(--success-600)" /> : <XCircle size={16} color="var(--danger-500)" />}
@@ -1294,7 +1301,17 @@ export default function AdminPage() {
 
       {section === 'tests' && selectedTest && (
         <div className="admin-detail-panel animate-slide-up" style={{ boxShadow: 'var(--shadow-xl)' }}>
-          <h2 style={{ marginBottom: 'var(--space-4)' }}>{t('admin.testDetails')}</h2>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--space-4)' }}>
+            <div>
+              <h2 style={{ margin: 0 }}>{t('admin.testDetails')}</h2>
+              {selectedRunDetail?.summary?.date && (
+                <p className="text-muted" style={{ margin: '4px 0 0 0', fontSize: 'var(--font-size-xs)' }}>
+                  Run: {formatDate(selectedRunDetail.summary.date, i18n.language === 'de' ? 'de-AT' : 'en-GB')}
+                </p>
+              )}
+            </div>
+            <button className="btn btn-ghost btn-icon" onClick={() => setSelectedTest(null)}>✕</button>
+          </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-4)' }}>
             {selectedTest.status === 'passed' ? (

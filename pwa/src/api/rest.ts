@@ -29,9 +29,20 @@ api.interceptors.response.use(
       localStorage.removeItem('token')
       window.location.href = '/login'
     }
+    if (err.response?.status === 429) {
+      const retryAfter = err.response.headers?.['retry-after']
+      err.isRateLimited = true
+      err.retryAfterSeconds = retryAfter ? parseInt(retryAfter, 10) : null
+    }
     return Promise.reject(err)
   }
 )
+
+export function getRateLimitMessage(err: any, fallback = 'Zu viele Anfragen. Bitte warte einen Moment.') {
+  if (!err?.isRateLimited) return null
+  if (err.retryAfterSeconds) return `Zu viele Anfragen — bitte warte ${err.retryAfterSeconds} Sekunden.`
+  return fallback
+}
 
 // Auth
 export const register = (name: string, email: string, password: string, confirmPassword: string) =>
@@ -113,8 +124,8 @@ export const addTreatment = (animalId: string, data: {
 export const getSharing = (animalId: string) => api.get(`/animals/${animalId}/sharing`)
 export const updateSharing = (animalId: string, role: string, data: object) =>
   api.put(`/animals/${animalId}/sharing`, { role, ...data })
-export const createTemporaryShare = (animalId: string, name?: string) =>
-  api.post(`/animals/${animalId}/sharing/temporary`, name ? { name } : {})
+export const createTemporaryShare = (animalId: string, name?: string, role?: string) =>
+  api.post(`/animals/${animalId}/sharing/temporary`, { ...(name ? { name } : {}), ...(role ? { role } : {}) })
 export const getAnimalShares = (animalId: string) =>
   api.get(`/animals/${animalId}/shares`)
 export const revokeAnimalShare = (animalId: string, shareId: string) =>

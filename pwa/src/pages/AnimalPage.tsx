@@ -62,6 +62,7 @@ export default function AnimalPage() {
   const [showShare, setShowShare] = useState(false)
   const [shareLink, setShareLink] = useState('')
   const [shareName, setShareName] = useState('')
+  const [shareRole, setShareRole] = useState<'guest' | 'vet' | 'authority'>('guest')
   const [generatingShare, setGeneratingShare] = useState(false)
   const [activeShares, setActiveShares] = useState<any[]>([])
   const [loadingShares, setLoadingShares] = useState(false)
@@ -459,7 +460,7 @@ export default function AnimalPage() {
       const res = await fetch(`/api/animals/${id}/sharing/temporary`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: shareName.trim() || undefined }),
+        body: JSON.stringify({ name: shareName.trim() || undefined, role: shareRole }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
@@ -847,6 +848,17 @@ export default function AnimalPage() {
                         style={{ marginBottom: 'var(--space-3)' }}
                         onKeyDown={e => e.key === 'Enter' && !generatingShare && handleGenerateShare()}
                       />
+                      <label className="form-label" style={{ marginBottom: 'var(--space-2)' }}>{t('sharing.linkRole')}</label>
+                      <select
+                        className="form-input"
+                        value={shareRole}
+                        onChange={e => setShareRole(e.target.value as 'guest' | 'vet' | 'authority')}
+                        style={{ marginBottom: 'var(--space-3)' }}
+                      >
+                        <option value="guest">{t('sharing.roleGuest')}</option>
+                        <option value="vet">{t('sharing.roleVet')}</option>
+                        <option value="authority">{t('sharing.roleAuthority')}</option>
+                      </select>
                       <button className="btn btn-primary btn-full" onClick={handleGenerateShare} disabled={generatingShare}>
                         {generatingShare ? t('common.loading') : t('sharing.generateLink')}
                       </button>
@@ -862,38 +874,56 @@ export default function AnimalPage() {
                       <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', margin: 0 }}>{t('sharing.noActiveLinks')}</p>
                     ) : (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-                        {activeShares.map(share => (
+                        {activeShares.map(share => {
+                          const shareUrl = `${window.location.origin}/share/${share.id}`
+                          return (
                           <div key={share.id} style={{
-                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                             padding: 'var(--space-2) var(--space-3)', background: 'var(--surface)', borderRadius: 'var(--radius-sm)',
                             border: '1px solid var(--border-subtle)', fontSize: 'var(--font-size-xs)'
                           }}>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontWeight: 600, marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{share.linkName}</div>
-                              <div style={{
-                                color: share.isExpiringSoon ? 'var(--warning-500)' : 'var(--text-tertiary)',
-                                fontWeight: share.isExpiringSoon ? 600 : 400
-                              }}>
-                                {t('sharing.expiresIn')} {Math.ceil(share.secondsRemaining / 3600)}h
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', overflow: 'hidden', flex: 1, minWidth: 0 }}>
+                                <div style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{share.linkName}</div>
+                                {share.allowedRole && share.allowedRole !== 'guest' && (
+                                  <span style={{ flexShrink: 0, fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em',
+                                    padding: '1px 5px', borderRadius: 'var(--radius-full)',
+                                    background: share.allowedRole === 'vet' ? 'var(--primary-100)' : 'var(--warning-100)',
+                                    color: share.allowedRole === 'vet' ? 'var(--primary-700)' : 'var(--warning-700)' }}>
+                                    {share.allowedRole}
+                                  </span>
+                                )}
                               </div>
+                              <button
+                                className="btn btn-outline btn-sm"
+                                onClick={() => handleRevokeShare(share.id)}
+                                disabled={revokingShare === share.id}
+                                style={{ marginLeft: 'var(--space-2)', borderColor: 'var(--danger-500)', color: 'var(--danger-500)', flexShrink: 0,
+                                  opacity: revokingShare === share.id ? 0.5 : 1
+                                }}
+                              >
+                                {revokingShare === share.id ? t('common.loading') : t('sharing.revoke')}
+                              </button>
                             </div>
-                            <button
-                              className="btn btn-outline btn-sm"
-                              onClick={() => handleRevokeShare(share.id)}
-                              disabled={revokingShare === share.id}
-                              style={{ marginLeft: 'var(--space-2)', borderColor: 'var(--danger-500)', color: 'var(--danger-500)', flexShrink: 0,
-                                opacity: revokingShare === share.id ? 0.5 : 1
-                              }}
-                            >
-                              {revokingShare === share.id ? t('common.loading') : t('sharing.revoke')}
-                            </button>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: '4px' }}>
+                              <span style={{ color: 'var(--text-tertiary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0, fontFamily: 'monospace', fontSize: '10px' }}>{shareUrl}</span>
+                              <button className="btn btn-ghost" style={{ padding: '2px 6px', fontSize: '10px', flexShrink: 0 }} onClick={() => navigator.clipboard.writeText(shareUrl)}>
+                                {t('profile.copy')}
+                              </button>
+                            </div>
+                            <div style={{
+                              color: share.isExpiringSoon ? 'var(--warning-500)' : 'var(--text-tertiary)',
+                              fontWeight: share.isExpiringSoon ? 600 : 400
+                            }}>
+                              {t('sharing.expiresIn')} {Math.ceil(share.secondsRemaining / 3600)}h
+                            </div>
                           </div>
-                        ))}
+                          )
+                        })}
                       </div>
                     )}
                   </div>
 
-                  <button className="btn btn-ghost btn-full" onClick={() => { setShowShare(false); setShareLink(''); setShareName('') }}>{t('common.cancel')}</button>
+                  <button className="btn btn-ghost btn-full" onClick={() => { setShowShare(false); setShareLink(''); setShareName(''); setShareRole('guest') }}>{t('common.cancel')}</button>
                 </div>
               )}
 

@@ -265,10 +265,22 @@ export default async function animalRoutes(fastify) {
 
     // Optional JWT für rollenbasierte Dokumentsichtbarkeit
     const decoded = tryDecodeJwt(fastify, req)
-    const effectiveRoles = getEffectiveRoles(decoded)
-    const primaryRole = effectiveRoles.includes('vet') ? 'vet' : effectiveRoles.includes('authority') ? 'authority' : 'guest'
+    const visitorRoles = getEffectiveRoles(decoded)
+    const visitorPrimaryRole = visitorRoles.includes('vet') ? 'vet' : visitorRoles.includes('authority') ? 'authority' : 'guest'
 
-    return await applySharing(db, animal, primaryRole, animal.owner_name, animal.owner_email, effectiveRoles)
+    // Link grants at least its allowed_role — take the "better" of visitor role vs link role
+    const linkRole = share.allowed_role || 'guest'
+    const rolePriority = { guest: 0, vet: 1, authority: 1, admin: 2 }
+    const primaryRole = (rolePriority[linkRole] || 0) > (rolePriority[visitorPrimaryRole] || 0) ? linkRole : visitorPrimaryRole
+
+    // Effective roles = union of visitor's roles + link's allowed_role
+    const effectiveRoles = [...new Set([...visitorRoles, linkRole])]
+
+    let shareResult = await applySharing(db, animal, primaryRole, animal.owner_name, animal.owner_email, effectiveRoles)
+    if (!shareResult && primaryRole !== 'guest') {
+      shareResult = await applySharing(db, animal, 'guest', animal.owner_name, animal.owner_email, ['guest'])
+    }
+    return shareResult
   })
 
   // ──── Alle weiteren Routen erfordern Auth ─────────────────────────────────
@@ -845,6 +857,9 @@ export default async function animalRoutes(fastify) {
     const { id } = req.params
     const { accountId, role } = req.user
     const name = req.body?.name
+    const allowedRoleRaw = req.body?.role || 'guest'
+    const validRoles = ['guest', 'vet', 'authority']
+    const allowedRole = validRoles.includes(allowedRoleRaw) ? allowedRoleRaw : 'guest'
 
     const { rows: [animal] } = await db.query('SELECT id FROM animals WHERE id = $1 AND account_id = $2', [id, accountId])
     if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden oder keine Berechtigung' })
@@ -854,12 +869,12 @@ export default async function animalRoutes(fastify) {
     const expiresAt = new Date()
     expiresAt.setDate(expiresAt.getDate() + 14) // 14 Tage gültig
 
-    await db.query('INSERT INTO animal_public_shares (id, animal_id, link_name, expires_at) VALUES ($1, $2, $3, $4)',
-      [shareId, id, linkName, Math.floor(expiresAt.getTime() / 1000)])
+    await db.query('INSERT INTO animal_public_shares (id, animal_id, link_name, expires_at, allowed_role) VALUES ($1, $2, $3, $4, $5)',
+      [shareId, id, linkName, Math.floor(expiresAt.getTime() / 1000), allowedRole])
 
     await logAudit(db, { accountId, role, action: 'create_temp_share', resource: 'sharing', resourceId: id, ip: req.ip })
 
-    return reply.code(201).send({ shareId, linkName })
+    return reply.code(201).send({ shareId, linkName, allowedRole })
   })
 
   // Liste aktive Sharing-Links für ein Tier
@@ -874,7 +889,7 @@ export default async function animalRoutes(fastify) {
 
     const now = Math.floor(Date.now() / 1000)
     const { rows: shares } = await db.query(`
-      SELECT id, link_name, created_at, expires_at, (expires_at - $1) as seconds_remaining
+      SELECT id, link_name, created_at, expires_at, allowed_role, (expires_at - $1) as seconds_remaining
       FROM animal_public_shares
       WHERE animal_id = $2 AND expires_at > $3
       ORDER BY created_at DESC
@@ -883,6 +898,7 @@ export default async function animalRoutes(fastify) {
     return reply.code(200).send(shares.map(s => ({
       id: s.id,
       linkName: s.link_name || `Legacy-${String(s.id).slice(0, 8)}`,
+      allowedRole: s.allowed_role || 'guest',
       createdAt: new Date(s.created_at * 1000).toISOString(),
       expiresAt: new Date(s.expires_at * 1000).toISOString(),
       secondsRemaining: s.seconds_remaining,
@@ -998,13 +1014,13 @@ export default async function animalRoutes(fastify) {
     const { accountId } = req.user
 
     const { rows: scans } = await db.query(`
-      SELECT DISTINCT a.*, ast.scanned_at
+      SELECT DISTINCT ON (a.id) a.*, ast.scanned_at
       FROM animal_scans ast
       JOIN animals a ON a.id = ast.animal_id
       WHERE ast.account_id = $1
-      ORDER BY ast.scanned_at DESC
-      LIMIT 20
+      ORDER BY a.id, ast.scanned_at DESC
     `, [accountId])
+    scans.sort((a, b) => new Date(b.scanned_at).getTime() - new Date(a.scanned_at).getTime())
 
     return { scans, recent_count: scans.length }
   })

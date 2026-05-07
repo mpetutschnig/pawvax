@@ -156,6 +156,11 @@ export async function initDb(connectionString) {
     }
   } catch { /* table or column may not exist, or no accounts need migration */ }
 
+  // Migration: add allowed_role column to animal_public_shares (per-link permissions)
+  try {
+    await pool.query("ALTER TABLE animal_public_shares ADD COLUMN IF NOT EXISTS allowed_role TEXT NOT NULL DEFAULT 'guest'")
+  } catch { /* column may already exist */ }
+
   // OAuth accounts table for social login
   try {
     await pool.query(`
