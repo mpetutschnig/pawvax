@@ -380,12 +380,8 @@ export default async function adminRoutes(fastify) {
       WHERE id = $1
     `, [id])
 
-    // Assign role based on verification type (exclusive role)
-    const roleMap = {
-      'vet': 'veterinarian',
-      'authority': 'authority'
-    }
-    const newRole = roleMap[vr.type] || vr.type
+    // Assign role based on verification type — use type string directly ('vet', 'authority')
+    const newRole = vr.type
 
     // Update accounts table with exclusive role (replace user role)
     await db.query(`

@@ -156,6 +156,11 @@ export async function initDb(connectionString) {
     }
   } catch { /* table or column may not exist, or no accounts need migration */ }
 
+  // Migration: normalize 'veterinarian' → 'vet' (approval route used wrong string)
+  try {
+    await pool.query("UPDATE accounts SET role = 'vet' WHERE role = 'veterinarian'")
+  } catch { /* ignore */ }
+
   // Migration: add allowed_role column to animal_public_shares (per-link permissions)
   try {
     await pool.query("ALTER TABLE animal_public_shares ADD COLUMN IF NOT EXISTS allowed_role TEXT NOT NULL DEFAULT 'guest'")
