@@ -1148,7 +1148,7 @@ export default function AdminPage() {
               <button className="btn btn-secondary" onClick={() => { setSelectedRunId(null); setSelectedRunDetail(null) }}>← Back</button>
               <h1 style={{ margin: 0 }}>{t('admin.tests')} - {formatDate(selectedRunDetail.summary?.date, i18n.language === 'de' ? 'de-AT' : 'en-GB')}</h1>
             </div>
-            <div className="card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', height: 'calc(100vh - 250px)' }}>
+            <div className="card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', height: 'calc(100vh - 250px - var(--bottom-nav-height))' }}>
               <div style={{ padding: 'var(--space-4)', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
                 <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
                   <span style={{ color: 'var(--success-600)', fontWeight: 600 }}>{selectedRunDetail.summary?.passedTests || 0}</span> / {selectedRunDetail.summary?.totalTests || 0} Tests
@@ -1206,7 +1206,7 @@ export default function AdminPage() {
         {section === 'tests' && !loading && !selectedRunId && testResults && testRuns.length === 0 && (
           <div className="animate-fade-in">
             <h1 style={{ marginBottom: 'var(--space-4)' }}>{t('admin.tests')}</h1>
-            <div className="card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', height: 'calc(100vh - 200px)' }}>
+            <div className="card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', height: 'calc(100vh - 200px - var(--bottom-nav-height))' }}>
               <div style={{ padding: 'var(--space-4)', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
                 <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
                   <span style={{ color: 'var(--success-600)', fontWeight: 600 }}>{testResults.tests?.numPassedTests || 0}</span> / <span style={{ color: testResults.tests?.numFailedTests ? 'var(--danger-600)' : 'var(--text-secondary)' }}>{(testResults.tests?.numPassedTests || 0) + (testResults.tests?.numFailedTests || 0)}</span> Tests

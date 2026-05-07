@@ -1044,6 +1044,7 @@ html[data-theme="dark"] .nav-bar h2 {
   grid-row: 2;
   grid-column: 2;
   padding: var(--space-6);
+  padding-bottom: calc(var(--bottom-nav-height) + var(--space-6));
   overflow-y: auto;
   background: var(--bg);
 }
@@ -1375,9 +1376,6 @@ html[data-theme="dark"] .nav-bar h2 {
 @media (min-width: 1024px) {
   .container {
     max-width: 1100px;
-  }
-  .page {
-    padding-bottom: var(--space-6);
   }
   .page.has-sidenav {
     padding-left: calc(var(--sidebar-width) + var(--space-6));
