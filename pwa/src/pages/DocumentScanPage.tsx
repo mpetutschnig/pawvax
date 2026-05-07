@@ -493,29 +493,40 @@ export default function DocumentScanPage() {
                     ))}
                     <input
                       type="file"
-                      id="addPageInput"
+                      id="addPageCameraInput"
                       accept="image/*"
                       capture="environment"
                       style={{ display: 'none' }}
                       onChange={handleAddPage}
                     />
-                    <label
-                      htmlFor="addPageInput"
+                    <input
+                      type="file"
+                      id="addPageFileInput"
+                      accept="image/*"
+                      style={{ display: 'none' }}
+                      onChange={handleAddPage}
+                    />
+                    <div
                       style={{
                         width: '60px',
                         height: '60px',
                         border: '2px dashed var(--border)',
                         borderRadius: 'var(--radius-sm)',
                         display: 'flex',
+                        flexDirection: 'column',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        cursor: 'pointer',
-                        transition: 'all var(--t-fast)',
+                        gap: '4px',
                         background: 'var(--surface)'
                       }}
                     >
-                      <Plus size={24} color="var(--text-secondary)" />
-                    </label>
+                      <label htmlFor="addPageCameraInput" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2px' }} title="Kamera">
+                        <Camera size={18} color="var(--text-secondary)" />
+                      </label>
+                      <label htmlFor="addPageFileInput" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2px' }} title="Datei">
+                        <Plus size={18} color="var(--text-secondary)" />
+                      </label>
+                    </div>
                   </div>
                 </div>
               )}
