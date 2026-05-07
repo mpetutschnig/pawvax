@@ -2,7 +2,9 @@ import { getDb } from '../db/index.js'
 import { logAudit } from '../services/audit.js'
 import {
   getAdminSettings,
+  getMailTransportConfig,
   getPublicSettings,
+  isMailConfigured,
   MAIL_SETTINGS_KEYS,
   PUBLIC_SETTINGS_KEYS,
   sanitizeSettingsForAudit,
@@ -106,11 +108,16 @@ export default async function settingsRoutes(fastify) {
       }
     })
 
-    return {
-      success: true,
-      message: result.skipped
-        ? 'Mail-Konfiguration ist vollständig. Versand wurde übersprungen.'
-        : 'Testmail erfolgreich versendet.'
+    if (result.skipped) {
+      return reply.code(400).send({ error: 'Mail-Konfiguration unvollständig oder deaktiviert. Bitte Einstellungen prüfen und speichern.' })
     }
+    return { success: true, message: 'Testmail erfolgreich versendet.' }
+  })
+
+  fastify.get('/api/admin/settings/mail-status', { onRequest: [fastify.authenticate] }, async (req, reply) => {
+    if (!req.user.role.includes('admin')) return reply.code(403).send({ error: 'Forbidden' })
+    const db = getDb()
+    const config = await getMailTransportConfig(db)
+    return { configured: isMailConfigured(config) }
   })
 }

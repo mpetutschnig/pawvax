@@ -158,6 +158,7 @@ export default function AdminPage() {
   const [verificationProcessing, setVerificationProcessing] = useState<string | null>(null)
   const [version, setVersion] = useState<any>(null)
   const [oauthStatus, setOauthStatus] = useState<Record<string, boolean>>({})
+  const [mailConfigured, setMailConfigured] = useState<boolean | null>(null)
 
   useEffect(() => {
     fetch('/api/settings').then(res => res.json()).then(data => setAppSettings(current => ({ ...current, ...data }))).catch(console.error)
@@ -167,6 +168,10 @@ export default function AdminPage() {
   useEffect(() => {
     if (section === 'settings-auth') {
       fetch('/api/auth/oauth/providers').then(res => res.json()).then(data => setOauthStatus(data)).catch(console.error)
+    }
+    if (section === 'settings-mail') {
+      fetch('/api/admin/settings/mail-status', { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } })
+        .then(res => res.json()).then(data => setMailConfigured(data.configured)).catch(() => setMailConfigured(false))
     }
   }, [section])
 
@@ -226,6 +231,10 @@ export default function AdminPage() {
     try {
       await adminPatchSettings(appSettings)
       alert(t('admin.settingsSaved'))
+      if (section === 'settings-mail') {
+        fetch('/api/admin/settings/mail-status', { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } })
+          .then(res => res.json()).then(data => setMailConfigured(data.configured)).catch(() => setMailConfigured(false))
+      }
       window.location.reload() // Lade die Seite neu, um Farbe/Name direkt global zu übernehmen
     } catch (e) {
       alert(t('common.error'))
@@ -784,7 +793,14 @@ export default function AdminPage() {
         {/* Settings – Mail */}
         {section === 'settings-mail' && !loading && (
           <div className="animate-fade-in">
-            <h1 style={{ marginBottom: 'var(--space-2)' }}>{t('admin.settingsMail')}</h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-2)', flexWrap: 'wrap' }}>
+              <h1 style={{ margin: 0 }}>{t('admin.settingsMail')}</h1>
+              {mailConfigured !== null && (
+                <span className={`badge ${mailConfigured ? 'badge-success' : 'badge-danger'}`}>
+                  {mailConfigured ? '✓ Mail konfiguriert' : '✗ Mail nicht konfiguriert'}
+                </span>
+              )}
+            </div>
             <p className="text-muted" style={{ marginBottom: 'var(--space-6)' }}>E-Mail-Versand, SMTP-Server und Absender-Konfiguration</p>
             <div className="card">
               <div className="form-group">

@@ -48,7 +48,10 @@ function buildFrom(config) {
 export async function sendTestEmail({ to, fastify, overrides = {} }) {
   const db = getDb()
   const baseConfig = await getMailTransportConfig(db)
-  const config = { ...baseConfig, ...overrides }
+  const cleanOverrides = Object.fromEntries(
+    Object.entries(overrides).filter(([, v]) => v !== undefined && v !== null && v !== '')
+  )
+  const config = { ...baseConfig, ...cleanOverrides }
 
   if (!isMailConfigured(config)) {
     return { delivered: false, skipped: true, reason: 'mail-not-configured' }
