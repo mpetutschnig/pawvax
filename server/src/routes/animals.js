@@ -90,7 +90,7 @@ async function applySharing(db, animal, requestRole, ownerName, ownerEmail, effe
     SELECT d.*, uploader.name AS added_by_name, uploader.verified AS added_by_verified
     FROM documents d
     LEFT JOIN accounts uploader ON uploader.id = d.added_by_account
-    WHERE d.animal_id = $1
+    WHERE d.animal_id = $1 AND d.analysis_status = 'completed'
     ORDER BY d.created_at DESC
   `, [animal.id])
 

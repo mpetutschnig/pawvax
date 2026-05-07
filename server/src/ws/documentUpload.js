@@ -22,17 +22,22 @@ function normalizeAllowedRoles(allowedRoles) {
 async function canAccessAnimalForUpload(db, animalId, accountId, userRole) {
   // Owner can always access their own animals
   const { rows: [ownerCheck] } = await db.query('SELECT 1 FROM animals WHERE id = $1 AND account_id = $2', [animalId, accountId])
-  if (ownerCheck) {
-    return true
-  }
+  if (ownerCheck) return true
 
-  // Vet/Authority must have scanned the animal first to upload documents
+  // Vet/Authority: scan history OR owner has enabled sharing for this role
+  // (sharing-based access covers vets who arrived via a sharing link)
   if (userRole === 'vet' || userRole === 'authority') {
     const { rows: [scanHistory] } = await db.query(
       'SELECT 1 FROM animal_scans WHERE animal_id = $1 AND account_id = $2 LIMIT 1',
       [animalId, accountId]
     )
-    return !!scanHistory
+    if (scanHistory) return true
+
+    const { rows: [sharingRow] } = await db.query(
+      'SELECT 1 FROM animal_sharing WHERE animal_id = $1 AND role = $2 LIMIT 1',
+      [animalId, userRole]
+    )
+    return !!sharingRow
   }
 
   // Guests cannot upload
@@ -171,11 +176,18 @@ export default async function wsDocumentUpload(fastify) {
           const { animalId, filename, mimeType, allowedRoles, pageNumber, documentId, language = 'de', requestedDocumentType = 'auto' } = msg
           const pageNum = pageNumber ?? 1
           const normalizedAllowedRoles = normalizeAllowedRoles(allowedRoles)
-
-          // Insert stub document so document_pages FK is satisfied
           const docId = documentId || uuid()
           fastify.log.debug({ docId, animalId, filename, page: pageNum }, 'WS: upload start')
           const db = getDb()
+
+          // Access-Check ZUERST — verhindert DB-Stubs bei jedem gescheiterten Versuch
+          if (!await canAccessAnimalForUpload(db, animalId, accountId, userRole)) {
+            fastify.log.error({ animalId, accountId, userRole }, '[WS] Access denied')
+            send(socket, { type: 'error', message: 'Zugriff verweigert' })
+            return
+          }
+
+          // Insert stub document so document_pages FK is satisfied
           const { rows: [existingCheck] } = await db.query('SELECT id FROM documents WHERE id = $1', [docId])
           if (!existingCheck) {
             // Use 'uploading' status — not 'pending_analysis' — so incomplete stubs
@@ -184,13 +196,6 @@ export default async function wsDocumentUpload(fastify) {
               INSERT INTO documents (id, animal_id, doc_type, image_path, extracted_json, ocr_provider, added_by_account, added_by_role, allowed_roles, analysis_status)
               VALUES ($1, $2, 'general', '', '{}', 'pending', $3, $4, $5, 'uploading')
             `, [docId, animalId, accountId, userRole, JSON.stringify(normalizedAllowedRoles)])
-          }
-
-          // sicherstellen, dass der Benutzer (Owner, Vet oder Authority) das Tier uploaden darf
-          if (!await canAccessAnimalForUpload(db, animalId, accountId, userRole)) {
-            fastify.log.error({ animalId, accountId, userRole }, '[WS] Access denied')
-            send(socket, { type: 'error', message: 'Zugriff verweigert' })
-            return
           }
 
           const safeFilename = `${uuid()}_${filename.replace(/[^a-z0-9._-]/gi, '_')}`
