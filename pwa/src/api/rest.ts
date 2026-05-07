@@ -71,6 +71,8 @@ export const deactivateTag = (tagId: string) =>
   api.patch(`/animal-tags/${tagId}`, { active: false })
 export const activateTag = (tagId: string) =>
   api.patch(`/animal-tags/${tagId}`, { active: true })
+export const deleteTag = (tagId: string) =>
+  api.delete(`/animal-tags/${tagId}`)
 
 // Documents
 export const getDocument = (id: string) => api.get(`/documents/${id}`)

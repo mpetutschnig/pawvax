@@ -753,6 +753,26 @@ export default async function animalRoutes(fastify) {
     return updatedTag
   })
 
+  fastify.delete('/api/animal-tags/:tagId', { onRequest: [fastify.authenticate] }, async (req, reply) => {
+    const db = getDb()
+    const { tagId } = req.params
+    const { accountId, role } = req.user
+
+    const { rows: [row] } = await db.query(`
+      SELECT t.tag_id, a.account_id FROM animal_tags t
+      JOIN animals a ON a.id = t.animal_id
+      WHERE t.tag_id = $1
+    `, [tagId])
+
+    if (!row) return reply.code(404).send({ error: 'Tag nicht gefunden' })
+    if (row.account_id !== accountId) return reply.code(403).send({ error: 'Keine Berechtigung' })
+
+    await db.query('DELETE FROM animal_tags WHERE tag_id = $1', [tagId])
+    await logAudit(db, { accountId, role, action: 'delete_tag', resource: 'tag', resourceId: tagId, ip: req.ip })
+
+    return { success: true }
+  })
+
   // Freigabe-Einstellungen lesen
   fastify.get('/api/animals/:id/sharing', async (req, reply) => {
     const db = getDb()

@@ -1045,37 +1045,6 @@ export default function AnimalPage() {
             </div>
           )}
 
-          {tags.length > 0 && (
-            <div style={{ marginBottom: 'var(--space-6)' }}>
-              <h3 style={{ marginBottom: 'var(--space-3)' }}>{t('animal.chips')}</h3>
-              {tags.map(tag => (
-                <div key={tag.tag_id} className="card card-sm" style={{ marginBottom: 'var(--space-2)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', justifyContent: 'space-between' }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: '4px' }}>
-                        {tag.tag_type === 'nfc'
-                          ? <Radio size={16} color="var(--primary-500)" />
-                          : tag.tag_type === 'chip'
-                            ? <PawPrint size={16} color="var(--primary-500)" />
-                            : <Camera size={16} color="var(--primary-500)" />}
-                        <span style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', wordBreak: 'break-all' }}>
-                          {tag.tag_id}
-                        </span>
-                      </div>
-                      <p className="text-muted" style={{ margin: 0, fontSize: '12px' }}>
-                        {tag.tag_type === 'barcode' ? t('chip.barcode') : tag.tag_type === 'chip' ? t('chip.microchip') : t('chip.nfc')}
-                      </p>
-                    </div>
-                    {tag.active === 1 ? (
-                      <span className="badge badge-success"><span className="badge-dot"></span>{t('chip.active')}</span>
-                    ) : (
-                      <span className="badge badge-danger">{t('chip.inactive')}</span>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
 
         <div>
@@ -1108,11 +1077,9 @@ export default function AnimalPage() {
                       const isExpanded = expandedRecord === record.id
                       return (
                         <>
-                          <tr key={record.id} style={{ borderBottom: isExpanded ? 'none' : '1px solid var(--border-subtle)', cursor: isOwner ? 'pointer' : undefined }} onClick={isOwner ? () => setExpandedRecord(isExpanded ? null : record.id) : undefined}>
+                          <tr key={record.id} style={{ borderBottom: isExpanded ? 'none' : '1px solid var(--border-subtle)', cursor: 'pointer' }} onClick={() => setExpandedRecord(isExpanded ? null : record.id)}>
                             <td style={{ padding: 'var(--space-2) 0' }}>
-                              <Link to={`/animals/${id}/documents/${record.documentId}`} style={{ color: 'var(--text-primary)', textDecoration: 'none', fontWeight: 600 }} onClick={e => e.stopPropagation()}>
-                                {record.vaccineName || '—'}
-                              </Link>
+                              <span style={{ fontWeight: 600 }}>{record.vaccineName || '—'}</span>
                               {record.manufacturer && <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>{record.manufacturer}</div>}
                             </td>
                             <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{record.administrationDate || '—'}</td>
@@ -1129,20 +1096,29 @@ export default function AnimalPage() {
                               </td>
                             )}
                           </tr>
-                          {isOwner && isExpanded && (
+                          {isExpanded && (
                             <tr key={`${record.id}-expand`} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                              <td colSpan={5} style={{ padding: 'var(--space-1) 0 var(--space-2) 0' }}>
-                                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                                  <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Freigabe:</span>
-                                  {(['guest', 'vet', 'authority'] as const).map(r => (
-                                    <label key={r} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 'var(--font-size-xs)', cursor: 'pointer' }}>
-                                      <input type="checkbox" checked={recPerms.includes(r)} disabled={updatingRecord === `${record.documentId}-${record.recordKey}`}
-                                        onChange={() => handleToggleRecordRole(record.documentId, record.recordKey, recPerms, r)} />
-                                      {r}
-                                    </label>
-                                  ))}
-                                  {updatingRecord === `${record.documentId}-${record.recordKey}` && <div className="spinner" style={{ width: 12, height: 12, borderWidth: 1 }} />}
+                              <td colSpan={6} style={{ padding: 'var(--space-2) 0 var(--space-3) 0' }}>
+                                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 'var(--space-2)' }}>
+                                  <Link to={`/animals/${id}/documents/${record.documentId}`} className="btn btn-outline" style={{ fontSize: 'var(--font-size-xs)', padding: '3px 10px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                    <FileText size={12} /> {t('animal.openDocument')}
+                                  </Link>
+                                  {record.batchNumber && <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>{t('vaccine.batchNumber')}: <strong>{record.batchNumber}</strong></span>}
+                                  {record.manufacturer && <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>{t('vaccine.manufacturer')}: <strong>{record.manufacturer}</strong></span>}
                                 </div>
+                                {isOwner && (
+                                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                                    <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Freigabe:</span>
+                                    {(['guest', 'vet', 'authority'] as const).map(r => (
+                                      <label key={r} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 'var(--font-size-xs)', cursor: 'pointer' }}>
+                                        <input type="checkbox" checked={recPerms.includes(r)} disabled={updatingRecord === `${record.documentId}-${record.recordKey}`}
+                                          onChange={() => handleToggleRecordRole(record.documentId, record.recordKey, recPerms, r)} />
+                                        {r}
+                                      </label>
+                                    ))}
+                                    {updatingRecord === `${record.documentId}-${record.recordKey}` && <div className="spinner" style={{ width: 12, height: 12, borderWidth: 1 }} />}
+                                  </div>
+                                )}
                               </td>
                             </tr>
                           )}
@@ -1187,11 +1163,9 @@ export default function AnimalPage() {
                         const isExpanded = expandedRecord === record.id
                         return (
                           <>
-                            <tr key={record.id} style={{ borderBottom: isExpanded ? 'none' : '1px solid var(--border-subtle)', cursor: isOwner ? 'pointer' : undefined }} onClick={isOwner ? () => setExpandedRecord(isExpanded ? null : record.id) : undefined}>
+                            <tr key={record.id} style={{ borderBottom: isExpanded ? 'none' : '1px solid var(--border-subtle)', cursor: 'pointer' }} onClick={() => setExpandedRecord(isExpanded ? null : record.id)}>
                               <td style={{ padding: 'var(--space-2) 0' }}>
-                                <Link to={`/animals/${id}/documents/${record.documentId}`} style={{ color: 'var(--text-primary)', textDecoration: 'none', fontWeight: 600 }} onClick={e => e.stopPropagation()}>
-                                  {record.substance}
-                                </Link>
+                                <span style={{ fontWeight: 600 }}>{record.substance}</span>
                               </td>
                               <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{record.administeredAt || '—'}</td>
                               <td className="col-mobile-hidden" style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{record.dosage || '—'}</td>
@@ -1207,25 +1181,30 @@ export default function AnimalPage() {
                                 </td>
                               )}
                             </tr>
-                            {isOwner && isExpanded && (
+                            {isExpanded && (
                               <tr key={`${record.id}-expand`} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                                <td colSpan={5} style={{ padding: 'var(--space-1) 0 var(--space-2) 0' }}>
-                                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                                    {record.vetName && (
-                                      <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', marginRight: 4 }}>
-                                        Tierarzt: <strong>{record.vetName}</strong>
-                                      </span>
-                                    )}
-                                    <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Freigabe:</span>
-                                    {(['guest', 'vet', 'authority'] as const).map(r => (
-                                      <label key={r} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 'var(--font-size-xs)', cursor: 'pointer' }}>
-                                        <input type="checkbox" checked={recPerms.includes(r)} disabled={updatingRecord === `${record.documentId}-${record.recordKey}`}
-                                          onChange={() => handleToggleRecordRole(record.documentId, record.recordKey, recPerms, r)} />
-                                        {r}
-                                      </label>
-                                    ))}
-                                    {updatingRecord === `${record.documentId}-${record.recordKey}` && <div className="spinner" style={{ width: 12, height: 12, borderWidth: 1 }} />}
+                                <td colSpan={6} style={{ padding: 'var(--space-2) 0 var(--space-3) 0' }}>
+                                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 'var(--space-2)' }}>
+                                    <Link to={`/animals/${id}/documents/${record.documentId}`} className="btn btn-outline" style={{ fontSize: 'var(--font-size-xs)', padding: '3px 10px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                      <FileText size={12} /> {t('animal.openDocument')}
+                                    </Link>
+                                    {record.dosage && <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Dosierung: <strong>{record.dosage}</strong></span>}
+                                    {record.vetName && <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Tierarzt: <strong>{record.vetName}</strong></span>}
+                                    {record.notes && <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Notiz: <strong>{record.notes}</strong></span>}
                                   </div>
+                                  {isOwner && (
+                                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                                      <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Freigabe:</span>
+                                      {(['guest', 'vet', 'authority'] as const).map(r => (
+                                        <label key={r} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 'var(--font-size-xs)', cursor: 'pointer' }}>
+                                          <input type="checkbox" checked={recPerms.includes(r)} disabled={updatingRecord === `${record.documentId}-${record.recordKey}`}
+                                            onChange={() => handleToggleRecordRole(record.documentId, record.recordKey, recPerms, r)} />
+                                          {r}
+                                        </label>
+                                      ))}
+                                      {updatingRecord === `${record.documentId}-${record.recordKey}` && <div className="spinner" style={{ width: 12, height: 12, borderWidth: 1 }} />}
+                                    </div>
+                                  )}
                                 </td>
                               </tr>
                             )}
@@ -1266,11 +1245,9 @@ export default function AnimalPage() {
                       const extracted = doc.extracted_json || {}
                       return (
                         <>
-                          <tr key={doc.id} style={{ borderBottom: isExpanded ? 'none' : '1px solid var(--border-subtle)', cursor: isOwner ? 'pointer' : undefined }} onClick={isOwner ? () => setExpandedRecord(isExpanded ? null : doc.id) : undefined}>
+                          <tr key={doc.id} style={{ borderBottom: isExpanded ? 'none' : '1px solid var(--border-subtle)', cursor: 'pointer' }} onClick={() => setExpandedRecord(isExpanded ? null : doc.id)}>
                             <td style={{ padding: 'var(--space-2) 0' }}>
-                              <Link to={`/animals/${id}/documents/${doc.id}`} style={{ color: 'var(--text-primary)', textDecoration: 'none', fontWeight: 600 }} onClick={e => e.stopPropagation()}>
-                                {extracted.title || 'Heimtierausweis'}
-                              </Link>
+                              <span style={{ fontWeight: 600 }}>{extracted.title || 'Heimtierausweis'}</span>
                             </td>
                             <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{extracted.passport_number || '—'}</td>
                             <td className="col-mobile-hidden" style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{extracted.section_type || '—'}</td>
@@ -1287,20 +1264,29 @@ export default function AnimalPage() {
                               </td>
                             )}
                           </tr>
-                          {isOwner && isExpanded && (
+                          {isExpanded && (
                             <tr key={`${doc.id}-expand`} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                              <td colSpan={6} style={{ padding: 'var(--space-1) 0 var(--space-2) 0' }}>
-                                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                                  <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Freigabe:</span>
-                                  {(['guest', 'vet', 'authority'] as const).map(r => (
-                                    <label key={r} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 'var(--font-size-xs)', cursor: 'pointer' }}>
-                                      <input type="checkbox" checked={docRoles.includes(r)} disabled={updatingRecord === `${doc.id}-doc`}
-                                        onChange={() => handleToggleDocumentRole(doc.id, docRoles, r)} />
-                                      {r}
-                                    </label>
-                                  ))}
-                                  {updatingRecord === `${doc.id}-doc` && <div className="spinner" style={{ width: 12, height: 12, borderWidth: 1 }} />}
+                              <td colSpan={7} style={{ padding: 'var(--space-2) 0 var(--space-3) 0' }}>
+                                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 'var(--space-2)' }}>
+                                  <Link to={`/animals/${id}/documents/${doc.id}`} className="btn btn-outline" style={{ fontSize: 'var(--font-size-xs)', padding: '3px 10px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                    <FileText size={12} /> {t('animal.openDocument')}
+                                  </Link>
+                                  {extracted.section_type && <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Abschnitt: <strong>{extracted.section_type}</strong></span>}
+                                  {extracted.identification?.chip_code && <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Chip: <strong>{extracted.identification.chip_code}</strong></span>}
                                 </div>
+                                {isOwner && (
+                                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                                    <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Freigabe:</span>
+                                    {(['guest', 'vet', 'authority'] as const).map(r => (
+                                      <label key={r} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 'var(--font-size-xs)', cursor: 'pointer' }}>
+                                        <input type="checkbox" checked={docRoles.includes(r)} disabled={updatingRecord === `${doc.id}-doc`}
+                                          onChange={() => handleToggleDocumentRole(doc.id, docRoles, r)} />
+                                        {r}
+                                      </label>
+                                    ))}
+                                    {updatingRecord === `${doc.id}-doc` && <div className="spinner" style={{ width: 12, height: 12, borderWidth: 1 }} />}
+                                  </div>
+                                )}
                               </td>
                             </tr>
                           )}
@@ -1339,11 +1325,9 @@ export default function AnimalPage() {
                       const extracted = doc.extracted_json || {}
                       return (
                         <>
-                          <tr key={doc.id} style={{ borderBottom: isExpanded ? 'none' : '1px solid var(--border-subtle)', cursor: isOwner ? 'pointer' : undefined }} onClick={isOwner ? () => setExpandedRecord(isExpanded ? null : doc.id) : undefined}>
+                          <tr key={doc.id} style={{ borderBottom: isExpanded ? 'none' : '1px solid var(--border-subtle)', cursor: 'pointer' }} onClick={() => setExpandedRecord(isExpanded ? null : doc.id)}>
                             <td style={{ padding: 'var(--space-2) 0' }}>
-                              <Link to={`/animals/${id}/documents/${doc.id}`} style={{ color: 'var(--text-primary)', textDecoration: 'none', fontWeight: 600 }} onClick={e => e.stopPropagation()}>
-                                {extracted.title || 'Medizinisches Produkt'}
-                              </Link>
+                              <span style={{ fontWeight: 600 }}>{extracted.title || 'Medizinisches Produkt'}</span>
                             </td>
                             <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{extracted.active_ingredient || '—'}</td>
                             <td className="col-mobile-hidden" style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{extracted.batch_number || '—'}</td>
@@ -1359,20 +1343,29 @@ export default function AnimalPage() {
                               </td>
                             )}
                           </tr>
-                          {isOwner && isExpanded && (
+                          {isExpanded && (
                             <tr key={`${doc.id}-expand`} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                              <td colSpan={5} style={{ padding: 'var(--space-1) 0 var(--space-2) 0' }}>
-                                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                                  <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Freigabe:</span>
-                                  {(['guest', 'vet', 'authority'] as const).map(r => (
-                                    <label key={r} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 'var(--font-size-xs)', cursor: 'pointer' }}>
-                                      <input type="checkbox" checked={docRoles.includes(r)} disabled={updatingRecord === `${doc.id}-doc`}
-                                        onChange={() => handleToggleDocumentRole(doc.id, docRoles, r)} />
-                                      {r}
-                                    </label>
-                                  ))}
-                                  {updatingRecord === `${doc.id}-doc` && <div className="spinner" style={{ width: 12, height: 12, borderWidth: 1 }} />}
+                              <td colSpan={6} style={{ padding: 'var(--space-2) 0 var(--space-3) 0' }}>
+                                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 'var(--space-2)' }}>
+                                  <Link to={`/animals/${id}/documents/${doc.id}`} className="btn btn-outline" style={{ fontSize: 'var(--font-size-xs)', padding: '3px 10px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                    <FileText size={12} /> {t('animal.openDocument')}
+                                  </Link>
+                                  {extracted.active_ingredient && <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Wirkstoff: <strong>{extracted.active_ingredient}</strong></span>}
+                                  {extracted.batch_number && <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Charge: <strong>{extracted.batch_number}</strong></span>}
                                 </div>
+                                {isOwner && (
+                                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                                    <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Freigabe:</span>
+                                    {(['guest', 'vet', 'authority'] as const).map(r => (
+                                      <label key={r} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 'var(--font-size-xs)', cursor: 'pointer' }}>
+                                        <input type="checkbox" checked={docRoles.includes(r)} disabled={updatingRecord === `${doc.id}-doc`}
+                                          onChange={() => handleToggleDocumentRole(doc.id, docRoles, r)} />
+                                        {r}
+                                      </label>
+                                    ))}
+                                    {updatingRecord === `${doc.id}-doc` && <div className="spinner" style={{ width: 12, height: 12, borderWidth: 1 }} />}
+                                  </div>
+                                )}
                               </td>
                             </tr>
                           )}

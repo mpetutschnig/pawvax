@@ -40,6 +40,8 @@ export default function ProfilePage() {
   const [apiKeys, setApiKeys] = useState<any[]>([])
   const [newKeyName, setNewKeyName] = useState('')
   const [creatingKey, setCreatingKey] = useState(false)
+  const [createdKey, setCreatedKey] = useState<{ id: string; raw: string; description: string } | null>(null)
+  const [copiedKey, setCopiedKey] = useState(false)
   const [activeTab, setActiveTab] = useState<'account' | 'ai' | 'developer' | 'data'>('account')
 
   const renderModelHint = (message: string) => (
@@ -69,14 +71,23 @@ export default function ProfilePage() {
     setCreatingKey(true)
     try {
       const res = await createUserApiKey(newKeyName)
-      alert(`API Key erstellt:\n\n${res.data.raw}\n\nSpeichern Sie diesen Schlüssel sicher - er wird nicht erneut angezeigt!`)
+      setCreatedKey({ id: res.data.id, raw: res.data.raw, description: res.data.description })
+      setCopiedKey(false)
       setNewKeyName('')
       await loadApiKeys()
+      setTimeout(() => setCreatedKey(null), 5 * 60 * 1000)
     } catch (err) {
       alert(t('common.error'))
     } finally {
       setCreatingKey(false)
     }
+  }
+
+  const handleCopyKey = () => {
+    if (!createdKey) return
+    navigator.clipboard.writeText(createdKey.raw)
+    setCopiedKey(true)
+    setTimeout(() => setCopiedKey(false), 3000)
   }
 
   const handleDeleteApiKey = async (id: string) => {
@@ -703,10 +714,24 @@ export default function ProfilePage() {
                 {creatingKey ? t('common.loading') : t('common.create')}
               </button>
             </div>
+
+            {createdKey && (
+              <div style={{ marginBottom: 'var(--space-4)', padding: 'var(--space-3)', background: 'var(--success-50)', borderRadius: 'var(--radius-md)', border: '1px solid var(--success-300)' }}>
+                <p style={{ margin: '0 0 var(--space-2) 0', fontSize: 'var(--font-size-sm)', fontWeight: 600, color: 'var(--success-700)' }}>{t('profile.apiKeyCreated')}</p>
+                <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
+                  <code style={{ flex: 1, fontSize: 'var(--font-size-xs)', wordBreak: 'break-all', background: 'var(--surface)', padding: '6px 8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', userSelect: 'all' }}>{createdKey.raw}</code>
+                  <button className="btn btn-outline" style={{ flexShrink: 0, fontSize: 'var(--font-size-xs)', padding: '4px 10px' }} onClick={handleCopyKey}>
+                    {copiedKey ? t('common.copied') : t('profile.copy')}
+                  </button>
+                </div>
+                <p style={{ margin: 'var(--space-2) 0 0 0', fontSize: 'var(--font-size-xs)', color: 'var(--warning-600)' }}>{t('profile.apiKeyOnce')}</p>
+              </div>
+            )}
+
             {apiKeys.length > 0 && (
               <div style={{ display: 'grid', gap: 'var(--space-2)' }}>
                 {apiKeys.map(key => (
-                  <div key={key.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 'var(--space-2) var(--space-3)', background: 'var(--surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
+                  <div key={key.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 'var(--space-2) var(--space-3)', background: createdKey?.id === key.id ? 'var(--success-50)' : 'var(--surface)', borderRadius: 'var(--radius-sm)', border: createdKey?.id === key.id ? '1px solid var(--success-300)' : '1px solid var(--border)' }}>
                     <div>
                       <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>{key.description}</div>
                       <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>{key.key_prefix} · {formatDateOnly(key.created_at)}</div>
@@ -723,7 +748,10 @@ export default function ProfilePage() {
             <h3 style={{ marginTop: 0, marginBottom: 'var(--space-3)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
               <BookOpen size={18} color="var(--primary-500)" /> {t('docs.title')}
             </h3>
-            <button className="btn btn-outline btn-full" onClick={() => navigate('/docs')}>{t('docs.openDocs')}</button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+              <button className="btn btn-outline btn-full" onClick={() => navigate('/docs')}>{t('docs.openDocs')}</button>
+              <a href="https://pawapi.oxs.at/documentation" target="_blank" rel="noopener noreferrer" className="btn btn-outline btn-full" style={{ textDecoration: 'none', textAlign: 'center' }}>{t('profile.swaggerLink')}</a>
+            </div>
           </div>
         </>
       )}

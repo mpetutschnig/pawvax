@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { getAnimalTags, addTag, deactivateTag, activateTag } from '../api/rest'
+import { getAnimalTags, addTag, deactivateTag, activateTag, deleteTag } from '../api/rest'
 import { useBarcode } from '../hooks/useBarcode'
 import { useNfc } from '../hooks/useNfc'
 import { PageHeader } from '../components/PageHeader'
@@ -85,6 +85,14 @@ export default function TagManagementPage() {
     } catch { setError(t('common.error')) }
   }
 
+  async function handleDeleteTag(tag: Tag) {
+    if (!confirm(t('chip.deleteConfirm'))) return
+    try {
+      await deleteTag(tag.tag_id)
+      reload()
+    } catch { setError(t('common.error')) }
+  }
+
   return (
     <div className="container page">
       <PageHeader title={t('chip.manage')} backTo={`/animals/${id}`} showThemeToggle />
@@ -125,12 +133,29 @@ export default function TagManagementPage() {
                   ) : (
                     <span className="badge badge-warning"><XCircle size={10} /> {t('chip.inactive')}</span>
                   )}
-                  <button
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 'var(--font-size-xs)', color: 'var(--primary-600)', fontWeight: 600, padding: 0 }}
-                    onClick={() => toggleTag(tag)}
-                  >
-                    {tag.active ? t('chip.delete') : t('chip.active')}
-                  </button>
+                  {tag.active ? (
+                    <button
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', fontWeight: 600, padding: 0 }}
+                      onClick={() => toggleTag(tag)}
+                    >
+                      {t('chip.deactivate')}
+                    </button>
+                  ) : (
+                    <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+                      <button
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 'var(--font-size-xs)', color: 'var(--primary-600)', fontWeight: 600, padding: 0 }}
+                        onClick={() => toggleTag(tag)}
+                      >
+                        {t('chip.activate')}
+                      </button>
+                      <button
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 'var(--font-size-xs)', color: 'var(--danger-500)', fontWeight: 600, padding: 0 }}
+                        onClick={() => handleDeleteTag(tag)}
+                      >
+                        {t('common.delete')}
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
