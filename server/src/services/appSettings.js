@@ -8,13 +8,15 @@ export const PUBLIC_SETTINGS_KEYS = new Set([
   'last_test_run',
   'mail_enabled',
   'billing_price_per_page',
-  'maintenance_mode'
+  'maintenance_mode',
+  'app_base_url'
 ])
 
 export const GOVERNANCE_SETTINGS_KEYS = [
   'maintenance_mode',
   'audit_retention_days',
-  'default_rate_limit_per_min'
+  'default_rate_limit_per_min',
+  'app_base_url'
 ]
 
 export const AI_SETTINGS_KEYS = [
@@ -194,6 +196,7 @@ export async function getAdminSettings(db = getDb()) {
     maintenance_mode: normalizeBoolean(raw.maintenance_mode),
     audit_retention_days: Number(raw.audit_retention_days || 365),
     default_rate_limit_per_min: Number(raw.default_rate_limit_per_min || 60),
+    app_base_url: raw.app_base_url || '',
   }
 
   for (const secretKey of SECRET_SETTINGS_KEYS) {

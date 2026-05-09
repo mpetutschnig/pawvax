@@ -5,6 +5,7 @@
   "admin.actions": "Aktionen",
   "admin.adminUser": "Administrator",
   "admin.animals": "Tiere",
+  "admin.appBaseUrl": "App Basis-URL (für E-Mails)",
   "admin.appName": "App Name",
   "admin.approve": "Genehmigen",
   "admin.approveOrg": "Als Organisation zulassen",

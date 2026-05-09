@@ -1,8 +1,8 @@
 import { getDb } from '../db/index.js'
 import { getMailTransportConfig, isMailConfigured } from './appSettings.js'
 
-function getBaseUrl() {
-  return (process.env.APP_BASE_URL || process.env.PUBLIC_APP_URL || 'http://localhost:5173').replace(/\/$/, '')
+function getBaseUrl(configuredUrl) {
+  return (configuredUrl || process.env.APP_BASE_URL || process.env.PUBLIC_APP_URL || 'http://localhost:5173').replace(/\/$/, '')
 }
 
 async function loadMailer() {
@@ -75,18 +75,22 @@ export function shouldExposeAuthTokens() {
   return process.env.NODE_ENV === 'test' || process.env.PAW_EXPOSE_AUTH_TOKENS === '1'
 }
 
-export function buildVerificationUrl(token) {
-  return `${getBaseUrl()}/login?verifyToken=${encodeURIComponent(token)}`
+export function buildVerificationUrl(token, configuredUrl) {
+  return `${getBaseUrl(configuredUrl)}/login?verifyToken=${encodeURIComponent(token)}`
 }
 
-export function buildResetUrl(token) {
-  return `${getBaseUrl()}/login?resetToken=${encodeURIComponent(token)}`
+export function buildResetUrl(token, configuredUrl) {
+  return `${getBaseUrl(configuredUrl)}/login?resetToken=${encodeURIComponent(token)}`
 }
 
 export async function sendAuthEmail({ type, to, name, token, fastify }) {
   const db = getDb()
   const config = await getMailTransportConfig(db)
-  const actionUrl = type === 'verify-email' ? buildVerificationUrl(token) : buildResetUrl(token)
+  
+  const { rows: settingsRows } = await db.query("SELECT value FROM settings WHERE key = 'app_base_url'")
+  const configuredUrl = settingsRows[0]?.value || null
+
+  const actionUrl = type === 'verify-email' ? buildVerificationUrl(token, configuredUrl) : buildResetUrl(token, configuredUrl)
   const subject = type === 'verify-email'
     ? 'Bitte bestaetigen Sie Ihre E-Mail-Adresse'
     : 'Passwort zuruecksetzen'

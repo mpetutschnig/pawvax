@@ -95,6 +95,7 @@ interface OrphanReport {
 
 interface AdminSettingsState {
   app_name: string
+  app_base_url: string
   theme_color: string
   logo_data: string
   mail_enabled: boolean
@@ -132,6 +133,7 @@ interface AdminSettingsState {
 
 const defaultAdminSettings: AdminSettingsState = {
   app_name: '',
+  app_base_url: '',
   theme_color: '#0ea5e9',
   logo_data: '',
   mail_enabled: false,
@@ -809,6 +811,11 @@ export default function AdminPage() {
               <div className="form-group">
                 <label className="form-label">{t('admin.appName')}</label>
                 <input className="form-input" value={appSettings.app_name || ''} onChange={e => setAppSettings({...appSettings, app_name: e.target.value})} placeholder="z.B. Tierarztpraxis Huber" />
+              </div>
+              <div className="form-group">
+                <label className="form-label">{t('admin.appBaseUrl')}</label>
+                <input className="form-input" value={appSettings.app_base_url || ''} onChange={e => setAppSettings({...appSettings, app_base_url: e.target.value})} placeholder="https://vetsucht.oxs.at" />
+                <p className="text-muted" style={{ fontSize: '12px', marginTop: '4px' }}>Wird für Links in Verifizierungs- und Passwort-Reset-E-Mails verwendet.</p>
               </div>
               <div className="form-group">
                 <label className="form-label">{t('admin.themeColor')}</label>
