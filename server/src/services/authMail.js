@@ -1,8 +1,15 @@
 import { getDb } from '../db/index.js'
 import { getMailTransportConfig, isMailConfigured } from './appSettings.js'
 
-function getBaseUrl(configuredUrl) {
-  return (configuredUrl || process.env.APP_BASE_URL || process.env.PUBLIC_APP_URL || 'http://localhost:5173').replace(/\/$/, '')
+function getBaseUrl(req) {
+  // PWA origin detection from request
+  let origin = req?.headers?.origin
+  if (!origin && req?.headers?.referer) {
+    try {
+      origin = new URL(req.headers.referer).origin
+    } catch { /* ignore invalid referer */ }
+  }
+  return (origin || process.env.PWA_URL || process.env.APP_BASE_URL || process.env.PUBLIC_APP_URL || 'http://localhost:5173').replace(/\/$/, '')
 }
 
 async function loadMailer() {
@@ -75,22 +82,19 @@ export function shouldExposeAuthTokens() {
   return process.env.NODE_ENV === 'test' || process.env.PAW_EXPOSE_AUTH_TOKENS === '1'
 }
 
-export function buildVerificationUrl(token, configuredUrl) {
-  return `${getBaseUrl(configuredUrl)}/login?verifyToken=${encodeURIComponent(token)}`
+export function buildVerificationUrl(token, req) {
+  return `${getBaseUrl(req)}/login?verifyToken=${encodeURIComponent(token)}`
 }
 
-export function buildResetUrl(token, configuredUrl) {
-  return `${getBaseUrl(configuredUrl)}/login?resetToken=${encodeURIComponent(token)}`
+export function buildResetUrl(token, req) {
+  return `${getBaseUrl(req)}/login?resetToken=${encodeURIComponent(token)}`
 }
 
-export async function sendAuthEmail({ type, to, name, token, fastify }) {
+export async function sendAuthEmail({ type, to, name, token, fastify, req }) {
   const db = getDb()
   const config = await getMailTransportConfig(db)
   
-  const { rows: settingsRows } = await db.query("SELECT value FROM settings WHERE key = 'app_base_url'")
-  const configuredUrl = settingsRows[0]?.value || null
-
-  const actionUrl = type === 'verify-email' ? buildVerificationUrl(token, configuredUrl) : buildResetUrl(token, configuredUrl)
+  const actionUrl = type === 'verify-email' ? buildVerificationUrl(token, req) : buildResetUrl(token, req)
   const subject = type === 'verify-email'
     ? 'Bitte bestaetigen Sie Ihre E-Mail-Adresse'
     : 'Passwort zuruecksetzen'

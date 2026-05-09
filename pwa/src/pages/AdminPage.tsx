@@ -813,11 +813,6 @@ export default function AdminPage() {
                 <input className="form-input" value={appSettings.app_name || ''} onChange={e => setAppSettings({...appSettings, app_name: e.target.value})} placeholder="z.B. Tierarztpraxis Huber" />
               </div>
               <div className="form-group">
-                <label className="form-label">{t('admin.appBaseUrl')}</label>
-                <input className="form-input" value={appSettings.app_base_url || ''} onChange={e => setAppSettings({...appSettings, app_base_url: e.target.value})} placeholder="https://vetsucht.oxs.at" />
-                <p className="text-muted" style={{ fontSize: '12px', marginTop: '4px' }}>Wird für Links in Verifizierungs- und Passwort-Reset-E-Mails verwendet.</p>
-              </div>
-              <div className="form-group">
                 <label className="form-label">{t('admin.themeColor')}</label>
                 <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
                   <input type="color" value={appSettings.theme_color || '#0ea5e9'} onChange={e => setAppSettings({...appSettings, theme_color: e.target.value})} style={{ width: '40px', height: '40px', padding: 0, border: 'none', borderRadius: 'var(--radius-sm)' }} />

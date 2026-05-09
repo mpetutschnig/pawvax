@@ -144,7 +144,7 @@ export default async function authRoutes(fastify) {
     )
 
     const verificationToken = await createEmailVerificationToken(db, id)
-    const mailResult = await sendAuthEmail({ type: 'verify-email', to: email, name, token: verificationToken, fastify })
+    const mailResult = await sendAuthEmail({ type: 'verify-email', to: email, name, token: verificationToken, fastify, req })
 
     await logAudit(db, { accountId: id, role: 'user', action: 'register', resource: 'account', resourceId: id, ip: req.ip })
     await logAudit(db, {
@@ -249,7 +249,7 @@ export default async function authRoutes(fastify) {
     }
 
     const resetToken = await createPasswordResetToken(db, account.id)
-    const resetMailResult = await sendAuthEmail({ type: 'reset-password', to: account.email, name: account.name, token: resetToken, fastify })
+    const resetMailResult = await sendAuthEmail({ type: 'reset-password', to: account.email, name: account.name, token: resetToken, fastify, req })
     await logAudit(db, { accountId: account.id, role: 'user', action: 'forgot_password', resource: 'account', resourceId: account.id, ip: req.ip })
     await logAudit(db, {
       accountId: account.id, role: 'system', action: 'mail_delivery', resource: 'mail', resourceId: account.email,
@@ -613,7 +613,8 @@ export default async function authRoutes(fastify) {
         to: email.toLowerCase(),
         name: name || req.user.name,
         token: verificationToken,
-        fastify
+        fastify,
+        req
       })
     }
 
