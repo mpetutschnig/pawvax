@@ -4,6 +4,9 @@ import { fileTypeFromFile } from 'file-type'
 import { getDb } from '../db/index.js'
 import { saveImageChunks } from '../services/storage.js'
 import { logAudit } from '../services/audit.js'
+import { decrypt } from '../utils/crypto.js'
+import { resolveModel } from '../utils/aiModels.js'
+import { getSettingsMap, getSystemAiKeys } from '../services/appSettings.js'
 import { runDocumentAnalysis } from '../services/analysisPipeline.js'
 
 // Track active uploads per accountId to prevent DoS/Storage exhaustion

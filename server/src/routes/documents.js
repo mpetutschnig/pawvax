@@ -3,7 +3,8 @@ import { normalizeDocumentType } from '../services/ocr.js'
 import { logAudit } from '../services/audit.js'
 import { unlink } from 'fs/promises'
 import { resolve } from 'path'
-import { randomUUID } from 'crypto'
+import { randomUUID } from 'node:crypto'
+import { isAllowedModel } from '../utils/aiModels.js'
 import { runDocumentAnalysis, getDocumentPages } from '../services/analysisPipeline.js'
 
 function normalizeRole(role) {
@@ -360,7 +361,7 @@ export default async function documentRoutes(fastify) {
       // Setze status auf 'analyzing'
       await db.query('UPDATE documents SET analysis_status = $1 WHERE id = $2', ['analyzing', docId])
 
-      const result = await runDocumentAnalysis(db, doc, accountId, role, {
+      const result = await runDocumentAnalysis(db, doc, accountId, {
         provider: requestedProvider,
         model: requestedModel,
         language,
@@ -469,7 +470,7 @@ export default async function documentRoutes(fastify) {
         VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
       `, [historyId, docId, oldExtractedJson, maxversion + 1, doc.ocr_provider])
 
-      const result = await runDocumentAnalysis(db, doc, accountId, role, {
+      const result = await runDocumentAnalysis(db, doc, accountId, {
         provider: requestedProvider,
         model: requestedModel,
         language,

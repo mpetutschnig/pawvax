@@ -1,4 +1,4 @@
-import { randomUUID } from 'crypto'
+import { randomUUID } from 'node:crypto'
 import { decrypt } from '../utils/crypto.js'
 import { isAllowedModel, resolveModel } from '../utils/aiModels.js'
 import { getSettingsMap, getSystemAiKeys } from './appSettings.js'
@@ -179,12 +179,15 @@ export async function runDocumentAnalysis(db, doc, accountId, options, log, reqI
     WHERE id = $6
   `, [JSON.stringify(extractedData), result.provider, nextStatus, extractedData.type, analysisPages[0].image_path, docId])
 
+  const ocrProvider = result.provider || 'unknown'
+  const modelUsed = ocrProvider
+
   if (nextStatus === 'completed') {
     try {
       await db.query(
         `INSERT INTO usage_logs (id, account_id, document_id, pages_analyzed, ocr_provider, model_used, is_system_fallback, analyzed_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP)`,
-        [randomUUID(), accountId, docId, analysisPages.length, result.provider, result.provider, hasOwnKey ? 0 : 1]
+        [randomUUID(), accountId, docId, analysisPages.length, ocrProvider, modelUsed, hasOwnKey ? 0 : 1]
       )
     } catch (usageErr) {
       log.warn({ err: usageErr }, 'Analysis: Failed to insert usage_log')
