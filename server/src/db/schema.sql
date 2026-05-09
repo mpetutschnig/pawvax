@@ -2,6 +2,7 @@ CREATE TABLE IF NOT EXISTS accounts (
   id            TEXT PRIMARY KEY,
   name          TEXT NOT NULL,
   email         TEXT UNIQUE NOT NULL,
+  pending_email TEXT,
   password_hash TEXT NOT NULL,
   email_verified INTEGER NOT NULL DEFAULT 0,
   email_verification_required INTEGER NOT NULL DEFAULT 0,

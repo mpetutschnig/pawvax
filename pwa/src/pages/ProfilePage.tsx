@@ -521,6 +521,14 @@ export default function ProfilePage() {
                 onChange={e => setEditEmail(e.target.value)} 
                 placeholder={t('profile.email')}
               />
+              {profile.pending_email && (
+                <div style={{ marginTop: 'var(--space-2)', padding: 'var(--space-2) var(--space-3)', background: 'var(--warning-50)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--warning-200)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                  <Clock size={14} color="var(--warning-600)" />
+                  <p style={{ margin: 0, fontSize: 'var(--font-size-xs)', color: 'var(--warning-700)', fontWeight: 500 }}>
+                    {t('profile.pendingEmailHint', { email: profile.pending_email })}
+                  </p>
+                </div>
+              )}
             </div>
 
             <div style={{ padding: 'var(--space-3)', background: 'var(--surface-alt)', borderRadius: 'var(--radius-md)', marginTop: 'var(--space-4)', border: '1px solid var(--border)' }}>

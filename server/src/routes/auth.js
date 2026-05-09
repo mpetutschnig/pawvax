@@ -184,7 +184,7 @@ export default async function authRoutes(fastify) {
     const tokenHash = hashToken(token)
 
     const { rows: [verification] } = await db.query(`
-      SELECT evt.id, evt.account_id, a.email, a.name
+      SELECT evt.id, evt.account_id, a.email, a.pending_email, a.name
       FROM email_verification_tokens evt
       JOIN accounts a ON a.id = evt.account_id
       WHERE evt.token_hash = $1
@@ -197,10 +197,18 @@ export default async function authRoutes(fastify) {
     }
 
     await db.query('UPDATE email_verification_tokens SET consumed_at = $1 WHERE id = $2', [now, verification.id])
-    await db.query(
-      'UPDATE accounts SET email_verified = 1, email_verified_at = CURRENT_TIMESTAMP WHERE id = $1',
-      [verification.account_id]
-    )
+    
+    if (verification.pending_email) {
+      await db.query(
+        'UPDATE accounts SET email = pending_email, pending_email = NULL, email_verified = 1, email_verified_at = CURRENT_TIMESTAMP WHERE id = $1',
+        [verification.account_id]
+      )
+    } else {
+      await db.query(
+        'UPDATE accounts SET email_verified = 1, email_verified_at = CURRENT_TIMESTAMP WHERE id = $1',
+        [verification.account_id]
+      )
+    }
 
     await logAudit(db, {
       accountId: verification.account_id,
@@ -494,7 +502,7 @@ export default async function authRoutes(fastify) {
   // Eigenes Profil lesen
   fastify.get('/api/accounts/me', { onRequest: [fastify.authenticate] }, async (req, reply) => {
     const db = getDb()
-    const { rows: [account] } = await db.query('SELECT id, name, email, role, verified, verification_status, email_verified, email_verification_required, gemini_model, claude_model, created_at FROM accounts WHERE id = $1', [req.user.accountId])
+    const { rows: [account] } = await db.query('SELECT id, name, email, pending_email, role, verified, verification_status, email_verified, email_verification_required, gemini_model, claude_model, created_at FROM accounts WHERE id = $1', [req.user.accountId])
     if (!account) return reply.code(404).send({ error: 'Account nicht gefunden' })
     const roles = (account.role ?? 'user').split(',').map(r => r.trim())
     const { rows: [fullAccount] } = await db.query('SELECT gemini_token, anthropic_token, openai_token, ai_provider_priority FROM accounts WHERE id = $1', [account.id])
@@ -523,15 +531,17 @@ export default async function authRoutes(fastify) {
 
     // Email change
     if (email !== undefined && email !== req.user.email) {
-      // Check if email already exists
-      const { rows: [existing] } = await db.query('SELECT id FROM accounts WHERE email = $1 AND id != $2', [email.toLowerCase(), accountId])
+      const lowerEmail = email.toLowerCase()
+      // Check if email already exists as primary or pending for someone else
+      const { rows: [existing] } = await db.query(
+        'SELECT id FROM accounts WHERE (email = $1 OR pending_email = $1) AND id != $2',
+        [lowerEmail, accountId]
+      )
       if (existing) {
         return reply.code(409).send({ error: 'E-Mail bereits von einem anderen Account verwendet' })
       }
-      vals.push(email.toLowerCase())
-      updates.push(`email = $${vals.length}`)
-      updates.push(`email_verified = 0`)
-      updates.push(`email_verification_required = 1`)
+      vals.push(lowerEmail)
+      updates.push(`pending_email = $${vals.length}`)
     }
 
     // Password change

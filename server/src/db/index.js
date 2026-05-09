@@ -190,6 +190,10 @@ export async function initDb(connectionString) {
     await pool.query('CREATE INDEX IF NOT EXISTS idx_oauth_accounts_account ON oauth_accounts(account_id)')
   } catch { /* table may already exist */ }
 
+  try {
+    await pool.query("ALTER TABLE accounts ADD COLUMN IF NOT EXISTS pending_email TEXT")
+  } catch { /* already exists */ }
+
   // Migration: AI fallback control + billing budget in euros
   try { await pool.query("ALTER TABLE accounts ADD COLUMN IF NOT EXISTS system_fallback_enabled INTEGER DEFAULT 1") } catch { /* already exists */ }
   try { await pool.query("ALTER TABLE accounts ADD COLUMN IF NOT EXISTS billing_budget_eur REAL DEFAULT NULL") } catch { /* already exists */ }

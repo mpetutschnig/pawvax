@@ -603,6 +603,7 @@
   "profile.openaiModelHint": "Recommended: GPT-4o Mini for fast and cost-efficient analysis. Larger models cost more.",
   "profile.openaiSaved": "OpenAI API key saved",
   "profile.passwordHint": "At least 8 characters. Leave empty to keep current password.",
+  "profile.pendingEmailHint": "Verification pending for: {{email}}",
   "profile.profileUpdated": "Profile updated successfully!",
   "profile.rejectionReason": "Rejection Reason",
   "profile.requestVerification": "Request Verification (Vet/Org)",
