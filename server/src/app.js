@@ -342,9 +342,9 @@ setInterval(async () => {
     const { rows: [setting] } = await db.query("SELECT value FROM settings WHERE key = 'audit_retention_days'")
     const retentionDays = parseInt(setting?.value || '365')
     
-    const result = await db.query(\`DELETE FROM audit_log WHERE created_at < CURRENT_TIMESTAMP - INTERVAL '\$1 days'\`, [retentionDays])
+    const result = await db.query(`DELETE FROM audit_log WHERE created_at < CURRENT_TIMESTAMP - INTERVAL '$1 days'`, [retentionDays])
     if (result.rowCount > 0) {
-      fastify.log.info(\`Retention: \${result.rowCount} alte Audit-Logs gelöscht (> \${retentionDays} Tage)\`)
+      fastify.log.info(`Retention: ${result.rowCount} alte Audit-Logs gelöscht (> ${retentionDays} Tage)`)
     }
   } catch (err) {
     fastify.log.error({ err }, 'Fehler beim Cleanup der Audit-Logs')
