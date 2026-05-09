@@ -44,6 +44,13 @@ export default function ProfilePage() {
   const [copiedKey, setCopiedKey] = useState(false)
   const [activeTab, setActiveTab] = useState<'account' | 'ai' | 'developer' | 'data'>('account')
 
+  // Edit Profile state
+  const [editName, setEditName] = useState('')
+  const [editEmail, setEditEmail] = useState('')
+  const [editPassword, setEditPassword] = useState('')
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [profileSaving, setProfileSaving] = useState(false)
+
   const renderModelHint = (message: string) => (
     <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-3)', padding: 'var(--space-3)', background: 'color-mix(in oklch, var(--info-500) 10%, var(--surface))', borderRadius: 'var(--radius-md)', border: '1px solid color-mix(in oklch, var(--info-500) 28%, transparent)' }}>
       <AlertTriangle size={16} color="var(--info-600)" style={{ flexShrink: 0, marginTop: '2px' }} />
@@ -113,6 +120,8 @@ export default function ProfilePage() {
     try {
       const res = await getMe()
       setProfile(res.data)
+      setEditName(res.data.name)
+      setEditEmail(res.data.email)
       setGeminiModel(res.data.gemini_model || DEFAULT_MODEL_BY_PROVIDER.google)
       setClaudeModel(res.data.claude_model || DEFAULT_MODEL_BY_PROVIDER.anthropic)
       setOpenaiModel(res.data.openai_model || DEFAULT_MODEL_BY_PROVIDER.openai)
@@ -132,6 +141,49 @@ export default function ProfilePage() {
       console.error(err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleUpdateProfile = async () => {
+    if (!profile) return
+    setProfileSaving(true)
+    setError(null)
+    setSuccess(null)
+    try {
+      const payload: any = {}
+      if (editName !== profile.name) payload.name = editName
+      if (editEmail !== profile.email) payload.email = editEmail
+      if (editPassword) {
+        if (!currentPassword) {
+          throw new Error(t('profile.currentPasswordRequired'))
+        }
+        payload.password = editPassword
+        payload.currentPassword = currentPassword
+      }
+
+      if (Object.keys(payload).length === 0) {
+        setProfileSaving(false)
+        return
+      }
+
+      const res = await patchMe(payload)
+      setSuccess(res.data.emailChanged ? t('profile.emailVerificationSent') : t('profile.profileUpdated'))
+      
+      setEditPassword('')
+      setCurrentPassword('')
+      
+      if (res.data.emailChanged) {
+        // If email changed, they might need to re-verify or at least we should update local state
+        setTimeout(() => {
+          loadProfile()
+        }, 2000)
+      } else {
+        await loadProfile()
+      }
+    } catch (err: any) {
+      setError(err?.response?.data?.error || err.message || t('profile.saveError'))
+    } finally {
+      setProfileSaving(false)
     }
   }
 
@@ -448,8 +500,66 @@ export default function ProfilePage() {
       {activeTab === 'account' && (
         <>
           <div className="card animate-fade-in">
-            <h2 style={{ fontSize: 'var(--font-size-lg)', marginTop: 0, marginBottom: '2px' }}>{profile.name}</h2>
-            <p className="text-muted" style={{ margin: 0 }}>{profile.email}</p>
+            <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginTop: 0, marginBottom: 'var(--space-4)' }}>{t('profile.editProfile')}</h3>
+            
+            <div className="form-group">
+              <label className="form-label">{t('profile.name')}</label>
+              <input 
+                className="form-input" 
+                value={editName} 
+                onChange={e => setEditName(e.target.value)} 
+                placeholder={t('profile.name')}
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">{t('profile.email')}</label>
+              <input 
+                className="form-input" 
+                type="email" 
+                value={editEmail} 
+                onChange={e => setEditEmail(e.target.value)} 
+                placeholder={t('profile.email')}
+              />
+            </div>
+
+            <div style={{ padding: 'var(--space-3)', background: 'var(--surface-alt)', borderRadius: 'var(--radius-md)', marginTop: 'var(--space-4)', border: '1px solid var(--border)' }}>
+              <h4 style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, marginTop: 0, marginBottom: 'var(--space-2)' }}>{t('profile.newPassword')}</h4>
+              <p className="text-muted" style={{ fontSize: 'var(--font-size-xs)', marginBottom: 'var(--space-3)' }}>{t('profile.passwordHint')}</p>
+              
+              <div className="form-group">
+                <input 
+                  className="form-input" 
+                  type="password" 
+                  value={editPassword} 
+                  onChange={e => setEditPassword(e.target.value)} 
+                  placeholder={t('profile.newPassword')}
+                />
+              </div>
+
+              {editPassword && (
+                <div className="form-group">
+                  <label className="form-label">{t('profile.currentPassword')}</label>
+                  <input 
+                    className="form-input" 
+                    type="password" 
+                    value={currentPassword} 
+                    onChange={e => setCurrentPassword(e.target.value)} 
+                    placeholder={t('profile.currentPassword')}
+                  />
+                </div>
+              )}
+            </div>
+
+            <button 
+              className="btn btn-primary btn-full" 
+              style={{ marginTop: 'var(--space-4)' }}
+              onClick={handleUpdateProfile}
+              disabled={profileSaving}
+            >
+              {profileSaving ? t('common.loading') : t('common.save')}
+            </button>
+
             <hr className="divider" style={{ margin: 'var(--space-4) 0' }} />
             <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--space-3)' }}>{t('profile.roles')}</h3>
             <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>

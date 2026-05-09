@@ -510,11 +510,48 @@ export default async function authRoutes(fastify) {
   // Eigenes Profil ändern
   fastify.patch('/api/accounts/me', { onRequest: [fastify.authenticate] }, async (req, reply) => {
     const db = getDb()
-    const { name, gemini_token, gemini_model, anthropic_token, claude_model, openai_token, openai_model, ai_provider_priority } = req.body
+    const { name, email, password, currentPassword, gemini_token, gemini_model, anthropic_token, claude_model, openai_token, openai_model, ai_provider_priority } = req.body
     const accountId = req.user.accountId
     const updates = []
     const vals = []
-    if (name !== undefined) { vals.push(name); updates.push(`name = $${vals.length}`) }
+
+    // Name change
+    if (name !== undefined) {
+      vals.push(name)
+      updates.push(`name = $${vals.length}`)
+    }
+
+    // Email change
+    if (email !== undefined && email !== req.user.email) {
+      // Check if email already exists
+      const { rows: [existing] } = await db.query('SELECT id FROM accounts WHERE email = $1 AND id != $2', [email.toLowerCase(), accountId])
+      if (existing) {
+        return reply.code(409).send({ error: 'E-Mail bereits von einem anderen Account verwendet' })
+      }
+      vals.push(email.toLowerCase())
+      updates.push(`email = $${vals.length}`)
+      updates.push(`email_verified = 0`)
+      updates.push(`email_verification_required = 1`)
+    }
+
+    // Password change
+    if (password !== undefined) {
+      if (!currentPassword) {
+        return reply.code(400).send({ error: 'Aktuelles Passwort erforderlich, um das Passwort zu ändern' })
+      }
+      const { rows: [account] } = await db.query('SELECT password_hash FROM accounts WHERE id = $1', [accountId])
+      const valid = await bcrypt.compare(currentPassword, account.password_hash)
+      if (!valid) {
+        return reply.code(401).send({ error: 'Aktuelles Passwort ist nicht korrekt' })
+      }
+      if (password.length < 8) {
+        return reply.code(400).send({ error: 'Das neue Passwort muss mindestens 8 Zeichen lang sein' })
+      }
+      const passwordHash = await bcrypt.hash(password, 10)
+      vals.push(passwordHash)
+      updates.push(`password_hash = $${vals.length}`)
+    }
+
     if (gemini_token !== undefined) {
       vals.push(gemini_token ? encrypt(gemini_token) : null)
       updates.push(`gemini_token = $${vals.length}`)
@@ -552,11 +589,47 @@ export default async function authRoutes(fastify) {
       vals.push(typeof ai_provider_priority === 'string' ? ai_provider_priority : JSON.stringify(ai_provider_priority))
       updates.push(`ai_provider_priority = $${vals.length}`)
     }
+
     if (!updates.length) return reply.code(400).send({ error: 'Keine Änderungen' })
+
     vals.push(accountId)
     await db.query(`UPDATE accounts SET ${updates.join(', ')} WHERE id = $${vals.length}`, vals)
-    await logAudit(db, { accountId, role: req.user.role, action: 'update_profile', resource: 'account', resourceId: accountId, ip: req.ip })
-    return { message: 'Profil aktualisiert' }
+
+    let verificationToken = null
+    if (email !== undefined && email !== req.user.email) {
+      verificationToken = await createEmailVerificationToken(db, accountId)
+      await sendAuthEmail({
+        type: 'verify-email',
+        to: email.toLowerCase(),
+        name: name || req.user.name,
+        token: verificationToken,
+        fastify
+      })
+    }
+
+    await logAudit(db, {
+      accountId,
+      role: req.user.role,
+      action: 'update_profile',
+      resource: 'account',
+      resourceId: accountId,
+      details: {
+        name_changed: name !== undefined,
+        email_changed: email !== undefined && email !== req.user.email,
+        password_changed: password !== undefined
+      },
+      ip: req.ip
+    })
+
+    const response = { message: 'Profil aktualisiert' }
+    if (email !== undefined && email !== req.user.email) {
+      response.emailChanged = true
+      if (shouldExposeAuthTokens()) {
+        response.verificationToken = verificationToken
+      }
+    }
+
+    return response
   })
 
   // Account löschen (DSGVO Art. 17)
