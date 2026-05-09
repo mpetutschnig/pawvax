@@ -34,7 +34,7 @@ function rgbToHsl(r: number, g: number, b: number) {
  * Generates CSS variables based on a hex color.
  * Uses OKLCH for consistent perceived lightness and saturation.
  */
-export function generateThemeVariables(hexColor: string) {
+export function generateThemeVariables(hexColor: string): Record<string, string> {
   const rgb = hexToRgb(hexColor);
   if (!rgb) return {};
 
@@ -56,10 +56,10 @@ export function generateThemeVariables(hexColor: string) {
     '--primary-600': `oklch(42% 0.18 ${hue})`,
     '--primary-700': `oklch(35% 0.16 ${hue})`,
     '--primary-800': `oklch(26% 0.12 ${hue})`,
-    '--primary-900': \`oklch(18% 0.08 \${hue})\`,
+    '--primary-900': `oklch(18% 0.08 ${hue})`,
     '--tw-primary': hexColor,
     '--primary-fg': primaryForeground,
-    '--shadow-primary': \`0 4px 14px oklch(50% 0.20 \${hue} / 0.35)\`,
+    '--shadow-primary': `0 4px 14px oklch(50% 0.20 ${hue} / 0.35)`,
     };
 
 }
