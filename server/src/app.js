@@ -16,6 +16,7 @@ import authRoutes from './routes/auth.js'
 import animalRoutes from './routes/animals.js'
 import documentRoutes from './routes/documents.js'
 import adminRoutes from './routes/admin.js'
+import tenantRoutes from './routes/tenants.js'
 import organizationRoutes from './routes/organizations.js'
 import wsDocumentUpload from './ws/documentUpload.js'
 import settingsRoutes from './routes/settings.js'
@@ -100,9 +101,9 @@ await fastify.register(fastifyCors, {
     } else if (defaultCorsOrigins.includes(origin)) {
       cb(null, true)
     } else {
-      // Log and allow for now (admins can configure additional origins via admin settings later)
-      fastify.log.warn({ origin }, 'CORS origin not in whitelist')
-      cb(null, true)
+      // Strictly deny unknown origins in production-ready setup
+      fastify.log.warn({ origin }, 'CORS origin denied')
+      cb(new Error('Not allowed by CORS'), false)
     }
   },
   credentials: true
@@ -310,6 +311,7 @@ await fastify.register(authRoutes)
 await fastify.register(animalRoutes)
 await fastify.register(documentRoutes)
 await fastify.register(adminRoutes)
+await fastify.register(tenantRoutes)
 await fastify.register(organizationRoutes)
 await fastify.register(wsDocumentUpload)
 await fastify.register(settingsRoutes)
@@ -333,13 +335,16 @@ if (process.env.ADMIN_EMAIL) {
   fastify.log.info({ email: process.env.ADMIN_EMAIL }, 'Admin-Rolle gesetzt')
 }
 
-// 90-Tage Audit-Log Retention Policy (täglicher Cleanup)
+// Dynamische Audit-Log Retention Policy (täglicher Cleanup basierend auf Einstellungen)
 setInterval(async () => {
   try {
     const db = getDb()
-    const result = await db.query("DELETE FROM audit_log WHERE created_at < CURRENT_TIMESTAMP - INTERVAL '90 days'")
+    const { rows: [setting] } = await db.query("SELECT value FROM settings WHERE key = 'audit_retention_days'")
+    const retentionDays = parseInt(setting?.value || '365')
+    
+    const result = await db.query(\`DELETE FROM audit_log WHERE created_at < CURRENT_TIMESTAMP - INTERVAL '\$1 days'\`, [retentionDays])
     if (result.rowCount > 0) {
-      fastify.log.info(`Retention: ${result.rowCount} alte Audit-Logs gelöscht (> 90 Tage)`)
+      fastify.log.info(\`Retention: \${result.rowCount} alte Audit-Logs gelöscht (> \${retentionDays} Tage)\`)
     }
   } catch (err) {
     fastify.log.error({ err }, 'Fehler beim Cleanup der Audit-Logs')

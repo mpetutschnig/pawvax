@@ -102,6 +102,12 @@ async function createPasswordResetToken(db, accountId) {
   return token
 }
 
+async function blacklistToken(db, jti) {
+  if (!jti) return
+  const expiresAt = Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60)
+  await db.query('INSERT INTO jwt_blacklist (jti, expires_at) VALUES ($1, $2) ON CONFLICT DO NOTHING', [jti, expiresAt])
+}
+
 export default async function authRoutes(fastify) {
   fastify.post('/api/auth/register', {
     schema: {
@@ -353,8 +359,7 @@ export default async function authRoutes(fastify) {
     const { jti } = req.user
     if (!jti) return reply.code(400).send({ error: 'Invalid token' })
 
-    const expiresAt = Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60)
-    await db.query('INSERT INTO jwt_blacklist (jti, expires_at) VALUES ($1, $2) ON CONFLICT DO NOTHING', [jti, expiresAt])
+    await blacklistToken(db, jti)
 
     await logAudit(db, { accountId: req.user.accountId, role: req.user.role, action: 'logout', resource: 'account', resourceId: req.user.accountId, ip: req.ip })
     return reply.code(204).send()
@@ -566,6 +571,9 @@ export default async function authRoutes(fastify) {
         return reply.code(403).send({ error: 'Cannot delete the last admin account' })
       }
     }
+
+    // Blacklist current token if jti is present
+    await blacklistToken(db, req.user.jti)
 
     await db.query('DELETE FROM org_memberships WHERE account_id = $1 OR invited_by = $2', [accountId, accountId])
     await db.query('DELETE FROM organizations WHERE owner_id = $1', [accountId])

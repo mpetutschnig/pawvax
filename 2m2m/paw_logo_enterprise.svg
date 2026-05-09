@@ -1,0 +1,49 @@
+<svg width="800" height="800" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <!-- 
+    PAW Enterprise Signature Logo
+    Style: Architectural Minimalism / Fintech-Grade
+    Concept: The Secure Health Spine
+  -->
+  
+  <g transform="translate(100, 100)">
+    <!-- 
+      THE SPINE (Central Axis)
+      Symbolizes the data protocol/backbone
+    -->
+    <path d="M 0,-30 L 0,60" stroke="#0F172A" stroke-width="8" stroke-linecap="round" />
+
+    <!-- 
+      LEFT: The Empathy Arc (Half Heart)
+      Strict geometric arc
+    -->
+    <path d="M 0,-30 
+             C -45,-30 -70,-10 -70,20 
+             -70,50 -35,70 0,90" 
+          fill="none" stroke="#0F172A" stroke-width="12" stroke-linejoin="round" />
+
+    <!-- 
+      RIGHT: The Identity Arc (Half Paw Pad)
+      Mirrored height, but slightly different curvature for 'pad' feel
+    -->
+    <path d="M 0,-30 
+             C 45,-30 70,-10 70,20 
+             70,50 35,70 0,90" 
+          fill="none" stroke="#0F172A" stroke-width="12" stroke-linejoin="round" />
+
+    <!-- 
+      THE DIGITAL CROWN (Abstract Toes)
+      Four vertical bars instead of circles. 
+      Represents: Data, Scanning, Progress.
+    -->
+    <g transform="translate(0, -55)">
+      <!-- Symmetrically arranged bars following the curve -->
+      <rect x="-60" y="10" width="10" height="15" rx="5" fill="#0F172A" />
+      <rect x="-25" y="0" width="10" height="25" rx="5" fill="#0F172A" />
+      <rect x="15" y="0" width="10" height="25" rx="5" fill="#0F172A" />
+      <rect x="50" y="10" width="10" height="15" rx="5" fill="#0F172A" />
+    </g>
+  </g>
+
+  <!-- Typography: Ultra-Modern / Swiss Style -->
+  <text x="100" y="195" font-family="Helvetica, Arial, sans-serif" font-size="28" text-anchor="middle" fill="#0F172A" font-weight="900" letter-spacing="12">PAW</text>
+</svg>

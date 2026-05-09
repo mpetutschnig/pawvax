@@ -190,6 +190,15 @@ export const adminDeleteAnimal = (id: string) => api.delete(`/admin/animals/${id
 export const adminDeleteDocument = (id: string) => api.delete(`/admin/documents/${id}`)
 export const adminDeleteTag = (tagId: string) => api.delete(`/admin/tags/${tagId}`)
 
+// Tenants
+export const adminGetTenants = () => api.get('/admin/tenants')
+export const adminCreateTenant = (data: { name: string; slug: string; primary_color?: string; owner_id?: string }) =>
+  api.post('/admin/tenants', data)
+export const adminGetTenantDomains = (id: string) => api.get(`/admin/tenants/${id}/domains`)
+export const adminAddTenantDomain = (id: string, data: { domain: string; is_primary?: boolean }) =>
+  api.post(`/admin/tenants/${id}/domains`, data)
+export const adminDeleteDomain = (id: string) => api.delete(`/admin/domains/${id}`)
+
 // Reminders
 export const getReminders = () => api.get('/reminders')
 export const createReminder = (data: { animal_id: string; document_id?: string; title: string; due_date: string; notes?: string }) =>

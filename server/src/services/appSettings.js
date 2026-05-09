@@ -7,8 +7,15 @@ export const PUBLIC_SETTINGS_KEYS = new Set([
   'logo_data',
   'last_test_run',
   'mail_enabled',
-  'billing_price_per_page'
+  'billing_price_per_page',
+  'maintenance_mode'
 ])
+
+export const GOVERNANCE_SETTINGS_KEYS = [
+  'maintenance_mode',
+  'audit_retention_days',
+  'default_rate_limit_per_min'
+]
 
 export const AI_SETTINGS_KEYS = [
   'system_gemini_token',
@@ -48,8 +55,8 @@ export const SECRET_SETTINGS_KEYS = new Set([
   'system_openai_token',
 ])
 
-const BOOLEAN_SETTING_KEYS = new Set(['mail_enabled'])
-const NUMERIC_SETTING_KEYS = new Set(['smtp_port', 'billing_price_per_page'])
+const BOOLEAN_SETTING_KEYS = new Set(['mail_enabled', 'maintenance_mode'])
+const NUMERIC_SETTING_KEYS = new Set(['smtp_port', 'billing_price_per_page', 'audit_retention_days', 'default_rate_limit_per_min'])
 
 function normalizeBoolean(value) {
   return value === true || value === 'true' || value === 1 || value === '1'
@@ -184,6 +191,9 @@ export async function getAdminSettings(db = getDb()) {
     system_gemini_model: raw.system_gemini_model || '',
     system_anthropic_model: raw.system_anthropic_model || '',
     system_openai_model: raw.system_openai_model || '',
+    maintenance_mode: normalizeBoolean(raw.maintenance_mode),
+    audit_retention_days: Number(raw.audit_retention_days || 365),
+    default_rate_limit_per_min: Number(raw.default_rate_limit_per_min || 60),
   }
 
   for (const secretKey of SECRET_SETTINGS_KEYS) {

@@ -1,72 +1,10 @@
 import { getDb } from '../db/index.js'
-import { buildExtractedDocumentData, normalizeDocumentType } from '../services/ocr.js'
+import { normalizeDocumentType } from '../services/ocr.js'
 import { logAudit } from '../services/audit.js'
-import { analyzeDocument } from '../services/ocr.js'
-import { decrypt } from '../utils/crypto.js'
 import { unlink } from 'fs/promises'
 import { resolve } from 'path'
-import { flagDuplicates } from '../services/dedup.js'
 import { randomUUID } from 'crypto'
-import { isAllowedModel, resolveModel } from '../utils/aiModels.js'
-import { getSettingsMap, getSystemAiKeys } from '../services/appSettings.js'
-
-async function getDocumentPages(db, documentId) {
-  const { rows } = await db.query(`
-    SELECT page_number, image_path
-    FROM document_pages
-    WHERE document_id = $1
-    ORDER BY page_number ASC
-  `, [documentId])
-  return rows
-}
-
-async function analyzeDocumentPages(pages, options) {
-  const pageResults = []
-  const detectedTypes = []
-  let combinedText = ''
-  let provider = null
-
-  for (const page of pages) {
-    const result = await analyzeDocument(
-      page.image_path,
-      options.userGeminiKey,
-      options.userGeminiModel,
-      options.onProgress ? (message) => options.onProgress(page.page_number, message) : null,
-      options.userAnthropicKey,
-      options.userClaudeModel,
-      options.userOpenAiKey,
-      options.userOpenAiModel,
-      options.priority,
-      options.language || 'de',
-      options.requestedDocumentType || null
-    )
-
-    pageResults.push(result.data)
-    provider = result.provider
-
-    const normalizedType = normalizeDocumentType(result.data?.type)
-    if (normalizedType) {
-      detectedTypes.push(normalizedType)
-    }
-
-    const pageText = [
-      result.data?.raw_text,
-      result.data?.rawText,
-      result.data?.summary,
-      result.data?.title,
-      result.data?.text
-    ].filter(Boolean).join('\n')
-
-    combinedText += (combinedText && pageText ? '\n---\n' : '') + pageText
-  }
-
-  return {
-    pageResults,
-    combinedText,
-    provider,
-    suggestedType: detectedTypes[0] || 'general'
-  }
-}
+import { runDocumentAnalysis, getDocumentPages } from '../services/analysisPipeline.js'
 
 function normalizeRole(role) {
   return role === 'readonly' ? 'guest' : role
@@ -91,23 +29,6 @@ function canRoleSeeDocument(rawRoles, requestRole) {
 
 function canManageReanalysis(doc, accountId, role) {
   return doc.owner_id === accountId || role === 'admin'
-}
-
-async function syncChipTagFromDocument(db, animalId, extractedData) {
-  if (normalizeDocumentType(extractedData?.type) !== 'pet_passport') return
-
-  const chipCode = [
-    extractedData?.identification?.chip_code,
-    extractedData?.payload?.identification?.chip_code,
-    ...(extractedData?.page_results || []).map((page) => page?.identification?.chip_code)
-  ].find((value) => typeof value === 'string' && value.trim().length > 0)?.trim()
-
-  if (!chipCode) return
-
-  const { rows: [existing] } = await db.query('SELECT animal_id FROM animal_tags WHERE tag_id = $1', [chipCode])
-  if (!existing) {
-    await db.query('INSERT INTO animal_tags (tag_id, animal_id, tag_type) VALUES ($1, $2, $3)', [chipCode, animalId, 'chip'])
-  }
 }
 
 export default async function documentRoutes(fastify) {
@@ -436,157 +357,30 @@ export default async function documentRoutes(fastify) {
     req.log.info({ docId, accountId, requestedProvider, requestedModel, requestedDocumentType, language, analysisStatus: doc.analysis_status }, 'Retry analysis requested')
 
     try {
-      // Get user's keys and models
-      const { rows: [acc] } = await db.query('SELECT gemini_token, gemini_model, anthropic_token, claude_model, openai_token, openai_model, ai_provider_priority, system_fallback_enabled, billing_budget_eur FROM accounts WHERE id = $1', [accountId])
-
-      let userGeminiKey = null
-      let userAnthropicKey = null
-      let userOpenAiKey = null
-
-      try { userGeminiKey = acc?.gemini_token ? decrypt(acc.gemini_token) : null } catch {}
-      try { userAnthropicKey = acc?.anthropic_token ? decrypt(acc.anthropic_token) : null } catch {}
-      try { userOpenAiKey = acc?.openai_token ? decrypt(acc.openai_token) : null } catch {}
-
-      const userGeminiModel = requestedProvider === 'google' && requestedModel ? requestedModel : resolveModel('google', acc?.gemini_model)
-      const userClaudeModel = requestedProvider === 'anthropic' && requestedModel ? requestedModel : resolveModel('anthropic', acc?.claude_model)
-      const userOpenAiModel = requestedProvider === 'openai' && requestedModel ? requestedModel : resolveModel('openai', acc?.openai_model)
-
-      let priority = ['system', 'google', 'anthropic', 'openai']
-      try {
-        if (acc?.ai_provider_priority) {
-          const parsed = JSON.parse(acc.ai_provider_priority)
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            priority = parsed
-          }
-        }
-      } catch (parseErr) {
-        req.log.warn({ err: parseErr.message }, 'Retry: Could not parse ai_provider_priority')
-      }
-
-      if (requestedProvider && typeof requestedProvider === 'string') {
-        priority = [requestedProvider]
-      }
-
-      // Ensure priority is always an array for safe iteration
-      if (!Array.isArray(priority)) {
-        priority = ['system', 'google', 'anthropic', 'openai']
-      }
-
-      if (priority.includes('system')) {
-        const sysKeys = await getSystemAiKeys(db)
-        if (!userGeminiKey) userGeminiKey = sysKeys.geminiKey
-        if (!userAnthropicKey) userAnthropicKey = sysKeys.anthropicKey
-        if (!userOpenAiKey) userOpenAiKey = sysKeys.openaiKey
-      }
-
       // Setze status auf 'analyzing'
       await db.query('UPDATE documents SET analysis_status = $1 WHERE id = $2', ['analyzing', docId])
 
-      const pages = await getDocumentPages(db, docId)
-      const analysisPages = pages.length > 0
-        ? pages
-        : [{ page_number: 1, image_path: doc.image_path }]
-
-      if (!analysisPages[0]?.image_path) {
-        throw new Error('Keine gespeicherten Dokumentseiten für die Analyse gefunden')
-      }
-
-      // Budget/fallback check (only relevant when using system AI)
-      const accHasOwnKeyRetry = !!(acc?.gemini_token || acc?.anthropic_token || acc?.openai_token)
-      if (!accHasOwnKeyRetry) {
-        if (!(acc?.system_fallback_enabled ?? 1)) {
-          await db.query('UPDATE documents SET analysis_status = $1 WHERE id = $2', ['pending_analysis', docId])
-          return reply.code(422).send({ error: 'fallback_disabled' })
-        }
-        if (acc?.billing_budget_eur != null) {
-          const settings = await getSettingsMap(db)
-          const pricePerPageCents = Number(settings.billing_price_per_page ?? 0)
-          if (pricePerPageCents > 0) {
-            const { rows: [usageRow] } = await db.query(
-              `SELECT COALESCE(SUM(pages_analyzed), 0) AS used FROM usage_logs WHERE account_id = $1 AND is_system_fallback = 1`,
-              [accountId]
-            )
-            const usedCostEur = (Number(usageRow?.used ?? 0) * pricePerPageCents) / 100
-            const newCostEur = (analysisPages.length * pricePerPageCents) / 100
-            if (usedCostEur + newCostEur > acc.billing_budget_eur) {
-              await db.query('UPDATE documents SET analysis_status = $1 WHERE id = $2', ['pending_analysis', docId])
-              return reply.code(422).send({ error: 'budget_exceeded' })
-            }
-          }
-        }
-      }
-
-      const result = await analyzeDocumentPages(analysisPages, {
-        userGeminiKey,
-        userGeminiModel,
-        userAnthropicKey,
-        userClaudeModel,
-        userOpenAiKey,
-        userOpenAiModel,
-        priority,
+      const result = await runDocumentAnalysis(db, doc, accountId, role, {
+        provider: requestedProvider,
+        model: requestedModel,
         language,
-        requestedDocumentType,
-        onProgress: (pageNumber, message) => {
-          req.log.debug({ docId, pageNumber, message }, 'Retry analysis page progress')
-        }
-      })
-      const provider = result.provider
-
-      // Flag duplicate records across existing documents of the same animal
-      await flagDuplicates(db, doc.animal_id, docId, result.suggestedType, result.pageResults)
-
-      const extractedData = buildExtractedDocumentData({
-        combinedText: result.combinedText,
-        suggestedType: result.suggestedType,
-        pageResults: result.pageResults,
-        pages: analysisPages.length
-      })
-      const requiresRetry = extractedData?.extraction_quality?.requires_retry === true
-      const nextStatus = requiresRetry ? 'pending_analysis' : 'completed'
-      await syncChipTagFromDocument(db, doc.animal_id, extractedData)
-
-      // Update document with analysis results
-      await db.query(`
-        UPDATE documents
-        SET extracted_json = $1, ocr_provider = $2, analysis_status = $3, doc_type = $4, image_path = $5
-        WHERE id = $6
-      `, [
-        JSON.stringify(extractedData),
-        provider,
-        nextStatus,
-        extractedData.type,
-        analysisPages[0].image_path,
-        docId
-      ])
+        requestedDocumentType
+      }, req.log)
 
       await logAudit(db, {
         accountId, role, action: 'retry_analysis', resource: 'document', resourceId: docId,
-        details: { ocr_provider: provider, pages: analysisPages.length, requires_retry: requiresRetry, retry_reasons: extractedData?.extraction_quality?.retry_reasons || [] },
+        details: { ocr_provider: result.provider, pages: result.pagesCount, requires_retry: result.requiresRetry, retry_reasons: result.extractedData?.extraction_quality?.retry_reasons || [] },
         ip: req.ip
       })
 
-      if (nextStatus === 'completed') {
-        try {
-          const { rows: [accKeys] } = await db.query('SELECT gemini_token, anthropic_token, openai_token FROM accounts WHERE id = $1', [accountId])
-          const hasOwnKey = !!(accKeys?.gemini_token || accKeys?.anthropic_token || accKeys?.openai_token)
-          await db.query(
-            `INSERT INTO usage_logs (id, account_id, document_id, pages_analyzed, ocr_provider, model_used, is_system_fallback, analyzed_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP)`,
-            [randomUUID(), accountId, docId, analysisPages.length, provider, provider, hasOwnKey ? 0 : 1]
-          )
-        } catch (usageErr) {
-          req.log.warn({ err: usageErr }, 'Retry: Failed to insert usage_log')
-        }
-      }
-
       return reply.send({
-        success: !requiresRetry,
-        message: requiresRetry ? 'Analyse unvollständig. Erneuter Versuch empfohlen.' : 'Analyse erfolgreich abgeschlossen',
+        success: !result.requiresRetry,
+        message: result.requiresRetry ? 'Analyse unvollständig. Erneuter Versuch empfohlen.' : 'Analyse erfolgreich abgeschlossen',
         documentId: docId,
-        extractedData,
-        provider,
-        analysisStatus: nextStatus,
-        requiresRetry
+        extractedData: result.extractedData,
+        provider: result.provider,
+        analysisStatus: result.nextStatus,
+        requiresRetry: result.requiresRetry
       })
     } catch (err) {
       req.log.error({ err: { message: err.message, stack: err.stack }, docId, accountId, requestedProvider, requestedModel, requestedDocumentType, language }, 'Retry analysis failed')
@@ -607,6 +401,9 @@ export default async function documentRoutes(fastify) {
       // Reset status back to pending_analysis on error
       await db.query('UPDATE documents SET analysis_status = $1 WHERE id = $2', ['pending_analysis', docId])
 
+      if (err.message === 'budget_exceeded') return reply.code(422).send({ error: 'budget_exceeded' })
+      if (err.message === 'fallback_disabled') return reply.code(422).send({ error: 'fallback_disabled' })
+
       // Mark as failed, but save for later retry
       if (err.message?.includes('429') || err.message?.includes('Quota')) {
         return reply.code(503).send({ 
@@ -625,7 +422,7 @@ export default async function documentRoutes(fastify) {
         })
       }
       
-      return reply.code(500).send({ 
+      return reply.code(err.code || 500).send({ 
         error: err.message || 'Analyse fehlgeschlagen',
         details: err.message,
         requestedProvider,
@@ -657,14 +454,6 @@ export default async function documentRoutes(fastify) {
       return reply.code(400).send({ error: 'Dokument muss bereits analysiert sein' })
     }
 
-    if (requestedProvider && requestedModel && !isAllowedModel(requestedProvider, requestedModel)) {
-      return reply.code(400).send({
-        error: 'Ausgewähltes KI-Modell nicht verfügbar. Bitte ein anderes Modell wählen.',
-        requestedProvider,
-        requestedModel
-      })
-    }
-
     req.log.info({ docId, accountId, requestedProvider, requestedModel, requestedDocumentType, language, analysisStatus: doc.analysis_status }, 'Re-analysis requested')
 
     try {
@@ -680,149 +469,27 @@ export default async function documentRoutes(fastify) {
         VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
       `, [historyId, docId, oldExtractedJson, maxversion + 1, doc.ocr_provider])
 
-      // Get user's keys and models
-      const { rows: [acc] } = await db.query('SELECT gemini_token, gemini_model, anthropic_token, claude_model, openai_token, openai_model, ai_provider_priority, system_fallback_enabled, billing_budget_eur FROM accounts WHERE id = $1', [accountId])
-
-      let userGeminiKey = null
-      let userAnthropicKey = null
-      let userOpenAiKey = null
-
-      try { userGeminiKey = acc?.gemini_token ? decrypt(acc.gemini_token) : null } catch {}
-      try { userAnthropicKey = acc?.anthropic_token ? decrypt(acc.anthropic_token) : null } catch {}
-      try { userOpenAiKey = acc?.openai_token ? decrypt(acc.openai_token) : null } catch {}
-
-      const userGeminiModel = requestedProvider === 'google' && requestedModel ? requestedModel : resolveModel('google', acc?.gemini_model)
-      const userClaudeModel = requestedProvider === 'anthropic' && requestedModel ? requestedModel : resolveModel('anthropic', acc?.claude_model)
-      const userOpenAiModel = requestedProvider === 'openai' && requestedModel ? requestedModel : resolveModel('openai', acc?.openai_model)
-
-      let priority = ['system', 'google', 'anthropic', 'openai']
-      try {
-        if (acc?.ai_provider_priority) {
-          const parsed = JSON.parse(acc.ai_provider_priority)
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            priority = parsed
-          }
-        }
-      } catch (parseErr) {
-        req.log.warn({ err: parseErr.message }, 'Re-analyze: Could not parse ai_provider_priority')
-      }
-
-      if (requestedProvider && typeof requestedProvider === 'string') {
-        priority = [requestedProvider]
-      }
-
-      // Ensure priority is always an array for safe iteration
-      if (!Array.isArray(priority)) {
-        priority = ['system', 'google', 'anthropic', 'openai']
-      }
-
-      if (priority.includes('system')) {
-        const sysKeys = await getSystemAiKeys(db)
-        if (!userGeminiKey) userGeminiKey = sysKeys.geminiKey
-        if (!userAnthropicKey) userAnthropicKey = sysKeys.anthropicKey
-        if (!userOpenAiKey) userOpenAiKey = sysKeys.openaiKey
-      }
-
-      const pages = await getDocumentPages(db, docId)
-      const analysisPages = pages.length > 0
-        ? pages
-        : [{ page_number: 1, image_path: doc.image_path }]
-
-      if (!analysisPages[0]?.image_path) {
-        throw new Error('Keine gespeicherten Dokumentseiten für die Analyse gefunden')
-      }
-
-      // Budget/fallback check (only relevant when using system AI)
-      const accHasOwnKeyReanalyze = !!(acc?.gemini_token || acc?.anthropic_token || acc?.openai_token)
-      if (!accHasOwnKeyReanalyze) {
-        if (!(acc?.system_fallback_enabled ?? 1)) {
-          return reply.code(422).send({ error: 'fallback_disabled' })
-        }
-        if (acc?.billing_budget_eur != null) {
-          const settings = await getSettingsMap(db)
-          const pricePerPageCents = Number(settings.billing_price_per_page ?? 0)
-          if (pricePerPageCents > 0) {
-            const { rows: [usageRow] } = await db.query(
-              `SELECT COALESCE(SUM(pages_analyzed), 0) AS used FROM usage_logs WHERE account_id = $1 AND is_system_fallback = 1`,
-              [accountId]
-            )
-            const usedCostEur = (Number(usageRow?.used ?? 0) * pricePerPageCents) / 100
-            const newCostEur = (analysisPages.length * pricePerPageCents) / 100
-            if (usedCostEur + newCostEur > acc.billing_budget_eur) {
-              return reply.code(422).send({ error: 'budget_exceeded' })
-            }
-          }
-        }
-      }
-
-      const result = await analyzeDocumentPages(analysisPages, {
-        userGeminiKey,
-        userGeminiModel,
-        userAnthropicKey,
-        userClaudeModel,
-        userOpenAiKey,
-        userOpenAiModel,
-        priority,
+      const result = await runDocumentAnalysis(db, doc, accountId, role, {
+        provider: requestedProvider,
+        model: requestedModel,
         language,
-        requestedDocumentType,
-        onProgress: (pageNumber, message) => {
-          req.log.debug({ docId, pageNumber, message }, 'Re-analysis page progress')
-        }
-      })
-      // Flag duplicate records (re-compute with new analysis)
-      await flagDuplicates(db, doc.animal_id, docId, result.suggestedType, result.pageResults)
-
-      const extractedData = buildExtractedDocumentData({
-        combinedText: result.combinedText,
-        suggestedType: result.suggestedType,
-        pageResults: result.pageResults,
-        pages: analysisPages.length
-      })
-      const requiresRetry = extractedData?.extraction_quality?.requires_retry === true
-      const nextStatus = requiresRetry ? 'pending_analysis' : 'completed'
-      await syncChipTagFromDocument(db, doc.animal_id, extractedData)
-
-      // Update document with new analysis results
-      await db.query(`
-        UPDATE documents
-        SET extracted_json = $1, ocr_provider = $2, doc_type = $3, analysis_status = $4
-        WHERE id = $5
-      `, [
-        JSON.stringify(extractedData),
-        result.provider,
-        extractedData.type,
-        nextStatus,
-        docId
-      ])
+        requestedDocumentType
+      }, req.log)
 
       await logAudit(db, {
         accountId, role, action: 're_analyze', resource: 'document', resourceId: docId,
-        details: { ocr_provider: result.provider, pages: analysisPages.length, history_entry: historyId, requires_retry: requiresRetry, retry_reasons: extractedData?.extraction_quality?.retry_reasons || [] },
+        details: { ocr_provider: result.provider, pages: result.pagesCount, history_entry: historyId, requires_retry: result.requiresRetry, retry_reasons: result.extractedData?.extraction_quality?.retry_reasons || [] },
         ip: req.ip
       })
 
-      if (nextStatus === 'completed') {
-        try {
-          const { rows: [accKeys] } = await db.query('SELECT gemini_token, anthropic_token, openai_token FROM accounts WHERE id = $1', [accountId])
-          const hasOwnKey = !!(accKeys?.gemini_token || accKeys?.anthropic_token || accKeys?.openai_token)
-          await db.query(
-            `INSERT INTO usage_logs (id, account_id, document_id, pages_analyzed, ocr_provider, model_used, is_system_fallback, analyzed_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP)`,
-            [randomUUID(), accountId, docId, analysisPages.length, result.provider, result.provider, hasOwnKey ? 0 : 1]
-          )
-        } catch (usageErr) {
-          req.log.warn({ err: usageErr }, 'Re-analyze: Failed to insert usage_log')
-        }
-      }
-
       return reply.send({
-        success: !requiresRetry,
-        message: requiresRetry ? 'Neu-Analyse unvollständig. Erneuter Versuch empfohlen.' : 'Dokument erfolgreich neu analysiert',
+        success: !result.requiresRetry,
+        message: result.requiresRetry ? 'Neu-Analyse unvollständig. Erneuter Versuch empfohlen.' : 'Dokument erfolgreich neu analysiert',
         documentId: docId,
-        extractedData,
+        extractedData: result.extractedData,
         provider: result.provider,
-        analysisStatus: nextStatus,
-        requiresRetry,
+        analysisStatus: result.nextStatus,
+        requiresRetry: result.requiresRetry,
         previousVersion: {
           version: maxversion + 1,
           savedAt: new Date().toISOString(),
@@ -844,6 +511,9 @@ export default async function documentRoutes(fastify) {
         ip: req.ip
       })
 
+      if (err.message === 'budget_exceeded') return reply.code(422).send({ error: 'budget_exceeded' })
+      if (err.message === 'fallback_disabled') return reply.code(422).send({ error: 'fallback_disabled' })
+
       if (err.message?.includes('429') || err.message?.includes('Quota')) {
         return reply.code(503).send({ 
           error: 'Gemini API Quota überschritten. Bitte später versuchen.',
@@ -861,7 +531,7 @@ export default async function documentRoutes(fastify) {
         })
       }
       
-      return reply.code(500).send({ 
+      return reply.code(err.code || 500).send({ 
         error: err.message || 'Analyse fehlgeschlagen',
         details: err.message,
         requestedProvider,

@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PAW Final Branding - "The Crown"</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;900&display=swap');
+        body {
+            background-color: #0F172A;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            font-family: 'Inter', sans-serif;
+            color: white;
+        }
+        .presentation-card {
+            background: radial-gradient(circle at top left, #1E293B, #0F172A);
+            padding: 80px;
+            border-radius: 40px;
+            border: 1px solid rgba(255,255,255,0.05);
+            text-align: center;
+            box-shadow: 0 40px 80px -15px rgba(0,0,0,0.6);
+            max-width: 600px;
+        }
+        svg {
+            width: 400px;
+            height: auto;
+            filter: drop-shadow(0 0 40px rgba(79, 70, 229, 0.3));
+        }
+        .tagline {
+            margin-top: 40px;
+            text-transform: uppercase;
+            letter-spacing: 5px;
+            font-size: 11px;
+            color: #64748B;
+            font-weight: 400;
+        }
+        .divider {
+            height: 1px;
+            background: linear-gradient(to right, transparent, rgba(255,255,255,0.1), transparent);
+            margin: 40px 0;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            background: rgba(16, 185, 129, 0.1);
+            color: #10B981;
+            border-radius: 100px;
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="presentation-card">
+        <div class="status-badge">Final Investor Ready Edition</div>
+        <!-- Final Symmetrical SVG -->
+        <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+                <linearGradient id="brandGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" style="stop-color:#6366F1;stop-opacity:1" />
+                    <stop offset="100%" style="stop-color:#10B981;stop-opacity:1" />
+                </linearGradient>
+            </defs>
+            <g transform="translate(0, 10)">
+                <g fill="none" stroke="url(#brandGrad)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M 100,160 C 50,140 20,110 20,70 20,45 45,35 70,45 C 85,55 95,70 100,85" />
+                    <path d="M 100,160 C 150,140 180,110 180,70 180,45 155,35 130,45 C 115,55 105,70 100,85" />
+                    <circle cx="40" cy="30" r="8" />
+                    <circle cx="80" cy="15" r="8" />
+                    <circle cx="120" cy="15" r="8" />
+                    <circle cx="160" cy="30" r="8" />
+                </g>
+            </g>
+            <text x="100" y="195" font-family="Inter" font-size="24" text-anchor="middle" fill="#FFFFFF" font-weight="900" letter-spacing="8">PAW</text>
+        </svg>
+
+        <div class="tagline">The Digital Health Protocol for Pets</div>
+        <div class="divider"></div>
+        <p style="font-size: 13px; color: #94A3B8; line-height: 1.5;">
+            Ein mathematisch ausbalanciertes Hybrid-Emblem. Die Basisform vereint Schutz (Herz) und Biometrie (Pfote) auf exakt gleicher Ebene, gekrönt von einer vier-punktigen digitalen Signatur.
+        </p>
+    </div>
+</body>
+</html>

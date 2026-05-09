@@ -6,13 +6,26 @@ import {
   adminPatchAccount, adminGetAuditLog, adminDeleteAnimal, adminDeleteAccount, adminGetTestResults,
   adminGetTestRuns, adminGetTestRunDetail,
   adminGetOrphans, adminDeleteOrphans, adminGetVerifications, adminApproveVerification, adminRejectVerification, adminGetVersion
-  , adminGetSettings, adminPatchSettings, adminTestMailSettings
+  , adminGetSettings, adminPatchSettings, adminTestMailSettings,
+  adminGetTenants, adminCreateTenant, adminGetTenantDomains, adminAddTenantDomain, adminDeleteDomain
 } from '../api/rest'
-import { PawPrint, LogOut, LayoutDashboard, Users, Cat, ShieldCheck, FileClock, CheckCircle, Menu, X, Settings, XCircle, FlaskConical, Trash2, AlertCircle, Mail, Cpu, Lock } from 'lucide-react'
+import { 
+  PawPrint, LogOut, LayoutDashboard, Users, Cat, ShieldCheck, FileClock, CheckCircle, 
+  Menu, X, Settings, XCircle, FlaskConical, Trash2, AlertCircle, Mail, Cpu, Lock, 
+  Building2, Globe, Plus 
+} from 'lucide-react'
 import { AdminAnimalDTO } from '../types/animal'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 
-type Section = 'overview' | 'accounts' | 'animals' | 'verifications' | 'audit' | 'settings-general' | 'settings-mail' | 'settings-ai' | 'settings-auth' | 'tests' | 'cleanup'
+type Section = 'overview' | 'accounts' | 'animals' | 'verifications' | 'audit' | 'tenants' | 'settings-general' | 'settings-mail' | 'settings-ai' | 'settings-auth' | 'tests' | 'cleanup'
+
+interface Tenant {
+  id: string; name: string; slug: string; primary_color: string; status: string; member_count: number; domain_count: number; created_at: string
+}
+
+interface DomainRegistry {
+  id: string; org_id: string; domain: string; is_primary: number; ssl_enabled: number
+}
 
 interface Account {
   id: string; name: string; email: string; role: string; verified: number; verification_status?: string; created_at: string
@@ -112,6 +125,9 @@ interface AdminSettingsState {
   has_system_gemini_token?: boolean
   has_system_anthropic_token?: boolean
   has_system_openai_token?: boolean
+  maintenance_mode?: boolean
+  audit_retention_days?: number
+  default_rate_limit_per_min?: number
 }
 
 const defaultAdminSettings: AdminSettingsState = {
@@ -176,6 +192,12 @@ export default function AdminPage() {
   const [oauthStatus, setOauthStatus] = useState<Record<string, boolean>>({})
   const [mailConfigured, setMailConfigured] = useState<boolean | null>(null)
 
+  // Tenants State
+  const [tenants, setTenants] = useState<Tenant[]>([])
+  const [tenantDomains, setTenantDomains] = useState<DomainRegistry[]>([])
+  const [newTenantData, setNewTenantData] = useState({ name: '', slug: '', primary_color: '#0ea5e9' })
+  const [newDomainData, setNewDomainData] = useState({ domain: '', is_primary: false })
+
   useEffect(() => {
     fetch('/api/settings').then(res => res.json()).then(data => setAppSettings(current => ({ ...current, ...data }))).catch(console.error)
     adminGetVersion().then(res => setVersion(res.data)).catch(console.error)
@@ -216,6 +238,13 @@ export default function AdminPage() {
       } else if (section === 'audit') {
         const res = await adminGetAuditLog({ page: auditPage })
         setAuditLog(res.data)
+      } else if (section === 'tenants') {
+        const res = await adminGetTenants()
+        setTenants(res.data)
+        if (selectedId) {
+          const domainsRes = await adminGetTenantDomains(selectedId)
+          setTenantDomains(domainsRes.data)
+        }
       } else if (section === 'settings-general' || section === 'settings-mail' || section === 'settings-ai' || section === 'settings-auth') {
         const res = await adminGetSettings()
         setAppSettings({ ...defaultAdminSettings, ...res.data, smtp_password: '', oauth2_client_secret: '', oauth2_refresh_token: '', system_gemini_token: '', system_anthropic_token: '', system_openai_token: '' })
@@ -409,6 +438,7 @@ export default function AdminPage() {
           { id: 'animals', labelKey: 'admin.animals', icon: <Cat size={18} /> },
           { id: 'verifications', labelKey: 'admin.verifications', icon: <ShieldCheck size={18} />, badge: stats?.pendingVerifications },
           { id: 'audit', labelKey: 'admin.audit', icon: <FileClock size={18} /> },
+          { id: 'tenants', labelKey: 'admin.tenants', icon: <Building2 size={18} /> },
           { id: 'cleanup', labelKey: 'admin.cleanup', icon: <Trash2 size={18} />, badge: orphanTotal || undefined },
           { id: 'tests', labelKey: 'admin.tests', icon: <FlaskConical size={18} /> },
           { id: 'settings-general', labelKey: 'admin.settingsGeneral', icon: <Settings size={18} /> },
@@ -1087,6 +1117,157 @@ export default function AdminPage() {
                 </code>
               </div>
             </div>
+
+            {/* Governance & Sicherheit */}
+            <div className="card" style={{ marginTop: 'var(--space-4)' }}>
+              <h3 style={{ marginBottom: 'var(--space-4)' }}>Governance & Sicherheit</h3>
+              
+              <div className="form-group" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--space-3)', background: 'var(--surface)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
+                <div>
+                  <div style={{ fontWeight: 600 }}>Wartungsmodus</div>
+                  <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>Sperrt den Zugriff für Nicht-Admins</div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={appSettings.maintenance_mode || false}
+                  onChange={e => setAppSettings(s => ({ ...s, maintenance_mode: e.target.checked }))}
+                  style={{ width: '20px', height: '20px', cursor: 'pointer' }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)', marginTop: 'var(--space-4)' }}>
+                <div className="form-group">
+                  <label className="form-label">Audit-Retention (Tage)</label>
+                  <input
+                    type="number"
+                    className="form-control"
+                    value={appSettings.audit_retention_days || 365}
+                    onChange={e => setAppSettings(s => ({ ...s, audit_retention_days: parseInt(e.target.value) }))}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">API Rate-Limit (min)</label>
+                  <input
+                    type="number"
+                    className="form-control"
+                    value={appSettings.default_rate_limit_per_min || 60}
+                    onChange={e => setAppSettings(s => ({ ...s, default_rate_limit_per_min: parseInt(e.target.value) }))}
+                  />
+                </div>
+              </div>
+
+              <button className="btn btn-primary" onClick={saveSettings} disabled={settingsSaving} style={{ marginTop: 'var(--space-2)' }}>
+                {settingsSaving ? t('common.loading') : t('admin.saveSettings')}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Tenants / Multi-Tenancy */}
+        {section === 'tenants' && !loading && (
+          <div className="animate-fade-in">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-6)' }}>
+              <h1 style={{ margin: 0 }}>{t('admin.tenants')}</h1>
+              <button className="btn btn-primary" onClick={() => setSelectedId('new')}>
+                <Plus size={18} style={{ marginRight: 8 }} />
+                Mandant anlegen
+              </button>
+            </div>
+
+            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th>Name / Slug</th>
+                    <th>Status</th>
+                    <th>Mitglieder</th>
+                    <th>Domains</th>
+                    <th>Aktionen</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tenants.map(tenant => (
+                    <tr key={tenant.id}>
+                      <td>
+                        <div style={{ fontWeight: 600 }}>{tenant.name}</div>
+                        <code style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>{tenant.slug}</code>
+                      </td>
+                      <td>
+                        <span className={`badge \${tenant.status === 'active' ? 'badge-success' : 'badge-warning'}`}>
+                          {tenant.status}
+                        </span>
+                      </td>
+                      <td>{tenant.member_count}</td>
+                      <td>{tenant.domain_count}</td>
+                      <td>
+                        <button className="btn btn-ghost btn-sm" onClick={() => { setSelectedId(tenant.id); loadData(); }}>
+                          <Settings size={16} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Tenant Detail Modal (New/Edit) */}
+            {selectedId && (
+              <div className="modal-overlay" onClick={() => setSelectedId(null)}>
+                <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '600px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-6)' }}>
+                    <h2>{selectedId === 'new' ? 'Neuer Mandant' : 'Mandant bearbeiten'}</h2>
+                    <button className="btn btn-ghost btn-icon" onClick={() => setSelectedId(null)}><X size={20} /></button>
+                  </div>
+
+                  {selectedId === 'new' ? (
+                    <div style={{ display: 'grid', gap: 'var(--space-4)' }}>
+                      <div className="form-group">
+                        <label className="form-label">Name</label>
+                        <input className="form-control" value={newTenantData.name} onChange={e => setNewTenantData({ ...newTenantData, name: e.target.value })} placeholder="Tierklinik Graz" />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Slug (URL-Teil)</label>
+                        <input className="form-control" value={newTenantData.slug} onChange={e => setNewTenantData({ ...newTenantData, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })} placeholder="graz" />
+                      </div>
+                      <button className="btn btn-primary btn-full" onClick={async () => {
+                        await adminCreateTenant(newTenantData);
+                        setSelectedId(null);
+                        loadData();
+                      }}>Mandant erstellen</button>
+                    </div>
+                  ) : (
+                    <div>
+                      <h3 style={{ marginBottom: 'var(--space-4)' }}>Domain-Zuordnung</h3>
+                      <div className="card" style={{ background: 'var(--surface)', marginBottom: 'var(--space-4)' }}>
+                        {tenantDomains.map(d => (
+                          <div key={d.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 'var(--space-2) 0', borderBottom: '1px solid var(--border)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                              <Globe size={14} />
+                              <span style={{ fontWeight: d.is_primary ? 700 : 400 }}>{d.domain}</span>
+                              {d.is_primary === 1 && <span className="badge badge-info" style={{ fontSize: '8px' }}>PRIMARY</span>}
+                            </div>
+                            <button className="btn btn-ghost btn-sm text-danger" onClick={async () => { if (confirm('Domain löschen?')) { await adminDeleteDomain(d.id); loadData(); } }}>
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        ))}
+                        {tenantDomains.length === 0 && <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)' }}>Keine Domains zugewiesen.</p>}
+                      </div>
+                      
+                      <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                        <input className="form-control" placeholder="app.tierklinik.at" value={newDomainData.domain} onChange={e => setNewDomainData({ ...newDomainData, domain: e.target.value })} />
+                        <button className="btn btn-outline" onClick={async () => {
+                          if (!newDomainData.domain) return;
+                          await adminAddTenantDomain(selectedId, newDomainData);
+                          setNewDomainData({ domain: '', is_primary: false });
+                          loadData();
+                        }}>Hinzufügen</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         )}
 

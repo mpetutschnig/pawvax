@@ -44,6 +44,14 @@ export async function initDb(connectionString) {
   const schema = readFileSync(join(__dir, 'schema.sql'), 'utf8')
   await pool.query(schema)
 
+  // Run Tenant & Governance Migration
+  try {
+    const tenantMigration = readFileSync(join(__dir, 'tenant_migration.sql'), 'utf8')
+    await pool.query(tenantMigration)
+  } catch (err) {
+    console.error('Tenant migration failed, but continuing...', err)
+  }
+
   // Backfill unique_id for existing animals
   try {
     const { rows: animalsWithoutId } = await pool.query('SELECT id FROM animals WHERE unique_id IS NULL')

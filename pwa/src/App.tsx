@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { PawPrint, ScanLine, User, Settings, Receipt } from 'lucide-react'
 import { useGlobalNfc } from './hooks/useGlobalNfc'
 import { api } from './api/rest'
+import { generateThemeVariables, applyTheme } from './utils/colors'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import LoginPage from './pages/LoginPage'
 import AnimalsPage from './pages/AnimalsPage'
@@ -47,6 +48,10 @@ function GlobalBrand() {
     if (settings.theme_color) {
       const meta = document.querySelector('meta[name="theme-color"]')
       if (meta) meta.setAttribute('content', settings.theme_color)
+      
+      // Dynamische Paletten-Generierung & Injektion
+      const themeVars = generateThemeVariables(settings.theme_color)
+      applyTheme(themeVars)
     }
   }, [settings])
 

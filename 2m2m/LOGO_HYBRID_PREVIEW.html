@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PAW Hybrid Logo - Investor Edition</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;900&display=swap');
+        body {
+            background-color: #020617;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            font-family: 'Inter', sans-serif;
+            color: white;
+        }
+        .presentation-card {
+            background: linear-gradient(145deg, #0f172a, #020617);
+            padding: 100px;
+            border-radius: 60px;
+            border: 1px solid rgba(255,255,255,0.1);
+            text-align: center;
+            box-shadow: 0 50px 100px -20px rgba(0,0,0,0.5);
+        }
+        svg {
+            width: 450px;
+            height: auto;
+            filter: drop-shadow(0 0 30px rgba(58, 134, 255, 0.2));
+        }
+        .concept-note {
+            margin-top: 50px;
+            font-size: 14px;
+            color: #475569;
+            letter-spacing: 1px;
+            max-width: 400px;
+            line-height: 1.6;
+        }
+        .divider {
+            height: 1px;
+            background: linear-gradient(to right, transparent, rgba(255,255,255,0.1), transparent);
+            margin: 30px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="presentation-card">
+        <!-- The Final Hybrid SVG -->
+        <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+            <g transform="translate(0, -5)">
+                <g fill="none" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+                    <!-- LEFT: Heart (Protection) -->
+                    <path d="M 100,165 C 40,135 15,100 15,65 15,35 45,20 70,35 C 85,45 95,60 100,75" stroke="#3A86FF" />
+                    <!-- RIGHT: Paw Pad (Animal Identity) -->
+                    <path d="M 100,165 C 160,160 185,135 185,100 C 185,80 165,75 140,80 C 120,85 105,85 100,75" stroke="#00F5D4" />
+                    <!-- TOES -->
+                    <circle cx="135" cy="30" r="10" stroke="#00F5D4" stroke-width="6" />
+                    <circle cx="175" cy="65" r="10" stroke="#00F5D4" stroke-width="6" opacity="0.6" />
+                </g>
+            </g>
+            <text x="100" y="190" font-family="Inter" font-size="28" text-anchor="middle" fill="#FFFFFF" font-weight="900" letter-spacing="4">PAW</text>
+        </svg>
+
+        <div class="divider"></div>
+        
+        <div class="concept-note">
+            <strong>Hybrid Visual Identity</strong><br>
+            Die Verschmelzung von Empathie (Links: Herz) und digitaler Tier-Identität (Rechts: Pfote).
+        </div>
+    </div>
+</body>
+</html>

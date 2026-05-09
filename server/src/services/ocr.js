@@ -1042,6 +1042,35 @@ function extractBalancedJsonCandidate(text) {
   return null
 }
 
+// Recursive sanitization to prevent Stored XSS in extracted JSON
+function sanitizeStructuredData(data) {
+  if (data === null || data === undefined) return data
+  
+  if (typeof data === 'string') {
+    // Basic HTML escaping
+    return data
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;')
+  }
+  
+  if (Array.isArray(data)) {
+    return data.map(item => sanitizeStructuredData(item))
+  }
+  
+  if (typeof data === 'object') {
+    const sanitized = {}
+    for (const key in data) {
+      sanitized[key] = sanitizeStructuredData(data[key])
+    }
+    return sanitized
+  }
+  
+  return data
+}
+
 export function parseStructuredModelResponse(text, provider, documentType = 'general', typeConfidence = null) {
   const trimmed = String(text || '').trim()
   const candidates = [trimmed]
@@ -1059,7 +1088,11 @@ export function parseStructuredModelResponse(text, provider, documentType = 'gen
     try {
       const parsed = JSON.parse(candidate)
       if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') continue
-      const result = normalizeModelMetadata(normalizeDateFields({ type: normalizeDocumentType(documentType), ...parsed }))
+      
+      // Sanitize all values to prevent XSS from prompt injections
+      const sanitized = sanitizeStructuredData(parsed)
+      
+      const result = normalizeModelMetadata(normalizeDateFields({ type: normalizeDocumentType(documentType), ...sanitized }))
       // Add type_confidence only if it was explicitly provided (from auto-classification)
       if (typeConfidence !== null && typeConfidence !== undefined) {
         result.type_confidence = normalizeConfidenceValue(typeConfidence)

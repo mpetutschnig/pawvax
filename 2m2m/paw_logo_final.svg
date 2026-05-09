@@ -1,0 +1,52 @@
+<svg width="800" height="800" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <!-- 
+    PAW Logo - Symmetrical Hybrid Revision
+    Left: Half Heart | Right: Half Paw Pad (Same Height)
+    Crown: 4 Claws/Toes spread across both halves
+  -->
+  <defs>
+    <linearGradient id="brandGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4F46E5;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#10B981;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <g transform="translate(0, 10)">
+    <!-- 
+      Main Pad Body (Symmetrical in height) 
+      United at x=100
+    -->
+    <g fill="none" stroke="url(#brandGrad)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+      <!-- Left: Heart Half -->
+      <path d="M 100,160 
+               C 50,140 20,110 20,70 
+               20,45 45,35 70,45
+               C 85,55 95,70 100,85" />
+      
+      <!-- Right: Paw Pad Half (Mirrored Height) -->
+      <path d="M 100,160 
+               C 150,140 180,110 180,70 
+               180,45 155,35 130,45
+               C 115,55 105,70 100,85" />
+
+      <!-- 
+        Claws/Toes (The Crown)
+        Four elements spread above the entire shape
+      -->
+      <!-- Toe 1 -->
+      <circle cx="40" cy="30" r="8" />
+      <!-- Toe 2 -->
+      <circle cx="80" cy="15" r="8" />
+      <!-- Toe 3 -->
+      <circle cx="120" cy="15" r="8" />
+      <!-- Toe 4 -->
+      <circle cx="160" cy="30" r="8" />
+    </g>
+
+    <!-- Visual Polish: Subtle Center Axis -->
+    <line x1="100" y1="85" x2="100" y2="160" stroke="#FFFFFF" stroke-width="1" stroke-dasharray="4 4" opacity="0.1" />
+  </g>
+
+  <!-- Typography -->
+  <text x="100" y="195" font-family="Inter, system-ui, sans-serif" font-size="24" text-anchor="middle" fill="#FFFFFF" font-weight="900" letter-spacing="8">PAW</text>
+</svg>
