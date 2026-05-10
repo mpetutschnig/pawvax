@@ -541,7 +541,7 @@ export default function AnimalPage() {
   const isVetVerified = false // Placeholder for future implementation
 
   if (showRetryModal) {
-    const docImages = retryDoc ? [retryDoc.image_path, ...(retryDoc.pages || [])].filter(Boolean) : []
+    const docImages = retryDoc ? ([retryDoc.image_path, ...(retryDoc.pages || [])].filter(Boolean) as string[]) : []
     return (
       <DocumentAnalysisForm
         title={t('docDetail.aiAnalysis')}

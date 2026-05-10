@@ -7,7 +7,7 @@ import { normalizeVaccinationRecord } from '../utils/vaccination'
 import { DocumentAnalysisForm } from '../components/DocumentAnalysisForm'
 import { DEFAULT_AVAILABLE_MODELS, DEFAULT_MODEL_BY_PROVIDER, DOCUMENT_TYPE_PLACEHOLDER, type DocumentTypeSelectValue } from '../utils/documentAnalysis'
 import { PageHeader } from '../components/PageHeader'
-import { Shield, Pill, FileText, PawPrint, Landmark, Calendar, Download, Mail, Tag, Save, X, Edit2, Trash2, CheckCircle, Award, GraduationCap, ChevronLeft, ChevronRight, Bell, AlertTriangle, Syringe, BookOpen, Camera } from 'lucide-react'
+import { Shield, Pill, FileText, PawPrint, Landmark, Calendar, Download, Mail, Tag, Save, X, Edit2, Trash2, CheckCircle, Award, GraduationCap, ChevronLeft, ChevronRight, Bell, AlertTriangle } from 'lucide-react'
 import { TagCombobox } from '../components/TagCombobox'
 
 function extractProviderError(data: any, fallback: string): string {
@@ -49,7 +49,7 @@ export default function DocumentDetailPage() {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [visibility, setVisibility] = useState<string[]>([])
   const [showJsonDetails, setShowJsonDetails] = useState(false)
-  const [roles, setRoles] = useState<string[]>([])
+  const [roles] = useState<string[]>([])
   const [analysisHistory, setAnalysisHistory] = useState<any[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
   

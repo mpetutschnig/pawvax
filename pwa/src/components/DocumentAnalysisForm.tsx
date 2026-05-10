@@ -163,3 +163,14 @@ export function DocumentAnalysisForm({
             </div>
           </>
         )}
+
+        <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-6)' }}>
+          <button className="btn btn-primary flex-1" onClick={onSubmit} disabled={isSubmitting || isPlaceholderSelected}>
+            {isSubmitting ? t('animal.retrying') : (hasAnyKey ? submitLabel : t('common.save'))}
+          </button>
+          <button className="btn btn-ghost flex-1" onClick={onCancel} disabled={isSubmitting}>{cancelLabel}</button>
+        </div>
+      </div>
+    </div>
+  )
+}

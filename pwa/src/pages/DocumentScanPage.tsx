@@ -6,9 +6,9 @@ import { CheckCircle, AlertCircle, Syringe, FileText, BookOpen, Camera, RefreshC
 import { PageHeader } from '../components/PageHeader'
 import { DocumentAnalysisForm } from '../components/DocumentAnalysisForm'
 import { uploadMultiPageDocument } from '../api/ws'
-import { analyzeDocument, patchDocument, getMe, patchMe, getBillingMe } from '../api/rest'
+import { analyzeDocument, patchDocument, getMe, getBillingMe } from '../api/rest'
 import { BillingConsentModal } from '../components/BillingConsentModal'
-import { DEFAULT_AVAILABLE_MODELS, DEFAULT_MODEL_BY_PROVIDER, DOCUMENT_TYPE_PLACEHOLDER, type DocumentTypeSelectValue } from '../utils/documentAnalysis'
+import { DEFAULT_AVAILABLE_MODELS, DEFAULT_MODEL_BY_PROVIDER, DOCUMENT_TYPE_OPTIONS, DOCUMENT_TYPE_PLACEHOLDER, type DocumentTypeSelectValue } from '../utils/documentAnalysis'
 
 type Phase = 'capture' | 'uploading' | 'analysing' | 'done' | 'error'
 
@@ -236,7 +236,7 @@ export default function DocumentScanPage() {
       <DocumentAnalysisForm
         title={t('docDetail.aiAnalysis')}
         description={t('docDetail.aiSelectProvider')}
-        previews={allPreviews}
+        previews={allPreviews as string[]}
         errorMessage={errorMsg}
         hasAnyKey={hasAnyKey}
         hasGemini={hasGemini}
