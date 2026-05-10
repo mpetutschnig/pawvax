@@ -17,6 +17,7 @@ interface DocumentAnalysisFormProps {
   hasOpenai: boolean
   hasSystemAi: boolean
   systemFallbackEnabled?: boolean
+  pricePerPage?: number
   retryProvider: string
   retryModel: string
   requestedDocumentType: DocumentTypeSelectValue
@@ -47,6 +48,7 @@ export function DocumentAnalysisForm({
   hasOpenai,
   hasSystemAi,
   systemFallbackEnabled,
+  pricePerPage,
   retryProvider,
   retryModel,
   requestedDocumentType,
@@ -66,7 +68,6 @@ export function DocumentAnalysisForm({
 
   const docTypeLabel = (type: RequestedDocumentType) => {
     const labels: Record<RequestedDocumentType, string> = {
-      auto: t('docScan.docTypeAuto'),
       vaccination: t('animal.docTypeVaccination'),
       treatment: t('animal.docTypeTreatment'),
       pet_passport: t('animal.docTypePetPassport'),
@@ -115,11 +116,6 @@ export function DocumentAnalysisForm({
                 <option key={type} value={type}>{docTypeLabel(type)}</option>
               ))}
             </select>
-            {requestedDocumentType === 'auto' && hasAnyKey && (
-              <div style={{ marginTop: 'var(--space-2)', padding: 'var(--space-3)', background: 'var(--warning-50)', border: '1px solid var(--warning-200)', borderRadius: 'var(--radius-sm)', fontSize: 'var(--font-size-sm)', color: 'var(--warning-700)' }}>
-                ⚠️ {t('docScan.autoCostWarning')}
-              </div>
-            )}
           </div>
         )}
 
@@ -137,8 +133,18 @@ export function DocumentAnalysisForm({
             {!hasGemini && !hasAnthropic && !hasOpenai && hasSystemAi && systemFallbackEnabled && (
               <div style={{ marginBottom: 'var(--space-4)', padding: 'var(--space-3)', background: 'var(--info-50)', border: '1px solid var(--info-500)', borderRadius: 'var(--radius-sm)', fontSize: 'var(--font-size-xs)', color: 'var(--info-600)' }}>
                 {t('docScan.usingSystemFallback')}
+                {pricePerPage !== undefined && pricePerPage > 0 && (
+                  <div style={{ fontWeight: 600, marginTop: '2px' }}>
+                    Kosten: {pricePerPage} Cent / Seite
+                  </div>
+                )}
               </div>
             )}
+            
+            <div style={{ marginBottom: 'var(--space-4)', padding: 'var(--space-3)', background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: '11px', color: 'var(--text-secondary)' }}>
+              <strong>Haftungsausschluss:</strong> Die KI kann Fehler machen. Wir übernehmen keine Haftung für fehlerhaft erkannte Daten. Bitte prüfe das Ergebnis sorgfältig.
+            </div>
+
             <div className="form-group">
               <label className="form-label">{t('docDetail.provider')}</label>
               <select className="form-select" value={retryProvider} onChange={e => onProviderChange(e.target.value)}>
@@ -157,14 +163,3 @@ export function DocumentAnalysisForm({
             </div>
           </>
         )}
-
-        <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-6)' }}>
-          <button className="btn btn-primary flex-1" onClick={onSubmit} disabled={isSubmitting || isPlaceholderSelected}>
-            {isSubmitting ? t('animal.retrying') : (hasAnyKey ? submitLabel : t('common.save'))}
-          </button>
-          <button className="btn btn-ghost flex-1" onClick={onCancel} disabled={isSubmitting}>{cancelLabel}</button>
-        </div>
-      </div>
-    </div>
-  )
-}

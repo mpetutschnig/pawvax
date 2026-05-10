@@ -613,9 +613,8 @@ export default function AnimalPage() {
   })() : null
 
   const vaccinationRecords = documents
-    .filter(d => d.analysis_status !== 'pending_analysis' && d.doc_type === 'vaccination')
-    .flatMap((doc) => {
-      const records = doc.extracted_json?.payload?.vaccinations || doc.extracted_json?.vaccinations || []
+    .filter(d => d.analysis_status !== 'pending_analysis' && d.doc_type === 'vaccination' && d.ocr_provider !== 'none')
+    .flatMap((doc) => {      const records = doc.extracted_json?.payload?.vaccinations || doc.extracted_json?.vaccinations || []
       if (!Array.isArray(records)) return []
       return records.map((record: any, index: number) => ({
         id: `${doc.id}-${index}`,
@@ -628,9 +627,8 @@ export default function AnimalPage() {
     .sort((a, b) => String(b.administrationDate || b.validUntil || '').localeCompare(String(a.administrationDate || a.validUntil || '')))
 
   const treatmentRecords = documents
-    .filter(d => d.analysis_status !== 'pending_analysis' && d.doc_type === 'treatment')
-    .flatMap((doc) => {
-      const records = doc.extracted_json?.payload?.treatments || doc.extracted_json?.treatments || []
+    .filter(d => d.analysis_status !== 'pending_analysis' && d.doc_type === 'treatment' && d.ocr_provider !== 'none')
+    .flatMap((doc) => {      const records = doc.extracted_json?.payload?.treatments || doc.extracted_json?.treatments || []
       if (!Array.isArray(records)) return []
       return records.map((record: any, index: number) => ({
         id: `${doc.id}-t${index}`,
@@ -675,12 +673,11 @@ export default function AnimalPage() {
   }
 
   // Datenaggregation für alle anderen Dokumenttypen
-  const petPassportDocs = documents.filter(d => d.analysis_status !== 'pending_analysis' && d.doc_type === 'pet_passport')
-  const medicalProductDocs = documents.filter(d => d.analysis_status !== 'pending_analysis' && d.doc_type === 'medical_product')
-  const pedigreeDocs = documents.filter(d => d.analysis_status !== 'pending_analysis' && d.doc_type === 'pedigree')
-  const dogCertificateDocs = documents.filter(d => d.analysis_status !== 'pending_analysis' && d.doc_type === 'dog_certificate')
-  const generalDocs = documents.filter(d => d.analysis_status !== 'pending_analysis' && d.doc_type === 'general')
-
+  const petPassportDocs = documents.filter(d => d.analysis_status !== 'pending_analysis' && d.doc_type === 'pet_passport' && d.ocr_provider !== 'none')
+  const medicalProductDocs = documents.filter(d => d.analysis_status !== 'pending_analysis' && d.doc_type === 'medical_product' && d.ocr_provider !== 'none')
+  const pedigreeDocs = documents.filter(d => d.analysis_status !== 'pending_analysis' && d.doc_type === 'pedigree' && d.ocr_provider !== 'none')
+  const dogCertificateDocs = documents.filter(d => d.analysis_status !== 'pending_analysis' && d.doc_type === 'dog_certificate' && d.ocr_provider !== 'none')
+  const generalDocs = documents.filter(d => d.analysis_status !== 'pending_analysis' && (d.doc_type === 'general' || d.ocr_provider === 'none'))
   return (
     <div className="container page">
       <PageHeader title={animal.name} backTo="/animals" showThemeToggle />

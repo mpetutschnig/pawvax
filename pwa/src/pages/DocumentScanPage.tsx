@@ -78,6 +78,7 @@ export default function DocumentScanPage() {
   const [retryProvider, setRetryProvider] = useState('google')
   const [retryModel, setRetryModel] = useState(DEFAULT_MODEL_BY_PROVIDER.google)
   const [requestedDocumentType, setRequestedDocumentType] = useState<DocumentTypeSelectValue>(DOCUMENT_TYPE_PLACEHOLDER)
+  const [groupTypes, setGroupTypes] = useState<DocumentTypeSelectValue[]>([])
 
   const [hasGemini, setHasGemini] = useState(false)
   const [hasAnthropic, setHasAnthropic] = useState(false)
@@ -148,6 +149,89 @@ export default function DocumentScanPage() {
   const allPreviews = groups.flatMap(g => g.previews)
 
   if (showModelSelection) {
+    const filledGroups = groups.filter(g => g.pages.length > 0)
+    
+    if (filledGroups.length > 1 && !documentId) {
+      return (
+        <div className="container page">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-6)', marginTop: 'var(--space-2)' }}>
+            <button className="btn btn-ghost" style={{ padding: '8px', margin: '-8px' }} onClick={() => setShowModelSelection(false)}>
+              {t('common.cancel')}
+            </button>
+            <h1 style={{ margin: 0, fontSize: 'var(--font-size-xl)' }}>Batch-Upload</h1>
+          </div>
+
+          <div className="card animate-slide-up">
+            <h3 style={{ marginTop: 0, marginBottom: 'var(--space-4)', fontSize: 'var(--font-size-base)' }}>{filledGroups.length} Dokumente kategorisieren</h3>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', marginBottom: 'var(--space-6)' }}>
+              {filledGroups.map((group, i) => (
+                <div key={i} style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center', padding: 'var(--space-3)', background: 'var(--surface-alt)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
+                  <img src={group.previews[0]} alt="Vorschau" style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 'var(--radius-sm)' }} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-tertiary)', marginBottom: '4px' }}>DOKUMENT {i+1} ({group.pages.length} SEITEN)</div>
+                    <select 
+                      className="form-select" 
+                      style={{ padding: '4px 8px', fontSize: 'var(--font-size-sm)' }}
+                      value={groupTypes[i] || DOCUMENT_TYPE_PLACEHOLDER}
+                      onChange={e => {
+                        const newTypes = [...groupTypes]
+                        newTypes[i] = e.target.value as DocumentTypeSelectValue
+                        setGroupTypes(newTypes)
+                      }}
+                    >
+                      <option value={DOCUMENT_TYPE_PLACEHOLDER} disabled>{t('docScan.docTypePlaceholder')}</option>
+                      {DOCUMENT_TYPE_OPTIONS.map(type => {
+                        // Dynamisches Label aus i18n
+                        const labels: Record<string, string> = {
+                          vaccination: t('animal.docTypeVaccination'),
+                          treatment: t('animal.docTypeTreatment'),
+                          pet_passport: t('animal.docTypePetPassport'),
+                          medical_product: t('animal.docTypeMedicalProduct'),
+                          pedigree: t('animal.docTypePedigree'),
+                          dog_certificate: t('animal.docTypeDogCertificate'),
+                          general: t('animal.docTypeGeneral')
+                        }
+                        return <option key={type} value={type}>{labels[type] || type}</option>
+                      })}
+                    </select>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ marginBottom: 'var(--space-4)', padding: 'var(--space-3)', background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: '11px', color: 'var(--text-secondary)' }}>
+              <strong>Haftungsausschluss:</strong> Die KI kann Fehler machen. Wir übernehmen keine Haftung für fehlerhaft erkannte Daten.
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">{t('docDetail.provider')}</label>
+              <select className="form-select" value={retryProvider} onChange={e => handleProviderChange(e.target.value)}>
+                {(hasGemini || hasSystemAi) && <option value="google">Google Gemini</option>}
+                {(hasAnthropic || hasSystemAi) && <option value="anthropic">Anthropic Claude</option>}
+                {(hasOpenai || hasSystemAi) && <option value="openai">OpenAI</option>}
+              </select>
+            </div>
+
+            {!hasGemini && !hasAnthropic && !hasOpenai && hasSystemAi && systemFallbackEnabled && (
+              <div style={{ marginBottom: 'var(--space-4)', padding: 'var(--space-3)', background: 'var(--info-50)', border: '1px solid var(--info-500)', borderRadius: 'var(--radius-sm)', fontSize: 'var(--font-size-xs)', color: 'var(--info-600)' }}>
+                {t('docScan.usingSystemFallback')}
+                {billingPricePerPage > 0 && <div style={{ fontWeight: 600, marginTop: '2px' }}>Kosten: {billingPricePerPage} Cent / Seite</div>}
+              </div>
+            )}
+
+            <button 
+              className="btn btn-primary btn-full" 
+              disabled={groupTypes.length < filledGroups.length || groupTypes.some(t => t === DOCUMENT_TYPE_PLACEHOLDER)}
+              onClick={() => maybeUpload(groupTypes)}
+            >
+              Alle {filledGroups.length} Dokumente analysieren
+            </button>
+          </div>
+        </div>
+      )
+    }
+
     return (
       <DocumentAnalysisForm
         title={t('docDetail.aiAnalysis')}
@@ -160,6 +244,7 @@ export default function DocumentScanPage() {
         hasOpenai={hasOpenai}
         hasSystemAi={hasSystemAi}
         systemFallbackEnabled={systemFallbackEnabled}
+        pricePerPage={billingPricePerPage}
         retryProvider={retryProvider}
         retryModel={retryModel}
         requestedDocumentType={requestedDocumentType}
@@ -644,7 +729,9 @@ export default function DocumentScanPage() {
               </div>
 
               <button className="btn btn-primary btn-full" onClick={() => {
+                const filled = groups.filter(g => g.pages.length > 0)
                 setRequestedDocumentType(DOCUMENT_TYPE_PLACEHOLDER)
+                setGroupTypes(new Array(filled.length).fill(DOCUMENT_TYPE_PLACEHOLDER))
                 setShowModelSelection(true)
               }}>
                 {groups.filter(g => g.pages.length > 0).length > 1

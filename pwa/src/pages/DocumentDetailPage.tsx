@@ -419,16 +419,6 @@ export default function DocumentDetailPage() {
   const canEditTags = doc.isUploader || doc.added_by_role !== 'vet'
   const canEditVisibility = doc.isOwner
 
-  const docTypes = [
-    { id: 'vaccination', label: t('animal.docTypeVaccination'), icon: <Syringe size={16} /> },
-    { id: 'treatment', label: t('animal.docTypeTreatment'), icon: <BookOpen size={16} /> },
-    { id: 'medical_product', label: t('animal.docTypeMedicalProduct'), icon: <FileText size={16} /> },
-    { id: 'pet_passport', label: t('animal.docTypePetPassport'), icon: <Camera size={16} /> },
-    { id: 'pedigree', label: t('animal.docTypePedigree'), icon: <BookOpen size={16} /> },
-    { id: 'dog_certificate', label: t('animal.docTypeDogCertificate'), icon: <FileText size={16} /> },
-    { id: 'general', label: t('animal.docTypeGeneral'), icon: <FileText size={16} /> }
-  ]
-
   // Schritt 2: Modell-Auswahl (Typ bereits gesetzt)
   if (showRetryModal) {
     const docImages = [doc.image_path, ...(doc.pages || [])].filter(Boolean)

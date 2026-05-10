@@ -24,7 +24,7 @@ export const DEFAULT_MODEL_BY_PROVIDER = {
   openai: 'gpt-4o-mini'
 }
 
-export const DOCUMENT_TYPE_OPTIONS = ['auto', 'vaccination', 'treatment', 'pet_passport', 'medical_product', 'pedigree', 'dog_certificate', 'general'] as const
+export const DOCUMENT_TYPE_OPTIONS = ['vaccination', 'treatment', 'pet_passport', 'medical_product', 'pedigree', 'dog_certificate', 'general'] as const
 
 export type RequestedDocumentType = typeof DOCUMENT_TYPE_OPTIONS[number]
 
