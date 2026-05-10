@@ -79,7 +79,6 @@ export default function DocumentScanPage() {
   const [retryModel, setRetryModel] = useState(DEFAULT_MODEL_BY_PROVIDER.google)
   const [requestedDocumentType, setRequestedDocumentType] = useState<DocumentTypeSelectValue>(DOCUMENT_TYPE_PLACEHOLDER)
   const [groupTypes, setGroupTypes] = useState<DocumentTypeSelectValue[]>([])
-  const [typeWizardIdx, setTypeWizardIdx] = useState<number | null>(null)
 
   const [hasGemini, setHasGemini] = useState(false)
   const [hasAnthropic, setHasAnthropic] = useState(false)
@@ -147,75 +146,14 @@ export default function DocumentScanPage() {
     }).catch(err => console.error(err))
   }, [])
 
-  if (typeWizardIdx !== null) {
-    const filledGroups = groups.filter(g => g.pages.length > 0)
-    const currentGroup = filledGroups[typeWizardIdx]
-    const isLast = typeWizardIdx === filledGroups.length - 1
-    return (
-      <div className="container page">
-        <PageHeader title={t('docScan.title')} backTo={`/animals/${animalId}`} showThemeToggle />
-        <div className="card animate-slide-up">
-          {filledGroups.length > 1 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
-              <span className="badge badge-info">Dokument {typeWizardIdx + 1} von {filledGroups.length}</span>
-              {(currentGroup?.pages.length ?? 0) > 1 && (
-                <span className="text-muted" style={{ fontSize: 'var(--font-size-sm)' }}>{currentGroup?.pages.length} Seiten</span>
-              )}
-            </div>
-          )}
-          {currentGroup?.previews[0] && (
-            <img src={currentGroup.previews[0]} alt="Vorschau" style={{ width: '100%', maxHeight: '180px', objectFit: 'contain', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-4)', background: 'var(--surface-2)' }} />
-          )}
-          <h3 style={{ marginBottom: 'var(--space-4)', fontSize: 'var(--font-size-base)' }}>Welcher Dokumenttyp?</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)', marginBottom: 'var(--space-4)' }}>
-            {docTypes.map(type => (
-              <button
-                key={type.id}
-                onClick={() => setRequestedDocumentType(type.id as DocumentTypeSelectValue)}
-                style={{
-                  padding: 'var(--space-2)', borderRadius: 'var(--radius-md)',
-                  border: requestedDocumentType === type.id ? '2px solid var(--primary-500)' : '1px solid var(--border)',
-                  background: requestedDocumentType === type.id ? 'var(--primary-50)' : 'var(--surface)',
-                  cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-                  fontSize: 'var(--font-size-sm)', fontWeight: requestedDocumentType === type.id ? 600 : 400,
-                  transition: 'all 0.15s'
-                }}
-              >
-                {type.icon}{type.label}
-              </button>
-            ))}
-          </div>
-          <button
-            className="btn btn-primary btn-full"
-            disabled={requestedDocumentType === DOCUMENT_TYPE_PLACEHOLDER}
-            onClick={() => {
-              const newTypes = [...groupTypes]
-              newTypes[typeWizardIdx] = requestedDocumentType
-              setGroupTypes(newTypes)
-              if (isLast) {
-                setTypeWizardIdx(null)
-                setShowModelSelection(true)
-              } else {
-                setTypeWizardIdx(typeWizardIdx + 1)
-                setRequestedDocumentType(DOCUMENT_TYPE_PLACEHOLDER)
-              }
-            }}
-          >
-            {isLast ? t('docScan.chooseModel') : `Weiter → Dok. ${typeWizardIdx + 2} von ${filledGroups.length}`}
-          </button>
-          <button className="btn btn-ghost btn-full" style={{ marginTop: 'var(--space-2)' }} onClick={() => { setTypeWizardIdx(null); setGroupTypes([]) }}>
-            {t('common.cancel')}
-          </button>
-        </div>
-      </div>
-    )
-  }
+  const allPreviews = groups.flatMap(g => g.previews)
 
   if (showModelSelection) {
     return (
       <DocumentAnalysisForm
         title={t('docDetail.aiAnalysis')}
         description={t('docDetail.aiSelectProvider')}
+        previews={allPreviews}
         errorMessage={errorMsg}
         hasAnyKey={hasAnyKey}
         hasGemini={hasGemini}
@@ -229,11 +167,11 @@ export default function DocumentScanPage() {
         submitLabel={documentId ? t('animal.analyzeBtn') : t('docScan.uploadAndAnalyze')}
         cancelLabel={documentId ? t('docScan.saveForLater') : t('common.cancel')}
         isSubmitting={isAnalyzing}
-        hideDocumentType={true}
+        hideDocumentType={false}
         onProviderChange={handleProviderChange}
         onModelChange={setRetryModel}
         onRequestedDocumentTypeChange={setRequestedDocumentType}
-        onSubmit={documentId ? handleRetryAnalysisAPI : startUploadWithModel}
+        onSubmit={documentId ? handleRetryAnalysisAPI : () => maybeUpload()}
         onCancel={() => {
           setErrorMsg(null)
           if (documentId) navigate(`/animals/${animalId}`)
@@ -731,10 +669,8 @@ export default function DocumentScanPage() {
               </div>
 
               <button className="btn btn-primary btn-full" onClick={() => {
-                const filled = groups.filter(g => g.pages.length > 0)
                 setRequestedDocumentType(DOCUMENT_TYPE_PLACEHOLDER)
-                setGroupTypes(new Array(filled.length).fill(DOCUMENT_TYPE_PLACEHOLDER))
-                setTypeWizardIdx(0)
+                setShowModelSelection(true)
               }}>
                 {groups.filter(g => g.pages.length > 0).length > 1
                   ? `${groups.filter(g => g.pages.length > 0).length} Dokumente hochladen & analysieren`

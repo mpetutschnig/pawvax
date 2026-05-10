@@ -9,6 +9,7 @@ interface ModelOption {
 interface DocumentAnalysisFormProps {
   title: string
   description: string
+  previews?: string[]
   errorMessage?: string | null
   hasAnyKey: boolean
   hasGemini: boolean
@@ -37,6 +38,7 @@ interface DocumentAnalysisFormProps {
 export function DocumentAnalysisForm({
   title,
   description,
+  previews,
   errorMessage,
   hasAnyKey,
   hasGemini,
@@ -92,7 +94,15 @@ export function DocumentAnalysisForm({
       {errorMessage && <div className="error-card" style={{ marginBottom: 'var(--space-4)' }}><p style={{ margin: 0, whiteSpace: 'pre-line' }}>{errorMessage}</p></div>}
 
       <div className="card animate-slide-up" style={{ borderColor: 'var(--primary-200)' }}>
-        <p className="text-muted" style={{ marginBottom: 'var(--space-4)' }}>{description}</p>
+        {previews && previews.length > 0 && (
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'nowrap', overflowX: 'auto', marginBottom: 'var(--space-4)', paddingBottom: 'var(--space-2)', scrollbarWidth: 'none' }}>
+            {previews.map((src, i) => (
+              <img key={i} src={src} alt={`Vorschau ${i + 1}`} style={{ height: '100px', width: 'auto', minWidth: '80px', objectFit: 'cover', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', flexShrink: 0 }} />
+            ))}
+          </div>
+        )}
+
+        <p className="text-muted" style={{ marginBottom: 'var(--space-4)', fontSize: 'var(--font-size-sm)' }}>{description}</p>
 
         {!hideDocumentType && (
           <div className="form-group">
@@ -103,7 +113,7 @@ export function DocumentAnalysisForm({
                 <option key={type} value={type}>{docTypeLabel(type)}</option>
               ))}
             </select>
-            {requestedDocumentType === 'auto' && (
+            {requestedDocumentType === 'auto' && hasAnyKey && (
               <div style={{ marginTop: 'var(--space-2)', padding: 'var(--space-3)', background: 'var(--warning-50)', border: '1px solid var(--warning-200)', borderRadius: 'var(--radius-sm)', fontSize: 'var(--font-size-sm)', color: 'var(--warning-700)' }}>
                 ⚠️ {t('docScan.autoCostWarning')}
               </div>
@@ -112,8 +122,10 @@ export function DocumentAnalysisForm({
         )}
 
         {!hasAnyKey ? (
-          <div className="error-card" style={{ marginBottom: 'var(--space-4)' }}>
-            <p style={{ margin: 0 }}>{t('docDetail.noProvidersConfigured')}</p>
+          <div className="error-card" style={{ marginBottom: 'var(--space-4)', background: 'var(--warning-50)', border: '1px solid var(--warning-200)' }}>
+            <p style={{ margin: 0, color: 'var(--warning-900)', fontSize: 'var(--font-size-sm)' }}>
+              {t('docDetail.noProvidersConfigured')}
+            </p>
           </div>
         ) : (
           <>
@@ -137,11 +149,9 @@ export function DocumentAnalysisForm({
         )}
 
         <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-6)' }}>
-          {hasAnyKey && (
-            <button className="btn btn-primary flex-1" onClick={onSubmit} disabled={isSubmitting || isPlaceholderSelected}>
-              {isSubmitting ? t('animal.retrying') : submitLabel}
-            </button>
-          )}
+          <button className="btn btn-primary flex-1" onClick={onSubmit} disabled={isSubmitting || isPlaceholderSelected}>
+            {isSubmitting ? t('animal.retrying') : (hasAnyKey ? submitLabel : t('common.save'))}
+          </button>
           <button className="btn btn-ghost flex-1" onClick={onCancel} disabled={isSubmitting}>{cancelLabel}</button>
         </div>
       </div>

@@ -551,60 +551,13 @@ export default function AnimalPage() {
     { id: 'general', label: t('animal.docTypeGeneral'), icon: <FileText size={16} /> }
   ]
 
-  if (showTypeStep && retryDoc) {
-    return (
-      <div className="container page">
-        <PageHeader title={animal.name} backTo={`/animals/${id}`} showThemeToggle />
-        <div className="card animate-slide-up">
-          {retryDoc.image_path && (
-            <div style={{ marginBottom: 'var(--space-4)' }}>
-              <img
-                src={`/uploads/${retryDoc.image_path.split('/').pop()}`}
-                alt="Dokument"
-                style={{ width: '100%', maxHeight: '200px', objectFit: 'contain', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', background: 'var(--surface)' }}
-              />
-            </div>
-          )}
-          <h3 style={{ marginBottom: 'var(--space-4)', fontSize: 'var(--font-size-base)' }}>{t('docScan.docType')}</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)', marginBottom: 'var(--space-4)' }}>
-            {docTypes.map(type => (
-              <button
-                key={type.id}
-                onClick={() => setRequestedDocumentType(type.id as DocumentTypeSelectValue)}
-                style={{
-                  padding: 'var(--space-2)', borderRadius: 'var(--radius-md)',
-                  border: requestedDocumentType === type.id ? '2px solid var(--primary-500)' : '1px solid var(--border)',
-                  background: requestedDocumentType === type.id ? 'var(--primary-50)' : 'var(--surface)',
-                  cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-                  fontSize: 'var(--font-size-sm)', fontWeight: requestedDocumentType === type.id ? 600 : 400,
-                  transition: 'all 0.15s'
-                }}
-              >
-                {type.icon}{type.label}
-              </button>
-            ))}
-          </div>
-          <button
-            className="btn btn-primary btn-full"
-            disabled={requestedDocumentType === DOCUMENT_TYPE_PLACEHOLDER}
-            onClick={() => { setShowTypeStep(false); setShowRetryModal(true) }}
-          >
-            {t('docScan.chooseModel')}
-          </button>
-          <button className="btn btn-ghost btn-full" style={{ marginTop: 'var(--space-2)' }}
-            onClick={() => { setShowTypeStep(false); setRetryDoc(null); setError(null) }}>
-            {t('common.cancel')}
-          </button>
-        </div>
-      </div>
-    )
-  }
-
   if (showRetryModal) {
+    const docImages = retryDoc ? [retryDoc.image_path, ...(retryDoc.pages || [])].filter(Boolean) : []
     return (
       <DocumentAnalysisForm
         title={t('docDetail.aiAnalysis')}
         description={t('docDetail.aiSelectProvider')}
+        previews={docImages}
         errorMessage={error}
         hasAnyKey={hasAnyKey}
         hasGemini={hasGemini}
@@ -618,12 +571,12 @@ export default function AnimalPage() {
         submitLabel={t('animal.analyzeBtn')}
         cancelLabel={t('common.cancel')}
         isSubmitting={retrying !== null}
-        hideDocumentType={true}
+        hideDocumentType={false}
         onProviderChange={handleProviderChange}
         onModelChange={setRetryModel}
         onRequestedDocumentTypeChange={setRequestedDocumentType}
         onSubmit={handleRetryAnalysisAPI}
-        onCancel={() => { setShowRetryModal(false); setError(null) }}
+        onCancel={() => { setShowRetryModal(false); setRetryDoc(null); setError(null) }}
       />
     )
   }
@@ -1853,9 +1806,13 @@ export default function AnimalPage() {
                             {doc.added_by_role === 'vet' && <span className="badge badge-vet" style={{ display: 'flex', alignItems: 'center', gap: '3px' }}><CheckCircle size={10} /> {t('animal.vet')}</span>}
                             {doc.added_by_role === 'authority' && <span className="badge badge-authority" style={{ display: 'flex', alignItems: 'center', gap: '3px' }}><ShieldAlert size={10} /> {t('animal.authority')}</span>}
                             {!['vet', 'authority'].includes(doc.added_by_role ?? '') && <span className="badge" style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: '3px', fontSize: '10px' }}>{t('animal.owner')}</span>}
+                            {doc.ocr_provider === 'none' && (
+                              <span className="badge badge-danger" style={{ display: 'flex', alignItems: 'center', gap: '3px', fontSize: '10px', background: 'var(--danger-50)', color: 'var(--danger-600)', borderColor: 'var(--danger-200)' }}>
+                                <AlertTriangle size={10} /> Nicht analysiert
+                              </span>
+                            )}
                             <span className="text-muted" style={{ fontSize: '10px' }}>{doc.ocr_provider || '—'}</span>
-                          </div>
-                        </div>
+                          </div>                        </div>
                       </Link>
                     ))}
                   </div>
@@ -1891,9 +1848,13 @@ export default function AnimalPage() {
                         {doc.added_by_role === 'vet' && <span className="badge badge-vet" style={{ display: 'flex', alignItems: 'center', gap: '3px' }}><CheckCircle size={10} /> {t('animal.vet')}</span>}
                         {doc.added_by_role === 'authority' && <span className="badge badge-authority" style={{ display: 'flex', alignItems: 'center', gap: '3px' }}><ShieldAlert size={10} /> {t('animal.authority')}</span>}
                         {!['vet', 'authority'].includes(doc.added_by_role ?? '') && <span className="badge" style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: '3px', fontSize: '10px' }}>{t('animal.owner')}</span>}
+                        {doc.ocr_provider === 'none' && (
+                          <span className="badge badge-danger" style={{ display: 'flex', alignItems: 'center', gap: '3px', fontSize: '10px', background: 'var(--danger-50)', color: 'var(--danger-600)', borderColor: 'var(--danger-200)' }}>
+                            <AlertTriangle size={10} /> Nicht analysiert
+                          </span>
+                        )}
                         <span className="text-muted" style={{ fontSize: '10px' }}>{doc.ocr_provider || '—'}</span>
-                      </div>
-                    </div>
+                      </div>                    </div>
                   </Link>
                 ))
               )}
@@ -1939,9 +1900,8 @@ export default function AnimalPage() {
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button
-                  onClick={() => { setRetryDocId(doc.id); setRetryDoc(doc); setRequestedDocumentType((doc.doc_type as DocumentTypeSelectValue) ?? DOCUMENT_TYPE_PLACEHOLDER); setShowTypeStep(true); }}
-                  disabled={retrying !== null}
-                  style={{
+                  onClick={() => { setRetryDocId(doc.id); setRetryDoc(doc); setRequestedDocumentType((doc.doc_type as DocumentTypeSelectValue) ?? DOCUMENT_TYPE_PLACEHOLDER); setShowRetryModal(true); }}
+                  disabled={retrying !== null}                  style={{
                     padding: '8px 12px',
                     background: 'var(--primary-500)',
                     color: 'white',

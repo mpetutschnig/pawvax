@@ -429,61 +429,14 @@ export default function DocumentDetailPage() {
     { id: 'general', label: t('animal.docTypeGeneral'), icon: <FileText size={16} /> }
   ]
 
-  // Schritt 1: Typ-Auswahl mit Dokumentvorschau
-  if (showTypeStep) {
-    const docImages = [doc.image_path, ...(doc.pages || [])].filter(Boolean)
-    return (
-      <div className="container page">
-        <PageHeader title={config.label} backTo={`/animals/${animalId}`} showThemeToggle />
-        <div className="card animate-slide-up">
-          {docImages.length > 0 && (
-            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: 'var(--space-4)' }}>
-              {docImages.map((src: string, i: number) => (
-                <img key={i} src={src} alt={`Seite ${i + 1}`} style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }} />
-              ))}
-            </div>
-          )}
-          <h3 style={{ marginBottom: 'var(--space-4)', fontSize: 'var(--font-size-base)' }}>{t('docScan.docType')}</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)', marginBottom: 'var(--space-4)' }}>
-            {docTypes.map(type => (
-              <button
-                key={type.id}
-                onClick={() => setRequestedDocumentType(type.id as DocumentTypeSelectValue)}
-                style={{
-                  padding: 'var(--space-2)', borderRadius: 'var(--radius-md)',
-                  border: requestedDocumentType === type.id ? '2px solid var(--primary-500)' : '1px solid var(--border)',
-                  background: requestedDocumentType === type.id ? 'var(--primary-50)' : 'var(--surface)',
-                  cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-                  fontSize: 'var(--font-size-sm)', fontWeight: requestedDocumentType === type.id ? 600 : 400,
-                  transition: 'all 0.15s'
-                }}
-              >
-                {type.icon}{type.label}
-              </button>
-            ))}
-          </div>
-          <button
-            className="btn btn-primary btn-full"
-            disabled={requestedDocumentType === DOCUMENT_TYPE_PLACEHOLDER}
-            onClick={() => { setShowTypeStep(false); setShowRetryModal(true) }}
-          >
-            Weiter — KI-Modell wählen
-          </button>
-          <button className="btn btn-ghost btn-full" style={{ marginTop: 'var(--space-2)' }}
-            onClick={() => { setShowTypeStep(false); setError(null) }}>
-            {t('common.cancel')}
-          </button>
-        </div>
-      </div>
-    )
-  }
-
   // Schritt 2: Modell-Auswahl (Typ bereits gesetzt)
   if (showRetryModal) {
+    const docImages = [doc.image_path, ...(doc.pages || [])].filter(Boolean)
     return (
       <DocumentAnalysisForm
         title={analysisAction === 'reanalyze' ? t('docDetail.reanalyze') : t('docDetail.aiAnalysis')}
         description={t('docDetail.aiSelectProvider')}
+        previews={docImages}
         errorMessage={error}
         hasAnyKey={hasAnyKey}
         hasGemini={hasGemini}
@@ -497,7 +450,7 @@ export default function DocumentDetailPage() {
         submitLabel={analysisAction === 'reanalyze' ? t('docDetail.reanalyze') : t('animal.analyzeBtn')}
         cancelLabel={t('docDetail.cancel')}
         isSubmitting={isAnalyzing}
-        hideDocumentType={true}
+        hideDocumentType={false}
         onProviderChange={handleProviderChange}
         onModelChange={setRetryModel}
         onRequestedDocumentTypeChange={setRequestedDocumentType}
@@ -677,10 +630,9 @@ export default function DocumentDetailPage() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-3)' }}>
             <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0 }}>{t('docDetail.analysisHistory')}</h3>
             {canReanalyze && (
-              <button className="btn btn-secondary" onClick={() => { setAnalysisAction('reanalyze'); setRequestedDocumentType((doc.doc_type as DocumentTypeSelectValue) ?? DOCUMENT_TYPE_PLACEHOLDER); setShowTypeStep(true); setError(null) }} disabled={saving}>
+              <button className="btn btn-secondary" onClick={() => { setAnalysisAction('reanalyze'); setRequestedDocumentType((doc.doc_type as DocumentTypeSelectValue) ?? DOCUMENT_TYPE_PLACEHOLDER); setShowRetryModal(true); setError(null) }} disabled={saving}>
                 {t('docDetail.reanalyze')}
-              </button>
-            )}
+              </button>            )}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
             <div className="card" style={{ padding: 'var(--space-4)', borderLeft: '4px solid var(--primary-400)' }}>
@@ -1293,12 +1245,11 @@ export default function DocumentDetailPage() {
 
         {!rawText && doc.analysis_status === 'pending_analysis' ? (
           <div style={{ marginTop: 'var(--space-4)' }}>
-            <button className="btn btn-primary btn-full" onClick={() => { setAnalysisAction('retry'); setRequestedDocumentType((doc.doc_type as DocumentTypeSelectValue) ?? DOCUMENT_TYPE_PLACEHOLDER); setShowTypeStep(true) }}>
+            <button className="btn btn-primary btn-full" onClick={() => { setAnalysisAction('retry'); setRequestedDocumentType((doc.doc_type as DocumentTypeSelectValue) ?? DOCUMENT_TYPE_PLACEHOLDER); setShowRetryModal(true) }}>
               {t('animal.retry')}
             </button>
           </div>
-        ) : !rawText && (
-          <p className="text-muted" style={{ marginTop: 'var(--space-4)', fontStyle: 'italic' }}>{t('docDetail.noOcr')}</p>
+        ) : !rawText && (          <p className="text-muted" style={{ marginTop: 'var(--space-4)', fontStyle: 'italic' }}>{t('docDetail.noOcr')}</p>
         )}
 
         {!reminderMode && (
