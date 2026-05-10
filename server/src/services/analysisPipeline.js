@@ -135,8 +135,35 @@ export async function runDocumentAnalysis(db, doc, accountId, options, log, reqI
 
   // Budget/fallback check
   const hasOwnKey = !!(acc?.gemini_token || acc?.anthropic_token || acc?.openai_token)
+  
+  if (!hasOwnKey && !(acc?.system_fallback_enabled ?? 1)) {
+    // KI ist deaktiviert -> Einfach ohne Analyse speichern
+    const finalDocType = normalizeDocumentType(requestedDocumentType) || 'general'
+    const extractedData = {
+      type: finalDocType,
+      title: 'Manueller Upload',
+      summary: 'Dokument ohne KI-Analyse gespeichert.',
+      document_date: new Date().toISOString().split('T')[0],
+      extraction_quality: { requires_retry: false, status: 'manual' }
+    }
+    
+    await db.query(`
+      UPDATE documents
+      SET extracted_json = $1, ocr_provider = $2, analysis_status = $3, doc_type = $4, image_path = $5
+      WHERE id = $6
+    `, [JSON.stringify(extractedData), 'none', 'completed', finalDocType, analysisPages[0].image_path, docId])
+    
+    return { 
+      extractedData, 
+      provider: 'none', 
+      nextStatus: 'completed', 
+      requiresRetry: false, 
+      pagesCount: analysisPages.length, 
+      suggestedType: finalDocType 
+    }
+  }
+
   if (!hasOwnKey) {
-    if (!(acc?.system_fallback_enabled ?? 1)) throw Object.assign(new Error('fallback_disabled'), { code: 422 })
     if (acc?.billing_budget_eur != null) {
       const settings = await getSettingsMap(db)
       const pricePerPageCents = Number(settings.billing_price_per_page ?? 0)

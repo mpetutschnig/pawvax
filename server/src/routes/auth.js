@@ -502,7 +502,7 @@ export default async function authRoutes(fastify) {
   // Eigenes Profil lesen
   fastify.get('/api/accounts/me', { onRequest: [fastify.authenticate] }, async (req, reply) => {
     const db = getDb()
-    const { rows: [account] } = await db.query('SELECT id, name, email, pending_email, role, verified, verification_status, email_verified, email_verification_required, gemini_model, claude_model, created_at FROM accounts WHERE id = $1', [req.user.accountId])
+    const { rows: [account] } = await db.query('SELECT id, name, email, pending_email, role, verified, verification_status, email_verified, email_verification_required, gemini_model, claude_model, created_at, system_fallback_enabled, billing_consent_accepted_at FROM accounts WHERE id = $1', [req.user.accountId])
     if (!account) return reply.code(404).send({ error: 'Account nicht gefunden' })
     const roles = (account.role ?? 'user').split(',').map(r => r.trim())
     const { rows: [fullAccount] } = await db.query('SELECT gemini_token, anthropic_token, openai_token, ai_provider_priority FROM accounts WHERE id = $1', [account.id])
@@ -518,7 +518,7 @@ export default async function authRoutes(fastify) {
   // Eigenes Profil ändern
   fastify.patch('/api/accounts/me', { onRequest: [fastify.authenticate] }, async (req, reply) => {
     const db = getDb()
-    const { name, email, password, currentPassword, gemini_token, gemini_model, anthropic_token, claude_model, openai_token, openai_model, ai_provider_priority } = req.body
+    const { name, email, password, currentPassword, gemini_token, gemini_model, anthropic_token, claude_model, openai_token, openai_model, ai_provider_priority, system_fallback_enabled, billing_consent_accepted_at } = req.body
     const accountId = req.user.accountId
     const updates = []
     const vals = []
@@ -598,6 +598,14 @@ export default async function authRoutes(fastify) {
     if (ai_provider_priority !== undefined) {
       vals.push(typeof ai_provider_priority === 'string' ? ai_provider_priority : JSON.stringify(ai_provider_priority))
       updates.push(`ai_provider_priority = $${vals.length}`)
+    }
+    if (system_fallback_enabled !== undefined) {
+      vals.push(system_fallback_enabled ? 1 : 0)
+      updates.push(`system_fallback_enabled = $${vals.length}`)
+    }
+    if (billing_consent_accepted_at !== undefined) {
+      vals.push(billing_consent_accepted_at)
+      updates.push(`billing_consent_accepted_at = $${vals.length}`)
     }
 
     if (!updates.length) return reply.code(400).send({ error: 'Keine Änderungen' })

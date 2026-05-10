@@ -50,6 +50,8 @@ export default function ProfilePage() {
   const [editPassword, setEditPassword] = useState('')
   const [currentPassword, setCurrentPassword] = useState('')
   const [profileSaving, setProfileSaving] = useState(false)
+  const [systemFallbackEnabled, setSystemFallbackEnabled] = useState(true)
+  const [billingConsentAcceptedAt, setBillingConsentAcceptedAt] = useState<string | null>(null)
 
   const renderModelHint = (message: string) => (
     <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-3)', padding: 'var(--space-3)', background: 'color-mix(in oklch, var(--info-500) 10%, var(--surface))', borderRadius: 'var(--radius-md)', border: '1px solid color-mix(in oklch, var(--info-500) 28%, transparent)' }}>
@@ -125,6 +127,8 @@ export default function ProfilePage() {
       setGeminiModel(res.data.gemini_model || DEFAULT_MODEL_BY_PROVIDER.google)
       setClaudeModel(res.data.claude_model || DEFAULT_MODEL_BY_PROVIDER.anthropic)
       setOpenaiModel(res.data.openai_model || DEFAULT_MODEL_BY_PROVIDER.openai)
+      setSystemFallbackEnabled(!!(res.data.system_fallback_enabled ?? 1))
+      setBillingConsentAcceptedAt(res.data.billing_consent_accepted_at || null)
       
       try {
         if (res.data.ai_provider_priority) {
@@ -184,6 +188,17 @@ export default function ProfilePage() {
       setError(err?.response?.data?.error || err.message || t('profile.saveError'))
     } finally {
       setProfileSaving(false)
+    }
+  }
+
+  const updateAiSetting = async (key: string, value: any) => {
+    try {
+      await patchMe({ [key]: value })
+      if (key === 'system_fallback_enabled') setSystemFallbackEnabled(value)
+      if (key === 'billing_consent_accepted_at') setBillingConsentAcceptedAt(value)
+      loadProfile()
+    } catch (err) {
+      alert(t('common.error'))
     }
   }
 
@@ -819,11 +834,53 @@ export default function ProfilePage() {
       )}
 
       {/* ── Tab: Entwickler ───────────────────────────────────── */}
-      {activeTab === 'developer' && (
+      {activeTab === 'ai' && (
         <>
+          {/* System-Fallback & Billing */}
           <div className="card animate-fade-in">
-            <h3 style={{ marginTop: 0, marginBottom: 'var(--space-2)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-              <Key size={18} color="var(--primary-500)" /> {t('profile.apiKeysTitle')}
+            <h3 style={{ marginTop: 0, marginBottom: 'var(--space-3)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+              <Cpu size={18} color="var(--primary-500)" /> {t('profile.aiIntegration')}
+            </h3>
+            <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-4)' }}>
+              {t('profile.aiIntegrationDesc')}
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-3)', padding: 'var(--space-3)', background: 'var(--surface-alt)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
+                <div style={{ flex: 1 }}>
+                  <p style={{ margin: 0, fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>{t('profile.systemAiFallback')}</p>
+                  <p className="text-muted" style={{ margin: '4px 0 0 0', fontSize: 'var(--font-size-xs)' }}>
+                    {t('profile.systemAiFallbackDesc')}
+                  </p>
+                </div>
+                <div className="form-switch">
+                  <input 
+                    type="checkbox" 
+                    id="system-fallback-toggle"
+                    checked={systemFallbackEnabled}
+                    onChange={(e) => updateAiSetting('system_fallback_enabled', e.target.checked)}
+                  />
+                  <label htmlFor="system-fallback-toggle"></label>
+                </div>
+              </div>
+
+              {billingConsentAcceptedAt && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontSize: 'var(--font-size-xs)', color: 'var(--success-600)' }}>
+                  <CheckCircle size={14} /> {t('profile.billingAcceptedAt', { date: formatDate(billingConsentAcceptedAt) })}
+                  <button 
+                    style={{ background: 'none', border: 'none', padding: 0, textDecoration: 'underline', color: 'var(--danger-500)', fontSize: 'inherit', marginLeft: 'auto', cursor: 'pointer' }}
+                    onClick={() => updateAiSetting('billing_consent_accepted_at', null)}
+                  >
+                    Widerrufen
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="card animate-fade-in" style={{ marginTop: 'var(--space-4)' }}>
+            <h3 style={{ marginTop: 0, marginBottom: 'var(--space-3)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+              <Key size={18} color="var(--primary-500)" /> Gemini (Google)
             </h3>
             <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-4)' }}>{t('profile.apiKeysDesc')}</p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 'var(--space-2)', marginBottom: 'var(--space-4)' }}>

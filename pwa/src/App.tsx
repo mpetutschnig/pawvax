@@ -26,6 +26,7 @@ function GlobalBrand() {
   const location = useLocation()
   const { t } = useTranslation()
   const [settings, setSettings] = useState({ app_name: 'PAW', logo_data: '', theme_color: '' })
+  const [account, setAccount] = useState<any>(null)
   const token = localStorage.getItem('token')
   const roleStr = token ? (localStorage.getItem('role') || 'user') : ''
   const roles = roleStr.split(',').map(r => r.trim()).filter(Boolean)
@@ -33,6 +34,12 @@ function GlobalBrand() {
   useEffect(() => {
     fetch('/api/settings').then(res => res.json()).then(data => setSettings(data)).catch(() => {})
   }, [])
+
+  useEffect(() => {
+    if (token) {
+      api.get('/accounts/me').then(res => setAccount(res.data)).catch(() => {})
+    }
+  }, [token])
   
   useEffect(() => {
     if (settings.app_name) document.title = settings.app_name
@@ -59,21 +66,30 @@ function GlobalBrand() {
   if (hideOn.some(path => location.pathname.startsWith(path))) return null
   if (!settings.logo_data && (!settings.app_name || settings.app_name === 'PAW')) return null
 
+  const aiDisabled = account && !account.system_fallback_enabled && !account.has_gemini_token && !account.has_anthropic_token && !account.has_openai_token
+
   return (
-    <div style={{ display: 'flex', alignItems: 'center', padding: '10px var(--space-4)', background: 'var(--surface)', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, zIndex: 100 }}>
-      <div style={{ flex: 1 }}></div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-        {settings.logo_data && <img src={settings.logo_data} alt="Logo" style={{ height: '24px', objectFit: 'contain' }} />}
-        <span style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-primary)' }}>{settings.app_name || 'PAW'}</span>
+    <>
+      <div style={{ display: 'flex', alignItems: 'center', padding: '10px var(--space-4)', background: 'var(--surface)', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, zIndex: 100 }}>
+        <div style={{ flex: 1 }}></div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+          {settings.logo_data && <img src={settings.logo_data} alt="Logo" style={{ height: '24px', objectFit: 'contain' }} />}
+          <span style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-primary)' }}>{settings.app_name || 'PAW'}</span>
+        </div>
+        <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', gap: '4px', flexWrap: 'wrap' }}>
+          {roles.map((r: string) => (
+            <span key={r} className={`badge ${r === 'vet' ? 'badge-success' : 'badge-info'}`} style={{ fontSize: '10px', padding: '2px 6px', textTransform: 'capitalize' }}>
+              {r === 'vet' ? t('docScan.vet') : r === 'authority' ? t('docScan.authority') : r === 'admin' ? 'Admin' : r === 'guest' ? t('docScan.guestAccess') : 'User'}
+            </span>
+          ))}
+        </div>
       </div>
-      <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', gap: '4px', flexWrap: 'wrap' }}>
-        {roles.map((r: string) => (
-          <span key={r} className={`badge ${r === 'vet' ? 'badge-success' : 'badge-info'}`} style={{ fontSize: '10px', padding: '2px 6px', textTransform: 'capitalize' }}>
-            {r === 'vet' ? t('docScan.vet') : r === 'authority' ? t('docScan.authority') : r === 'admin' ? 'Admin' : r === 'guest' ? t('docScan.guestAccess') : 'User'}
-          </span>
-        ))}
-      </div>
-    </div>
+      {aiDisabled && (
+        <div style={{ background: 'var(--warning-100)', borderBottom: '1px solid var(--warning-200)', padding: '6px var(--space-4)', fontSize: '12px', textAlign: 'center', color: 'var(--warning-900)' }}>
+          ⚠️ KI-Funktionen deaktiviert. <Link to="/profile" style={{ color: 'inherit', textDecoration: 'underline', fontWeight: 600 }}>Im Profil aktivieren</Link>
+        </div>
+      )}
+    </>
   )
 }
 
@@ -162,6 +178,7 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/welcome" element={<WelcomePage />} />
         <Route path="/public-scan" element={<PublicScanPage />} />
+        <Route path="/t/:tagId" element={<PublicScanPage />} />
         <Route path="/share/:shareId" element={<PublicSharePage />} />
         <Route path="/" element={<Navigate to="/animals" replace />} />
         <Route path="/reminders" element={<RequireAuth><RemindersPage /></RequireAuth>} />

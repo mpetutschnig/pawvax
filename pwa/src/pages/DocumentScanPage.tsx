@@ -85,7 +85,8 @@ export default function DocumentScanPage() {
   const [hasAnthropic, setHasAnthropic] = useState(false)
   const [hasOpenai, setHasOpenai] = useState(false)
   const [hasSystemAi, setHasSystemAi] = useState(true)
-  const hasAnyKey = hasGemini || hasAnthropic || hasOpenai || hasSystemAi
+  const [systemFallbackEnabled, setSystemFallbackEnabled] = useState(true)
+  const hasAnyKey = hasGemini || hasAnthropic || hasOpenai || (hasSystemAi && systemFallbackEnabled)
   const [billingConsentAccepted, setBillingConsentAccepted] = useState(true)
   const [billingPricePerPage, setBillingPricePerPage] = useState(0)
   const [showConsentModal, setShowConsentModal] = useState(false)
@@ -122,6 +123,7 @@ export default function DocumentScanPage() {
       setHasAnthropic(res.data.has_anthropic_token)
       setHasOpenai(res.data.has_openai_token)
       setHasSystemAi(!!res.data.has_system_ai)
+      setSystemFallbackEnabled(!!(res.data.system_fallback_enabled ?? 1))
 
       if (res.data.has_gemini_token) {
         setRetryProvider('google')
@@ -391,13 +393,16 @@ export default function DocumentScanPage() {
   }
 
   function maybeUpload(types?: DocumentTypeSelectValue[]) {
-    const willUseSystemFallback = !hasGemini && !hasAnthropic && !hasOpenai && hasSystemAi
-    if (willUseSystemFallback && !billingConsentAccepted && billingPricePerPage > 0) {
+    const hasOwnKey = hasGemini || hasAnthropic || hasOpenai
+    // Consent nur nötig wenn System-KI verwendet wird (kein eigener Key & Fallback aktiv)
+    const needsConsent = !hasOwnKey && systemFallbackEnabled && !billingConsentAccepted
+    
+    if (needsConsent) {
       setPendingUploadTypes(types)
       setShowConsentModal(true)
-      return
+    } else {
+      handleUpload(types)
     }
-    handleUpload(types)
   }
 
   async function startUploadWithModel() {

@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useBarcode } from '../hooks/useBarcode'
 import { useNfc } from '../hooks/useNfc'
@@ -11,6 +11,8 @@ type Phase = 'scan' | 'result' | 'notfound'
 
 export default function PublicScanPage() {
   const navigate = useNavigate()
+  const { tagId: routeTagId } = useParams<{ tagId?: string }>()
+  const [searchParams] = useSearchParams()
   const { t, i18n } = useTranslation()
   const [phase, setPhase] = useState<Phase>('scan')
   const [animal, setAnimal] = useState<any>(null)
@@ -109,6 +111,15 @@ export default function PublicScanPage() {
 
   const handleNfc = useCallback((tagId: string) => handleTag(tagId), [handleTag])
   const { start: startNfc, stop: stopNfc } = useNfc(handleNfc, setNfcError)
+
+  // Auto-scan on mount if tagId is provided via URL or query param
+  useEffect(() => {
+    const queryTagId = searchParams.get('tag')
+    const effectiveTagId = routeTagId || queryTagId
+    if (effectiveTagId) {
+      handleTag(effectiveTagId)
+    }
+  }, [routeTagId, searchParams, handleTag])
 
   // Start selected scanner and stop others
   useEffect(() => {

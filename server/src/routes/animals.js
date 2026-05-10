@@ -131,40 +131,35 @@ function getEffectiveRoles(decoded) {
   return ['guest']
 }
 
+function normalizeTagId(tagId) {
+  if (!tagId) return tagId
+  let normalized = tagId.trim()
+  try {
+    const url = new URL(normalized)
+    const parts = url.pathname.split('/').filter(Boolean)
+    normalized = parts[parts.length - 1]
+    if (url.searchParams.has('tag')) {
+      normalized = url.searchParams.get('tag')
+    }
+  } catch { /* not a URL */ }
+  return normalized.replace(/:/g, '').toUpperCase()
+}
+
 export default async function animalRoutes(fastify) {
 
   // ──── ÖFFENTLICHER Endpunkt (kein Login nötig) ────────────────────────────
   fastify.get('/api/public/tag/:tagId', async (req, reply) => {
     const db = getDb()
     const originalTagId = req.params.tagId
-    let tagId = originalTagId
-
-    // URL-Parsing falls jemand die volle URL scannt
-    try {
-      const url = new URL(tagId)
-      const parts = url.pathname.split('/')
-      tagId = parts[parts.length - 1]
-    } catch { /* war keine URL */ }
+    const tagId = normalizeTagId(originalTagId)
 
     let { rows: [row] } = await db.query(`
       SELECT a.*, ac.name AS owner_name
       FROM animals a
       JOIN animal_tags t ON t.animal_id = a.id
       JOIN accounts ac ON ac.id = a.account_id
-      WHERE t.tag_id = $1 AND t.active = 1
+      WHERE (t.tag_id = $1 OR UPPER(REPLACE(t.tag_id, ':', '')) = $1) AND t.active = 1
     `, [tagId])
-
-    // Fallback: Falls nichts gefunden und tagId != originalTagId, ursprüngliche ID versuchen
-    // Dies behebt Tags, die als volle URL gespeichert wurden
-    if (!row && tagId !== originalTagId) {
-      ({ rows: [row] } = await db.query(`
-        SELECT a.*, ac.name AS owner_name
-        FROM animals a
-        JOIN animal_tags t ON t.animal_id = a.id
-        JOIN accounts ac ON ac.id = a.account_id
-        WHERE t.tag_id = $1 AND t.active = 1
-      `, [originalTagId]))
-    }
 
     if (!row) return reply.code(404).send({ error: 'Tag nicht gefunden' })
 
@@ -300,24 +295,15 @@ export default async function animalRoutes(fastify) {
   fastify.get('/api/animals/by-tag/:tagId', async (req, reply) => {
     const db = getDb()
     const originalTagId = req.params.tagId
-    let tagId = originalTagId
+    const tagId = normalizeTagId(originalTagId)
     const { accountId, role, roles, verified } = req.user
 
     // Eigenes Tier?
     let { rows: [ownRow] } = await db.query(`
       SELECT a.* FROM animals a
       JOIN animal_tags t ON t.animal_id = a.id
-      WHERE t.tag_id = $1 AND t.active = 1 AND a.account_id = $2
+      WHERE (t.tag_id = $1 OR UPPER(REPLACE(t.tag_id, ':', '')) = $1) AND t.active = 1 AND a.account_id = $2
     `, [tagId, accountId])
-
-    // Fallback: Falls nichts gefunden, als URL gespeicherte Version versuchen
-    if (!ownRow) {
-      ({ rows: [ownRow] } = await db.query(`
-        SELECT a.* FROM animals a
-        JOIN animal_tags t ON t.animal_id = a.id
-        WHERE t.tag_id = $1 AND t.active = 1 AND a.account_id = $2
-      `, [originalTagId, accountId]))
-    }
 
     if (ownRow) {
       ownRow.is_owner = true
@@ -333,19 +319,8 @@ export default async function animalRoutes(fastify) {
       FROM animals a
       JOIN animal_tags t ON t.animal_id = a.id
       JOIN accounts ac ON ac.id = a.account_id
-      WHERE t.tag_id = $1 AND t.active = 1
+      WHERE (t.tag_id = $1 OR UPPER(REPLACE(t.tag_id, ':', '')) = $1) AND t.active = 1
     `, [tagId])
-
-    // Fallback: Falls nichts gefunden und als URL gespeichert sein könnte
-    if (!row) {
-      ({ rows: [row] } = await db.query(`
-        SELECT a.*, ac.name AS owner_name, ac.email AS owner_email
-        FROM animals a
-        JOIN animal_tags t ON t.animal_id = a.id
-        JOIN accounts ac ON ac.id = a.account_id
-        WHERE t.tag_id = $1 AND t.active = 1
-      `, [originalTagId]))
-    }
 
     if (!row) return reply.code(404).send({ error: 'Tag nicht gefunden' })
 
@@ -708,7 +683,8 @@ export default async function animalRoutes(fastify) {
   }, async (req, reply) => {
     const db = getDb()
     const { id } = req.params
-    const { tagId, tagType } = req.body
+    const { tagId: rawTagId, tagType } = req.body
+    const tagId = normalizeTagId(rawTagId)
     const { accountId, role } = req.user
 
     const userRoles = (role || '').split(',').map(r => r.trim())
@@ -727,7 +703,10 @@ export default async function animalRoutes(fastify) {
       }
     }
 
-    const { rows: [existing] } = await db.query('SELECT animal_id FROM animal_tags WHERE tag_id = $1', [tagId])
+    const { rows: [existing] } = await db.query(`
+      SELECT animal_id FROM animal_tags 
+      WHERE tag_id = $1 OR UPPER(REPLACE(tag_id, ':', '')) = $1
+    `, [tagId])
     if (existing) {
       return reply.code(409).send({ error: 'Tag bereits vergeben', conflict: { animalId: existing.animal_id } })
     }
