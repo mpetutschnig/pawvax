@@ -54,7 +54,6 @@ export default function DocumentDetailPage() {
   const [historyLoading, setHistoryLoading] = useState(false)
   
   const [showRetryModal, setShowRetryModal] = useState(false)
-  const [showTypeStep, setShowTypeStep] = useState(false)
   const [analysisAction, setAnalysisAction] = useState<'retry' | 'reanalyze'>('retry')
   const [retryProvider, setRetryProvider] = useState('google')
   const [retryModel, setRetryModel] = useState(DEFAULT_MODEL_BY_PROVIDER.google)
@@ -65,7 +64,8 @@ export default function DocumentDetailPage() {
   const [hasAnthropic, setHasAnthropic] = useState(false)
   const [hasOpenai, setHasOpenai] = useState(false)
   const [hasSystemAi, setHasSystemAi] = useState(true)
-  const hasAnyKey = hasGemini || hasAnthropic || hasOpenai || hasSystemAi
+  const [systemFallbackEnabled, setSystemFallbackEnabled] = useState(true)
+  const hasAnyKey = hasGemini || hasAnthropic || hasOpenai || (hasSystemAi && systemFallbackEnabled)
   const [availableModels, setAvailableModels] = useState<any>(DEFAULT_AVAILABLE_MODELS)
 
   // Per-record permissions
@@ -174,11 +174,11 @@ export default function DocumentDetailPage() {
 
   useEffect(() => {
     getMe().then(res => {
-      setRoles(res.data.roles || [])
       setHasGemini(res.data.has_gemini_token)
       setHasAnthropic(res.data.has_anthropic_token)
       setHasOpenai(res.data.has_openai_token)
       setHasSystemAi(!!res.data.has_system_ai)
+      setSystemFallbackEnabled(!!(res.data.system_fallback_enabled ?? 1))
 
       if (res.data.has_gemini_token) {
         setRetryProvider('google')

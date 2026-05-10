@@ -15,7 +15,7 @@ interface AnimalTag {
   tag_id: string; tag_type: string; active: number; added_at: string
 }
 interface Document {
-  id: string; doc_type: string; created_at: string; ocr_provider: string; added_by_role?: string; added_by_name?: string; added_by_verified?: number; analysis_status?: string; extracted_json?: any; record_permissions?: Record<string, string[]>; allowed_roles?: string; image_path?: string
+  id: string; doc_type: string; created_at: string; ocr_provider: string; added_by_role?: string; added_by_name?: string; added_by_verified?: number; analysis_status?: string; extracted_json?: any; record_permissions?: Record<string, string[]>; allowed_roles?: string; image_path?: string; pages?: string[]
 }
 
 function extractProviderError(data: any, fallback: string): string {
@@ -87,7 +87,6 @@ export default function AnimalPage() {
   const avatarInputRef = useRef<HTMLInputElement>(null)
   
   const [showRetryModal, setShowRetryModal] = useState(false)
-  const [showTypeStep, setShowTypeStep] = useState(false)
   const [retryDocId, setRetryDocId] = useState<string | null>(null)
   const [retryDoc, setRetryDoc] = useState<Document | null>(null)
   const [retryProvider, setRetryProvider] = useState('google')
@@ -540,16 +539,6 @@ export default function AnimalPage() {
 
   const hasNfcTag = tags.some(t => t.tag_type === 'nfc' && t.active === 1)
   const isVetVerified = false // Placeholder for future implementation
-
-  const docTypes = [
-    { id: 'vaccination', label: t('animal.docTypeVaccination'), icon: <Syringe size={16} /> },
-    { id: 'treatment', label: t('animal.docTypeTreatment'), icon: <FileText size={16} /> },
-    { id: 'medical_product', label: t('animal.docTypeMedicalProduct'), icon: <FileText size={16} /> },
-    { id: 'pet_passport', label: t('animal.docTypePetPassport'), icon: <FileText size={16} /> },
-    { id: 'pedigree', label: t('animal.docTypePedigree'), icon: <FileText size={16} /> },
-    { id: 'dog_certificate', label: t('animal.docTypeDogCertificate'), icon: <FileText size={16} /> },
-    { id: 'general', label: t('animal.docTypeGeneral'), icon: <FileText size={16} /> }
-  ]
 
   if (showRetryModal) {
     const docImages = retryDoc ? [retryDoc.image_path, ...(retryDoc.pages || [])].filter(Boolean) : []

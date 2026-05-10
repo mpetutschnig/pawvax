@@ -78,7 +78,6 @@ export default function DocumentScanPage() {
   const [retryProvider, setRetryProvider] = useState('google')
   const [retryModel, setRetryModel] = useState(DEFAULT_MODEL_BY_PROVIDER.google)
   const [requestedDocumentType, setRequestedDocumentType] = useState<DocumentTypeSelectValue>(DOCUMENT_TYPE_PLACEHOLDER)
-  const [groupTypes, setGroupTypes] = useState<DocumentTypeSelectValue[]>([])
 
   const [hasGemini, setHasGemini] = useState(false)
   const [hasAnthropic, setHasAnthropic] = useState(false)
@@ -341,31 +340,6 @@ export default function DocumentScanPage() {
       setShowConsentModal(true)
     } else {
       handleUpload(types)
-    }
-  }
-
-  async function startUploadWithModel() {
-    setIsAnalyzing(true)
-    try {
-      const updates: any = {}
-      if (retryProvider === 'google') updates.gemini_model = retryModel
-      if (retryProvider === 'anthropic') updates.claude_model = retryModel
-      if (retryProvider === 'openai') updates.openai_model = retryModel
-
-      const res = await getMe()
-      let currentPrio = ['google', 'anthropic', 'openai']
-      try { if (res.data.ai_provider_priority) currentPrio = JSON.parse(res.data.ai_provider_priority) } catch {}
-
-      const newPrio = [retryProvider, ...currentPrio.filter((p: string) => p !== retryProvider)]
-      updates.ai_provider_priority = JSON.stringify(newPrio)
-
-      await patchMe(updates)
-      setShowModelSelection(false)
-      maybeUpload(groupTypes.length > 0 ? groupTypes : undefined)
-    } catch (err: any) {
-      setErrorMsg(err.message || t('common.error'))
-    } finally {
-      setIsAnalyzing(false)
     }
   }
 
