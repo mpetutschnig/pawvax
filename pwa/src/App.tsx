@@ -39,7 +39,7 @@ function GlobalBrand() {
     if (token) {
       api.get('/accounts/me').then(res => setAccount(res.data)).catch(() => {})
     }
-  }, [token])
+  }, [token, location.pathname])
   
   useEffect(() => {
     if (settings.app_name) document.title = settings.app_name
@@ -85,7 +85,7 @@ function GlobalBrand() {
         </div>
       </div>
       {aiDisabled && (
-        <div style={{ background: 'var(--warning-100)', borderBottom: '1px solid var(--warning-200)', padding: '6px var(--space-4)', fontSize: '12px', textAlign: 'center', color: 'var(--warning-900)' }}>
+        <div style={{ background: 'var(--warning-50)', borderBottom: '1px solid var(--warning-500)', padding: '6px var(--space-4)', fontSize: '12px', textAlign: 'center', color: 'var(--warning-600)' }}>
           ⚠️ KI-Funktionen deaktiviert. <Link to="/profile" style={{ color: 'inherit', textDecoration: 'underline', fontWeight: 600 }}>Im Profil aktivieren</Link>
         </div>
       )}

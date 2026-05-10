@@ -443,6 +443,7 @@ export default function DocumentDetailPage() {
         hasAnthropic={hasAnthropic}
         hasOpenai={hasOpenai}
         hasSystemAi={hasSystemAi}
+        systemFallbackEnabled={systemFallbackEnabled}
         retryProvider={retryProvider}
         retryModel={retryModel}
         requestedDocumentType={requestedDocumentType}

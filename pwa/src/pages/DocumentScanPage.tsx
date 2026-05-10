@@ -160,6 +160,7 @@ export default function DocumentScanPage() {
         hasAnthropic={hasAnthropic}
         hasOpenai={hasOpenai}
         hasSystemAi={hasSystemAi}
+        systemFallbackEnabled={systemFallbackEnabled}
         retryProvider={retryProvider}
         retryModel={retryModel}
         requestedDocumentType={requestedDocumentType}

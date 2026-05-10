@@ -16,6 +16,7 @@ interface DocumentAnalysisFormProps {
   hasAnthropic: boolean
   hasOpenai: boolean
   hasSystemAi: boolean
+  systemFallbackEnabled?: boolean
   retryProvider: string
   retryModel: string
   requestedDocumentType: DocumentTypeSelectValue
@@ -45,6 +46,7 @@ export function DocumentAnalysisForm({
   hasAnthropic,
   hasOpenai,
   hasSystemAi,
+  systemFallbackEnabled,
   retryProvider,
   retryModel,
   requestedDocumentType,
@@ -122,13 +124,21 @@ export function DocumentAnalysisForm({
         )}
 
         {!hasAnyKey ? (
-          <div className="error-card" style={{ marginBottom: 'var(--space-4)', background: 'var(--warning-50)', border: '1px solid var(--warning-200)' }}>
-            <p style={{ margin: 0, color: 'var(--warning-900)', fontSize: 'var(--font-size-sm)' }}>
+          <div className="error-card" style={{ marginBottom: 'var(--space-4)', background: 'var(--warning-50)', border: '1px solid var(--warning-500)', color: 'var(--warning-600)' }}>
+            <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', fontWeight: 600 }}>
               {t('docDetail.noProvidersConfigured')}
+            </p>
+            <p style={{ margin: '4px 0 0 0', fontSize: 'var(--font-size-xs)' }}>
+              Das Dokument wird ohne KI-Analyse gespeichert.
             </p>
           </div>
         ) : (
           <>
+            {!hasGemini && !hasAnthropic && !hasOpenai && hasSystemAi && systemFallbackEnabled && (
+              <div style={{ marginBottom: 'var(--space-4)', padding: 'var(--space-3)', background: 'var(--info-50)', border: '1px solid var(--info-500)', borderRadius: 'var(--radius-sm)', fontSize: 'var(--font-size-xs)', color: 'var(--info-600)' }}>
+                {t('docScan.usingSystemFallback')}
+              </div>
+            )}
             <div className="form-group">
               <label className="form-label">{t('docDetail.provider')}</label>
               <select className="form-select" value={retryProvider} onChange={e => onProviderChange(e.target.value)}>

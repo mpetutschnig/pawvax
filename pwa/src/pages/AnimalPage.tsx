@@ -1807,11 +1807,10 @@ export default function AnimalPage() {
                             {doc.added_by_role === 'authority' && <span className="badge badge-authority" style={{ display: 'flex', alignItems: 'center', gap: '3px' }}><ShieldAlert size={10} /> {t('animal.authority')}</span>}
                             {!['vet', 'authority'].includes(doc.added_by_role ?? '') && <span className="badge" style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: '3px', fontSize: '10px' }}>{t('animal.owner')}</span>}
                             {doc.ocr_provider === 'none' && (
-                              <span className="badge badge-danger" style={{ display: 'flex', alignItems: 'center', gap: '3px', fontSize: '10px', background: 'var(--danger-50)', color: 'var(--danger-600)', borderColor: 'var(--danger-200)' }}>
+                              <span className="badge badge-danger" style={{ display: 'flex', alignItems: 'center', gap: '3px', fontSize: '10px', background: 'var(--danger-50)', color: 'var(--danger-600)', borderColor: 'var(--danger-500)' }}>
                                 <AlertTriangle size={10} /> Nicht analysiert
                               </span>
-                            )}
-                            <span className="text-muted" style={{ fontSize: '10px' }}>{doc.ocr_provider || '—'}</span>
+                            )}                            <span className="text-muted" style={{ fontSize: '10px' }}>{doc.ocr_provider || '—'}</span>
                           </div>                        </div>
                       </Link>
                     ))}
@@ -1849,11 +1848,10 @@ export default function AnimalPage() {
                         {doc.added_by_role === 'authority' && <span className="badge badge-authority" style={{ display: 'flex', alignItems: 'center', gap: '3px' }}><ShieldAlert size={10} /> {t('animal.authority')}</span>}
                         {!['vet', 'authority'].includes(doc.added_by_role ?? '') && <span className="badge" style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: '3px', fontSize: '10px' }}>{t('animal.owner')}</span>}
                         {doc.ocr_provider === 'none' && (
-                          <span className="badge badge-danger" style={{ display: 'flex', alignItems: 'center', gap: '3px', fontSize: '10px', background: 'var(--danger-50)', color: 'var(--danger-600)', borderColor: 'var(--danger-200)' }}>
+                          <span className="badge badge-danger" style={{ display: 'flex', alignItems: 'center', gap: '3px', fontSize: '10px', background: 'var(--danger-50)', color: 'var(--danger-600)', borderColor: 'var(--danger-500)' }}>
                             <AlertTriangle size={10} /> Nicht analysiert
                           </span>
-                        )}
-                        <span className="text-muted" style={{ fontSize: '10px' }}>{doc.ocr_provider || '—'}</span>
+                        )}                        <span className="text-muted" style={{ fontSize: '10px' }}>{doc.ocr_provider || '—'}</span>
                       </div>                    </div>
                   </Link>
                 ))

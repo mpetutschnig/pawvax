@@ -472,6 +472,7 @@
   "docScan.uploadError": "Fehler beim Hochladen",
   "docScan.uploadMethod": "Wie möchtest du das Dokument hinzufügen?",
   "docScan.uploading": "Wird hochgeladen...",
+  "docScan.usingSystemFallback": "ℹ️ Du nutzt den System-KI Fallback.",
   "docScan.vaccination": "Impfung",
   "docScan.vet": "Tierarzt",
   "docScan.whoCanSee": "Wer darf dieses Dokument sehen?",

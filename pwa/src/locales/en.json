@@ -472,6 +472,7 @@
   "docScan.uploadError": "Upload error",
   "docScan.uploadMethod": "How would you like to add the document?",
   "docScan.uploading": "Uploading...",
+  "docScan.usingSystemFallback": "ℹ️ You are using the System AI fallback.",
   "docScan.vaccination": "Vaccination",
   "docScan.vet": "Veterinarian",
   "docScan.whoCanSee": "Who can see this document?",
