@@ -1,29 +1,16 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { getDocument, deleteDocument, patchDocument, getAnimalDocuments, getMe, createReminder, analyzeDocument, getDocumentHistory, patchDocumentRecord, getAnimal, updateAnimal } from '../api/rest'
+import { getDocument, deleteDocument, patchDocument, getAnimalDocuments, createReminder, getDocumentHistory, patchDocumentRecord, getAnimal, updateAnimal } from '../api/rest'
 import { generateICS, downloadBlob } from '../utils/ics'
 import { normalizeVaccinationRecord } from '../utils/vaccination'
-import { DocumentAnalysisForm } from '../components/DocumentAnalysisForm'
-import { DEFAULT_AVAILABLE_MODELS, DEFAULT_MODEL_BY_PROVIDER, DOCUMENT_TYPE_PLACEHOLDER, type DocumentTypeSelectValue } from '../utils/documentAnalysis'
+
+
 import { PageHeader } from '../components/PageHeader'
 import { Shield, Pill, FileText, PawPrint, Landmark, Calendar, Download, Mail, Tag, Save, X, Edit2, Trash2, CheckCircle, Award, GraduationCap, ChevronLeft, ChevronRight, Bell, AlertTriangle } from 'lucide-react'
 import { TagCombobox } from '../components/TagCombobox'
 
-function extractProviderError(data: any, fallback: string): string {
-  const main = data?.error || fallback
-  const details: string | undefined = data?.details
-  if (!details) return main
-  const jsonStart = details.indexOf('{')
-  if (jsonStart >= 0) {
-    try {
-      const inner = JSON.parse(details.slice(jsonStart))
-      const msg = inner?.error?.message || inner?.message
-      if (msg && msg !== main) return `${main}\n${msg}`
-    } catch {}
-  }
-  return main
-}
+
 
 export default function DocumentDetailPage() {
   const { id: animalId, docId } = useParams<{ id: string; docId: string }>()
@@ -46,27 +33,14 @@ export default function DocumentDetailPage() {
   const [editMode, setEditMode] = useState(false)
   const [editedTitle, setEditedTitle] = useState('')
   const [saving, setSaving] = useState(false)
-  const [isAnalyzing, setIsAnalyzing] = useState(false)
+
   const [visibility, setVisibility] = useState<string[]>([])
   const [showJsonDetails, setShowJsonDetails] = useState(false)
   const [roles] = useState<string[]>([])
   const [analysisHistory, setAnalysisHistory] = useState<any[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
   
-  const [showRetryModal, setShowRetryModal] = useState(false)
-  const [analysisAction, setAnalysisAction] = useState<'retry' | 'reanalyze'>('retry')
-  const [retryProvider, setRetryProvider] = useState('google')
-  const [retryModel, setRetryModel] = useState(DEFAULT_MODEL_BY_PROVIDER.google)
-  const [requestedDocumentType, setRequestedDocumentType] = useState<DocumentTypeSelectValue>(DOCUMENT_TYPE_PLACEHOLDER)
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
-
-  const [hasGemini, setHasGemini] = useState(false)
-  const [hasAnthropic, setHasAnthropic] = useState(false)
-  const [hasOpenai, setHasOpenai] = useState(false)
-  const [hasSystemAi, setHasSystemAi] = useState(true)
-  const [systemFallbackEnabled, setSystemFallbackEnabled] = useState(true)
-  const hasAnyKey = hasGemini || hasAnthropic || hasOpenai || (hasSystemAi && systemFallbackEnabled)
-  const [availableModels, setAvailableModels] = useState<any>(DEFAULT_AVAILABLE_MODELS)
 
   // Per-record permissions
   const [updatingRecordKey, setUpdatingRecordKey] = useState<string | null>(null)
@@ -171,36 +145,6 @@ export default function DocumentDetailPage() {
       navigate(location.pathname, { replace: true, state: null })
     }
   }, [location.pathname, location.state, navigate])
-
-  useEffect(() => {
-    getMe().then(res => {
-      setHasGemini(res.data.has_gemini_token)
-      setHasAnthropic(res.data.has_anthropic_token)
-      setHasOpenai(res.data.has_openai_token)
-      setHasSystemAi(!!res.data.has_system_ai)
-      setSystemFallbackEnabled(!!(res.data.system_fallback_enabled ?? 1))
-
-      if (res.data.has_gemini_token) {
-        setRetryProvider('google')
-        setRetryModel(DEFAULT_MODEL_BY_PROVIDER.google)
-      } else if (res.data.has_anthropic_token) {
-        setRetryProvider('anthropic')
-        setRetryModel(DEFAULT_MODEL_BY_PROVIDER.anthropic)
-      } else if (res.data.has_openai_token) {
-        setRetryProvider('openai')
-        setRetryModel(DEFAULT_MODEL_BY_PROVIDER.openai)
-      }
-
-      fetch('/api/ai/models', { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } })
-        .then(r => r.json())
-        .then(data => setAvailableModels({
-          google: data.google || DEFAULT_AVAILABLE_MODELS.google,
-          anthropic: data.anthropic || DEFAULT_AVAILABLE_MODELS.anthropic,
-          openai: data.openai || DEFAULT_AVAILABLE_MODELS.openai
-        }))
-        .catch(console.error)
-    }).catch(err => console.error(err))
-  }, [])
 
   const loadDocument = async () => {
     setHistoryLoading(true)
@@ -363,46 +307,8 @@ export default function DocumentDetailPage() {
     }
   }
   
-  const handleRetryAnalysis = async () => {
-    if (requestedDocumentType === DOCUMENT_TYPE_PLACEHOLDER) return
-    setIsAnalyzing(true)
-    setError(null)
-    try {
-      await analyzeDocument(docId!, 'retry', { provider: retryProvider, model: retryModel, requestedDocumentType, language: i18n.language || 'de' })
-      setShowRetryModal(false)
-      loadDocument()
-    } catch (err: any) {
-      setError(extractProviderError(err.response?.data, err.message || t('animal.documentFailed')))
-    } finally {
-      setIsAnalyzing(false)
-    }
-  }
-
-  const handleReanalyze = async () => {
-    if (requestedDocumentType === DOCUMENT_TYPE_PLACEHOLDER) return
-    setIsAnalyzing(true)
-    setError(null)
-    try {
-      await analyzeDocument(docId!, 'reanalyze', { provider: retryProvider, model: retryModel, requestedDocumentType, language: i18n.language || 'de' })
-      setShowRetryModal(false)
-      await loadDocument()
-    } catch (err: any) {
-      setError(extractProviderError(err.response?.data, err.message || t('common.error')))
-    } finally {
-      setIsAnalyzing(false)
-    }
-  }
-
-
   const removeTag = (t: string) => {
     setTags(tags.filter(x => x !== t))
-  }
-
-  const handleProviderChange = (prov: string) => {
-    setRetryProvider(prov)
-    if (prov === 'google') setRetryModel(DEFAULT_MODEL_BY_PROVIDER.google)
-    else if (prov === 'anthropic') setRetryModel(DEFAULT_MODEL_BY_PROVIDER.anthropic)
-    else if (prov === 'openai') setRetryModel(DEFAULT_MODEL_BY_PROVIDER.openai)
   }
 
   if (loading) return <div className="container page" style={{ display: 'flex', justifyContent: 'center', paddingTop: '4rem' }}><div className="spinner spinner-lg"></div></div>
@@ -419,37 +325,7 @@ export default function DocumentDetailPage() {
   const canEditTags = doc.isUploader || doc.added_by_role !== 'vet'
   const canEditVisibility = doc.isOwner
 
-  // Schritt 2: Modell-Auswahl (Typ bereits gesetzt)
-  if (showRetryModal) {
-    const docImages = [doc.image_path, ...(doc.pages || [])].filter(Boolean)
-    return (
-      <DocumentAnalysisForm
-        title={analysisAction === 'reanalyze' ? t('docDetail.reanalyze') : t('docDetail.aiAnalysis')}
-        description={t('docDetail.aiSelectProvider')}
-        previews={docImages}
-        errorMessage={error}
-        hasAnyKey={hasAnyKey}
-        hasGemini={hasGemini}
-        hasAnthropic={hasAnthropic}
-        hasOpenai={hasOpenai}
-        hasSystemAi={hasSystemAi}
-        systemFallbackEnabled={systemFallbackEnabled}
-        retryProvider={retryProvider}
-        retryModel={retryModel}
-        requestedDocumentType={requestedDocumentType}
-        availableModels={availableModels}
-        submitLabel={analysisAction === 'reanalyze' ? t('docDetail.reanalyze') : t('animal.analyzeBtn')}
-        cancelLabel={t('docDetail.cancel')}
-        isSubmitting={isAnalyzing}
-        hideDocumentType={false}
-        onProviderChange={handleProviderChange}
-        onModelChange={setRetryModel}
-        onRequestedDocumentTypeChange={setRequestedDocumentType}
-        onSubmit={analysisAction === 'reanalyze' ? handleReanalyze : handleRetryAnalysis}
-        onCancel={() => { setShowRetryModal(false); setError(null) }}
-      />
-    )
-  }
+  // Removed showRetryModal block
 
   return (
     <div className="container page">
@@ -621,7 +497,7 @@ export default function DocumentDetailPage() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-3)' }}>
             <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0 }}>{t('docDetail.analysisHistory')}</h3>
             {canReanalyze && (
-              <button className="btn btn-secondary" onClick={() => { setAnalysisAction('reanalyze'); setRequestedDocumentType((doc.doc_type as DocumentTypeSelectValue) ?? DOCUMENT_TYPE_PLACEHOLDER); setShowRetryModal(true); setError(null) }} disabled={saving}>
+              <button className="btn btn-secondary" onClick={() => navigate(`/animals/${animalId}/scan`, { state: { documentId: doc.id, action: 'reanalyze', previews: [doc.image_path, ...(doc.pages || [])].filter(Boolean) } })} disabled={saving}>
                 {t('docDetail.reanalyze')}
               </button>            )}
           </div>
@@ -1236,7 +1112,7 @@ export default function DocumentDetailPage() {
 
         {!rawText && doc.analysis_status === 'pending_analysis' ? (
           <div style={{ marginTop: 'var(--space-4)' }}>
-            <button className="btn btn-primary btn-full" onClick={() => { setAnalysisAction('retry'); setRequestedDocumentType((doc.doc_type as DocumentTypeSelectValue) ?? DOCUMENT_TYPE_PLACEHOLDER); setShowRetryModal(true) }}>
+            <button className="btn btn-primary btn-full" onClick={() => navigate(`/animals/${animalId}/scan`, { state: { documentId: doc.id, action: 'retry', previews: [doc.image_path, ...(doc.pages || [])].filter(Boolean) } })}>
               {t('animal.retry')}
             </button>
           </div>

@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import i18next from 'i18next'
 import { CheckCircle, AlertCircle, Syringe, FileText, BookOpen, Camera, RefreshCw, Plus, X } from 'lucide-react'
@@ -33,6 +33,8 @@ function getAnalysisErrorMessage(rawError: unknown, fallback: string) {
 export default function DocumentScanPage() {
   const { id: animalId } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
+  const routeState = location.state as { documentId?: string; action?: 'retry' | 'reanalyze'; previews?: string[] } | null
   const { t } = useTranslation()
 
   // Guest-User dürfen keine Dokumente hochladen
@@ -100,6 +102,16 @@ export default function DocumentScanPage() {
     { id: 'dog_certificate', label: t('animal.docTypeDogCertificate'), icon: <FileText size={16} /> },
     { id: 'general', label: t('animal.docTypeGeneral'), icon: <FileText size={16} /> }
   ]
+
+  useEffect(() => {
+    if (routeState?.documentId) {
+      setDocumentId(routeState.documentId)
+      if (routeState.previews && routeState.previews.length > 0) {
+        setGroups([{ pages: [], previews: routeState.previews }])
+      }
+      setShowModelSelection(true)
+    }
+  }, [routeState])
 
   useEffect(() => {
     if (phase !== 'analysing') return
@@ -433,12 +445,23 @@ export default function DocumentScanPage() {
     if (requestedDocumentType === DOCUMENT_TYPE_PLACEHOLDER) return
     setIsAnalyzing(true)
     setErrorMsg(null)
+    setShowModelSelection(false)
+    setPhase('analysing')
+    setCurrentStatusMsg('Sende an KI...')
+    setOcrProvider(null)
+    setUploadProgress(100) // mock upload progress so the UI looks consistent
+
     try {
-      await analyzeDocument(documentId, 'retry', { provider: retryProvider, model: retryModel, language: i18next.language || 'de', requestedDocumentType })
-      setShowModelSelection(false)
-      navigate(`/animals/${animalId}/documents/${documentId}`, { replace: true })
+      const action = routeState?.action || 'retry'
+      const response = await analyzeDocument(documentId, action, { provider: retryProvider, model: retryModel, language: i18next.language || 'de', requestedDocumentType })
+      
+      const doc = response.data
+      setResult(doc.extracted_json || doc)
+      setSuggestedType(doc.doc_type || doc.type || doc.suggestedType || 'other')
+      setOcrProvider(doc.ocrProvider || 'KI Analyse')
+      setPhase('done')
+      setAutoSavedAt(new Date())
     } catch (err: any) {
-      setShowModelSelection(false)
       setErrorMsg(getAnalysisErrorMessage(err, t('animal.documentFailed')))
       setPhase('error')
     } finally {
@@ -964,8 +987,14 @@ export default function DocumentScanPage() {
                 })()}
               </div>
 
-              <button className="btn btn-ghost btn-full" onClick={() => navigate(`/animals/${animalId}`)} type="button">
-                {t('docScan.backToProfile')}
+              <button className="btn btn-ghost btn-full" onClick={() => {
+                if (routeState?.action === 'reanalyze' && documentId) {
+                  navigate(`/animals/${animalId}/documents/${documentId}`)
+                } else {
+                  navigate(`/animals/${animalId}`)
+                }
+              }} type="button">
+                {routeState?.action === 'reanalyze' ? t('common.back') : t('docScan.backToProfile')}
               </button>
             </div>
           )}

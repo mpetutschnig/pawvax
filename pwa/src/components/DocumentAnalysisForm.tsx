@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next'
+import { Link } from 'react-router-dom'
 import { DEFAULT_MODEL_BY_PROVIDER, DOCUMENT_TYPE_OPTIONS, DOCUMENT_TYPE_PLACEHOLDER, type DocumentTypeSelectValue, type RequestedDocumentType } from '../utils/documentAnalysis'
 
 interface ModelOption {
@@ -119,50 +120,63 @@ export function DocumentAnalysisForm({
           </div>
         )}
 
-        {!hasAnyKey ? (
-          <div className="error-card" style={{ marginBottom: 'var(--space-4)', background: 'var(--warning-50)', border: '1px solid var(--warning-500)', color: 'var(--warning-600)' }}>
-            <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', fontWeight: 600 }}>
+        {!hasAnyKey && (
+          <div style={{ marginBottom: 'var(--space-4)', padding: 'var(--space-3)', background: 'var(--warning-50)', border: '1px solid var(--warning-500)', borderRadius: 'var(--radius-sm)' }}>
+            <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', fontWeight: 600, color: 'var(--warning-800)' }}>
               {t('docDetail.noProvidersConfigured')}
             </p>
-            <p style={{ margin: '4px 0 0 0', fontSize: 'var(--font-size-xs)' }}>
-              Das Dokument wird ohne KI-Analyse gespeichert.
+            <p style={{ margin: '4px 0 8px 0', fontSize: 'var(--font-size-xs)', color: 'var(--warning-700)' }}>
+              Es ist weder ein System-Fallback noch ein eigener API-Key hinterlegt. Das Dokument wird ohne automatische Texterkennung gespeichert.
             </p>
+            <Link to="/profile" className="btn btn-sm btn-secondary" style={{ padding: '4px 8px', height: 'auto', minHeight: 'auto', fontSize: '11px' }}>
+              Jetzt im Profil einrichten
+            </Link>
           </div>
-        ) : (
-          <>
-            {!hasGemini && !hasAnthropic && !hasOpenai && hasSystemAi && systemFallbackEnabled && (
-              <div style={{ marginBottom: 'var(--space-4)', padding: 'var(--space-3)', background: 'var(--info-50)', border: '1px solid var(--info-500)', borderRadius: 'var(--radius-sm)', fontSize: 'var(--font-size-xs)', color: 'var(--info-600)' }}>
-                {t('docScan.usingSystemFallback')}
-                {pricePerPage !== undefined && pricePerPage > 0 && (
-                  <div style={{ fontWeight: 600, marginTop: '2px' }}>
-                    Kosten: {pricePerPage} Cent / Seite
-                  </div>
-                )}
+        )}
+
+        {hasAnyKey && !hasGemini && !hasAnthropic && !hasOpenai && hasSystemAi && systemFallbackEnabled && (
+          <div style={{ marginBottom: 'var(--space-4)', padding: 'var(--space-3)', background: 'var(--info-50)', border: '1px solid var(--info-500)', borderRadius: 'var(--radius-sm)', fontSize: 'var(--font-size-xs)', color: 'var(--info-600)' }}>
+            {t('docScan.usingSystemFallback')}
+            {pricePerPage !== undefined && pricePerPage > 0 && (
+              <div style={{ fontWeight: 600, marginTop: '2px' }}>
+                Kosten: {pricePerPage} Cent / Seite
               </div>
             )}
-            
-            <div style={{ marginBottom: 'var(--space-4)', padding: 'var(--space-3)', background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: '11px', color: 'var(--text-secondary)' }}>
-              <strong>Haftungsausschluss:</strong> Die KI kann Fehler machen. Wir übernehmen keine Haftung für fehlerhaft erkannte Daten. Bitte prüfe das Ergebnis sorgfältig.
-            </div>
+          </div>
+        )}
+        
+        <div style={{ marginBottom: 'var(--space-4)', padding: 'var(--space-3)', background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: '11px', color: 'var(--text-secondary)' }}>
+          <strong>Haftungsausschluss:</strong> Die KI kann Fehler machen. Wir übernehmen keine Haftung für fehlerhaft erkannte Daten. Bitte prüfe das Ergebnis sorgfältig.
+        </div>
 
-            <div className="form-group">
-              <label className="form-label">{t('docDetail.provider')}</label>
-              <select className="form-select" value={retryProvider} onChange={e => onProviderChange(e.target.value)}>
+        <div className="form-group">
+          <label className="form-label">{t('docDetail.provider')}</label>
+          <select className="form-select" value={hasAnyKey ? retryProvider : ''} onChange={e => onProviderChange(e.target.value)} disabled={!hasAnyKey}>
+            {hasAnyKey ? (
+              <>
                 {(hasGemini || hasSystemAi) && <option value="google">Google Gemini</option>}
                 {(hasAnthropic || hasSystemAi) && <option value="anthropic">Anthropic Claude</option>}
                 {(hasOpenai || hasSystemAi) && <option value="openai">OpenAI</option>}
-              </select>
-            </div>
+              </>
+            ) : (
+              <option value="">Kein Anbieter verfügbar</option>
+            )}
+          </select>
+        </div>
 
-            <div className="form-group">
-              <label className="form-label">{t('docDetail.model')}</label>
-              <select className="form-select" value={retryModel} onChange={e => onModelChange(e.target.value)}>
+        <div className="form-group">
+          <label className="form-label">{t('docDetail.model')}</label>
+          <select className="form-select" value={hasAnyKey ? retryModel : ''} onChange={e => onModelChange(e.target.value)} disabled={!hasAnyKey}>
+            {hasAnyKey ? (
+              <>
                 {models.map((model) => <option key={model.id} value={model.id}>{model.name}</option>)}
                 {models.length === 0 && <option value={DEFAULT_MODEL_BY_PROVIDER[retryProvider as keyof typeof DEFAULT_MODEL_BY_PROVIDER]}>{DEFAULT_MODEL_BY_PROVIDER[retryProvider as keyof typeof DEFAULT_MODEL_BY_PROVIDER]}</option>}
-              </select>
-            </div>
-          </>
-        )}
+              </>
+            ) : (
+              <option value="">Kein Modell verfügbar</option>
+            )}
+          </select>
+        </div>
 
         <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-6)' }}>
           <button className="btn btn-primary flex-1" onClick={onSubmit} disabled={isSubmitting || isPlaceholderSelected}>

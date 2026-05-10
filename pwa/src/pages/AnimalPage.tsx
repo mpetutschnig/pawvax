@@ -1,14 +1,13 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { getAnimal, getAnimalDocuments, getAnimalTags, updateAnimal, deleteAnimal, uploadAnimalAvatar, deleteDocument, getMe, patchDocumentRecord, patchDocument, addVaccination, addTreatment } from '../api/rest'
+import { getAnimal, getAnimalDocuments, getAnimalTags, updateAnimal, deleteAnimal, uploadAnimalAvatar, deleteDocument, patchDocumentRecord, patchDocument, addVaccination, addTreatment } from '../api/rest'
 import { PageHeader } from '../components/PageHeader' 
-import { DocumentAnalysisForm } from '../components/DocumentAnalysisForm'
 import { PawPrint, Cat, Edit2, Trash2, Camera, Search, Radio, ShieldAlert, AlertTriangle, RefreshCw, X, Syringe, FileText, CheckCircle, ArrowDownAZ, ArrowUpAZ, SlidersHorizontal, ArrowRightLeft, Share2, Plus, Pill, ChevronDown, ChevronUp, Landmark, Award, GraduationCap } from 'lucide-react'
 import { AnimalDTO } from '../types/animal'
 import { normalizeVaccinationRecord } from '../utils/vaccination'
 import { formatDate, formatDateOnly } from '../utils/date'
-import { DEFAULT_AVAILABLE_MODELS, DEFAULT_MODEL_BY_PROVIDER, DOCUMENT_TYPE_PLACEHOLDER, type DocumentTypeSelectValue } from '../utils/documentAnalysis'
+
 import { VerifiedBadge } from '../components/VerifiedBadge'
 
 interface AnimalTag {
@@ -18,20 +17,7 @@ interface Document {
   id: string; doc_type: string; created_at: string; ocr_provider: string; added_by_role?: string; added_by_name?: string; added_by_verified?: number; analysis_status?: string; extracted_json?: any; record_permissions?: Record<string, string[]>; allowed_roles?: string; image_path?: string; pages?: string[]
 }
 
-function extractProviderError(data: any, fallback: string): string {
-  const main = data?.error || fallback
-  const details: string | undefined = data?.details
-  if (!details) return main
-  const jsonStart = details.indexOf('{')
-  if (jsonStart >= 0) {
-    try {
-      const inner = JSON.parse(details.slice(jsonStart))
-      const msg = inner?.error?.message || inner?.message
-      if (msg && msg !== main) return `${main}\n${msg}`
-    } catch {}
-  }
-  return main
-}
+
 
 export default function AnimalPage() {
   const { id } = useParams<{ id: string }>()
@@ -65,7 +51,7 @@ export default function AnimalPage() {
   const [documentSearch, setDocumentSearch] = useState('')
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [documentTab, setDocumentTab] = useState<'all' | 'pending'>('all')
-  const [retrying, setRetrying] = useState<string | null>(null)
+
   const [filterType, setFilterType] = useState<'all' | 'vaccination' | 'treatment' | 'pet_passport' | 'medical_product' | 'pedigree' | 'dog_certificate' | 'general'>('all')
   const [filterTag, setFilterTag] = useState('')
   const [filterDateFrom, setFilterDateFrom] = useState('')
@@ -86,20 +72,8 @@ export default function AnimalPage() {
   const [deleteConfirmText, setDeleteConfirmText] = useState('')
   const avatarInputRef = useRef<HTMLInputElement>(null)
   
-  const [showRetryModal, setShowRetryModal] = useState(false)
-  const [retryDocId, setRetryDocId] = useState<string | null>(null)
-  const [retryDoc, setRetryDoc] = useState<Document | null>(null)
-  const [retryProvider, setRetryProvider] = useState('google')
-  const [retryModel, setRetryModel] = useState(DEFAULT_MODEL_BY_PROVIDER.google)
-  const [requestedDocumentType, setRequestedDocumentType] = useState<DocumentTypeSelectValue>(DOCUMENT_TYPE_PLACEHOLDER)
-  const [hasGemini, setHasGemini] = useState(false)
-  const [hasAnthropic, setHasAnthropic] = useState(false)
-  const [hasOpenai, setHasOpenai] = useState(false)
-  const [hasSystemAi, setHasSystemAi] = useState(true)
   const [showArchiveDialog, setShowArchiveDialog] = useState(false)
   const [archiveReason, setArchiveReason] = useState<'verstorben' | 'verloren' | 'verkauft' | 'abgegeben' | 'sonstiges' | ''>('')
-  const hasAnyKey = hasGemini || hasAnthropic || hasOpenai || hasSystemAi
-  const [availableModels, setAvailableModels] = useState<any>(DEFAULT_AVAILABLE_MODELS)
 
   // Manual entry modals
   const [showVaxModal, setShowVaxModal] = useState(false)
@@ -113,35 +87,8 @@ export default function AnimalPage() {
   const [expandedRecord, setExpandedRecord] = useState<string | null>(null)
   const [updatingRecord, setUpdatingRecord] = useState<string | null>(null)
 
-  useEffect(() => {
-    getMe().then(res => {
-      setHasGemini(res.data.has_gemini_token)
-      setHasAnthropic(res.data.has_anthropic_token)
-      setHasOpenai(res.data.has_openai_token)
-      setHasSystemAi(!!res.data.has_system_ai)
+  // Removed getMe useEffect for AI models
 
-      if (res.data.has_gemini_token) { setRetryProvider('google'); setRetryModel(DEFAULT_MODEL_BY_PROVIDER.google) }
-      else if (res.data.has_anthropic_token) { setRetryProvider('anthropic'); setRetryModel(DEFAULT_MODEL_BY_PROVIDER.anthropic) }
-      else if (res.data.has_openai_token) { setRetryProvider('openai'); setRetryModel(DEFAULT_MODEL_BY_PROVIDER.openai) }
-
-      fetch('/api/ai/models', { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } })
-        .then(r => r.json())
-        .then(data => {
-          setAvailableModels((prev: any) => ({
-            google: data.google || prev.google,
-            anthropic: data.anthropic || prev.anthropic,
-            openai: data.openai || prev.openai
-          }))
-        }).catch(console.error)
-    }).catch(err => console.error(err))
-  }, [])
-
-  const handleProviderChange = (prov: string) => {
-    setRetryProvider(prov)
-    if (prov === 'google') setRetryModel(DEFAULT_MODEL_BY_PROVIDER.google)
-    else if (prov === 'anthropic') setRetryModel(DEFAULT_MODEL_BY_PROVIDER.anthropic)
-    else if (prov === 'openai') setRetryModel(DEFAULT_MODEL_BY_PROVIDER.openai)
-  }
 
   const getRecordPermissions = (doc: Document, key: string): string[] => {
     const perRecord = doc.record_permissions?.[key]
@@ -191,38 +138,6 @@ export default function AnimalPage() {
     } catch { setManualError('Fehler beim Speichern') } finally { setSavingManual(false) }
   }
 
-  const handleRetryAnalysisAPI = async () => {
-    if (!retryDocId) return
-    if (requestedDocumentType === DOCUMENT_TYPE_PLACEHOLDER) return
-    setRetrying(retryDocId)
-    setError(null)
-    try {
-      const token = localStorage.getItem('token')
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      if (token) headers['Authorization'] = `Bearer ${token}`
-
-      const res = await fetch(`/api/documents/${retryDocId}/retry-analysis`, { 
-        method: 'POST', 
-        headers,
-        body: JSON.stringify({ provider: retryProvider, model: retryModel, requestedDocumentType, language: i18n.language || 'de' })
-      })
-
-      if (!res.ok) {
-        const errData = await res.json()
-        throw new Error(extractProviderError(errData, t('animal.documentFailed')))
-      }
-
-      setPendingDocuments(prev => prev.filter(d => d.id !== retryDocId))
-      const docsRes = await fetch(`/api/animals/${id}/documents`, { headers })
-      const newDocs = await docsRes.json()
-      setDocuments(newDocs)
-      setShowRetryModal(false)
-    } catch (err: any) {
-      setError(err.message)
-    } finally {
-      setRetrying(null)
-    }
-  }
 
   const loadPendingDocuments = async (animalId: string) => {
     try {
@@ -540,35 +455,7 @@ export default function AnimalPage() {
   const hasNfcTag = tags.some(t => t.tag_type === 'nfc' && t.active === 1)
   const isVetVerified = false // Placeholder for future implementation
 
-  if (showRetryModal) {
-    const docImages = retryDoc ? ([retryDoc.image_path, ...(retryDoc.pages || [])].filter(Boolean) as string[]) : []
-    return (
-      <DocumentAnalysisForm
-        title={t('docDetail.aiAnalysis')}
-        description={t('docDetail.aiSelectProvider')}
-        previews={docImages}
-        errorMessage={error}
-        hasAnyKey={hasAnyKey}
-        hasGemini={hasGemini}
-        hasAnthropic={hasAnthropic}
-        hasOpenai={hasOpenai}
-        hasSystemAi={hasSystemAi}
-        retryProvider={retryProvider}
-        retryModel={retryModel}
-        requestedDocumentType={requestedDocumentType}
-        availableModels={availableModels}
-        submitLabel={t('animal.analyzeBtn')}
-        cancelLabel={t('common.cancel')}
-        isSubmitting={retrying !== null}
-        hideDocumentType={false}
-        onProviderChange={handleProviderChange}
-        onModelChange={setRetryModel}
-        onRequestedDocumentTypeChange={setRequestedDocumentType}
-        onSubmit={handleRetryAnalysisAPI}
-        onCancel={() => { setShowRetryModal(false); setRetryDoc(null); setError(null) }}
-      />
-    )
-  }
+  // Removed showRetryModal block
 
   // All unique tags across documents
   const allTags = Array.from(new Set(
@@ -1884,24 +1771,24 @@ export default function AnimalPage() {
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button
-                  onClick={() => { setRetryDocId(doc.id); setRetryDoc(doc); setRequestedDocumentType((doc.doc_type as DocumentTypeSelectValue) ?? DOCUMENT_TYPE_PLACEHOLDER); setShowRetryModal(true); }}
-                  disabled={retrying !== null}                  style={{
+                  onClick={() => navigate(`/animals/${id}/scan`, { state: { documentId: doc.id, action: 'retry', previews: [doc.image_path, ...(doc.pages || [])].filter(Boolean) } })}
+                  style={{
                     padding: '8px 12px',
                     background: 'var(--primary-500)',
                     color: 'white',
                     border: 'none',
                     borderRadius: 'var(--radius-sm)',
-                    cursor: retrying !== null ? 'not-allowed' : 'pointer',
+                    cursor: 'pointer',
                     fontSize: 'var(--font-size-xs)',
                     fontWeight: 600,
                     display: 'flex',
                     alignItems: 'center',
                     gap: '6px',
-                    opacity: retrying !== null ? 0.6 : 1
+                    opacity: 1
                   }}
                 >
                   <RefreshCw size={12} />
-                  {retrying === doc.id ? `${t('animal.retrying')}...` : t('animal.analyzeBtn')}
+                  {t('animal.analyzeBtn')}
                 </button>
                 <button
                   onClick={() => handleDeletePendingDoc(doc.id)}
