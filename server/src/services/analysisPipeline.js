@@ -89,7 +89,7 @@ export async function runDocumentAnalysis(db, doc, accountId, options, log, reqI
   }
 
   // Get user's keys and models
-  const { rows: [acc] } = await db.query('SELECT gemini_token, gemini_model, anthropic_token, claude_model, openai_token, openai_model, ai_provider_priority, system_fallback_enabled, billing_budget_eur FROM accounts WHERE id = $1', [accountId])
+  const { rows: [acc] } = await db.query('SELECT role, gemini_token, gemini_model, anthropic_token, claude_model, openai_token, openai_model, ai_provider_priority, system_fallback_enabled, billing_budget_eur FROM accounts WHERE id = $1', [accountId])
 
   let userGeminiKey = null
   let userAnthropicKey = null
@@ -98,6 +98,14 @@ export async function runDocumentAnalysis(db, doc, accountId, options, log, reqI
   try { userGeminiKey = acc?.gemini_token ? decrypt(acc.gemini_token) : null } catch {}
   try { userAnthropicKey = acc?.anthropic_token ? decrypt(acc.anthropic_token) : null } catch {}
   try { userOpenAiKey = acc?.openai_token ? decrypt(acc.openai_token) : null } catch {}
+
+  const userRole = acc?.role || 'user'
+  const isVet = userRole.includes('vet')
+  const isOwner = doc.owner_id === accountId
+  
+  // Logic: If a Vet (not owner) analyzes a foreign animal document, categorize 'treatment' as 'vet_report'
+  const isVetAnalyzingForeignAnimal = isVet && !isOwner
+
 
   const userGeminiModel = requestedProvider === 'google' && requestedModel ? requestedModel : resolveModel('google', acc?.gemini_model)
   const userClaudeModel = requestedProvider === 'anthropic' && requestedModel ? requestedModel : resolveModel('anthropic', acc?.claude_model)
@@ -198,13 +206,19 @@ export async function runDocumentAnalysis(db, doc, accountId, options, log, reqI
 
   const requiresRetry = extractedData?.extraction_quality?.requires_retry === true
   const nextStatus = requiresRetry ? 'pending_analysis' : 'completed'
+
+  let finalDocType = extractedData.type
+  if (isVetAnalyzingForeignAnimal && finalDocType === 'treatment') {
+    finalDocType = 'vet_report'
+  }
+
   await syncChipTagFromDocument(db, doc.animal_id, extractedData)
 
   await db.query(`
     UPDATE documents
     SET extracted_json = $1, ocr_provider = $2, analysis_status = $3, doc_type = $4, image_path = $5
     WHERE id = $6
-  `, [JSON.stringify(extractedData), result.provider, nextStatus, extractedData.type, analysisPages[0].image_path, docId])
+  `, [JSON.stringify(extractedData), result.provider, nextStatus, finalDocType, analysisPages[0].image_path, docId])
 
   const ocrProvider = result.provider || 'unknown'
   const modelUsed = ocrProvider

@@ -964,7 +964,7 @@ export function normalizeDocumentType(typeInput) {
     'pet_passport': 'pet_passport',
     'heimtierausweis': 'pet_passport',
     'eu_passport': 'pet_passport',
-    'vet_report': 'general',
+    'vet_report': 'vet_report',
     'report': 'general',
     'microchip': 'pet_passport',
     'transponder': 'pet_passport',

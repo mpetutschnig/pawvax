@@ -126,7 +126,7 @@ export function DocumentAnalysisForm({
               {t('docDetail.noProvidersConfigured')}
             </p>
             <p style={{ margin: '4px 0 8px 0', fontSize: 'var(--font-size-xs)', color: 'var(--warning-700)' }}>
-              Es ist weder ein System-Fallback noch ein eigener API-Key hinterlegt. Das Dokument wird ohne automatische Texterkennung gespeichert.
+              KI und Fallback-Alternative wurden nicht aktiviert. Es ist weder ein eigenes KI-Modell noch das System-Fallback hinterlegt. Das Dokument wird ohne automatische Texterkennung gespeichert.
             </p>
             <Link to="/profile" className="btn btn-sm btn-secondary" style={{ padding: '4px 8px', height: 'auto', minHeight: 'auto', fontSize: '11px' }}>
               Jetzt im Profil einrichten

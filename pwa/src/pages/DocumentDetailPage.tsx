@@ -7,7 +7,7 @@ import { normalizeVaccinationRecord } from '../utils/vaccination'
 
 
 import { PageHeader } from '../components/PageHeader'
-import { Shield, Pill, FileText, PawPrint, Landmark, Calendar, Download, Mail, Tag, Save, X, Edit2, Trash2, CheckCircle, Award, GraduationCap, ChevronLeft, ChevronRight, Bell, AlertTriangle } from 'lucide-react'
+import { Shield, Pill, FileText, PawPrint, Landmark, Calendar, Download, Mail, Tag, Save, X, Edit2, Trash2, CheckCircle, Award, GraduationCap, ChevronLeft, ChevronRight, Bell, AlertTriangle, Stethoscope } from 'lucide-react'
 import { TagCombobox } from '../components/TagCombobox'
 
 
@@ -70,7 +70,7 @@ export default function DocumentDetailPage() {
 
   const profileSuggestions = useMemo(() => {
     if (!doc?.isOwner || !animalProfile || suggestionDismissed) return []
-    if (!['vaccination', 'pet_passport', 'pedigree', 'treatment'].includes(doc.doc_type)) return []
+    if (!['vaccination', 'pet_passport', 'pedigree', 'treatment', 'vet_report'].includes(doc.doc_type)) return []
     const ext = doc.extracted_json || {}
     const docAnimal = ext.animal || (doc.doc_type === 'pedigree' ? { name: ext.animal_name, breed: ext.breed, birthdate: ext.birth_date } : null)
     if (!docAnimal) return []
@@ -118,6 +118,7 @@ export default function DocumentDetailPage() {
     dog_certificate: { label: t('animal.docTypeDogCertificate'), icon: <GraduationCap size={20} /> },
     medical_product: { label: t('animal.docTypeMedicalProduct'), icon: <Pill size={20} /> },
     treatment: { label: t('animal.docTypeTreatment'), icon: <Pill size={20} /> },
+    vet_report: { label: t('animal.docTypeVetReport'), icon: <Stethoscope size={20} /> },
     general: { label: t('animal.docTypeGeneral'), icon: <FileText size={20} /> },
     // Legacy fallbacks
     medication: { label: t('animal.docTypeMedicalProduct'), icon: <Pill size={20} /> },
@@ -737,7 +738,7 @@ export default function DocumentDetailPage() {
           )
         })()}
 
-        {doc.doc_type === 'treatment' && (() => {
+        {(doc.doc_type === 'treatment' || doc.doc_type === 'vet_report') && (() => {
           const allRecords: any[] = extracted.payload?.treatments || extracted.treatments || []
           if (allRecords.length === 0) return null
           const duplicateCount = allRecords.filter((r: any) => r._duplicate).length

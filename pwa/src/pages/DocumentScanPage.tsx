@@ -96,6 +96,7 @@ export default function DocumentScanPage() {
   const docTypes = [
     { id: 'vaccination', label: t('animal.docTypeVaccination'), icon: <Syringe size={16} /> },
     { id: 'treatment', label: t('animal.docTypeTreatment'), icon: <BookOpen size={16} /> },
+    { id: 'vet_report', label: t('animal.docTypeVetReport'), icon: <Stethoscope size={16} /> },
     { id: 'medical_product', label: t('animal.docTypeMedicalProduct'), icon: <FileText size={16} /> },
     { id: 'pet_passport', label: t('animal.docTypePetPassport'), icon: <Camera size={16} /> },
     { id: 'pedigree', label: t('animal.docTypePedigree'), icon: <BookOpen size={16} /> },
@@ -198,6 +199,7 @@ export default function DocumentScanPage() {
                         const labels: Record<string, string> = {
                           vaccination: t('animal.docTypeVaccination'),
                           treatment: t('animal.docTypeTreatment'),
+                          vet_report: t('animal.docTypeVetReport'),
                           pet_passport: t('animal.docTypePetPassport'),
                           medical_product: t('animal.docTypeMedicalProduct'),
                           pedigree: t('animal.docTypePedigree'),

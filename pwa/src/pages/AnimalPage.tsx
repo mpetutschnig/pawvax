@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { getAnimal, getAnimalDocuments, getAnimalTags, updateAnimal, deleteAnimal, uploadAnimalAvatar, deleteDocument, patchDocumentRecord, patchDocument, addVaccination, addTreatment } from '../api/rest'
 import { PageHeader } from '../components/PageHeader' 
-import { PawPrint, Cat, Edit2, Trash2, Camera, Search, Radio, ShieldAlert, AlertTriangle, RefreshCw, X, Syringe, FileText, CheckCircle, ArrowDownAZ, ArrowUpAZ, SlidersHorizontal, ArrowRightLeft, Share2, Plus, Pill, ChevronDown, ChevronUp, Landmark, Award, GraduationCap } from 'lucide-react'
+import { PawPrint, Cat, Edit2, Trash2, Camera, Search, Radio, ShieldAlert, AlertTriangle, RefreshCw, X, Syringe, FileText, CheckCircle, ArrowDownAZ, ArrowUpAZ, SlidersHorizontal, ArrowRightLeft, Share2, Plus, Pill, ChevronDown, ChevronUp, Landmark, Award, GraduationCap, Stethoscope } from 'lucide-react'
 import { AnimalDTO } from '../types/animal'
 import { normalizeVaccinationRecord } from '../utils/vaccination'
 import { formatDate, formatDateOnly } from '../utils/date'
@@ -28,6 +28,7 @@ export default function AnimalPage() {
     const labels: Record<string, string> = {
       vaccination: t('animal.docTypeVaccination'),
       treatment: t('animal.docTypeTreatment'),
+      vet_report: t('animal.docTypeVetReport'),
       pet_passport: t('animal.docTypePetPassport'),
       medical_product: t('animal.docTypeMedicalProduct'),
       pedigree: t('animal.docTypePedigree'),
@@ -52,7 +53,7 @@ export default function AnimalPage() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [documentTab, setDocumentTab] = useState<'all' | 'pending'>('all')
 
-  const [filterType, setFilterType] = useState<'all' | 'vaccination' | 'treatment' | 'pet_passport' | 'medical_product' | 'pedigree' | 'dog_certificate' | 'general'>('all')
+  const [filterType, setFilterType] = useState<'all' | 'vaccination' | 'treatment' | 'vet_report' | 'pet_passport' | 'medical_product' | 'pedigree' | 'dog_certificate' | 'general'>('all')
   const [filterTag, setFilterTag] = useState('')
   const [filterDateFrom, setFilterDateFrom] = useState('')
   const [filterDateTo, setFilterDateTo] = useState('')
@@ -492,7 +493,7 @@ export default function AnimalPage() {
   // Grouped: Map<doc_type, Document[]> — only when showing all types
   const groupedDocs = filterType === 'all' ? (() => {
     const map = new Map<string, Document[]>()
-    for (const type of ['vaccination', 'treatment', 'pet_passport', 'medical_product', 'pedigree', 'dog_certificate', 'general'] as const) {
+    for (const type of ['vaccination', 'treatment', 'vet_report', 'pet_passport', 'medical_product', 'pedigree', 'dog_certificate', 'general'] as const) {
       const group = filteredDocs.filter(d => d.doc_type === type)
       if (group.length > 0) map.set(type, group)
     }
@@ -528,6 +529,27 @@ export default function AnimalPage() {
         vetName: record.vet_name || null,
         nextDue: record.next_due || null,
         notes: record.notes || null
+      }))
+    })
+    .sort((a, b) => String(b.administeredAt || '').localeCompare(String(a.administeredAt || '')))
+
+  const vetReportRecords = documents
+    .filter(d => d.analysis_status !== 'pending_analysis' && d.doc_type === 'vet_report' && d.ocr_provider !== 'none')
+    .flatMap((doc) => {
+      const records = doc.extracted_json?.payload?.treatments || doc.extracted_json?.treatments || []
+      if (!Array.isArray(records)) return []
+      return records.map((record: any, index: number) => ({
+        id: `${doc.id}-vr${index}`,
+        documentId: doc.id,
+        doc: doc,
+        recordKey: `treatments.${index}`,
+        substance: record.substance || record.medication || '—',
+        administeredAt: record.administered_at || record.date || null,
+        dosage: record.dosage || null,
+        vetName: record.vet_name || doc.added_by_name || null,
+        nextDue: record.next_due || null,
+        notes: record.notes || null,
+        addedByVerified: !!doc.added_by_verified
       }))
     })
     .sort((a, b) => String(b.administeredAt || '').localeCompare(String(a.administeredAt || '')))
@@ -1061,6 +1083,63 @@ export default function AnimalPage() {
             </div>
           )}
 
+          {vetReportRecords.length > 0 && (
+            <div className="card" style={{ marginBottom: 'var(--space-4)', overflow: 'hidden', border: '1.5px solid var(--success-500)', background: 'var(--success-50)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
+                <Stethoscope size={18} color="var(--success-600)" />
+                <h3 style={{ margin: 0 }}>Tierarzt-Berichte</h3>
+                <span className="badge badge-success">{vetReportRecords.length}</span>
+              </div>
+              <div>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)', minWidth: 0 }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                      <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) 0', whiteSpace: 'nowrap' }}>Befund / Behandlung</th>
+                      <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Datum</th>
+                      <th className="col-mobile-hidden" style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Tierarzt</th>
+                      <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Fälligkeit</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {vetReportRecords.map((record) => {
+                      const isExpanded = expandedRecord === record.id
+                      return (
+                        <>
+                          <tr key={record.id} style={{ borderBottom: isExpanded ? 'none' : '1px solid var(--border-subtle)', cursor: 'pointer' }} onClick={() => setExpandedRecord(isExpanded ? null : record.id)}>
+                            <td style={{ padding: 'var(--space-2) 0' }}>
+                              <span style={{ fontWeight: 600 }}>{record.substance}</span>
+                            </td>
+                            <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{record.administeredAt || '—'}</td>
+                            <td className="col-mobile-hidden" style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                {record.vetName || 'Tierarzt'}
+                                {record.addedByVerified && <CheckCircle size={10} color="var(--success-600)" />}
+                              </div>
+                            </td>
+                            <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{record.nextDue || '—'}</td>
+                          </tr>
+                          {isExpanded && (
+                            <tr key={`${record.id}-expand`} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                              <td colSpan={6} style={{ padding: 'var(--space-2) 0 var(--space-3) 0' }}>
+                                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 'var(--space-2)' }}>
+                                  <Link to={`/animals/${id}/documents/${record.documentId}`} className="btn btn-outline" style={{ fontSize: 'var(--font-size-xs)', padding: '3px 10px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                    <FileText size={12} /> {t('animal.openDocument')}
+                                  </Link>
+                                  {record.dosage && <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Dosierung: <strong>{record.dosage}</strong></span>}
+                                  {record.notes && <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Notiz: <strong>{record.notes}</strong></span>}
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           {(treatmentRecords.length > 0 || isOwner) && (
             <div className="card" style={{ marginBottom: 'var(--space-4)', overflow: 'hidden' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
@@ -1571,7 +1650,7 @@ export default function AnimalPage() {
             <>
               {/* Type filter chips + sort toggle */}
               <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap', marginBottom: 'var(--space-3)' }}>
-                {(['all', 'vaccination', 'treatment', 'pet_passport', 'medical_product', 'pedigree', 'dog_certificate', 'general'] as const).map(type => (
+                {(['all', 'vaccination', 'treatment', 'vet_report', 'pet_passport', 'medical_product', 'pedigree', 'dog_certificate', 'general'] as const).map(type => (
                   <button
                     key={type}
                     className={`btn ${filterType === type ? 'btn-primary' : 'btn-outline'}`}
