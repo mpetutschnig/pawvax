@@ -201,5 +201,12 @@ export async function initDb(connectionString) {
   // Migration: vet raw image sharing for unanalyzed documents
   try { await pool.query("ALTER TABLE animal_sharing ADD COLUMN IF NOT EXISTS share_raw_images INTEGER DEFAULT 0") } catch { /* already exists */ }
 
+  // Migration: update doc_type check constraint to include vet_report
+  try {
+    // Drop existing constraint if it matches the default naming convention
+    await pool.query("ALTER TABLE documents DROP CONSTRAINT IF EXISTS documents_doc_type_check")
+    await pool.query("ALTER TABLE documents ADD CONSTRAINT documents_doc_type_check CHECK (doc_type IN ('vaccination', 'pedigree', 'dog_certificate', 'medical_product', 'treatment', 'pet_passport', 'general', 'vet_report'))")
+  } catch { /* ignore if fails (e.g. named differently) */ }
+
   return pool
 }

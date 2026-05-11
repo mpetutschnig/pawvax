@@ -142,7 +142,7 @@ export default async function documentRoutes(fastify) {
     const docId = req.params.id
 
     const { rows: [doc] } = await db.query(`
-      SELECT d.id, d.created_at, d.ocr_provider, d.extracted_json, a.account_id AS owner_id
+      SELECT d.id, d.created_at, d.ocr_provider, d.extracted_json, d.added_by_account, a.account_id AS owner_id
       FROM documents d
       JOIN animals a ON a.id = d.animal_id
       WHERE d.id = $1

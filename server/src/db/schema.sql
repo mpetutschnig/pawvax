@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS animal_tags (
 CREATE TABLE IF NOT EXISTS documents (
   id             TEXT PRIMARY KEY,
   animal_id      TEXT NOT NULL REFERENCES animals(id) ON DELETE CASCADE,
-  doc_type       TEXT NOT NULL DEFAULT 'general' CHECK(doc_type IN ('vaccination', 'pedigree', 'dog_certificate', 'medical_product', 'treatment', 'pet_passport', 'general')),
+  doc_type       TEXT NOT NULL DEFAULT 'general' CHECK(doc_type IN ('vaccination', 'pedigree', 'dog_certificate', 'medical_product', 'treatment', 'pet_passport', 'general', 'vet_report')),
   image_path     TEXT NOT NULL,
   extracted_json TEXT NOT NULL,
   ocr_provider   TEXT,
