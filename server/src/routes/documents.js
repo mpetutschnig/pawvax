@@ -29,7 +29,7 @@ function canRoleSeeDocument(rawRoles, requestRole) {
 }
 
 function canManageReanalysis(doc, accountId, role) {
-  return doc.owner_id === accountId || role === 'admin'
+  return doc.owner_id === accountId || doc.added_by_account === accountId || role === 'admin'
 }
 
 export default async function documentRoutes(fastify) {

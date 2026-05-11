@@ -71,6 +71,7 @@ export function DocumentAnalysisForm({
     const labels: Record<RequestedDocumentType, string> = {
       vaccination: t('animal.docTypeVaccination'),
       treatment: t('animal.docTypeTreatment'),
+      vet_report: t('animal.docTypeVetReport'),
       pet_passport: t('animal.docTypePetPassport'),
       medical_product: t('animal.docTypeMedicalProduct'),
       pedigree: t('animal.docTypePedigree'),
@@ -123,13 +124,13 @@ export function DocumentAnalysisForm({
         {!hasAnyKey && (
           <div style={{ marginBottom: 'var(--space-4)', padding: 'var(--space-3)', background: 'var(--warning-50)', border: '1px solid var(--warning-500)', borderRadius: 'var(--radius-sm)' }}>
             <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', fontWeight: 600, color: 'var(--warning-800)' }}>
-              {t('docDetail.noProvidersConfigured')}
+              {t('docScan.noProviderAvailable')}
             </p>
             <p style={{ margin: '4px 0 8px 0', fontSize: 'var(--font-size-xs)', color: 'var(--warning-700)' }}>
-              KI und Fallback-Alternative wurden nicht aktiviert. Es ist weder ein eigenes KI-Modell noch das System-Fallback hinterlegt. Das Dokument wird ohne automatische Texterkennung gespeichert.
+              {t('docScan.noAiNoFallback')}
             </p>
             <Link to="/profile" className="btn btn-sm btn-secondary" style={{ padding: '4px 8px', height: 'auto', minHeight: 'auto', fontSize: '11px' }}>
-              Jetzt im Profil einrichten
+              {t('docScan.setupAiProfile')}
             </Link>
           </div>
         )}
@@ -139,14 +140,14 @@ export function DocumentAnalysisForm({
             {t('docScan.usingSystemFallback')}
             {pricePerPage !== undefined && pricePerPage > 0 && (
               <div style={{ fontWeight: 600, marginTop: '2px' }}>
-                Kosten: {pricePerPage} Cent / Seite
+                {t('docScan.costInfo', { price: pricePerPage })}
               </div>
             )}
           </div>
         )}
         
         <div style={{ marginBottom: 'var(--space-4)', padding: 'var(--space-3)', background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: '11px', color: 'var(--text-secondary)' }}>
-          <strong>Haftungsausschluss:</strong> Die KI kann Fehler machen. Wir übernehmen keine Haftung für fehlerhaft erkannte Daten. Bitte prüfe das Ergebnis sorgfältig.
+          <strong>Haftungsausschluss:</strong> {t('docScan.aiDisclaimer')}
         </div>
 
         <div className="form-group">
@@ -159,7 +160,7 @@ export function DocumentAnalysisForm({
                 {(hasOpenai || hasSystemAi) && <option value="openai">OpenAI</option>}
               </>
             ) : (
-              <option value="">Kein Anbieter verfügbar</option>
+              <option value="">{t('docScan.noProviderAvailable')}</option>
             )}
           </select>
         </div>
@@ -173,7 +174,7 @@ export function DocumentAnalysisForm({
                 {models.length === 0 && <option value={DEFAULT_MODEL_BY_PROVIDER[retryProvider as keyof typeof DEFAULT_MODEL_BY_PROVIDER]}>{DEFAULT_MODEL_BY_PROVIDER[retryProvider as keyof typeof DEFAULT_MODEL_BY_PROVIDER]}</option>}
               </>
             ) : (
-              <option value="">Kein Modell verfügbar</option>
+              <option value="">{t('docScan.noModelAvailable')}</option>
             )}
           </select>
         </div>

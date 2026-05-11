@@ -189,7 +189,7 @@ export default function DocumentDetailPage() {
 
   const handleCreateReminder = () => {
     const json = doc?.extracted_json || {}
-    let title = docTypeConfig[doc?.doc_type]?.label ?? doc?.doc_type ?? 'Dokument'
+    let title = docTypeConfig[doc?.doc_type]?.label ?? doc?.doc_type ?? t('common.document')
     let date = json.document_date || ''
     
     if (doc?.doc_type === 'vaccination' && json.vaccinations?.[0]) {
@@ -321,7 +321,7 @@ export default function DocumentDetailPage() {
   const config = docTypeConfig[doc.doc_type] || docTypeConfig.other
   const documentImages = Array.from(new Set([doc.image_path, ...(doc.pages || [])].filter(Boolean)))
   const currentImage = documentImages[currentImageIndex] || null
-  const canReanalyze = (doc.isOwner || roles.includes('admin')) && doc.analysis_status === 'completed'
+  const canReanalyze = (doc.isOwner || doc.isUploader || roles.includes('admin')) && doc.analysis_status === 'completed'
 
   const canEditTags = doc.isUploader || doc.added_by_role !== 'vet'
   const canEditVisibility = doc.isOwner

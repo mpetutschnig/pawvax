@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import i18next from 'i18next'
-import { CheckCircle, AlertCircle, Syringe, FileText, BookOpen, Camera, RefreshCw, Plus, X } from 'lucide-react'
+import { CheckCircle, AlertCircle, Syringe, FileText, BookOpen, Camera, RefreshCw, Plus, X, Stethoscope } from 'lucide-react'
 import { PageHeader } from '../components/PageHeader'
 import { DocumentAnalysisForm } from '../components/DocumentAnalysisForm'
 import { uploadMultiPageDocument } from '../api/ws'
@@ -88,7 +88,7 @@ export default function DocumentScanPage() {
   const [hasSystemAi, setHasSystemAi] = useState(true)
   const [systemFallbackEnabled, setSystemFallbackEnabled] = useState(true)
   const hasAnyKey = hasGemini || hasAnthropic || hasOpenai || (hasSystemAi && systemFallbackEnabled)
-  const [billingConsentAccepted, setBillingConsentAccepted] = useState(true)
+  const [billingConsentAccepted, setBillingConsentAccepted] = useState(false)
   const [billingPricePerPage, setBillingPricePerPage] = useState(0)
   const [showConsentModal, setShowConsentModal] = useState(false)
   const [pendingUploadTypes, setPendingUploadTypes] = useState<DocumentTypeSelectValue[] | undefined>(undefined)
@@ -442,14 +442,23 @@ export default function DocumentScanPage() {
     }
   }
 
-  async function handleRetryAnalysisAPI() {
+  async function handleRetryAnalysisAPI(ignoreConsent = false) {
     if (!documentId) return
     if (requestedDocumentType === DOCUMENT_TYPE_PLACEHOLDER) return
+
+    const hasOwnKey = hasGemini || hasAnthropic || hasOpenai
+    const needsConsent = !ignoreConsent && !hasOwnKey && systemFallbackEnabled && !billingConsentAccepted
+    
+    if (needsConsent) {
+      setShowConsentModal(true)
+      return
+    }
+
     setIsAnalyzing(true)
     setErrorMsg(null)
     setShowModelSelection(false)
     setPhase('analysing')
-    setCurrentStatusMsg('Sende an KI...')
+    setCurrentStatusMsg(t('docScan.sendingToAi'))
     setOcrProvider(null)
     setUploadProgress(100) // mock upload progress so the UI looks consistent
 
@@ -460,7 +469,7 @@ export default function DocumentScanPage() {
       const doc = response.data
       setResult(doc.extracted_json || doc)
       setSuggestedType(doc.doc_type || doc.type || doc.suggestedType || 'other')
-      setOcrProvider(doc.ocrProvider || 'KI Analyse')
+      setOcrProvider(doc.ocrProvider || t('docScan.aiAnalysis'))
       setPhase('done')
       setAutoSavedAt(new Date())
     } catch (err: any) {
@@ -471,10 +480,20 @@ export default function DocumentScanPage() {
     }
   }
 
-  async function handleUpload(types?: DocumentTypeSelectValue[]) {
+  async function handleUpload(types?: DocumentTypeSelectValue[], ignoreConsent = false) {
     const filledGroups = groups.filter(g => g.pages.length > 0)
     if (filledGroups.length === 0 || !animalId) return
     if (!types && requestedDocumentType === DOCUMENT_TYPE_PLACEHOLDER) return
+
+    const hasOwnKey = hasGemini || hasAnthropic || hasOpenai
+    const needsConsent = !ignoreConsent && !hasOwnKey && systemFallbackEnabled && !billingConsentAccepted
+    
+    if (needsConsent) {
+      setPendingUploadTypes(types)
+      setShowConsentModal(true)
+      return
+    }
+
     setPhase('uploading')
     setUploadProgress(0)
     setElapsedTime(0)
@@ -493,9 +512,9 @@ export default function DocumentScanPage() {
             onStatus: (msg: string) => {
               setPhase('analysing')
               setCurrentStatusMsg(docLabel + msg)
-              if (msg.includes('Tesseract') || msg.includes('tesseract')) setOcrProvider('Lokales Tesseract OCR')
-              if (msg.includes('Gemini') || msg.includes('gemini') || msg.includes('Google API')) setOcrProvider('Gemini API')
-              if (msg.includes('Quota') || msg.includes('quota')) setOcrProvider('⚠️ Quota - Tesseract Fallback')
+              if (msg.includes('Tesseract') || msg.includes('tesseract')) setOcrProvider(t('docScan.tesseractLocal'))
+              if (msg.includes('Gemini') || msg.includes('gemini') || msg.includes('Google API')) setOcrProvider(t('docScan.geminiApi'))
+              if (msg.includes('Quota') || msg.includes('quota')) setOcrProvider(t('docScan.quotaFallback'))
             },
             onResult: (data: any) => {
               const nextDocumentId = data.data.documentId
@@ -517,7 +536,7 @@ export default function DocumentScanPage() {
         })
       }
     } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : 'Unbekannter Fehler')
+      setErrorMsg(err instanceof Error ? err.message : t('common.unknownError'))
       setPhase('error')
       return
     }
@@ -536,8 +555,13 @@ export default function DocumentScanPage() {
       {showConsentModal && (
         <BillingConsentModal
           pricePerPage={billingPricePerPage}
-          pageCount={totalPagesToUpload}
-          onAccept={() => { setBillingConsentAccepted(true); setShowConsentModal(false); handleUpload(pendingUploadTypes) }}
+          pageCount={totalPagesToUpload || 1}
+          onAccept={() => { 
+            setBillingConsentAccepted(true)
+            setShowConsentModal(false)
+            if (documentId) handleRetryAnalysisAPI(true)
+            else handleUpload(pendingUploadTypes, true)
+          }}
           onCancel={() => setShowConsentModal(false)}
         />
       )}
@@ -640,7 +664,7 @@ export default function DocumentScanPage() {
                             <button
                               key={`split-${myGlobalIdx}`}
                               onClick={() => insertGroupDivider(myGlobalIdx)}
-                              title="Hier trennen — neues Dokument"
+                              title={t('docScan.splitDocument')}
                               style={{
                                 background: 'var(--surface-2)', border: '1px solid var(--border)',
                                 borderRadius: 'var(--radius-sm)', cursor: 'pointer',
@@ -704,7 +728,6 @@ export default function DocumentScanPage() {
                             {thumbRow}
                           </div>
                           {/* Zusammenführen-Button zwischen Gruppen */}
-                          {groupIdx < groups.length - 1 && (
                             <button
                               onClick={() => removeGroupDivider(groupIdx)}
                               style={{
@@ -718,9 +741,8 @@ export default function DocumentScanPage() {
                               }}
                               aria-label="Trennung entfernen"
                             >
-                              ← Zusammenführen →
+                              {t('docScan.mergeDocuments')}
                             </button>
-                          )}
                         </div>
                       )
                     })
@@ -739,7 +761,7 @@ export default function DocumentScanPage() {
                     background: 'var(--surface)', cursor: 'pointer',
                     fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', fontWeight: 500
                   }}>
-                    <Camera size={18} /> Weitere Seite fotografieren
+                    <Camera size={18} /> {t('docScan.addPageCamera')}
                   </label>
                   <label htmlFor="addPageFileInput" style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)',
@@ -748,7 +770,7 @@ export default function DocumentScanPage() {
                     background: 'var(--surface)', cursor: 'pointer',
                     fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', fontWeight: 500
                   }}>
-                    <Plus size={18} /> Weitere Seite aus Galerie
+                    <Plus size={18} /> {t('docScan.addPageFile')}
                   </label>
                 </div>
               </div>
@@ -760,7 +782,7 @@ export default function DocumentScanPage() {
                 setShowModelSelection(true)
               }}>
                 {groups.filter(g => g.pages.length > 0).length > 1
-                  ? `${groups.filter(g => g.pages.length > 0).length} Dokumente hochladen & analysieren`
+                  ? t('docScan.uploadMultiAndAnalyze', { count: groups.filter(g => g.pages.length > 0).length })
                   : t('docScan.uploadAndAnalyze')}
               </button>
               <button className="btn btn-ghost btn-full" style={{ marginTop: 'var(--space-2)' }} onClick={() => { setGroups([{ pages: [], previews: [] }]); setActiveGroupIdx(0); setActivePageIdx(0) }}>
@@ -1001,6 +1023,102 @@ export default function DocumentScanPage() {
             </div>
           )}
         </div>
+      )}
+      {showModelSelection && !documentId && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'var(--space-4)' }}>
+          <div className="card" style={{ maxWidth: '400px', width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
+            <h3 style={{ marginBottom: 'var(--space-4)' }}>{t('docScan.chooseModel')}</h3>
+            
+            {groups.filter(g => g.pages.length > 0).length > 1 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+                {groups.filter(g => g.pages.length > 0).map((group, i) => (
+                  <div key={i} style={{ padding: 'var(--space-3)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)' }}>
+                    <div style={{ display: 'flex', gap: '8px', marginBottom: 'var(--space-2)' }}>
+                      {group.previews.slice(0, 3).map((p, j) => (
+                        <img key={j} src={p} style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '4px' }} alt="" />
+                      ))}
+                    </div>
+                    <label className="form-label" style={{ fontSize: '11px' }}>{t('docDetail.title')} {i + 1} {t('docDetail.type')}</label>
+                    <select 
+                      className="form-select" 
+                      value={groupTypes[i]} 
+                      onChange={e => {
+                        const newTypes = [...groupTypes]
+                        newTypes[i] = e.target.value as DocumentTypeSelectValue
+                        setGroupTypes(newTypes)
+                      }}
+                    >
+                      <option value={DOCUMENT_TYPE_PLACEHOLDER} disabled>{t('docScan.docTypePlaceholder')}</option>
+                      {DOCUMENT_TYPE_OPTIONS.map(t => <option key={t} value={t}>{docTypes.find(dt => dt.id === t)?.label || t}</option>)}
+                    </select>
+                  </div>
+                ))}
+                <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+                  <button className="btn btn-primary flex-1" onClick={() => maybeUpload(groupTypes)} disabled={groupTypes.includes(DOCUMENT_TYPE_PLACEHOLDER)}>
+                    {t('docScan.upload')}
+                  </button>
+                  <button className="btn btn-ghost flex-1" onClick={() => setShowModelSelection(false)}>{t('common.cancel')}</button>
+                </div>
+              </div>
+            ) : (
+              <DocumentAnalysisForm
+                title={t('docScan.aiAnalysis')}
+                description={t('docDetail.aiSelectProvider')}
+                previews={groups[0].previews}
+                hasAnyKey={hasAnyKey}
+                hasGemini={hasGemini}
+                hasAnthropic={hasAnthropic}
+                hasOpenai={hasOpenai}
+                hasSystemAi={hasSystemAi}
+                systemFallbackEnabled={systemFallbackEnabled}
+                pricePerPage={billingPricePerPage}
+                retryProvider={retryProvider}
+                retryModel={retryModel}
+                requestedDocumentType={requestedDocumentType}
+                availableModels={availableModels}
+                submitLabel={t('docScan.uploadAndAnalyze')}
+                cancelLabel={t('common.cancel')}
+                isSubmitting={isAnalyzing}
+                onProviderChange={setRetryProvider}
+                onModelChange={setRetryModel}
+                onRequestedDocumentTypeChange={setRequestedDocumentType}
+                onSubmit={() => maybeUpload()}
+                onCancel={() => setShowModelSelection(false)}
+              />
+            )}
+          </div>
+        </div>
+      )}
+
+      {showModelSelection && documentId && (
+        <DocumentAnalysisForm
+          title={t('docDetail.aiAnalysis')}
+          description={t('docDetail.aiSelectProvider')}
+          previews={groups[0].previews}
+          hasAnyKey={hasAnyKey}
+          hasGemini={hasGemini}
+          hasAnthropic={hasAnthropic}
+          hasOpenai={hasOpenai}
+          hasSystemAi={hasSystemAi}
+          systemFallbackEnabled={systemFallbackEnabled}
+          pricePerPage={billingPricePerPage}
+          retryProvider={retryProvider}
+          retryModel={retryModel}
+          requestedDocumentType={requestedDocumentType}
+          availableModels={availableModels}
+          submitLabel={t('animal.analyzeBtn')}
+          cancelLabel={t('common.cancel')}
+          isSubmitting={isAnalyzing}
+          onProviderChange={setRetryProvider}
+          onModelChange={setRetryModel}
+          onRequestedDocumentTypeChange={setRequestedDocumentType}
+          onSubmit={handleRetryAnalysisAPI}
+          onCancel={() => {
+            setErrorMsg(null)
+            if (routeState?.documentId) navigate(`/animals/${animalId}/documents/${documentId}`)
+            else setShowModelSelection(false)
+          }}
+        />
       )}
     </div>
   )
