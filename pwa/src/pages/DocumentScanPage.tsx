@@ -492,11 +492,11 @@ export default function DocumentScanPage() {
       })
       
       const doc = response.data
-      setResult(doc.extracted_json || doc)
-      setSuggestedType(doc.doc_type || doc.type || doc.suggestedType || 'other')
-      setOcrProvider(doc.ocrProvider || t('docScan.aiAnalysis'))
-      setPhase('done')
-      setAutoSavedAt(new Date())
+      if (documentId) {
+        navigate(`/animals/${animalId}/documents/${documentId}`, { replace: true })
+      } else {
+        navigate(`/animals/${animalId}`, { replace: true })
+      }
     } catch (err: any) {
       setErrorMsg(getAnalysisErrorMessage(err, t('animal.documentFailed')))
       setPhase('error')
@@ -902,155 +902,6 @@ export default function DocumentScanPage() {
                   </div>
                 </>
               )}
-            </div>
-          )}
-
-          {phase === 'done' && !!result && (
-            <div>
-              <div style={{ color: 'var(--success-500)', marginBottom: 'var(--space-3)', display: 'flex', justifyContent: 'center' }}>
-                <CheckCircle size={48} strokeWidth={1.5} />
-              </div>
-              <h3 style={{ marginBottom: 'var(--space-2)' }}>{t('docScan.analyzeComplete')}</h3>
-              
-              {autoSavedAt && (
-                <div style={{ background: 'var(--success-50)', borderRadius: 'var(--radius-md)', padding: 'var(--space-3)', marginBottom: 'var(--space-4)', border: '1px solid var(--success-200)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                  <CheckCircle size={20} color="var(--success-600)" />
-                  <div style={{ textAlign: 'left' }}>
-                    <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', color: 'var(--success-800)' }}>{t('docScan.documentSaved')}</div>
-                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--success-700)' }}>{autoSavedAt.toLocaleTimeString()}</div>
-                  </div>
-                </div>
-              )}
-
-              {(ocrProvider || currentStatusMsg) && (
-                <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-md)', padding: 'var(--space-4)', marginBottom: 'var(--space-6)', borderLeft: ocrProvider?.includes('Quota') ? '4px solid var(--danger-500)' : '4px solid var(--success-500)' }}>
-                  {ocrProvider && <div style={{ display: 'inline-flex', marginBottom: 'var(--space-2)' }}><span className={`badge ${ocrProvider?.includes('Quota') ? 'badge-danger' : 'badge-success'}`}>{ocrProvider}</span></div>}
-                  {currentStatusMsg && <p style={{ margin: '0', fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>{currentStatusMsg}</p>}
-                </div>
-              )}
-
-              {suggestedType && (
-                <div style={{ background: 'var(--primary-50)', borderRadius: 'var(--radius-md)', padding: 'var(--space-4)', marginBottom: 'var(--space-6)', borderLeft: '4px solid var(--primary-500)' }}>
-                  <h4 style={{ margin: '0 0 var(--space-3) 0', fontSize: 'var(--font-size-sm)', fontWeight: 600 }}>{t('docScan.docType')}</h4>
-                  <p style={{ margin: '0 0 var(--space-3) 0', fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
-                    {ocrProvider?.includes('Tesseract') ? 'Tesseract' : 'AI'}: <strong style={{ color: 'var(--text-primary)' }}>{docTypes.find(t => t.id === suggestedType)?.label || suggestedType}</strong>
-                  </p>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
-                    {docTypes.map(type => (
-                      <button
-                        key={type.id}
-                        onClick={() => setSuggestedType(type.id)}
-                        style={{
-                          padding: 'var(--space-2)',
-                          borderRadius: 'var(--radius-md)',
-                          border: suggestedType === type.id ? '2px solid var(--primary-500)' : '1px solid var(--border)',
-                          background: suggestedType === type.id ? 'var(--primary-50)' : 'var(--surface)',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 'var(--space-2)',
-                          fontSize: 'var(--font-size-sm)',
-                          fontWeight: suggestedType === type.id ? 600 : 400,
-                          transition: 'all 0.2s'
-                        }}
-                      >
-                        {type.icon}
-                        {type.label}
-                      </button>
-                    ))}
-                  </div>
-                  <button
-                    className="btn btn-primary btn-full"
-                    disabled={savingDocType}
-                    onClick={async () => {
-                      setSavingDocType(true)
-                      try {
-                        if (documentId && suggestedType) {
-                          await patchDocument(documentId, { doc_type: suggestedType })
-                        }
-                        navigate(`/animals/${animalId}`)
-                      } catch (err) {
-                        setErrorMsg(err instanceof Error ? err.message : t('common.error'))
-                      } finally {
-                        setSavingDocType(false)
-                      }
-                    }}
-                  >
-                    {savingDocType ? `${t('docScan.confirmSave')}...` : t('docScan.confirmSave')}
-                  </button>
-                </div>
-              )}
-
-              <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-md)', padding: 'var(--space-4)', textAlign: 'left', marginBottom: 'var(--space-6)' }}>
-                <h4 style={{ margin: '0 0 var(--space-2) 0', fontSize: 'var(--font-size-sm)' }}>{t('docDetail.ocrText')}</h4>
-                {(() => {
-                  const parsed = typeof result === 'object' ? (result as any) : null
-                  if (!parsed) return (
-                    <pre style={{ margin: 0, fontSize: 'var(--font-size-xs)', overflowX: 'auto', whiteSpace: 'pre-wrap', wordWrap: 'break-word', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>
-                      {typeof result === 'string' ? result : JSON.stringify(result, null, 2)}
-                    </pre>
-                  )
-                  const data = parsed?.data || parsed?.page_results?.[0] || parsed
-                  return (
-                    <div style={{ display: 'grid', gap: 'var(--space-2)', fontSize: 'var(--font-size-sm)' }}>
-                      {data?.title && <div><strong>{t('docDetail.title')}:</strong> {data.title}</div>}
-                      {data?.document_date && <div><strong>{t('animal.created')}:</strong> {data.document_date}</div>}
-                      {data?.summary && <div className="text-muted">{data.summary}</div>}
-                      {Array.isArray(data?.vaccinations) && data.vaccinations.length > 0 && (
-                        <div>
-                          <strong>{t('animal.vaccinations')}:</strong>
-                          {data.vaccinations.map((v: any, i: number) => (
-                            <div key={i} style={{ marginLeft: 'var(--space-3)', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
-                              • {[v.vaccine, v.date, v.nextDue ? `Next: ${v.nextDue}` : null, v.vet].filter(Boolean).join(' — ')}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      {data?.product && (
-                        <div>
-                          <strong>{t('animal.docTypeMedicalProduct')}:</strong>
-                          <div style={{ marginLeft: 'var(--space-3)', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
-                            {[data.product.name, data.product.active_substance, data.product.dosage, data.product.manufacturer].filter(Boolean).join(' — ')}
-                          </div>
-                        </div>
-                      )}
-                      {data?.pedigree && (
-                        <div>
-                          <strong>{t('animal.docTypePedigree')}:</strong>
-                          <div style={{ marginLeft: 'var(--space-3)', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
-                            {[data.pedigree.federation, data.pedigree.registration_number, data.pedigree.sire ? `Vater: ${data.pedigree.sire}` : null, data.pedigree.dam ? `Mutter: ${data.pedigree.dam}` : null].filter(Boolean).join(' — ')}
-                          </div>
-                        </div>
-                      )}
-                      {data?.certificate && (
-                        <div>
-                          <strong>{t('animal.docTypeDogCertificate')}:</strong>
-                          <div style={{ marginLeft: 'var(--space-3)', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
-                            {[data.certificate.holder_name, data.certificate.evaluation, data.certificate.passed !== undefined ? (data.certificate.passed ? '✓ Bestanden' : '✗ Nicht bestanden') : null].filter(Boolean).join(' — ')}
-                          </div>
-                        </div>
-                      )}
-                      {Array.isArray(data?.suggested_tags) && data.suggested_tags.length > 0 && (
-                        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: 'var(--space-1)' }}>
-                          {data.suggested_tags.map((tag: string, i: number) => (
-                            <span key={i} className="badge">{tag}</span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )
-                })()}
-              </div>
-
-              <button className="btn btn-ghost btn-full" onClick={() => {
-                if (routeState?.action === 'reanalyze' && documentId) {
-                  navigate(`/animals/${animalId}/documents/${documentId}`)
-                } else {
-                  navigate(`/animals/${animalId}`)
-                }
-              }} type="button">
-                {routeState?.action === 'reanalyze' ? t('common.back') : t('docScan.backToProfile')}
-              </button>
             </div>
           )}
         </div>

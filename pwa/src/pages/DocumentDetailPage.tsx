@@ -1074,28 +1074,6 @@ export default function DocumentDetailPage() {
           </div>
         )}
 
-        {rawText && (
-          <>
-            <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--space-3)' }}>{t('docDetail.ocrText')}</h3>
-            <pre
-              style={{
-                background: 'var(--surface)',
-                padding: 'var(--space-4)',
-                borderRadius: 'var(--radius-md)',
-                fontSize: 'var(--font-size-xs)',
-                overflow: 'auto',
-                whiteSpace: 'pre-wrap',
-                wordBreak: 'break-word',
-                maxHeight: '300px',
-                color: 'var(--text-secondary)',
-                fontFamily: 'var(--font-mono)'
-              }}
-            >
-              {rawText}
-            </pre>
-          </>
-        )}
-
         <div style={{ marginTop: 'var(--space-4)' }}>
           <button className="btn btn-ghost btn-full" onClick={() => setShowJsonDetails(!showJsonDetails)}>
             {showJsonDetails ? t('docDetail.jsonHide') : t('docDetail.jsonDetails')}
