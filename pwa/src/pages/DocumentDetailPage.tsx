@@ -53,8 +53,8 @@ export default function DocumentDetailPage() {
   const [suggestionDismissed, setSuggestionDismissed] = useState(false)
 
   // Determine effective role for image visibility
-  const effectiveRole: 'owner' | 'vet' | 'authority' | 'guest' = (() => {
-    if (doc?.isOwner) return 'owner'
+  const effectiveRole: 'user' | 'vet' | 'authority' | 'guest' = (() => {
+    if (doc?.isOwner) return 'user'
     const token = localStorage.getItem('token')
     if (!token) return 'guest'
     try {

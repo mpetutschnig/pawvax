@@ -169,6 +169,13 @@ export async function initDb(connectionString) {
     await pool.query("UPDATE accounts SET role = 'vet' WHERE role = 'veterinarian'")
   } catch { /* ignore */ }
 
+  // Migration: normalize 'owner' → 'user' (roles are identical; consolidating to single 'user' role)
+  try {
+    await pool.query("UPDATE accounts SET role = 'user' WHERE role = 'owner'")
+    await pool.query("UPDATE accounts SET role = REPLACE(role, 'owner', 'user') WHERE role LIKE '%owner%'")
+    await pool.query("UPDATE audit_log SET account_role = 'user' WHERE account_role = 'owner'")
+  } catch { /* ignore */ }
+
   // Migration: add allowed_role column to animal_public_shares (per-link permissions)
   try {
     await pool.query("ALTER TABLE animal_public_shares ADD COLUMN IF NOT EXISTS allowed_role TEXT NOT NULL DEFAULT 'guest'")
