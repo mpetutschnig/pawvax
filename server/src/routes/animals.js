@@ -135,11 +135,14 @@ function normalizeTagId(tagId) {
   if (!tagId) return tagId
   let normalized = tagId.trim()
   try {
-    const url = new URL(normalized)
-    const parts = url.pathname.split('/').filter(Boolean)
-    normalized = parts[parts.length - 1]
-    if (url.searchParams.has('tag')) {
-      normalized = url.searchParams.get('tag')
+    const lower = normalized.toLowerCase()
+    if (lower.startsWith('http://') || lower.startsWith('https://')) {
+      const url = new URL(normalized)
+      const parts = url.pathname.split('/').filter(Boolean)
+      normalized = parts[parts.length - 1]
+      if (url.searchParams.has('tag')) {
+        normalized = url.searchParams.get('tag')
+      }
     }
   } catch { /* not a URL */ }
   return normalized.replace(/:/g, '').toUpperCase()

@@ -26,12 +26,15 @@ export default function ScanPage() {
     
     let tagId = rawTagId.trim()
     try {
-      const url = new URL(tagId)
-      if (url.searchParams.has('tag')) {
-        tagId = url.searchParams.get('tag') || tagId
-      } else {
-        const parts = url.pathname.split('/').filter(Boolean)
-        if (parts.length > 0) tagId = parts[parts.length - 1]
+      const lower = tagId.toLowerCase()
+      if (lower.startsWith('http://') || lower.startsWith('https://')) {
+        const url = new URL(tagId)
+        if (url.searchParams.has('tag')) {
+          tagId = url.searchParams.get('tag') || tagId
+        } else {
+          const parts = url.pathname.split('/').filter(Boolean)
+          if (parts.length > 0) tagId = parts[parts.length - 1]
+        }
       }
     } catch {
       // Keine URL, bleibt unverändert
