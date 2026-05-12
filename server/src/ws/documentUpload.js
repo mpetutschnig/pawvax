@@ -203,7 +203,7 @@ export default async function wsDocumentUpload(fastify) {
             return
           }
 
-          // Access-Check ZUERST — verhindert DB-Stubs bei jedem gescheiterten Versuch
+          // Access check first — prevents DB stubs on every failed attempt
           if (!await canAccessAnimalForUpload(db, animalId, accountId, userRole)) {
             fastify.log.error({ animalId, accountId, userRole }, '[WS] Access denied')
             send(socket, { type: 'error', message: 'Zugriff verweigert' })

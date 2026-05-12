@@ -33,7 +33,7 @@ export function saveImageChunks(filename) {
 
 export function saveBase64Image(filename, base64Data) {
   const filepath = safePath(filename)
-  // Entferne evtl. vorhandene Data-URI-Präfixe (z.B. "data:image/jpeg;base64,")
+  // Strip optional data URI prefix (e.g., "data:image/jpeg;base64,")
   const base64 = base64Data.replace(/^data:image\/\w+;base64,/, '')
   const buffer = Buffer.from(base64, 'base64')
   writeFileSync(filepath, buffer)

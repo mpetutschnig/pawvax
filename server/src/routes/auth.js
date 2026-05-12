@@ -390,7 +390,7 @@ export default async function authRoutes(fastify) {
     return { token, account: { id: account.id, name: account.name, email: account.email, role, roles, verified } }
   })
 
-  // Tierarzt/Behörde beantragt Verifikation mit optionalem Dokument
+  // Vet/authority requests verification with optional document
   fastify.post('/api/accounts/request-verification', async (req, reply) => {
     try { await req.jwtVerify() } catch { return reply.code(401).send({ error: 'Nicht autorisiert' }) }
 
@@ -499,7 +499,7 @@ export default async function authRoutes(fastify) {
     return { requests }
   })
 
-  // Eigenes Profil lesen
+  // Read own profile
   fastify.get('/api/accounts/me', { onRequest: [fastify.authenticate] }, async (req, reply) => {
     const db = getDb()
     const { rows: [account] } = await db.query('SELECT id, name, email, pending_email, role, verified, verification_status, email_verified, email_verification_required, gemini_model, claude_model, created_at, system_fallback_enabled, billing_consent_accepted_at FROM accounts WHERE id = $1', [req.user.accountId])
@@ -515,7 +515,7 @@ export default async function authRoutes(fastify) {
     }
   })
 
-  // Eigenes Profil ändern
+  // Update own profile
   fastify.patch('/api/accounts/me', { onRequest: [fastify.authenticate] }, async (req, reply) => {
     const db = getDb()
     const { name, email, password, currentPassword, gemini_token, gemini_model, anthropic_token, claude_model, openai_token, openai_model, ai_provider_priority, system_fallback_enabled, billing_consent_accepted_at } = req.body
@@ -651,7 +651,7 @@ export default async function authRoutes(fastify) {
     return response
   })
 
-  // Account löschen (DSGVO Art. 17)
+  // Delete account (GDPR Art. 17)
   fastify.delete('/api/accounts/me', { onRequest: [fastify.authenticate] }, async (req, reply) => {
     const db = getDb()
     const accountId = req.user.accountId
@@ -675,7 +675,7 @@ export default async function authRoutes(fastify) {
     return reply.code(204).send()
   })
 
-  // DSGVO Datenexport (Takeout) — liefert ZIP mit allen Tier- und Dokumentdaten
+  // GDPR data export (takeout) — returns a ZIP with all animal and document data
   fastify.get('/api/accounts/me/export', { onRequest: [fastify.authenticate] }, async (req, reply) => {
     const db = getDb()
     const { accountId } = req.user
@@ -728,7 +728,7 @@ export default async function authRoutes(fastify) {
             archive.file(imgPath, { name: `${prefix}documents/${doc.id}.${ext}` })
           }
         }
-        // Zusätzliche Seiten
+        // Additional pages
         const { rows: pages } = await db.query('SELECT * FROM document_pages WHERE document_id = $1', [doc.id])
         for (const page of pages) {
           if (page.image_path) {

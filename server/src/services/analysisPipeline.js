@@ -152,7 +152,7 @@ export async function runDocumentAnalysis(db, doc, accountId, options, log, reqI
   const hasOwnKey = !!(acc?.gemini_token || acc?.anthropic_token || acc?.openai_token)
   
   if (!hasOwnKey && !(acc?.system_fallback_enabled ?? 1)) {
-    // KI ist deaktiviert -> Einfach ohne Analyse speichern
+    // AI disabled — save without analysis
     const finalDocType = normalizeDocumentType(requestedDocumentType) || 'general'
     const extractedData = {
       type: finalDocType,

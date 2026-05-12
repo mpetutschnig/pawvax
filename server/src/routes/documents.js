@@ -238,7 +238,7 @@ export default async function documentRoutes(fastify) {
     return { success: true }
   })
 
-  // Dokument löschen
+  // Delete document
   fastify.delete('/api/documents/:id', async (req, reply) => {
     const db = getDb()
     const { accountId, role } = req.user
@@ -325,7 +325,7 @@ export default async function documentRoutes(fastify) {
     return reply.send(docs)
   })
 
-  // Retry-Analyse für pending Dokument
+  // Retry analysis for pending document
   fastify.post('/api/documents/:id/retry-analysis', async (req, reply) => {
     const db = getDb()
     const { accountId, role } = req.user

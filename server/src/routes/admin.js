@@ -266,7 +266,7 @@ export default async function adminRoutes(fastify) {
     return rows
   })
 
-  // Account-Rolle ändern
+  // Change account role
   fastify.patch('/api/admin/accounts/:id', async (req, reply) => {
     const db = getDb()
     const { id } = req.params
@@ -511,7 +511,7 @@ export default async function adminRoutes(fastify) {
     }
   })
 
-  // Alle Tiere (Admin-Übersicht)
+  // All animals (admin overview)
   fastify.get('/api/admin/animals', async (req) => {
     const db = getDb()
     const { rows } = await db.query(`

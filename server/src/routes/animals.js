@@ -70,7 +70,7 @@ import {
 
 export default async function animalRoutes(fastify) {
 
-  // ──── ÖFFENTLICHER Endpunkt (kein Login nötig) ────────────────────────────
+  // ──── Public endpoint (no login required) ────────────────────────────────
   fastify.get('/api/public/tag/:tagId', async (req, reply) => {
     const db = getDb()
     const originalTagId = req.params.tagId
@@ -80,15 +80,15 @@ export default async function animalRoutes(fastify) {
 
     if (!row) return reply.code(404).send({ error: 'Tag nicht gefunden' })
 
-    // Optional JWT für rollenbasierte Dokumentsichtbarkeit
+    // Optional JWT for role-based document visibility
     const decoded = tryDecodeJwt(fastify, req)
     const effectiveRoles = getEffectiveRoles(decoded)
     const primaryRole = effectiveRoles.includes('vet') ? 'vet' : effectiveRoles.includes('authority') ? 'authority' : 'guest'
 
-    // Stelle sicher, dass default sharing existiert (für alte Tiere ohne Sharing-Zeile)
+    // Ensure default sharing exists (for older animals without sharing rows)
     await ensureDefaultSharing(db, row.id, fastify.log)
 
-    // Metadaten-Freigabe: beste Rolle verwenden (vet/authority sehen mehr), Fallback auf guest
+    // Use best role for metadata sharing (vet/authority see more), fallback to guest
     const publicRole = getPublicSharingRole()
     let sharing = await getSharingForRole(db, row.id, primaryRole) || await getSharingForRole(db, row.id, publicRole)
 
@@ -98,7 +98,7 @@ export default async function animalRoutes(fastify) {
       sharing = await getSharingForRole(db, row.id, primaryRole) || await getSharingForRole(db, row.id, publicRole)
     }
 
-    // Wenn immer noch kein sharing existiert, create es jetzt
+    // Still no sharing — insert fallback now
     if (!sharing) {
       try {
         await insertAnimalSharingFallback(db, uuid(), row.id, publicRole, 0, 1, 1, 0, 0)
@@ -113,10 +113,10 @@ export default async function animalRoutes(fastify) {
       name: row.name,
       species: row.species,
       avatar_path: row.avatar_path,
-      is_public: !!sharing  // Flag ob öffentlich freigegeben
+      is_public: !!sharing  // whether public sharing is enabled
     }
 
-    if (!sharing) return result  // Tier existiert, aber keine öffentlichen Daten
+    if (!sharing) return result  // animal exists but has no public data
 
     if (sharing.share_breed) result.breed = row.breed
     if (sharing.share_birthdate) result.birthdate = row.birthdate
@@ -166,7 +166,7 @@ export default async function animalRoutes(fastify) {
       await insertAnimalSharingFallback(db, uuid(), animal.id, publicRole, 0, 1, 1, 0, 0)
     }
 
-    // Optional JWT für rollenbasierte Dokumentsichtbarkeit
+    // Optional JWT for role-based document visibility
     const decoded = tryDecodeJwt(fastify, req)
     const visitorRoles = getEffectiveRoles(decoded)
     const visitorPrimaryRole = visitorRoles.includes('vet') ? 'vet' : visitorRoles.includes('authority') ? 'authority' : 'guest'
@@ -193,14 +193,14 @@ export default async function animalRoutes(fastify) {
     await fastify.authenticate(req, reply)
   })
 
-  // Tier per Tag-ID suchen (inkl. Rollenfilter für Vets/Behörden)
+  // Look up animal by tag ID (including role filter for vets/authorities)
   fastify.get('/api/animals/by-tag/:tagId', async (req, reply) => {
     const db = getDb()
     const originalTagId = req.params.tagId
     const tagId = normalizeTagId(originalTagId)
     const { accountId, role, roles, verified } = req.user
 
-    // Eigenes Tier?
+    // Own animal?
     let ownRow = await findOwnAnimalByTagIdAndActive(db, tagId, accountId)
 
     if (ownRow) {
@@ -208,7 +208,7 @@ export default async function animalRoutes(fastify) {
       return ownRow
     }
 
-    // Fremdes Tier — prüfe Rolle
+    // Third-party animal — check role
     const userRoles = (role || '').split(',').map(r => r.trim())
     const requestRole = userRoles.includes('vet') ? 'vet' : userRoles.includes('authority') ? 'authority' : 'guest'
 
@@ -218,7 +218,7 @@ export default async function animalRoutes(fastify) {
 
     let filtered = await applySharing(db, row, requestRole, row.owner_name, row.owner_email)
     
-    // Fallback auf public (guest) falls vet/authority keine speziellen Freigaben haben
+    // Fallback to public (guest) if vet/authority has no specific sharing
     if (!filtered && requestRole !== 'guest') {
       filtered = await applySharing(db, row, 'guest', row.owner_name, row.owner_email)
     }
@@ -230,7 +230,7 @@ export default async function animalRoutes(fastify) {
     return filtered
   })
 
-  // Neues Tier anlegen
+  // Create new animal
   fastify.post('/api/animals', {
     schema: {
       body: {
@@ -268,7 +268,7 @@ export default async function animalRoutes(fastify) {
     return reply.code(201).send(animal)
   })
 
-  // Tierprofil
+  // Animal profile
   fastify.get('/api/animals/:id', async (req, reply) => {
     const db = getDb()
     const { id } = req.params
@@ -290,11 +290,11 @@ export default async function animalRoutes(fastify) {
     if (!filtered) return reply.code(403).send({ error: 'Kein Zugriff auf diese Tierdaten' })
     filtered.is_owner = false
     filtered.request_role = requestRole
-    delete filtered.documents // Dokumente werden separat über /documents geladen
+    delete filtered.documents // documents are loaded separately via /documents
     return filtered
   })
 
-  // Tier-Daten ändern
+  // Update animal data
   fastify.patch('/api/animals/:id', {
     schema: {
       body: {
@@ -338,7 +338,7 @@ export default async function animalRoutes(fastify) {
     return result
   })
 
-  // Tier archivieren / de-archivieren (mit optionalem Grund)
+  // Archive / unarchive animal (with optional reason)
   fastify.patch('/api/animals/:id/archive', {
     schema: {
       body: {
@@ -392,7 +392,7 @@ export default async function animalRoutes(fastify) {
     return { success: true, is_archived: newState, archive_reason: newState ? archive_reason : null }
   })
 
-  // Tier reaktivieren (Archivierung aufheben)
+  // Reactivate animal (lift archive)
   fastify.post('/api/animals/:id/unarchive', { onRequest: [fastify.authenticate] }, async (req, reply) => {
     const db = getDb()
     const { id } = req.params
@@ -416,7 +416,7 @@ export default async function animalRoutes(fastify) {
     return { success: true }
   })
 
-  // Tier löschen (mit Sicherheitsbestätigung)
+  // Delete animal (with safety confirmation)
   fastify.delete('/api/animals/:id', async (req, reply) => {
     const db = getDb()
     const { id } = req.params
@@ -426,7 +426,7 @@ export default async function animalRoutes(fastify) {
     const animal = await findAnimalByIdAndAccount(db, id, accountId)
     if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden' })
 
-    // Sicherheitsabfrage: Namen oder Geburtsdatum muss eingegeben werden
+    // Safety check: name or birthdate must be entered
     const nameMatches = confirmationText && confirmationText.toLowerCase() === animal.name.toLowerCase()
     const birthdateMatches = confirmationText && confirmationText === animal.birthdate
 
@@ -442,21 +442,21 @@ export default async function animalRoutes(fastify) {
     return reply.code(204).send()
   })
 
-  // Alle Tiere des Kontos
+  // All animals for the account
   fastify.get('/api/animals', async (req) => {
     const db = getDb()
     const rows = await findAnimalsByAccount(db, req.user.accountId)
     return rows
   })
 
-  // Tier-Statistiken für den aktuellen Nutzer
+  // Animal statistics for the current user
   fastify.get('/api/animals/stats', async (req) => {
     const db = getDb()
     const { accountId } = req.user
     return await getAnimalStats(db, accountId)
   })
 
-  // Dokumentliste eines Tieres (mit Rollenfilter)
+  // Document list for an animal (with role filter)
   fastify.get('/api/animals/:id/documents', async (req, reply) => {
     // Prevent caching — document list can change (uploads, deletes, analysis status)
     reply.header('Cache-Control', 'no-cache, no-store, must-revalidate')
@@ -476,13 +476,13 @@ export default async function animalRoutes(fastify) {
       return d
     })
 
-    // Eigentümer: voller Zugriff
+    // Owner: full access
     if (animal.account_id === accountId) {
       const rows = await findAnimalDocumentsWithUploader(db, id)
       return parseDocs(rows)
     }
 
-    // Rollenbasiert für Vet/Behörde
+    // Role-based access for vet/authority
     const userRoles = (role || '').split(',').map(r => r.trim())
     const requestRole = userRoles.includes('vet') ? 'vet' : userRoles.includes('authority') ? 'authority' : 'guest'
 
@@ -498,7 +498,7 @@ export default async function animalRoutes(fastify) {
     }))
   })
 
-  // Tag-Liste eines Tieres
+  // Tag list for an animal
   fastify.get('/api/animals/:id/tags', async (req, reply) => {
     const db = getDb()
     const animal = await findAnimalBasicInfo(db, req.params.id)
@@ -597,7 +597,7 @@ export default async function animalRoutes(fastify) {
     return { success: true }
   })
 
-  // Freigabe-Einstellungen lesen
+  // Read sharing settings
   fastify.get('/api/animals/:id/sharing', async (req, reply) => {
     const db = getDb()
     const animal = await findAnimalByIdAndAccount(db, req.params.id, req.user.accountId)
@@ -608,7 +608,7 @@ export default async function animalRoutes(fastify) {
     return sharingRows.map(row => ({ ...row, role: normalizeRole(row.role) }))
   })
 
-  // Freigabe-Einstellungen setzen (UPSERT per Rolle)
+  // Set sharing settings (UPSERT per role)
   fastify.put('/api/animals/:id/sharing', {
     schema: {
       body: {
@@ -659,7 +659,7 @@ export default async function animalRoutes(fastify) {
     return updatedRow ? { ...updatedRow, role: normalizeRole(updatedRow.role) } : updatedRow
   })
 
-  // Temporären Share-Link erzeugen
+  // Create temporary share link
   fastify.post('/api/animals/:id/sharing/temporary', async (req, reply) => {
     const db = getDb()
     const { id } = req.params
@@ -675,7 +675,7 @@ export default async function animalRoutes(fastify) {
     const shareId = uuid()
     const linkName = buildShareLinkName(name, shareId)
     const expiresAt = new Date()
-    expiresAt.setDate(expiresAt.getDate() + 14) // 14 Tage gültig
+    expiresAt.setDate(expiresAt.getDate() + 14) // valid for 14 days
 
     await insertAnimalPublicShare(db, shareId, id, linkName, Math.floor(expiresAt.getTime() / 1000), allowedRole)
 
@@ -684,7 +684,7 @@ export default async function animalRoutes(fastify) {
     return reply.code(201).send({ shareId, linkName, allowedRole })
   })
 
-  // Liste aktive Sharing-Links für ein Tier
+  // List active sharing links for an animal
   fastify.get('/api/animals/:id/shares', async (req, reply) => {
     const db = getDb()
     const { id } = req.params
@@ -708,7 +708,7 @@ export default async function animalRoutes(fastify) {
     })))
   })
 
-  // Sharing-Link widerrufen (sofort)
+  // Revoke sharing link (immediately)
   fastify.delete('/api/animals/:id/shares/:shareId', async (req, reply) => {
     const db = getDb()
     const { id, shareId } = req.params
@@ -745,7 +745,7 @@ export default async function animalRoutes(fastify) {
 
     const code = Math.random().toString().substring(2, 8) // 6 Ziffern
     const expiresAt = new Date()
-    expiresAt.setHours(expiresAt.getHours() + 24) // 24 Stunden gültig
+    expiresAt.setHours(expiresAt.getHours() + 24) // valid for 24 hours
 
     await insertAnimalTransfer(db, code, id, expiresAt.toISOString())
     await logAudit(db, { accountId, role, action: 'create_transfer_code', resource: 'animal', resourceId: id, ip: req.ip })
@@ -753,7 +753,7 @@ export default async function animalRoutes(fastify) {
     return reply.code(201).send({ code })
   })
 
-  // Tier per Transfer-Code übernehmen
+  // Accept animal via transfer code
   fastify.post('/api/animals/transfer/accept', {
     schema: { body: { type: 'object', required: ['code'], properties: { code: { type: 'string' } } } }
   }, async (req, reply) => {
@@ -857,7 +857,7 @@ export default async function animalRoutes(fastify) {
     return { success: true, scanId }
   })
 
-  // Manuelle Impfung eintragen (kein Bild nötig)
+  // Add manual vaccination entry (no image required)
   fastify.post('/api/animals/:id/vaccinations', {
     schema: {
       body: {
@@ -931,7 +931,7 @@ export default async function animalRoutes(fastify) {
     return reply.code(201).send({ id: docId, doc_type: 'vaccination', extracted_json: extractedJson })
   })
 
-  // Manuelle Behandlung eintragen (kein Bild nötig)
+  // Add manual treatment entry (no image required)
   fastify.post('/api/animals/:id/treatments', {
     schema: {
       body: {

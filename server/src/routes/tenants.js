@@ -3,7 +3,7 @@ import { getDb } from '../db/index.js'
 import { logAudit } from '../services/audit.js'
 
 export default async function tenantRoutes(fastify) {
-  // Alle Tenant-Routen erfordern JWT + Admin-Rolle (Globale Administration)
+  // All tenant routes require JWT + admin role (global administration)
   fastify.addHook('onRequest', async (req, reply) => {
     try { await req.jwtVerify() } catch { return reply.code(401).send({ error: 'Nicht autorisiert' }) }
     const userRoles = req.user.roles ?? [req.user.role]

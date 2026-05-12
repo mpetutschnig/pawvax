@@ -35,7 +35,7 @@ const fastify = Fastify({
   },
   disableRequestLogging: true,
   trustProxy: true,
-  bodyLimit: 10 * 1024 * 1024 // 10MB für Bild-Uploads
+  bodyLimit: 10 * 1024 * 1024 // 10MB for image uploads
 })
 
 const REDACTED_KEYS = ['password', 'token', 'authorization', 'cookie', 'secret', 'api_key', 'apikey', 'x-api-key', 'jwt']
@@ -177,7 +177,7 @@ fastify.addContentTypeParser('application/json', { parseAs: 'string' }, function
   }
 })
 
-// JWT-Authenticate Decorator für geschützte Routen
+// JWT authenticate decorator for protected routes
 fastify.decorate('authenticate', async function (req, reply) {
   try {
     await req.jwtVerify()
@@ -335,7 +335,7 @@ if (process.env.ADMIN_EMAIL) {
   fastify.log.info({ email: process.env.ADMIN_EMAIL }, 'Admin-Rolle gesetzt')
 }
 
-// Dynamische Audit-Log Retention Policy (täglicher Cleanup basierend auf Einstellungen)
+// Dynamic audit log retention policy (daily cleanup based on settings)
 setInterval(async () => {
   try {
     const db = getDb()
