@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Routes, Route, Navigate, useLocation, Link, useParams } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { PawPrint, ScanLine, User, Settings, Receipt, Bug } from 'lucide-react'
 import { useGlobalNfc } from './hooks/useGlobalNfc'
