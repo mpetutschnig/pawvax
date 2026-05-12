@@ -138,7 +138,7 @@ export async function runDocumentAnalysis(db, doc, accountId, options, log, reqI
   const analysisPages = pages.length > 0 ? pages : [{ page_number: 1, image_path: doc.image_path }]
 
   if (!analysisPages[0]?.image_path) {
-    throw new Error('Keine gespeicherten Dokumentseiten für die Analyse gefunden')
+    throw Object.assign(new Error('Keine gespeicherten Dokumentseiten für die Analyse gefunden'), { code: 400 })
   }
 
   // Budget/fallback check

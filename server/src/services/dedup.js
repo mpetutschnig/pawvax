@@ -12,23 +12,23 @@ export function computeRecordHash(docType, record) {
   if (docType === 'vaccination') {
     // batch_number is globally unique — fall back to vaccine + administration_date
     const key = [
-      (record.batch_number || '').toLowerCase().trim(),
-      (record.vaccine_name || record.vaccine || '').toLowerCase().trim(),
-      (record.administration_date || '').trim()
+      String(record.batch_number || '').toLowerCase().trim(),
+      String(record.vaccine_name || record.vaccine || '').toLowerCase().trim(),
+      String(record.administration_date || '').trim()
     ].filter(Boolean).join('|')
     h.update(key || 'unknown')
   } else if (docType === 'treatment') {
     const key = [
-      (record.substance || record.treatment || record.medication || '').toLowerCase().trim(),
-      (record.administered_at || record.date || '').trim()
+      String(record.substance || record.treatment || record.medication || '').toLowerCase().trim(),
+      String(record.administered_at || record.date || '').trim()
     ].filter(Boolean).join('|')
     h.update(key || 'unknown')
   } else {
     // Singleton: title + document_date + issuer/document_number
     const key = [
-      (record.title || '').toLowerCase().trim(),
-      (record.document_date || '').trim(),
-      (record.issuer || record.document_number || '').toLowerCase().trim()
+      String(record.title || '').toLowerCase().trim(),
+      String(record.document_date || '').trim(),
+      String(record.issuer || record.document_number || '').toLowerCase().trim()
     ].filter(Boolean).join('|')
     h.update(key || 'unknown')
   }
@@ -62,10 +62,15 @@ export async function flagDuplicates(db, animalId, currentDocId, docType, pageRe
       let ej
       try { ej = typeof doc.extracted_json === 'string' ? JSON.parse(doc.extracted_json) : doc.extracted_json } catch { continue }
       // Records are stored inside page_results[i].vaccinations / .treatments
-      for (const page of (ej?.page_results || [])) {
-        const recs = (docType === 'vaccination'
-          ? (page?.vaccinations || page?.payload?.vaccinations || [])
-          : (page?.treatments || page?.treatment_log || page?.payload?.treatment_log || []))
+      const pageResults = Array.isArray(ej?.page_results) ? ej.page_results : []
+      for (const page of pageResults) {
+        const vaccinations = Array.isArray(page?.vaccinations) ? page.vaccinations : 
+                             Array.isArray(page?.payload?.vaccinations) ? page.payload.vaccinations : []
+        const treatments = Array.isArray(page?.treatments) ? page.treatments : 
+                           Array.isArray(page?.treatment_log) ? page.treatment_log :
+                           Array.isArray(page?.payload?.treatment_log) ? page.payload.treatment_log : []
+        
+        const recs = (docType === 'vaccination' ? vaccinations : treatments)
         for (const rec of recs) {
           if (rec._record_hash && !rec._duplicate) {
             existingHashes.set(rec._record_hash, doc.id)
@@ -76,10 +81,16 @@ export async function flagDuplicates(db, animalId, currentDocId, docType, pageRe
 
     // Stamp each record in the new page_results
     for (const pageResult of pageResults) {
-      const recordKey = docType === 'vaccination' ? 'vaccinations' : 'treatments'
-      const records = (pageResult?.payload?.[docType === 'vaccination' ? 'vaccinations' : 'treatment_log']) ||
-                      pageResult?.[recordKey] || []
+      const vaccinations = Array.isArray(pageResult?.vaccinations) ? pageResult.vaccinations : 
+                           Array.isArray(pageResult?.payload?.vaccinations) ? pageResult.payload.vaccinations : []
+      const treatments = Array.isArray(pageResult?.treatments) ? pageResult.treatments : 
+                         Array.isArray(pageResult?.treatment_log) ? pageResult.treatment_log :
+                         Array.isArray(pageResult?.payload?.treatment_log) ? pageResult.payload.treatment_log : []
+
+      const records = (docType === 'vaccination' ? vaccinations : treatments)
+      
       for (const rec of records) {
+        if (!rec || typeof rec !== 'object') continue
         const hash = computeRecordHash(docType, rec)
         rec._record_hash = hash
         if (existingHashes.has(hash)) {

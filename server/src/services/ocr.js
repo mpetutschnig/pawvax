@@ -647,9 +647,10 @@ export async function analyzeDocument(imagePath, userGeminiKey = null, model = n
   const forcedDocumentType = normalizeRequestedDocumentType(requestedDocumentType)
 
   // Check if file exists before attempting analysis
-  const absolutePath = resolve(imagePath)
+  const UPLOADS_DIR = process.env.UPLOADS_DIR || resolve('uploads')
+  const absolutePath = resolve(UPLOADS_DIR, imagePath)
   if (!existsSync(absolutePath)) {
-    throw new Error(`Dokumentdatei nicht gefunden: ${imagePath}`)
+    throw Object.assign(new Error(`Dokumentdatei nicht gefunden: ${imagePath}`), { code: 404 })
   }
 
   if (process.env.NODE_ENV === 'test' && process.env.PAW_MOCK_OCR === '1') {
@@ -685,7 +686,7 @@ export async function analyzeDocument(imagePath, userGeminiKey = null, model = n
     if (userAnthropicKey) return await analyzeWithClaude(imagePath, userAnthropicKey, resolveModel('anthropic', claudeModel), onProgress, prompt, documentType, typeConfidence)
     if (userOpenAiKey) return await analyzeWithOpenAI(imagePath, userOpenAiKey, resolveModel('openai', openAiModel), onProgress, prompt, documentType, typeConfidence)
 
-    throw new Error('Analyse nicht möglich. Keine Tokens hinterlegt.')
+    throw Object.assign(new Error('Analyse nicht möglich. Keine Tokens hinterlegt.'), { code: 401 })
   } catch (err) {
     _log.error({ err: { message: err.message, stack: err.stack } }, 'OCR fehlgeschlagen')
     throw err // Throw error to be handled by caller (will trigger pending_analysis status)
@@ -870,7 +871,7 @@ async function analyzeWithClaude(imagePath, anthropicKey, model, onProgress, pro
   if (!response.ok) {
     const errorText = await response.text()
     _log.error({ provider: 'claude', statusCode: response.status, err: errorText }, 'Claude API error')
-    throw new Error(`Claude API Fehler (${response.status}): ${errorText}`)
+    throw Object.assign(new Error(`Claude API Fehler (${response.status}): ${errorText}`), { code: response.status })
   }
 
   if (onProgress) onProgress('Anmeldung bei Claude API erfolgreich! Verarbeite JSON-Antwort...')
@@ -920,11 +921,12 @@ async function analyzeWithGemini(imagePath, geminiKey, model, onProgress, prompt
     const errorText = await response.text();
     _log.error({ provider: 'gemini', statusCode: response.status, err: errorText }, 'Gemini API error')
 
-    if (response.status === 429) {
-      throw new Error('Gemini API Quota überschritten - bitte später erneut versuchen')
-    }
-
-    throw new Error(`API Auth/Request fehlgeschlagen (${response.status}): ${errorText}`);
+    const code = response.status === 429 ? 503 : response.status
+    const message = response.status === 429 
+      ? 'Gemini API Quota überschritten - bitte später erneut versuchen'
+      : `API Auth/Request fehlgeschlagen (${response.status}): ${errorText}`
+      
+    throw Object.assign(new Error(message), { code })
   }
 
   if (onProgress) onProgress('Anmeldung bei Google API erfolgreich! Verarbeite JSON-Antwort...')
@@ -936,7 +938,7 @@ async function analyzeWithGemini(imagePath, geminiKey, model, onProgress, prompt
 
 // Normalize document type from various sources to canonical types
 export function normalizeDocumentType(typeInput) {
-  const normalized = (typeInput || '').toLowerCase().trim()
+  const normalized = String(typeInput || '').toLowerCase().trim()
   
   // Handle legacy and variant type names
   const mapping = {
@@ -1104,7 +1106,7 @@ export function parseStructuredModelResponse(text, provider, documentType = 'gen
   }
 
   const preview = trimmed.replace(/\s+/g, ' ').slice(0, 240)
-  throw new Error(`Kein JSON in ${provider}-Antwort${preview ? `: ${preview}` : ''}`)
+  throw Object.assign(new Error(`Kein JSON in ${provider}-Antwort${preview ? `: ${preview}` : ''}`), { code: 422 })
 }
 
 function getNestedArray(source, key) {
@@ -1576,7 +1578,7 @@ async function analyzeWithOpenAI(imagePath, openAiKey, model, onProgress, prompt
   if (!response.ok) {
     const errorText = await response.text()
     _log.error({ provider: 'openai', statusCode: response.status, err: errorText }, 'OpenAI API error')
-    throw new Error(`OpenAI API Fehler (${response.status}): ${errorText}`)
+    throw Object.assign(new Error(`OpenAI API Fehler (${response.status}): ${errorText}`), { code: response.status })
   }
 
   if (onProgress) onProgress('Anmeldung bei OpenAI erfolgreich! Verarbeite JSON-Antwort...')
