@@ -53,9 +53,15 @@ export default function TagManagementPage() {
 
     let tagId = rawTagId.trim()
     try {
-      const url = new URL(tagId)
-      const parts = url.pathname.split('/')
-      tagId = parts[parts.length - 1]
+      const lower = tagId.toLowerCase()
+      if (lower.startsWith('http://') || lower.startsWith('https://')) {
+        const url = new URL(tagId)
+        const parts = url.pathname.split('/').filter(Boolean)
+        tagId = parts[parts.length - 1]
+        if (url.searchParams.has('tag')) {
+          tagId = url.searchParams.get('tag') || tagId
+        }
+      }
     } catch { /* keine URL */ }
 
     // Check if tag is already on this animal
