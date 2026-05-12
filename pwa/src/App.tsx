@@ -157,9 +157,96 @@ function BottomNav() {
 function DebugOverlay() {
   const location = useLocation()
   const params = useMemo(() => new URLSearchParams(location.search), [location.search])
-  const isDebug = params.get('debug') === '1' || params.get('debug') === 'true'
+  const [isDebug, setIsDebug] = useState(false)
+  const [history, setHistory] = useState<any[]>([])
+  const [currentScreen, setCurrentScreen] = useState('')
+
+  // Capture screen context from DOM
+  const captureScreenState = () => {
+    const heading = document.querySelector('h1, h2')?.textContent || ''
+    
+    // Find active modals by looking for fixed/absolute containers with high z-index
+    const modals: string[] = []
+    document.querySelectorAll('[style*="position: fixed"], [style*="position: absolute"]').forEach(el => {
+      const h3 = el.querySelector('h3')?.textContent
+      if (h3 && (el as HTMLElement).offsetParent !== null) {
+        modals.push(h3)
+      }
+    })
+
+    // Find visible errors
+    const errors: string[] = []
+    document.querySelectorAll('.error-card, .text-danger, [class*="error"]').forEach(el => {
+      if (el.textContent && (el as HTMLElement).offsetParent !== null && el.textContent.length < 500) {
+        errors.push(el.textContent.trim())
+      }
+    })
+
+    return {
+      path: location.pathname,
+      heading,
+      modals: modals.length > 0 ? modals : null,
+      errors: errors.length > 0 ? errors : null,
+      state: location.state ? location.state : null,
+      time: new Date().toLocaleTimeString()
+    }
+  }
+
+  useEffect(() => {
+    const debugParam = params.get('debug')
+    if (debugParam === '1' || debugParam === 'true') {
+      localStorage.setItem('paw_debug_mode', '1')
+      setIsDebug(true)
+    } else if (debugParam === '0' || debugParam === 'false') {
+      localStorage.removeItem('paw_debug_mode')
+      setIsDebug(false)
+    } else {
+      setIsDebug(localStorage.getItem('paw_debug_mode') === '1')
+    }
+  }, [params])
+
+  // History Tracking with Location and DOM Mutations
+  useEffect(() => {
+    if (!isDebug) return
+
+    const updateHistory = () => {
+      const snapshot = captureScreenState()
+      const screenDesc = snapshot.modals ? `Modal: ${snapshot.modals[0]}` : snapshot.heading || snapshot.path
+      setCurrentScreen(screenDesc)
+
+      setHistory(prev => {
+        // Only add if the snapshot has changed significantly from the last one
+        const last = prev[0]
+        if (last && last.path === snapshot.path && last.heading === snapshot.heading && JSON.stringify(last.modals) === JSON.stringify(snapshot.modals)) {
+          return prev
+        }
+        return [snapshot, ...prev].slice(0, 10)
+      })
+    }
+
+    // Initial capture
+    updateHistory()
+
+    // Observe DOM changes to catch modals or error messages appearing
+    const observer = new MutationObserver(updateHistory)
+    observer.observe(document.body, { childList: true, subtree: true, characterData: true })
+
+    return () => observer.disconnect()
+  }, [location, isDebug])
   
   if (!isDebug) return null
+
+  const handleCopy = () => {
+    const debugInfo = {
+      userAgent: navigator.userAgent,
+      screen: `${window.innerWidth}x${window.innerHeight}`,
+      language: navigator.language,
+      currentSnapshot: captureScreenState(),
+      history: history
+    }
+    navigator.clipboard.writeText(JSON.stringify(debugInfo, null, 2))
+    alert('Debug-Info kopiert! (Keine sensiblen Daten enthalten)')
+  }
 
   return (
     <div style={{
@@ -173,22 +260,26 @@ function DebugOverlay() {
       borderRadius: '8px',
       fontSize: '10px',
       fontFamily: 'monospace',
-      pointerEvents: 'none',
+      pointerEvents: 'auto',
       boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
       border: '1px solid rgba(0,255,0,0.3)',
       maxWidth: '250px',
       wordBreak: 'break-all'
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px', borderBottom: '1px solid rgba(0,255,0,0.2)', paddingBottom: '4px' }}>
-        <Bug size={12} />
-        <span style={{ fontWeight: 'bold', textTransform: 'uppercase' }}>Debug Mode</span>
-      </div>
-      <div><strong>Path:</strong> {location.pathname}</div>
-      {location.state && (
-        <div style={{ marginTop: '4px' }}>
-          <strong>State:</strong> {JSON.stringify(location.state)}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '4px', borderBottom: '1px solid rgba(0,255,0,0.2)', paddingBottom: '4px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <Bug size={12} />
+          <span style={{ fontWeight: 'bold', textTransform: 'uppercase' }}>Debug Mode</span>
         </div>
-      )}
+        <button 
+          onClick={handleCopy}
+          style={{ background: 'rgba(0,255,0,0.2)', border: '1px solid #00ff00', color: '#00ff00', cursor: 'pointer', borderRadius: '4px', padding: '2px 6px', fontSize: '9px', fontWeight: 'bold' }}
+        >
+          COPY INFO
+        </button>
+      </div>
+      <div><strong>Screen:</strong> {currentScreen}</div>
+      <div style={{ marginTop: '2px', opacity: 0.7 }}><strong>Path:</strong> {location.pathname}</div>
     </div>
   )
 }
