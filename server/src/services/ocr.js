@@ -1,6 +1,7 @@
 import { readFileSync, existsSync } from 'fs'
 import { basename, resolve } from 'path'
 import { DEFAULT_MODEL_BY_PROVIDER, resolveModel } from '../utils/aiModels.js'
+import { UPLOADS_DIR } from '../utils/paths.js'
 
 // Module-level logger — replaced by setOcrLogger() on startup
 let _log = {
@@ -647,7 +648,6 @@ export async function analyzeDocument(imagePath, userGeminiKey = null, model = n
   const forcedDocumentType = normalizeRequestedDocumentType(requestedDocumentType)
 
   // Check if file exists before attempting analysis
-  const UPLOADS_DIR = process.env.UPLOADS_DIR || resolve('uploads')
   const absolutePath = resolve(UPLOADS_DIR, imagePath)
   if (!existsSync(absolutePath)) {
     throw Object.assign(new Error(`Dokumentdatei nicht gefunden: ${imagePath}`), { code: 404 })

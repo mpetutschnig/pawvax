@@ -6,6 +6,7 @@ import { resolve } from 'path'
 import { randomUUID } from 'node:crypto'
 import { isAllowedModel } from '../utils/aiModels.js'
 import { runDocumentAnalysis, getDocumentPages } from '../services/analysisPipeline.js'
+import { UPLOADS_DIR } from '../utils/paths.js'
 
 function normalizeRole(role) {
   return role === 'readonly' ? 'guest' : role
@@ -276,7 +277,7 @@ export default async function documentRoutes(fastify) {
 
     // Delete all image files (non-blocking, don't block response on file deletion failure)
     if (doc.image_path) {
-      unlink(resolve(process.env.UPLOADS_DIR || './uploads', doc.image_path)).catch(err => {
+      unlink(resolve(UPLOADS_DIR, doc.image_path)).catch(err => {
         req.log.warn({ path: doc.image_path, err: err.message }, 'Could not delete image file')
       })
     }
@@ -284,7 +285,7 @@ export default async function documentRoutes(fastify) {
     // Delete all page images
     pages.forEach(page => {
       if (page.image_path) {
-        unlink(resolve(process.env.UPLOADS_DIR || './uploads', page.image_path)).catch(err => {
+        unlink(resolve(UPLOADS_DIR, page.image_path)).catch(err => {
           req.log.warn({ path: page.image_path, err: err.message }, 'Could not delete page image')
         })
       }

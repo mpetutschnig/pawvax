@@ -2,11 +2,9 @@ import { createWriteStream, mkdirSync, writeFileSync } from 'fs'
 import { join, resolve, sep, dirname } from 'path'
 import { fileURLToPath } from 'url'
 import sharp from 'sharp'
+import { UPLOADS_DIR } from '../utils/paths.js'
 
 const __dir = dirname(fileURLToPath(import.meta.url))
-const UPLOADS_DIR = process.env.UPLOADS_DIR
-  ? resolve(process.env.UPLOADS_DIR)
-  : resolve(join(__dir, '..', '..', 'uploads'))
 const UPLOADS_DIR_RESOLVED = UPLOADS_DIR
 
 mkdirSync(UPLOADS_DIR_RESOLVED, { recursive: true })
