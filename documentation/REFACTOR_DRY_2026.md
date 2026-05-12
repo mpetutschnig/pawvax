@@ -19,7 +19,7 @@
 ## Phase 1: Backend – DRY & Code-Qualität
 
 ### P1.1 — ocr.js aufteilen (1589 Zeilen)
-**Status:** `[ ] offen`
+**Status:** `[x] erledigt`
 
 Zieldateien:
 - `server/src/services/ocr/imageUtils.js` — loadImageAsBase64, detectMimeType, parseStructuredModelResponse, sanitize*, normalizeDate*, normalizeConfidence*, normalizeModelMetadata
@@ -36,13 +36,13 @@ Zu entfernende Duplikate:
 - `classifyWithGemini`, `classifyWithClaude`, `classifyWithOpenAI` → 1x `classifyImageWithProvider(provider, key, imagePath, prompt)`
 
 ### P1.2 — vet_report Prompt
-**Status:** `[ ] offen`
+**Status:** `[x] erledigt`
 
 - DE + EN Prompt für Tierarztbefunde (Diagnose, Symptome, Labor, Medikamente, Tierarzt-Info)
 - In `server/src/services/ocr/prompts.js` (oder altes ocr.js wenn P1.1 noch nicht fertig)
 
 ### P1.3 — Günstigstes Modell als Default
-**Status:** `[ ] offen`
+**Status:** `[x] erledigt`
 
 Änderungen:
 - `server/src/utils/aiModels.js`: anthropic default `claude-3-5-sonnet-20241022` → `claude-3-5-haiku-20241022`
@@ -54,7 +54,7 @@ Zu entfernende Duplikate:
 ## Phase 2: Frontend – Einheitlicher Scan-Flow
 
 ### P2.1 — `useAiConfig` Hook extrahieren
-**Status:** `[ ] offen`
+**Status:** `[x] erledigt`
 
 Neue Datei: `pwa/src/hooks/useAiConfig.ts`
 
@@ -68,14 +68,14 @@ Kapselt:
 Ersetzt ~30 useState + useEffect Zeilen in DocumentScanPage.
 
 ### P2.2 — Sichtbarkeits-Checkboxen aus Capture-Screen entfernen
-**Status:** `[ ] offen`
+**Status:** `[x] erledigt`
 
 - `DocumentScanPage`: `allowedRoles` State entfernen, immer mit `['vet', 'authority']` als Default uploaden
 - `DocumentDetailPage`: Sichtbarkeits-Editor mit PATCH-Aufruf hinzufügen (Checkboxen vet/authority/guest)
 - Backend `PATCH /api/documents/:id/visibility` Route prüfen (sollte bereits existieren)
 
 ### P2.3 — DocumentScanPage Kern-Refaktor
-**Status:** `[ ] offen`
+**Status:** `[x] erledigt`
 
 Aktuelles Problem: `DocumentAnalysisForm` wird 3x fast identisch gerendert.
 
@@ -98,7 +98,7 @@ Duplikate die entfernt werden:
 - `hasOwnKey` wird 4x lokal neu berechnet → aus Hook
 
 ### P2.4 — System-KI Kosten sofort zeigen (UX)
-**Status:** `[ ] offen`
+**Status:** `[x] erledigt`
 
 Im configure-Screen: Wenn User keinen eigenen Key hat UND System-KI verfügbar:
 - Wenn Consent noch nicht gegeben: Info-Card mit Kosten prominant OBEN in der Form
@@ -108,7 +108,7 @@ Im configure-Screen: Wenn User keinen eigenen Key hat UND System-KI verfügbar:
 - Kein separates Modal mehr nötig (BillingConsentModal kann entfernt werden)
 
 ### P2.5 — Fehler-Anzeige vereinheitlichen
-**Status:** `[ ] offen`
+**Status:** `[x] erledigt`
 
 Beide Fehler-Blöcke (mit/ohne documentId) in einen Block zusammenführen.
 Einheitliche Buttons: "Erneut versuchen" (wenn Key vorhanden) + "Für später speichern"
@@ -140,9 +140,9 @@ Kein Handlungsbedarf.
 ## Phase 4: Restliche Code Smells
 
 ### P4.1 — Deutsche Kommentare im Code → Englisch
-**Status:** `[ ] offen` (CLAUDE.md: Code-Kommentare auf Englisch)
+**Status:** `[x] erledigt`
 
-Betroffene Dateien: ocr.js, documentUpload.js
+Betroffene Dateien: animals.js, auth.js, admin.js, documents.js, tenants.js, app.js, storage.js, documentUpload.js, analysisPipeline.js
 
 ### P4.2 — Inline Styles in DocumentScanPage reduzieren
 **Status:** `[ ] offen`
