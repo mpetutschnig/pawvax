@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react'
-import { Routes, Route, Navigate, useLocation, Link } from 'react-router-dom'
+import { useState, useEffect, useMemo } from 'react'
+import { Routes, Route, Navigate, useLocation, Link, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { PawPrint, ScanLine, User, Settings, Receipt } from 'lucide-react'
+import { PawPrint, ScanLine, User, Settings, Receipt, Bug } from 'lucide-react'
 import { useGlobalNfc } from './hooks/useGlobalNfc'
 import { api } from './api/rest'
 import { generateThemeVariables, applyTheme } from './utils/colors'
@@ -154,6 +154,45 @@ function BottomNav() {
   )
 }
 
+function DebugOverlay() {
+  const location = useLocation()
+  const params = useMemo(() => new URLSearchParams(location.search), [location.search])
+  const isDebug = params.get('debug') === '1' || params.get('debug') === 'true'
+  
+  if (!isDebug) return null
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top: '60px',
+      right: '10px',
+      zIndex: 9999,
+      background: 'rgba(0,0,0,0.85)',
+      color: '#00ff00',
+      padding: '8px 12px',
+      borderRadius: '8px',
+      fontSize: '10px',
+      fontFamily: 'monospace',
+      pointerEvents: 'none',
+      boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+      border: '1px solid rgba(0,255,0,0.3)',
+      maxWidth: '250px',
+      wordBreak: 'break-all'
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px', borderBottom: '1px solid rgba(0,255,0,0.2)', paddingBottom: '4px' }}>
+        <Bug size={12} />
+        <span style={{ fontWeight: 'bold', textTransform: 'uppercase' }}>Debug Mode</span>
+      </div>
+      <div><strong>Path:</strong> {location.pathname}</div>
+      {location.state && (
+        <div style={{ marginTop: '4px' }}>
+          <strong>State:</strong> {JSON.stringify(location.state)}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function App() {
   useGlobalNfc()
   const [, setTokenRefreshed] = useState(false)
@@ -173,6 +212,7 @@ export default function App() {
 
   return (
     <ErrorBoundary>
+      <DebugOverlay />
       <GlobalBrand />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
