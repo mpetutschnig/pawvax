@@ -10,25 +10,25 @@ Der Benutzer-Lifecycle beginnt entweder mit einer öffentlichen Ansicht (Public 
 ### Ablaufdiagramm
 ```mermaid
 graph TD
-    Start((Start)) --> Welcome{Erster Besuch?}
-    Welcome -- Ja --> WelcomePage[Welcome Screen]
-    Welcome -- Nein --> LoginPage[Login Screen]
+    Start(("Start")) --> Welcome{"Erster Besuch?"}
+    Welcome -- "Ja" --> WelcomePage["Welcome Screen"]
+    Welcome -- "Nein" --> LoginPage["Login Screen"]
     
-    LoginPage --> Auth[JWT Auth via API]
-    Auth --> RoleCheck{Rolle?}
+    LoginPage --> Auth["JWT Auth via API"]
+    Auth --> RoleCheck{"Rolle?"}
     
-    RoleCheck -- User/Vet/Admin --> AnimalsPage[Tier-Übersicht]
-    RoleCheck -- Guest --> PublicScan[Eingeschränkte Sicht]
+    RoleCheck -- "User/Vet/Admin" --> AnimalsPage["Tier-Übersicht"]
+    RoleCheck -- "Guest" --> PublicScan["Eingeschränkte Sicht"]
     
-    AnimalsPage --> PetDetails[Tier-Profil]
-    PetDetails --> DocScan[Dokument-Scan]
-    PetDetails --> Sharing[Freigaben verwalten]
+    AnimalsPage --> PetDetails["Tier-Profil"]
+    PetDetails --> DocScan["Dokument-Scan"]
+    PetDetails --> Sharing["Freigaben verwalten"]
     
-    subgraph Navigation (Mobile Bottom Nav)
-        ScanBtn[QR/NFC Scan]
-        PetsBtn[Meine Tiere]
-        ProfileBtn[Profil/Settings]
-        AdminBtn[Admin Panel - nur Admin]
+    subgraph "Navigation (Mobile Bottom Nav)"
+        ScanBtn["QR/NFC Scan"]
+        PetsBtn["Meine Tiere"]
+        ProfileBtn["Profil/Settings"]
+        AdminBtn["Admin Panel - nur Admin"]
     end
 ```
 
@@ -45,31 +45,31 @@ Der Kernprozess zur Digitalisierung von Tierarzt-Dokumenten. Er nutzt eine hybri
 ### Sequenzdiagramm
 ```mermaid
 sequenceDiagram
-    participant U as Benutzer (PWA)
-    participant WS as WebSocket Server
-    participant OCR as Gemini/AI Service
-    participant DB as SQLite/PG
-    participant FS as Dateisystem
+    participant U as "Benutzer (PWA)"
+    participant WS as "WebSocket Server"
+    participant OCR as "Gemini AI Service"
+    participant DB as "Datenbank (SQLite/PG)"
+    participant FS as "Dateisystem"
 
-    U->>U: Kamera-Capture / Upload (Multi-Page)
-    U->>WS: Verbinden & Auth (JWT)
-    WS-->>U: auth_ok
+    U->>U: "Kamera-Capture / Upload (Multi-Page)"
+    U->>WS: "Verbinden & Auth (JWT)"
+    WS-->>U: "auth_ok"
     
-    loop Pro Seite
-        U->>WS: upload_start (Metadaten)
-        WS-->>U: ready
-        U->>WS: Sende Binär-Chunks
-        WS->>FS: Seite speichern
-        U->>WS: upload_end
-        WS->>DB: Seite in document_pages loggen
+    loop "Pro Seite"
+        U->>WS: "upload_start (Metadaten)"
+        WS-->>U: "ready"
+        U->>WS: "Sende Binär-Chunks"
+        WS->>FS: "Seite speichern"
+        U->>WS: "upload_end"
+        WS->>DB: "Seite in document_pages loggen"
     end
     
-    WS->>OCR: Trigger Analyse (Gesamtes Dokument)
-    Note over OCR: Klassifizierung & Extraktion<br/>(Impfungen, Behandlungen, etc.)
-    OCR-->>WS: Strukturiertes JSON
-    WS->>DB: In documents speichern
-    WS-->>U: type: 'result' (Extraktion abgeschlossen)
-    U->>U: Navigiere zu DocumentDetailPage
+    WS->>OCR: "Trigger Analyse (Gesamtes Dokument)"
+    Note over OCR: "Klassifizierung und Extraktion (Impfungen, Behandlungen, etc.)"
+    OCR-->>WS: "Strukturiertes JSON"
+    WS->>DB: "In documents speichern"
+    WS-->>U: "type: result (Extraktion abgeschlossen)"
+    U->>U: "Navigiere zu DocumentDetailPage"
 ```
 
 ### Prozess-Details
@@ -85,19 +85,19 @@ Dieser Ablauf ermöglicht es Drittpersonen, Informationen über ein Tier via NFC
 ### Ablaufdiagramm
 ```mermaid
 graph LR
-    Tag[Physischer Tag / QR] -- Scan --> URL[URL: /t/:tagId]
-    URL --> PublicPage[PublicScanPage]
+    Tag["Physischer Tag / QR"] -- "Scan" --> URL["URL: /t/:tagId"]
+    URL --> PublicPage["PublicScanPage"]
     
-    PublicPage --> API[Backend Request]
-    API --> CheckShare{Freigabe aktiv?}
+    PublicPage --> API["Backend Request"]
+    API --> CheckShare{"Freigabe aktiv?"}
     
-    CheckShare -- Nein --> Error[Privat-Meldung]
-    CheckShare -- Ja --> FetchData[Lade Tierdaten & Docs]
+    CheckShare -- "Nein" --> Error["Privat-Meldung"]
+    CheckShare -- "Ja" --> FetchData["Lade Tierdaten & Docs"]
     
-    FetchData --> Filter{Rollen-Filter}
-    Note right of Filter: Nur Dokumente mit<br/>passender 'allowed_roles'
+    FetchData --> Filter{"Rollen-Filter"}
+    Note right of Filter: "Nur Dokumente mit passender allowed_roles"
     
-    Filter --> Display[Anzeige: Name, Foto, Verifizierte Dokumente]
+    Filter --> Display["Anzeige: Name, Foto, Verifizierte Dokumente"]
 ```
 
 ### Besonderheiten
@@ -113,16 +113,16 @@ Wenn der Benutzer keine eigenen KI-Keys (Gemini/OpenAI) hinterlegt hat, wird das
 ### Ablaufdiagramm
 ```mermaid
 graph TD
-    Upload[Upload-Button geklickt] --> KeyCheck{Eigener KI-Key?}
-    KeyCheck -- Ja --> Process[Direkt Verarbeiten]
-    KeyCheck -- Nein --> Consent{Zustimmung erteilt?}
+    Upload["Upload-Button geklickt"] --> KeyCheck{"Eigener KI-Key?"}
+    KeyCheck -- "Ja" --> Process["Direkt Verarbeiten"]
+    KeyCheck -- "Nein" --> Consent{"Zustimmung erteilt?"}
     
-    Consent -- Nein --> Modal[BillingConsentModal anzeigen]
-    Modal -- Abbrechen --> Cancel((Ende))
-    Modal -- Zustimmen --> SaveConsent[Zustimmung speichern]
+    Consent -- "Nein" --> Modal["BillingConsentModal anzeigen"]
+    Modal -- "Abbrechen" --> Cancel(("Ende"))
+    Modal -- "Zustimmen" --> SaveConsent["Zustimmung speichern"]
     
     SaveConsent --> Process
-    Process --> Charge[Guthaben belasten / Billing Log]
+    Process --> Charge["Guthaben belasten / Billing Log"]
 ```
 
 ### Details
