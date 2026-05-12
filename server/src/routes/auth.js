@@ -1,7 +1,8 @@
 import bcrypt from 'bcrypt'
 import { v4 as uuid } from 'uuid'
 import crypto from 'crypto'
-import { createReadStream, existsSync } from 'fs'
+import { createReadStream, existsSync, mkdirSync, writeFileSync } from 'fs'
+import { fileTypeFromBuffer } from 'file-type'
 import { resolve, dirname, join } from 'path'
 import { getDb } from '../db/index.js'
 import { logAudit } from '../services/audit.js'
@@ -437,15 +438,19 @@ export default async function authRoutes(fastify) {
               }
               
               const buffer = Buffer.concat(chunks)
-              // Basic file type validation (just check size)
-              if (buffer.length > 10 * 1024 * 1024) { // 10MB limit
+              if (buffer.length > 10 * 1024 * 1024) {
                 return reply.code(413).send({ error: 'Datei zu groß (max 10MB)' })
               }
-              
+              const fileType = await fileTypeFromBuffer(buffer)
+              const allowedMimes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
+              if (!fileType || !allowedMimes.includes(fileType.mime)) {
+                return reply.code(415).send({ error: 'Ungültiger Dateityp (nur Bilder/PDF erlaubt)' })
+              }
+
               const filepath = getUploadPath(docFilename)
               const dirPath = dirname(filepath)
-              require('fs').mkdirSync(dirPath, { recursive: true })
-              require('fs').writeFileSync(filepath, buffer)
+              mkdirSync(dirPath, { recursive: true })
+              writeFileSync(filepath, buffer)
               documentPath = docFilename
             }
           }

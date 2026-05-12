@@ -95,13 +95,9 @@ if (!jwtSecret || INSECURE_DEFAULTS.includes(jwtSecret)) {
 const defaultCorsOrigins = ['https://paw.oxs.at', 'https://vetsucht.oxs.at', 'https://pawapi.oxs.at', 'http://localhost:5173', 'http://localhost:3000']
 await fastify.register(fastifyCors, {
   origin: (origin, cb) => {
-    // Allow requests from configured origins or localhost
-    if (!origin || origin.includes('localhost') || origin.includes('127.0.0.1')) {
-      cb(null, true)
-    } else if (defaultCorsOrigins.includes(origin)) {
+    if (!origin || defaultCorsOrigins.includes(origin)) {
       cb(null, true)
     } else {
-      // Strictly deny unknown origins in production-ready setup
       fastify.log.warn({ origin }, 'CORS origin denied')
       cb(new Error('Not allowed by CORS'), false)
     }

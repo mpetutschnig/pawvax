@@ -51,6 +51,7 @@ import {
 } from '../db/repositories/animalRepository.js'
 
 import { v4 as uuid } from 'uuid'
+import { randomBytes } from 'node:crypto'
 import { getDb } from '../db/index.js'
 import { logAudit } from '../services/audit.js'
 import { saveBase64Image, saveAvatarImage } from '../services/storage.js'
@@ -743,7 +744,7 @@ export default async function animalRoutes(fastify) {
 
     await deleteAnimalTransfers(db, id)
 
-    const code = Math.random().toString().substring(2, 8) // 6 Ziffern
+    const code = randomBytes(3).toString('hex') // 6 cryptographically secure hex chars
     const expiresAt = new Date()
     expiresAt.setHours(expiresAt.getHours() + 24) // valid for 24 hours
 
