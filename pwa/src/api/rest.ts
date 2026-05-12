@@ -97,14 +97,14 @@ export const deleteDocument = (id: string) => api.delete(`/documents/${id}`)
 export const analyzeDocument = (
   id: string,
   action: 'retry' | 'reanalyze',
-  data: { provider?: string; model?: string; requestedDocumentType?: string; language?: string } = {}
+  data: { provider?: string | null; model?: string | null; requestedDocumentType?: string; language?: string } = {}
 ) => {
   const endpoint = action === 'retry' ? 'retry-analysis' : 're-analyze'
   return api.post(`/documents/${id}/${endpoint}`, data)
 }
 
 // Legacy function - now delegates to analyzeDocument()
-export const reanalyzeDocument = (id: string, data: { provider?: string; model?: string; requestedDocumentType?: string; language?: string } = {}) =>
+export const reanalyzeDocument = (id: string, data: { provider?: string | null; model?: string | null; requestedDocumentType?: string; language?: string } = {}) =>
   analyzeDocument(id, 'reanalyze', data)
 
 export const getDocumentHistory = (id: string) => api.get(`/documents/${id}/history`)
