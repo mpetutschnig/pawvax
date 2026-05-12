@@ -6,7 +6,7 @@ import { CheckCircle, AlertCircle, Syringe, FileText, BookOpen, Camera, RefreshC
 import { PageHeader } from '../components/PageHeader'
 import { DocumentAnalysisForm } from '../components/DocumentAnalysisForm'
 import { uploadMultiPageDocument } from '../api/ws'
-import { analyzeDocument, patchDocument, getMe, getBillingMe } from '../api/rest'
+import { analyzeDocument, getMe, getBillingMe } from '../api/rest'
 import { BillingConsentModal } from '../components/BillingConsentModal'
 import { DEFAULT_AVAILABLE_MODELS, DEFAULT_MODEL_BY_PROVIDER, DOCUMENT_TYPE_OPTIONS, DOCUMENT_TYPE_PLACEHOLDER, type DocumentTypeSelectValue } from '../utils/documentAnalysis'
 
@@ -66,15 +66,11 @@ export default function DocumentScanPage() {
   const [phase, setPhase] = useState<Phase>('capture')
   const [uploadProgress, setUploadProgress] = useState(0)
   const [elapsedTime, setElapsedTime] = useState(0)
-  const [result, setResult] = useState<unknown>(null)
   const [ocrProvider, setOcrProvider] = useState<string | null>(null)
   const [currentStatusMsg, setCurrentStatusMsg] = useState<string | null>(null)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
-  const [autoSavedAt, setAutoSavedAt] = useState<Date | null>(null)
   const [allowedRoles, setAllowedRoles] = useState<string[]>(['vet', 'authority', 'guest'])
-  const [suggestedType, setSuggestedType] = useState<string | null>(null)
   const [documentId, setDocumentId] = useState<string | null>(null)
-  const [savingDocType, setSavingDocType] = useState(false)
   const [showModelSelection, setShowModelSelection] = useState(false)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [retryProvider, setRetryProvider] = useState('google')
@@ -484,14 +480,13 @@ export default function DocumentScanPage() {
 
     try {
       const action = routeState?.action || 'retry'
-      const response = await analyzeDocument(documentId, action, { 
+      await analyzeDocument(documentId, action, { 
         provider: hasOwnKey ? retryProvider : null, 
         model: hasOwnKey ? retryModel : null, 
         language: i18next.language || 'de', 
         requestedDocumentType 
       })
       
-      const doc = response.data
       if (documentId) {
         navigate(`/animals/${animalId}/documents/${documentId}`, { replace: true })
       } else {
@@ -544,11 +539,8 @@ export default function DocumentScanPage() {
             onResult: (data: any) => {
               const nextDocumentId = data.data.documentId
               collectedIds.push(nextDocumentId)
-              setResult(data.data)
-              setSuggestedType(data.data.type || data.data.suggestedType || 'other')
               setDocumentId(nextDocumentId)
               setOcrProvider(data.data.ocrProvider || 'unknown')
-              setAutoSavedAt(new Date())
               if (data.data.analysisStatus === 'pending_analysis') {
                 reject(new Error(data.data.analysisError || t('docScan.analyzeFailedRetry')))
                 return
