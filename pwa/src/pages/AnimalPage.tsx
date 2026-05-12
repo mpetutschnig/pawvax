@@ -1850,7 +1850,15 @@ export default function AnimalPage() {
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button
-                  onClick={() => navigate(`/animals/${id}/scan`, { state: { documentId: doc.id, action: 'retry', previews: [doc.image_path, ...(doc.pages || [])].filter(Boolean) } })}
+                  onClick={() => {
+                    const previews = [doc.image_path, ...(doc.pages || [])].filter(Boolean)
+                    const normalizedPreviews = previews.map(p => {
+                      if (!p || p.startsWith('blob:') || p.startsWith('data:')) return p
+                      const filename = p.split(/[\\/]/).pop()
+                      return filename ? `/uploads/${filename}` : p
+                    })
+                    navigate(`/animals/${id}/scan`, { state: { documentId: doc.id, action: 'retry', previews: normalizedPreviews } })
+                  }}
                   style={{
                     padding: '8px 12px',
                     background: 'var(--primary-500)',

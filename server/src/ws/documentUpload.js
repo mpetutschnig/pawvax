@@ -270,11 +270,11 @@ export default async function wsDocumentUpload(fastify) {
             await db.query(`
               INSERT INTO document_pages (document_id, page_number, image_path)
               VALUES ($1, $2, $3)
-            `, [uploadState.documentId, uploadState.pageNumber, imagePath])
+            `, [uploadState.documentId, uploadState.pageNumber, uploadState.filename])
 
             // Update main document thumbnail if it's the first page
             if (uploadState.pageNumber === 1) {
-              await db.query('UPDATE documents SET image_path = $1 WHERE id = $2', [imagePath, uploadState.documentId])
+              await db.query('UPDATE documents SET image_path = $1 WHERE id = $2', [uploadState.filename, uploadState.documentId])
             }
 
             if (msg.is_last !== true) {

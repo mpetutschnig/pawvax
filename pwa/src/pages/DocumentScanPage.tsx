@@ -79,7 +79,7 @@ export default function DocumentScanPage() {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [retryProvider, setRetryProvider] = useState('google')
   const [retryModel, setRetryModel] = useState(DEFAULT_MODEL_BY_PROVIDER.google)
-  const [requestedDocumentType, setRequestedDocumentType] = useState<DocumentTypeSelectValue>(DOCUMENT_TYPE_PLACEHOLDER)
+  const [requestedDocumentType, setRequestedDocumentType] = useState<DocumentTypeSelectValue>('general')
   const [groupTypes, setGroupTypes] = useState<DocumentTypeSelectValue[]>([])
 
   const [hasGemini, setHasGemini] = useState(false)
@@ -108,7 +108,16 @@ export default function DocumentScanPage() {
     if (routeState?.documentId) {
       setDocumentId(routeState.documentId)
       if (routeState.previews && routeState.previews.length > 0) {
-        setGroups([{ pages: [], previews: routeState.previews }])
+        const normalizedPreviews = routeState.previews.map(p => {
+          if (!p || p.startsWith('blob:') || p.startsWith('data:')) return p
+          
+          // Take only the filename part if it's an absolute path
+          const filename = p.split(/[\\/]/).pop()
+          if (!filename) return p
+          
+          return `/uploads/${filename}`
+        })
+        setGroups([{ pages: [], previews: normalizedPreviews }])
       }
       setShowModelSelection(true)
     }
@@ -777,8 +786,8 @@ export default function DocumentScanPage() {
 
               <button className="btn btn-primary btn-full" onClick={() => {
                 const filled = groups.filter(g => g.pages.length > 0)
-                setRequestedDocumentType(DOCUMENT_TYPE_PLACEHOLDER)
-                setGroupTypes(new Array(filled.length).fill(DOCUMENT_TYPE_PLACEHOLDER))
+                setRequestedDocumentType('general')
+                setGroupTypes(new Array(filled.length).fill('general'))
                 setShowModelSelection(true)
               }}>
                 {groups.filter(g => g.pages.length > 0).length > 1
@@ -845,7 +854,7 @@ export default function DocumentScanPage() {
                   <p className="text-muted" style={{ marginBottom: 'var(--space-4)' }}>{errorMsg || t('common.error')}</p>
                   <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
                     {hasAnyKey && (
-                      <button className="btn btn-primary flex-1" onClick={() => { setRequestedDocumentType(DOCUMENT_TYPE_PLACEHOLDER); setShowModelSelection(true) }} type="button">
+                      <button className="btn btn-primary flex-1" onClick={() => { setRequestedDocumentType('general'); setShowModelSelection(true) }} type="button">
                         {t('animal.retry')}
                       </button>
                     )}
