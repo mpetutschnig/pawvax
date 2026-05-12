@@ -911,7 +911,7 @@ export default function DocumentScanPage() {
                   {techErrorMsg && (
                     <div style={{ marginBottom: 'var(--space-4)', textAlign: 'left' }}>
                       <p style={{ margin: '0 0 4px 0', fontSize: '11px', fontWeight: 600, color: 'var(--danger-600)' }}>Technical Details (Debugging):</p>
-                      <pre style={{ margin: 0, padding: 'var(--space-2)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: '10px', overflowX: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-all', color: 'var(--text-secondary)', maxHeight: '120px' }}>
+                      <pre className="debug-error-details" style={{ margin: 0, padding: 'var(--space-2)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: '10px', overflowX: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-all', color: 'var(--text-secondary)', maxHeight: '120px' }}>
                         {techErrorMsg}
                       </pre>
                     </div>
@@ -939,7 +939,7 @@ export default function DocumentScanPage() {
                   {techErrorMsg && (
                     <div style={{ marginBottom: 'var(--space-4)', textAlign: 'left' }}>
                       <p style={{ margin: '0 0 4px 0', fontSize: '11px', fontWeight: 600, color: 'var(--danger-600)' }}>Technical Details (Debugging):</p>
-                      <pre style={{ margin: 0, padding: 'var(--space-2)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: '10px', overflowX: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-all', color: 'var(--text-secondary)', maxHeight: '120px' }}>
+                      <pre className="debug-error-details" style={{ margin: 0, padding: 'var(--space-2)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: '10px', overflowX: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-all', color: 'var(--text-secondary)', maxHeight: '120px' }}>
                         {techErrorMsg}
                       </pre>
                     </div>

@@ -200,8 +200,8 @@ function DebugOverlay() {
 
     // Find visible errors
     const errors: string[] = []
-    document.querySelectorAll('.error-card, .text-danger, [class*="error"]').forEach(el => {
-      if (el.textContent && (el as HTMLElement).offsetParent !== null && el.textContent.length < 500) {
+    document.querySelectorAll('.error-card, .text-danger, [class*="error"], .debug-error-details').forEach(el => {
+      if (el.textContent && (el as HTMLElement).offsetParent !== null && el.textContent.length < 1000) {
         errors.push(el.textContent.trim())
       }
     })
