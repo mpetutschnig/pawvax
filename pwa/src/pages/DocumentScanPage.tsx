@@ -8,7 +8,32 @@ import { DocumentAnalysisForm } from '../components/DocumentAnalysisForm'
 import { uploadMultiPageDocument } from '../api/ws'
 import { analyzeDocument } from '../api/rest'
 import { useAiConfig } from '../hooks/useAiConfig'
+import { useCurrentUser } from '../hooks/useCurrentUser'
 import { DOCUMENT_TYPE_OPTIONS, DOCUMENT_TYPE_PLACEHOLDER, type DocumentTypeSelectValue } from '../utils/documentAnalysis'
+
+const S = {
+  pageHeader: { display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-6)', marginTop: 'var(--space-2)' } as React.CSSProperties,
+  batchGroupList: { display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' } as React.CSSProperties,
+  batchGroupItem: { display: 'flex', gap: 'var(--space-3)', alignItems: 'center', padding: 'var(--space-3)', background: 'var(--surface-alt)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' } as React.CSSProperties,
+  batchGroupLabel: { fontSize: '11px', fontWeight: 600, color: 'var(--text-tertiary)', marginBottom: '4px' } as React.CSSProperties,
+  disclaimer: { marginBottom: 'var(--space-3)', padding: 'var(--space-3)', background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: '11px', color: 'var(--text-secondary)' } as React.CSSProperties,
+  thumbStrip: { display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' } as React.CSSProperties,
+  thumbRow: { display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' } as React.CSSProperties,
+  splitBtn: { background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '16px', fontWeight: 700, padding: '0 6px', minHeight: '44px', minWidth: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 } as React.CSSProperties,
+  thumbPageNum: { position: 'absolute', bottom: '2px', left: '2px', background: 'rgba(0,0,0,0.55)', color: 'white', fontSize: '10px', fontWeight: 700, lineHeight: 1, padding: '2px 4px', borderRadius: '3px' } as React.CSSProperties,
+  thumbRemoveBtn: { position: 'absolute', top: '-8px', right: '-8px', width: '22px', height: '22px', background: 'var(--danger-600)', border: '2px solid var(--surface)', borderRadius: '50%', color: 'white', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' } as React.CSSProperties,
+  groupTag: { fontSize: '11px', fontWeight: 700, color: 'var(--primary-600)', background: 'var(--primary-50)', borderRadius: '4px', padding: '2px 6px', display: 'inline-block', marginBottom: 'var(--space-2)' } as React.CSSProperties,
+  mergeBtn: { marginTop: 'var(--space-2)', width: '100%', padding: 'var(--space-2) var(--space-3)', minHeight: '44px', background: 'var(--danger-50)', border: '1px solid var(--danger-200)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--danger-600)', fontSize: 'var(--font-size-sm)', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)' } as React.CSSProperties,
+  addPageBtns: { display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginTop: 'var(--space-3)' } as React.CSSProperties,
+  progressBarWrap: { width: '100%', maxWidth: '240px', margin: '0 auto var(--space-3)' } as React.CSSProperties,
+  analysingSpinner: { display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-3)' } as React.CSSProperties,
+  statusMsg: { fontSize: 'var(--font-size-sm)', padding: '0 var(--space-4)', wordBreak: 'break-word', minHeight: '40px' } as React.CSSProperties,
+  errorIcon: { color: 'var(--danger-500)', marginBottom: 'var(--space-3)', display: 'flex', justifyContent: 'center' } as React.CSSProperties,
+  errorActions: { display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-4)' } as React.CSSProperties,
+  techDetails: { marginBottom: 'var(--space-4)', textAlign: 'left' } as React.CSSProperties,
+  techPre: { margin: 0, padding: 'var(--space-2)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: '10px', overflowX: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-all', color: 'var(--text-secondary)', maxHeight: '120px' } as React.CSSProperties,
+  noAccessCard: { textAlign: 'center', padding: 'var(--space-8)' } as React.CSSProperties,
+}
 
 type Phase = 'capture' | 'configure' | 'uploading' | 'analysing' | 'error'
 type Group = { pages: File[]; previews: string[] }
@@ -59,21 +84,7 @@ export default function DocumentScanPage() {
   const location = useLocation()
   const routeState = location.state as { documentId?: string; action?: 'retry' | 'reanalyze'; previews?: string[] } | null
   const { t } = useTranslation()
-
-  const roleStr = localStorage.getItem('role') || ''
-  const isGuest = roleStr.split(',').map(r => r.trim()).every(r => r === 'guest') && roleStr.length > 0
-  if (isGuest) {
-    return (
-      <div className="container page">
-        <div className="error-card" style={{ textAlign: 'center', padding: 'var(--space-8)' }}>
-          <p style={{ fontWeight: 600 }}>{t('common.noAccess')}</p>
-          <p className="text-muted">{t('docScan.noAccessDesc')}</p>
-          <button className="btn btn-ghost" onClick={() => navigate(-1)}>{t('common.back')}</button>
-        </div>
-      </div>
-    )
-  }
-
+  const { isGuest } = useCurrentUser()
   const ai = useAiConfig()
   const cameraRef = useRef<HTMLInputElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -130,6 +141,18 @@ export default function DocumentScanPage() {
   // Consent is required when using system AI without own key
   const needsConsent = ai.usingFallback && !ai.billingConsentAccepted && !consentChecked
   const canSubmit = !needsConsent || consentChecked
+
+  if (isGuest) {
+    return (
+      <div className="container page">
+        <div className="error-card" style={S.noAccessCard}>
+          <p style={{ fontWeight: 600 }}>{t('common.noAccess')}</p>
+          <p className="text-muted">{t('docScan.noAccessDesc')}</p>
+          <button className="btn btn-ghost" onClick={() => navigate(-1)}>{t('common.back')}</button>
+        </div>
+      </div>
+    )
+  }
 
   // --- Image handling ---
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -323,17 +346,17 @@ export default function DocumentScanPage() {
     if (isBatch && !isRetry) {
       return (
         <div className="container page">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-6)', marginTop: 'var(--space-2)' }}>
+          <div style={S.pageHeader}>
             <button className="btn btn-ghost" style={{ padding: '8px', margin: '-8px' }} onClick={() => setPhase('capture')}>{t('common.back')}</button>
             <h1 style={{ margin: 0, fontSize: 'var(--font-size-xl)' }}>{t('docScan.batchUpload', { count: filledGroups.length })}</h1>
           </div>
           <div className="card animate-slide-up">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
+            <div style={S.batchGroupList}>
               {filledGroups.map((group, i) => (
-                <div key={i} style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center', padding: 'var(--space-3)', background: 'var(--surface-alt)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
+                <div key={i} style={S.batchGroupItem}>
                   <img src={group.previews[0]} alt="Preview" style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 'var(--radius-sm)' }} />
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-tertiary)', marginBottom: '4px' }}>DOC {i + 1} ({group.pages.length} {t('docScan.pages')})</div>
+                    <div style={S.batchGroupLabel}>DOC {i + 1} ({group.pages.length} {t('docScan.pages')})</div>
                     <select className="form-select" style={{ padding: '4px 8px', fontSize: 'var(--font-size-sm)' }}
                       value={groupTypes[i] || DOCUMENT_TYPE_PLACEHOLDER}
                       onChange={e => { const t = [...groupTypes]; t[i] = e.target.value as DocumentTypeSelectValue; setGroupTypes(t) }}>
@@ -349,7 +372,7 @@ export default function DocumentScanPage() {
               <label className="form-label">{t('docDetail.provider')}</label>
               <ProviderSelect ai={ai} t={t} />
             </div>
-            <div style={{ marginBottom: 'var(--space-3)', padding: 'var(--space-3)', background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: '11px', color: 'var(--text-secondary)' }}>
+            <div style={S.disclaimer}>
               <strong>Disclaimer:</strong> {t('docScan.aiDisclaimer')}
             </div>
             <button className="btn btn-primary btn-full" disabled={groupTypes.length < filledGroups.length || groupTypes.some(gt => gt === DOCUMENT_TYPE_PLACEHOLDER) || !canSubmit} onClick={handleSubmitConfigure}>
@@ -431,7 +454,7 @@ export default function DocumentScanPage() {
                   {t('docScan.pages')}: {totalPages}
                   {groups.length > 1 && <span style={{ marginLeft: 'var(--space-2)', color: 'var(--primary-600)' }}>· {groups.length} {t('docScan.documents')}</span>}
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                <div style={S.thumbStrip}>
                   {(() => {
                     const groupItems: React.ReactNode[] = []
                     let globalIdx = 0
@@ -443,19 +466,17 @@ export default function DocumentScanPage() {
                         if (pageIdx > 0) {
                           thumbRow.push(
                             <button key={`split-${myGlobalIdx}`} onClick={() => insertGroupDivider(myGlobalIdx)} title={t('docScan.splitDocument')}
-                              style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '16px', fontWeight: 700, padding: '0 6px', minHeight: '44px', minWidth: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
-                              aria-label="Split page">÷</button>
+                              style={S.splitBtn} aria-label="Split page">÷</button>
                           )
                         }
                         thumbRow.push(
                           <div key={`thumb-${groupIdx}-${pageIdx}`} onClick={() => { setActiveGroupIdx(groupIdx); setActivePageIdx(pageIdx) }}
                             style={{ position: 'relative', width: '64px', height: '64px', borderRadius: 'var(--radius-sm)', overflow: 'visible', border: `3px solid ${isActive ? 'var(--primary-500)' : 'var(--border)'}`, cursor: 'pointer', opacity: isActive ? 1 : 0.7, transition: 'all var(--t-fast)', flexShrink: 0 }}>
                             <img src={preview} alt={`Page ${pageIdx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'calc(var(--radius-sm) - 2px)', display: 'block' }} />
-                            {group.pages.length > 1 && <span style={{ position: 'absolute', bottom: '2px', left: '2px', background: 'rgba(0,0,0,0.55)', color: 'white', fontSize: '10px', fontWeight: 700, lineHeight: 1, padding: '2px 4px', borderRadius: '3px' }}>{pageIdx + 1}</span>}
+                            {group.pages.length > 1 && <span style={S.thumbPageNum}>{pageIdx + 1}</span>}
                             {totalPages > 1 && (
                               <button onClick={(e) => { e.stopPropagation(); handleRemovePage(groupIdx, pageIdx) }}
-                                style={{ position: 'absolute', top: '-8px', right: '-8px', width: '22px', height: '22px', background: 'var(--danger-600)', border: '2px solid var(--surface)', borderRadius: '50%', color: 'white', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                aria-label="Remove page"><X size={12} /></button>
+                                style={S.thumbRemoveBtn} aria-label="Remove page"><X size={12} /></button>
                             )}
                           </div>
                         )
@@ -463,11 +484,10 @@ export default function DocumentScanPage() {
                       })
                       groupItems.push(
                         <div key={`group-${groupIdx}`}>
-                          {groups.length > 1 && <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--primary-600)', background: 'var(--primary-50)', borderRadius: '4px', padding: '2px 6px', display: 'inline-block', marginBottom: 'var(--space-2)' }}>Doc {groupIdx + 1}</div>}
-                          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>{thumbRow}</div>
+                          {groups.length > 1 && <div style={S.groupTag}>Doc {groupIdx + 1}</div>}
+                          <div style={S.thumbRow}>{thumbRow}</div>
                           {groupIdx < groups.length - 1 && (
-                            <button onClick={() => removeGroupDivider(groupIdx)}
-                              style={{ marginTop: 'var(--space-2)', width: '100%', padding: 'var(--space-2) var(--space-3)', minHeight: '44px', background: 'var(--danger-50)', border: '1px solid var(--danger-200)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--danger-600)', fontSize: 'var(--font-size-sm)', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)' }}
+                            <button onClick={() => removeGroupDivider(groupIdx)} style={S.mergeBtn}
                               aria-label="Merge documents">{t('docScan.mergeDocuments')}</button>
                           )}
                         </div>
@@ -479,7 +499,7 @@ export default function DocumentScanPage() {
 
                 <input type="file" id="addPageCameraInput" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={handleAddPage} />
                 <input type="file" id="addPageFileInput" accept="image/*" style={{ display: 'none' }} onChange={handleAddPage} />
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
+                <div style={S.addPageBtns}>
                   <label htmlFor="addPageCameraInput" className="btn-add-page"><Camera size={18} /> {t('docScan.addPageCamera')}</label>
                   <label htmlFor="addPageFileInput" className="btn-add-page"><Plus size={18} /> {t('docScan.addPageFile')}</label>
                 </div>
@@ -511,7 +531,7 @@ export default function DocumentScanPage() {
           {phase === 'uploading' && (
             <div>
               <h3 style={{ marginBottom: 'var(--space-4)' }}>{t('docScan.uploading')}...</h3>
-              <div className="progress-bar" style={{ width: '100%', maxWidth: '240px', margin: '0 auto var(--space-3)' }}>
+              <div className="progress-bar" style={S.progressBarWrap}>
                 <div className="progress-bar-fill" style={{ width: `${uploadProgress}%` }} />
               </div>
               <div className="text-muted" style={{ fontWeight: 600 }}>{uploadProgress}%</div>
@@ -521,11 +541,11 @@ export default function DocumentScanPage() {
           {phase === 'analysing' && (
             <div>
               <h3 style={{ marginBottom: 'var(--space-4)' }}>{t('docScan.analyzing')}...</h3>
-              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-3)' }}>
+              <div style={S.analysingSpinner}>
                 <div className="spinner"></div>
                 {ocrProvider && <span className="badge badge-info">{ocrProvider}</span>}
               </div>
-              <div className="text-muted" style={{ fontSize: 'var(--font-size-sm)', padding: '0 var(--space-4)', wordBreak: 'break-word', minHeight: '40px' }}>
+              <div className="text-muted" style={S.statusMsg}>
                 {currentStatusMsg || t('common.loading')}
               </div>
               <div className="text-tertiary" style={{ fontSize: 'var(--font-size-xs)', marginTop: 'var(--space-2)' }}>{elapsedTime}s</div>
@@ -534,20 +554,18 @@ export default function DocumentScanPage() {
 
           {phase === 'error' && (
             <div>
-              <div style={{ color: 'var(--danger-500)', marginBottom: 'var(--space-3)', display: 'flex', justifyContent: 'center' }}>
+              <div style={S.errorIcon}>
                 <AlertCircle size={48} strokeWidth={1.5} />
               </div>
               <h3 style={{ marginBottom: 'var(--space-2)' }}>{t('docScan.analyzeFailed')}</h3>
               <p className="text-muted" style={{ marginBottom: 'var(--space-4)' }}>{errorMsg || t('common.error')}</p>
               {techErrorMsg && (
-                <div style={{ marginBottom: 'var(--space-4)', textAlign: 'left' }}>
+                <div style={S.techDetails}>
                   <p style={{ margin: '0 0 4px 0', fontSize: '11px', fontWeight: 600, color: 'var(--danger-600)' }}>Technical Details:</p>
-                  <pre className="debug-error-details" style={{ margin: 0, padding: 'var(--space-2)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: '10px', overflowX: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-all', color: 'var(--text-secondary)', maxHeight: '120px' }}>
-                    {techErrorMsg}
-                  </pre>
+                  <pre className="debug-error-details" style={S.techPre}>{techErrorMsg}</pre>
                 </div>
               )}
-              <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
+              <div style={S.errorActions}>
                 {ai.hasAnyKey && documentId && (
                   <button className="btn btn-primary flex-1" onClick={() => { setRequestedDocumentType('general'); setPhase('configure') }} type="button">
                     {t('animal.retry')}

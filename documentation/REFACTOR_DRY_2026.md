@@ -118,7 +118,7 @@ Einheitliche Buttons: "Erneut versuchen" (wenn Key vorhanden) + "Für später sp
 ## Phase 3: Rollen-Konsistenz
 
 ### P3.1 — Rollencheck in DocumentScanPage vereinfachen
-**Status:** `[ ] offen`
+**Status:** `[x] erledigt`
 
 Aktuell: `localStorage.getItem('role')` direkt im Component-Body (Code-Smell).
 Besser: Custom Hook oder Kontext. Rollen aus JWT-Payload in Auth-Context speichern.
@@ -145,7 +145,7 @@ Kein Handlungsbedarf.
 Betroffene Dateien: animals.js, auth.js, admin.js, documents.js, tenants.js, app.js, storage.js, documentUpload.js, analysisPipeline.js
 
 ### P4.2 — Inline Styles in DocumentScanPage reduzieren
-**Status:** `[ ] offen`
+**Status:** `[x] erledigt`
 
 Häufig wiederholte Inline-Styles in CSS-Klassen auslagern oder in Style-Objekte.
 
