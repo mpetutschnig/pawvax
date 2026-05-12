@@ -161,16 +161,40 @@ function DebugOverlay() {
   const [history, setHistory] = useState<any[]>([])
   const [currentScreen, setCurrentScreen] = useState('')
 
+  // Map paths to component names for better identification
+  const getComponentName = (path: string) => {
+    if (path.startsWith('/animals/')) {
+      if (path.endsWith('/scan')) return 'DocumentScanPage'
+      if (path.includes('/documents/')) return 'DocumentDetailPage'
+      if (path.endsWith('/tags')) return 'TagManagementPage'
+      return 'AnimalPage'
+    }
+    const mapping: Record<string, string> = {
+      '/animals': 'AnimalsPage',
+      '/scan': 'ScanPage',
+      '/login': 'LoginPage',
+      '/profile': 'ProfilePage',
+      '/billing': 'BillingPage',
+      '/admin': 'AdminPage',
+      '/welcome': 'WelcomePage',
+      '/docs': 'DocumentationPage',
+      '/public-scan': 'PublicScanPage',
+      '/reminders': 'RemindersPage'
+    }
+    return mapping[path] || 'UnknownPage'
+  }
+
   // Capture screen context from DOM
   const captureScreenState = () => {
-    const heading = document.querySelector('h1, h2')?.textContent || ''
+    const heading = document.querySelector('h1, h2, .card-title, .page-title')?.textContent?.trim() || ''
+    const compName = getComponentName(location.pathname)
     
     // Find active modals by looking for fixed/absolute containers with high z-index
     const modals: string[] = []
     document.querySelectorAll('[style*="position: fixed"], [style*="position: absolute"]').forEach(el => {
       const h3 = el.querySelector('h3')?.textContent
       if (h3 && (el as HTMLElement).offsetParent !== null) {
-        modals.push(h3)
+        modals.push(h3.trim())
       }
     })
 
@@ -183,6 +207,7 @@ function DebugOverlay() {
     })
 
     return {
+      component: compName,
       path: location.pathname,
       heading,
       modals: modals.length > 0 ? modals : null,
@@ -211,8 +236,8 @@ function DebugOverlay() {
 
     const updateHistory = () => {
       const snapshot = captureScreenState()
-      const screenDesc = snapshot.modals ? `Modal: ${snapshot.modals[0]}` : snapshot.heading || snapshot.path
-      setCurrentScreen(screenDesc)
+      const modalDesc = snapshot.modals ? ` (Modal: ${snapshot.modals[0]})` : ''
+      setCurrentScreen(`${snapshot.component}${modalDesc}`)
 
       setHistory(prev => {
         // Only add if the snapshot has changed significantly from the last one
