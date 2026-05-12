@@ -184,11 +184,31 @@ export default async function wsDocumentUpload(fastify) {
 
       switch (msg.type) {
         case 'upload_start': {
-          const { 
-            animalId, filename, mimeType, allowedRoles, pageNumber, 
+          const {
+            animalId, filename, mimeType, allowedRoles, pageNumber,
             documentId, language = 'de', requestedDocumentType = 'auto',
             provider = null, model = null
           } = msg
+
+          // Validate required fields before any DB access
+          const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+          if (!animalId || !uuidRegex.test(animalId)) {
+            send(socket, { type: 'error', message: 'Invalid animalId' })
+            return
+          }
+          if (!filename || typeof filename !== 'string' || filename.trim() === '') {
+            send(socket, { type: 'error', message: 'Invalid filename' })
+            return
+          }
+          if (pageNumber !== undefined && (!Number.isInteger(pageNumber) || pageNumber < 1)) {
+            send(socket, { type: 'error', message: 'Invalid pageNumber' })
+            return
+          }
+          if (!['de', 'en'].includes(language)) {
+            send(socket, { type: 'error', message: 'Invalid language' })
+            return
+          }
+
           const pageNum = pageNumber ?? 1
           const normalizedAllowedRoles = normalizeAllowedRoles(allowedRoles)
           const docId = documentId || uuid()

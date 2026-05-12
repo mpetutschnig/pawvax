@@ -16,6 +16,14 @@ import { getSystemAiKeys } from '../services/appSettings.js'
 
 const oauthStates = new Map()
 
+// Purge expired OAuth states every 60 minutes to prevent unbounded memory growth
+setInterval(() => {
+  const cutoff = Date.now() - 10 * 60 * 1000
+  for (const [key, value] of oauthStates.entries()) {
+    if (value.createdAt < cutoff) oauthStates.delete(key)
+  }
+}, 60 * 60 * 1000)
+
 const OAUTH_PROVIDERS = {
   google: {
     authUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
