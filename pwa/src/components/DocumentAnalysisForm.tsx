@@ -31,6 +31,9 @@ interface DocumentAnalysisFormProps {
   cancelLabel: string
   isSubmitting: boolean
   hideDocumentType?: boolean
+  consentRequired?: boolean
+  consentChecked?: boolean
+  onConsentChange?: (checked: boolean) => void
   onProviderChange: (provider: string) => void
   onModelChange: (model: string) => void
   onRequestedDocumentTypeChange: (documentType: DocumentTypeSelectValue) => void
@@ -58,6 +61,9 @@ export function DocumentAnalysisForm({
   cancelLabel,
   isSubmitting,
   hideDocumentType,
+  consentRequired,
+  consentChecked,
+  onConsentChange,
   onProviderChange,
   onModelChange,
   onRequestedDocumentTypeChange,
@@ -68,6 +74,7 @@ export function DocumentAnalysisForm({
   const isPlaceholderSelected = !hideDocumentType && requestedDocumentType === DOCUMENT_TYPE_PLACEHOLDER
   const hasOwnKey = hasGemini || hasAnthropic || hasOpenai
   const usingFallback = !hasOwnKey && hasSystemAi && systemFallbackEnabled
+  const isConsentBlocking = consentRequired && !consentChecked
 
   const docTypeLabel = (type: RequestedDocumentType) => {
     const labels: Record<RequestedDocumentType, string> = {
@@ -152,10 +159,25 @@ export function DocumentAnalysisForm({
           <strong>Haftungsausschluss:</strong> {t('docScan.aiDisclaimer')}
         </div>
 
-        {usingFallback && (
+        {consentRequired && onConsentChange && (
+          <div style={{ marginBottom: 'var(--space-4)', padding: 'var(--space-4)', background: 'var(--warning-50)', border: '2px solid var(--warning-400)', borderRadius: 'var(--radius-md)' }}>
+            <p style={{ margin: '0 0 var(--space-2) 0', fontWeight: 700, fontSize: 'var(--font-size-sm)', color: 'var(--warning-800)' }}>{t('docScan.systemAiCostTitle')}</p>
+            {pricePerPage !== undefined && pricePerPage > 0 && (
+              <p style={{ margin: '0 0 var(--space-3) 0', fontSize: 'var(--font-size-sm)', color: 'var(--warning-700)' }}>
+                {t('docScan.costInfo', { price: pricePerPage })}
+              </p>
+            )}
+            <label style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'flex-start', cursor: 'pointer' }}>
+              <input type="checkbox" checked={!!consentChecked} onChange={e => onConsentChange(e.target.checked)} style={{ marginTop: '2px', width: 16, height: 16, accentColor: 'var(--primary-500)', flexShrink: 0 }} />
+              <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--warning-800)' }}>{t('docScan.systemAiConsentLabel')}</span>
+            </label>
+          </div>
+        )}
+
+        {usingFallback && !consentRequired && (
           <div style={{ marginBottom: 'var(--space-4)', padding: 'var(--space-3)', background: 'var(--info-50)', border: '1px solid var(--info-200)', borderRadius: 'var(--radius-sm)', fontSize: '11px', color: 'var(--info-700)' }}>
-            <strong>{t('docScan.usingSystemFallback')}</strong><br/>
-            {t('docScan.providerDisabledInfo')}
+            {t('docScan.usingSystemFallback')}
+            {pricePerPage !== undefined && pricePerPage > 0 && <span style={{ fontWeight: 600 }}> · {t('docScan.costInfo', { price: pricePerPage })}</span>}
           </div>
         )}
 
@@ -193,7 +215,7 @@ export function DocumentAnalysisForm({
         </div>
 
         <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-6)' }}>
-          <button className="btn btn-primary flex-1" onClick={onSubmit} disabled={isSubmitting || isPlaceholderSelected}>
+          <button className="btn btn-primary flex-1" onClick={onSubmit} disabled={isSubmitting || isPlaceholderSelected || isConsentBlocking}>
             {isSubmitting ? t('animal.retrying') : (hasAnyKey ? submitLabel : t('common.save'))}
           </button>
           <button className="btn btn-ghost flex-1" onClick={onCancel} disabled={isSubmitting}>{cancelLabel}</button>
