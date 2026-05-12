@@ -7,8 +7,27 @@ http://vetsucht.oxs.at, http://paw.oxs.at, http://pawapi.oxs.at {
   redir https://{host}{uri} permanent
 }
 
-# Unified configuration for all domains — PWA + API proxy
-vetsucht.oxs.at, paw.oxs.at, pawapi.oxs.at {
+# API subdomain — Swagger docs + direct API access
+pawapi.oxs.at {
+  encode gzip
+
+  reverse_proxy localhost:3000 {
+    header_up X-Real-IP {http.request.remote.host}
+    header_up X-Forwarded-For {http.request.remote.host}
+    header_up X-Forwarded-Proto {http.request.scheme}
+    header_up Host {http.request.host}
+    header_up Connection {http.request.header.Connection}
+    header_up Upgrade {http.request.header.Upgrade}
+  }
+
+  log {
+    output stdout
+    format json
+  }
+}
+
+# PWA domains — PWA + API proxy for sub-paths
+vetsucht.oxs.at, paw.oxs.at {
   encode gzip
 
   # API routes - proxy to Node.js API on port 3000
