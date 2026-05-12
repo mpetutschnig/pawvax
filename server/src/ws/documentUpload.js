@@ -184,7 +184,11 @@ export default async function wsDocumentUpload(fastify) {
 
       switch (msg.type) {
         case 'upload_start': {
-          const { animalId, filename, mimeType, allowedRoles, pageNumber, documentId, language = 'de', requestedDocumentType = 'auto' } = msg
+          const { 
+            animalId, filename, mimeType, allowedRoles, pageNumber, 
+            documentId, language = 'de', requestedDocumentType = 'auto',
+            provider = null, model = null
+          } = msg
           const pageNum = pageNumber ?? 1
           const normalizedAllowedRoles = normalizeAllowedRoles(allowedRoles)
           const docId = documentId || uuid()
@@ -235,6 +239,8 @@ export default async function wsDocumentUpload(fastify) {
             documentId: docId,
             language,
             requestedDocumentType,
+            requestedProvider: provider,
+            requestedModel: model,
             writer: saveImageChunks(safeFilename),
             isMultiPage: pageNumber !== undefined && pageNumber > 1,
             trackingAccount: accountId
@@ -289,8 +295,8 @@ export default async function wsDocumentUpload(fastify) {
             const doc = { id: uploadState.documentId, animal_id: uploadState.animalId, image_path: imagePath }
             
             const result = await runDocumentAnalysis(db, doc, accountId, {
-              provider: 'auto',
-              model: null,
+              provider: uploadState.requestedProvider,
+              model: uploadState.requestedModel,
               language: uploadState.language,
               requestedDocumentType: uploadState.requestedDocumentType
             }, fastify.log, req.ip)

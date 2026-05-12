@@ -87,7 +87,9 @@ export default function DocumentScanPage() {
   const [hasOpenai, setHasOpenai] = useState(false)
   const [hasSystemAi, setHasSystemAi] = useState(true)
   const [systemFallbackEnabled, setSystemFallbackEnabled] = useState(true)
-  const hasAnyKey = hasGemini || hasAnthropic || hasOpenai || (hasSystemAi && systemFallbackEnabled)
+  const hasOwnKey = hasGemini || hasAnthropic || hasOpenai
+  const hasAnyKey = hasOwnKey || (hasSystemAi && systemFallbackEnabled)
+  const usingFallback = !hasOwnKey && hasSystemAi && systemFallbackEnabled
   const [billingConsentAccepted, setBillingConsentAccepted] = useState(false)
   const [billingPricePerPage, setBillingPricePerPage] = useState(0)
   const [showConsentModal, setShowConsentModal] = useState(false)
@@ -227,18 +229,27 @@ export default function DocumentScanPage() {
               <strong>Haftungsausschluss:</strong> Die KI kann Fehler machen. Wir übernehmen keine Haftung für fehlerhaft erkannte Daten.
             </div>
 
-            <div className="form-group">
+            <div className="form-group" style={{ opacity: usingFallback ? 0.6 : 1 }}>
               <label className="form-label">{t('docDetail.provider')}</label>
-              <select className="form-select" value={retryProvider} onChange={e => handleProviderChange(e.target.value)}>
-                {(hasGemini || hasSystemAi) && <option value="google">Google Gemini</option>}
-                {(hasAnthropic || hasSystemAi) && <option value="anthropic">Anthropic Claude</option>}
-                {(hasOpenai || hasSystemAi) && <option value="openai">OpenAI</option>}
+              <select className="form-select" value={hasOwnKey ? retryProvider : ''} onChange={e => handleProviderChange(e.target.value)} disabled={!hasOwnKey}>
+                {hasOwnKey ? (
+                  <>
+                    {(hasGemini || hasSystemAi) && <option value="google">Google Gemini</option>}
+                    {(hasAnthropic || hasSystemAi) && <option value="anthropic">Anthropic Claude</option>}
+                    {(hasOpenai || hasSystemAi) && <option value="openai">OpenAI</option>}
+                  </>
+                ) : usingFallback ? (
+                  <option value="">{t('profile.systemAiFallback')}</option>
+                ) : (
+                  <option value="">{t('docScan.noProviderAvailable')}</option>
+                )}
               </select>
             </div>
 
-            {!hasGemini && !hasAnthropic && !hasOpenai && hasSystemAi && systemFallbackEnabled && (
-              <div style={{ marginBottom: 'var(--space-4)', padding: 'var(--space-3)', background: 'var(--info-50)', border: '1px solid var(--info-500)', borderRadius: 'var(--radius-sm)', fontSize: 'var(--font-size-xs)', color: 'var(--info-600)' }}>
-                {t('docScan.usingSystemFallback')}
+            {usingFallback && (
+              <div style={{ marginBottom: 'var(--space-4)', padding: 'var(--space-3)', background: 'var(--info-50)', border: '1px solid var(--info-200)', borderRadius: 'var(--radius-sm)', fontSize: '11px', color: 'var(--info-700)' }}>
+                <strong>{t('docScan.usingSystemFallback')}</strong><br/>
+                {t('docScan.providerDisabledInfo')}
                 {billingPricePerPage > 0 && <div style={{ fontWeight: 600, marginTop: '2px' }}>Kosten: {billingPricePerPage} Cent / Seite</div>}
               </div>
             )}
@@ -473,7 +484,12 @@ export default function DocumentScanPage() {
 
     try {
       const action = routeState?.action || 'retry'
-      const response = await analyzeDocument(documentId, action, { provider: retryProvider, model: retryModel, language: i18next.language || 'de', requestedDocumentType })
+      const response = await analyzeDocument(documentId, action, { 
+        provider: hasOwnKey ? retryProvider : null, 
+        model: hasOwnKey ? retryModel : null, 
+        language: i18next.language || 'de', 
+        requestedDocumentType 
+      })
       
       const doc = response.data
       setResult(doc.extracted_json || doc)
@@ -540,7 +556,13 @@ export default function DocumentScanPage() {
               resolve()
             },
             onError: (msg: string) => reject(new Error(msg)),
-            metadata: { allowedRoles, language: i18next.language || 'de', requestedDocumentType: types?.[i] ?? requestedDocumentType }
+            metadata: { 
+              allowedRoles, 
+              language: i18next.language || 'de', 
+              requestedDocumentType: types?.[i] ?? requestedDocumentType,
+              provider: hasOwnKey ? retryProvider : null,
+              model: hasOwnKey ? retryModel : null
+            }
           }).catch(reject)
         })
       }

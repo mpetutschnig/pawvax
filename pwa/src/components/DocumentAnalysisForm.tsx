@@ -66,6 +66,8 @@ export function DocumentAnalysisForm({
 }: DocumentAnalysisFormProps) {
   const { t } = useTranslation()
   const isPlaceholderSelected = !hideDocumentType && requestedDocumentType === DOCUMENT_TYPE_PLACEHOLDER
+  const hasOwnKey = hasGemini || hasAnthropic || hasOpenai
+  const usingFallback = !hasOwnKey && hasSystemAi && systemFallbackEnabled
 
   const docTypeLabel = (type: RequestedDocumentType) => {
     const labels: Record<RequestedDocumentType, string> = {
@@ -150,29 +152,40 @@ export function DocumentAnalysisForm({
           <strong>Haftungsausschluss:</strong> {t('docScan.aiDisclaimer')}
         </div>
 
-        <div className="form-group">
+        {usingFallback && (
+          <div style={{ marginBottom: 'var(--space-4)', padding: 'var(--space-3)', background: 'var(--info-50)', border: '1px solid var(--info-200)', borderRadius: 'var(--radius-sm)', fontSize: '11px', color: 'var(--info-700)' }}>
+            <strong>{t('docScan.usingSystemFallback')}</strong><br/>
+            {t('docScan.providerDisabledInfo')}
+          </div>
+        )}
+
+        <div className="form-group" style={{ opacity: usingFallback ? 0.6 : 1 }}>
           <label className="form-label">{t('docDetail.provider')}</label>
-          <select className="form-select" value={hasAnyKey ? retryProvider : ''} onChange={e => onProviderChange(e.target.value)} disabled={!hasAnyKey}>
-            {hasAnyKey ? (
+          <select className="form-select" value={hasOwnKey ? retryProvider : ''} onChange={e => onProviderChange(e.target.value)} disabled={!hasOwnKey}>
+            {hasOwnKey ? (
               <>
                 {(hasGemini || hasSystemAi) && <option value="google">Google Gemini</option>}
                 {(hasAnthropic || hasSystemAi) && <option value="anthropic">Anthropic Claude</option>}
                 {(hasOpenai || hasSystemAi) && <option value="openai">OpenAI</option>}
               </>
+            ) : usingFallback ? (
+              <option value="">{t('profile.systemAiFallback')}</option>
             ) : (
               <option value="">{t('docScan.noProviderAvailable')}</option>
             )}
           </select>
         </div>
 
-        <div className="form-group">
+        <div className="form-group" style={{ opacity: usingFallback ? 0.6 : 1 }}>
           <label className="form-label">{t('docDetail.model')}</label>
-          <select className="form-select" value={hasAnyKey ? retryModel : ''} onChange={e => onModelChange(e.target.value)} disabled={!hasAnyKey}>
-            {hasAnyKey ? (
+          <select className="form-select" value={hasOwnKey ? retryModel : ''} onChange={e => onModelChange(e.target.value)} disabled={!hasOwnKey}>
+            {hasOwnKey ? (
               <>
                 {models.map((model) => <option key={model.id} value={model.id}>{model.name}</option>)}
                 {models.length === 0 && <option value={DEFAULT_MODEL_BY_PROVIDER[retryProvider as keyof typeof DEFAULT_MODEL_BY_PROVIDER]}>{DEFAULT_MODEL_BY_PROVIDER[retryProvider as keyof typeof DEFAULT_MODEL_BY_PROVIDER]}</option>}
               </>
+            ) : usingFallback ? (
+              <option value="">{t('docScan.autoSelection')}</option>
             ) : (
               <option value="">{t('docScan.noModelAvailable')}</option>
             )}
