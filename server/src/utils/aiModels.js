@@ -6,9 +6,9 @@ export const AI_MODEL_OPTIONS = {
     { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro' }
   ],
   anthropic: [
-    { id: 'claude-3-7-sonnet-20250219', name: 'Claude 3.7 Sonnet' },
+    { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku (günstig)' },
     { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet' },
-    { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku' },
+    { id: 'claude-3-7-sonnet-20250219', name: 'Claude 3.7 Sonnet' },
     { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus' }
   ],
   openai: [
@@ -24,13 +24,13 @@ export const AI_MODEL_OPTIONS = {
 
 // Pre-calculate allowed model IDs for fast lookup
 export const ALLOWED_GEMINI_MODELS = ['gemini-3.1-flash-lite-preview', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']
-export const ALLOWED_CLAUDE_MODELS = ['claude-3-7-sonnet-20250219', 'claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229']
+export const ALLOWED_CLAUDE_MODELS = ['claude-3-5-haiku-20241022', 'claude-3-5-sonnet-20241022', 'claude-3-7-sonnet-20250219', 'claude-3-opus-20240229']
 export const ALLOWED_OPENAI_MODELS = ['gpt-4o-mini', 'gpt-4o', 'gpt-4.1-mini', 'gpt-4-turbo']
 export const ALLOWED_MOCK_MODELS = ['test']
 
 export const DEFAULT_MODEL_BY_PROVIDER = {
   google: 'gemini-3.1-flash-lite-preview',
-  anthropic: 'claude-3-5-sonnet-20241022',
+  anthropic: 'claude-3-5-haiku-20241022',
   openai: 'gpt-4o-mini',
   'mock-ocr': 'test'
 }

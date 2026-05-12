@@ -6,9 +6,9 @@ export const DEFAULT_AVAILABLE_MODELS = {
     { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro' }
   ],
   anthropic: [
-    { id: 'claude-3-7-sonnet-20250219', name: 'Claude 3.7 Sonnet' },
+    { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku (günstig)' },
     { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet' },
-    { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku' },
+    { id: 'claude-3-7-sonnet-20250219', name: 'Claude 3.7 Sonnet' },
     { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus' }
   ],
   openai: [
@@ -20,7 +20,7 @@ export const DEFAULT_AVAILABLE_MODELS = {
 
 export const DEFAULT_MODEL_BY_PROVIDER = {
   google: 'gemini-3.1-flash-lite-preview',
-  anthropic: 'claude-3-5-sonnet-20241022',
+  anthropic: 'claude-3-5-haiku-20241022',
   openai: 'gpt-4o-mini'
 }
 

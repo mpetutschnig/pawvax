@@ -1,5 +1,5 @@
 import { getDb } from '../db/index.js'
-import { normalizeDocumentType } from '../services/ocr.js'
+import { normalizeDocumentType } from '../services/ocr/index.js'
 import { logAudit } from '../services/audit.js'
 import { unlink } from 'fs/promises'
 import { resolve } from 'path'

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { decrypt } from '../utils/crypto.js'
 import { isAllowedModel, resolveModel } from '../utils/aiModels.js'
 import { getSettingsMap, getSystemAiKeys } from './appSettings.js'
-import { analyzeDocument, buildExtractedDocumentData, normalizeDocumentType } from './ocr.js'
+import { analyzeDocument, buildExtractedDocumentData, normalizeDocumentType } from './ocr/index.js'
 import { flagDuplicates } from './dedup.js'
 
 export async function getDocumentPages(db, documentId) {

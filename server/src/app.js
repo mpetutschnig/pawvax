@@ -24,7 +24,7 @@ import aiRoutes from './routes/ai.js'
 import vetApiRoutes from './routes/vetApi.js'
 import reminderRoutes from './routes/reminders.js'
 import billingRoutes from './routes/billing.js'
-import { setOcrLogger } from './services/ocr.js'
+import { setOcrLogger } from './services/ocr/index.js'
 import { logAudit } from './services/audit.js'
 
 const __dir = dirname(fileURLToPath(import.meta.url))
