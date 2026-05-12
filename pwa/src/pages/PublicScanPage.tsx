@@ -62,7 +62,9 @@ export default function PublicScanPage() {
     if (token) {
       try {
         const res = await api.get(`/animals/by-tag/${encodeURIComponent(tagId)}`, {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${token}` },
+          // @ts-ignore
+          _skipAuthRedirect: true
         })
         const animalData = res.data
         if (animalData?.id) {
