@@ -328,11 +328,20 @@ export default async function wsDocumentUpload(fastify) {
             fastify.log.error({ err }, 'WS: Analysis error')
             
             // Map common errors to user-friendly messages
-            let errorMsg = err.message
-            if (err.message === 'budget_exceeded') errorMsg = 'KI-Budget überschritten'
-            if (err.message === 'fallback_disabled') errorMsg = 'KI-System-Fallback deaktiviert'
+            let errorMsg = 'Analyse fehlgeschlagen'
+            let techMsg = err.message
+            if (err.message === 'budget_exceeded') {
+              errorMsg = 'KI-Budget überschritten'
+              techMsg = 'System fallback disabled or budget limit reached'
+            } else if (err.message === 'fallback_disabled') {
+              errorMsg = 'KI-System-Fallback deaktiviert'
+            } else if (err.message?.includes('429') || err.message?.includes('Quota')) {
+              errorMsg = 'API Quota überschritten. Bitte später versuchen.'
+            } else if (err.message?.includes('Model not found') || err.message?.includes('404')) {
+              errorMsg = 'Ausgewähltes KI-Modell nicht verfügbar.'
+            }
             
-            send(socket, { type: 'error', message: errorMsg })
+            send(socket, { type: 'error', message: errorMsg, details: techMsg })
 
             // On failure, ensure document stays in pending_analysis
             const db = getDb()

@@ -4,13 +4,13 @@ export type WsMessage =
   | { type: 'page_saved'; documentId: string; pageNumber: number; message: string }
   | { type: 'status'; message: string }
   | { type: 'result'; data: { documentId: string; docType: string; pages?: number; suggestedType?: string; content?: unknown; analysisStatus?: string; ocrProvider?: string; analysisError?: string | null } }
-  | { type: 'error'; message: string }
+  | { type: 'error'; message: string; details?: string }
 
 export interface UploadCallbacks {
   onStatus: (msg: string) => void
   onProgress?: (percent: number) => void
   onResult: (data: WsMessage & { type: 'result' }) => void
-  onError: (msg: string) => void
+  onError: (msg: string, details?: string) => void
   metadata?: { 
     allowedRoles?: string[]
     language?: string
@@ -91,9 +91,11 @@ export function uploadMultiPageDocument(
           }
 
           if (msg.type === 'error') {
-            callbacks.onError(msg.message)
+            callbacks.onError(msg.message, msg.details)
             if (ws) ws.close()
-            reject(new Error(msg.message))
+            const err = new Error(msg.message) as any
+            err.details = msg.details
+            reject(err)
           }
         } catch (err) {
           const errMsg = err instanceof Error ? err.message : 'Nachrichtenverarbeitungsfehler'

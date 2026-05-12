@@ -13,22 +13,52 @@ import { DEFAULT_AVAILABLE_MODELS, DEFAULT_MODEL_BY_PROVIDER, DOCUMENT_TYPE_OPTI
 type Phase = 'capture' | 'uploading' | 'analysing' | 'done' | 'error'
 
 function getAnalysisErrorMessage(rawError: unknown, fallback: string) {
-  if (!rawError) return fallback
-  if (typeof rawError === 'string') return rawError
-  if (rawError instanceof Error) return rawError.message || fallback
-  if (typeof rawError === 'object') {
-    const candidate = rawError as { response?: { data?: { error?: unknown } }, message?: string }
-    const nestedError = candidate.response?.data?.error
-    if (typeof nestedError === 'string') return nestedError
-    if (nestedError && typeof nestedError === 'object') {
-      const details = nestedError as { error_details?: string; error?: string; message?: string }
-      if (details.error_details) return details.error_details
-      if (details.error) return details.error
-      if (details.message) return details.message
-    }
-    if (candidate.message) return candidate.message
+  let userMessage = fallback
+  let techMessage = ''
+
+  if (!rawError) return { userMessage, techMessage }
+
+  if (typeof rawError === 'string') {
+    return { userMessage: rawError, techMessage: '' }
   }
-  return fallback
+
+  if (rawError instanceof Error) {
+    userMessage = rawError.message || fallback
+    const errAny = rawError as any
+    if (errAny.details) techMessage = errAny.details
+    if (errAny.response) {
+      // It's an axios error
+      const status = errAny.response.status
+      const data = errAny.response.data || {}
+      techMessage = `HTTP ${status}: ${JSON.stringify(data)}`
+      if (data.error && typeof data.error === 'string') userMessage = data.error
+      else if (data.message && typeof data.message === 'string') userMessage = data.message
+    }
+    return { userMessage, techMessage: techMessage || (rawError.stack ? String(rawError.stack) : '') }
+  }
+
+  if (typeof rawError === 'object' && rawError !== null) {
+    const candidate = rawError as any
+    const response = candidate.response
+    
+    if (response) {
+      const status = response.status
+      const data = response.data || {}
+      
+      techMessage = `HTTP ${status}: ${JSON.stringify(data)}`
+      
+      if (data.error && typeof data.error === 'string') {
+        userMessage = data.error
+      } else if (data.message && typeof data.message === 'string') {
+        userMessage = data.message
+      }
+    } else if (candidate.message) {
+      userMessage = candidate.message
+      techMessage = candidate.details || candidate.message
+    }
+  }
+
+  return { userMessage, techMessage }
 }
 export default function DocumentScanPage() {
   const { id: animalId } = useParams<{ id: string }>()
@@ -69,6 +99,7 @@ export default function DocumentScanPage() {
   const [ocrProvider, setOcrProvider] = useState<string | null>(null)
   const [currentStatusMsg, setCurrentStatusMsg] = useState<string | null>(null)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [techErrorMsg, setTechErrorMsg] = useState<string | null>(null)
   const [allowedRoles, setAllowedRoles] = useState<string[]>(['vet', 'authority', 'guest'])
   const [documentId, setDocumentId] = useState<string | null>(null)
   const [showModelSelection, setShowModelSelection] = useState(false)
@@ -493,7 +524,9 @@ export default function DocumentScanPage() {
         navigate(`/animals/${animalId}`, { replace: true })
       }
     } catch (err: any) {
-      setErrorMsg(getAnalysisErrorMessage(err, t('animal.documentFailed')))
+      const parsed = getAnalysisErrorMessage(err, t('animal.documentFailed'))
+      setErrorMsg(parsed.userMessage)
+      setTechErrorMsg(parsed.techMessage)
       setPhase('error')
     } finally {
       setIsAnalyzing(false)
@@ -542,12 +575,18 @@ export default function DocumentScanPage() {
               setDocumentId(nextDocumentId)
               setOcrProvider(data.data.ocrProvider || 'unknown')
               if (data.data.analysisStatus === 'pending_analysis') {
-                reject(new Error(data.data.analysisError || t('docScan.analyzeFailedRetry')))
+                const err = new Error(data.data.analysisError || t('docScan.analyzeFailedRetry')) as any
+                err.details = data.data.analysisError
+                reject(err)
                 return
               }
               resolve()
             },
-            onError: (msg: string) => reject(new Error(msg)),
+            onError: (msg: string, details?: string) => {
+              const err = new Error(msg) as any
+              err.details = details
+              reject(err)
+            },
             metadata: { 
               allowedRoles, 
               language: i18next.language || 'de', 
@@ -559,7 +598,9 @@ export default function DocumentScanPage() {
         })
       }
     } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : t('common.unknownError'))
+      const parsed = getAnalysisErrorMessage(err, t('common.unknownError'))
+      setErrorMsg(parsed.userMessage)
+      setTechErrorMsg(parsed.techMessage)
       setPhase('error')
       return
     }
@@ -866,6 +907,16 @@ export default function DocumentScanPage() {
                   </div>
                   <h3 style={{ marginBottom: 'var(--space-2)' }}>{t('docScan.analyzeFailed')}</h3>
                   <p className="text-muted" style={{ marginBottom: 'var(--space-4)' }}>{errorMsg || t('common.error')}</p>
+                  
+                  {techErrorMsg && (
+                    <div style={{ marginBottom: 'var(--space-4)', textAlign: 'left' }}>
+                      <p style={{ margin: '0 0 4px 0', fontSize: '11px', fontWeight: 600, color: 'var(--danger-600)' }}>Technical Details (Debugging):</p>
+                      <pre style={{ margin: 0, padding: 'var(--space-2)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: '10px', overflowX: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-all', color: 'var(--text-secondary)', maxHeight: '120px' }}>
+                        {techErrorMsg}
+                      </pre>
+                    </div>
+                  )}
+
                   <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
                     {hasAnyKey && (
                       <button className="btn btn-primary flex-1" onClick={() => { setRequestedDocumentType('general'); setShowModelSelection(true) }} type="button">
@@ -884,11 +935,21 @@ export default function DocumentScanPage() {
                   </div>
                   <h3 style={{ marginBottom: 'var(--space-2)' }}>{t('docScan.analyzeFailed')}</h3>
                   <p className="text-muted" style={{ marginBottom: 'var(--space-4)' }}>{errorMsg || t('common.error')}</p>
+                  
+                  {techErrorMsg && (
+                    <div style={{ marginBottom: 'var(--space-4)', textAlign: 'left' }}>
+                      <p style={{ margin: '0 0 4px 0', fontSize: '11px', fontWeight: 600, color: 'var(--danger-600)' }}>Technical Details (Debugging):</p>
+                      <pre style={{ margin: 0, padding: 'var(--space-2)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: '10px', overflowX: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-all', color: 'var(--text-secondary)', maxHeight: '120px' }}>
+                        {techErrorMsg}
+                      </pre>
+                    </div>
+                  )}
+
                   <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
                     <button className="btn btn-primary flex-1" onClick={() => navigate(`/animals/${animalId}`)} type="button">
                       {t('docScan.saveForLater')}
                     </button>
-                    <button className="btn btn-ghost flex-1" onClick={() => { setPhase('capture'); setErrorMsg(null); setGroups([{ pages: [], previews: [] }]); setActiveGroupIdx(0); setActivePageIdx(0) }} type="button">
+                    <button className="btn btn-ghost flex-1" onClick={() => { setPhase('capture'); setErrorMsg(null); setTechErrorMsg(null); setGroups([{ pages: [], previews: [] }]); setActiveGroupIdx(0); setActivePageIdx(0) }} type="button">
                       {t('docScan.retry')}
                     </button>
                   </div>
