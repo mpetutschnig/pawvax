@@ -81,9 +81,11 @@ PAW is a distributed system consisting of a React-based Progressive Web App (PWA
 
 ---
 
-## Directory Structure
+## Development Workflow Mandates
 
-- `pwa/`: Frontend source code.
+- **Version Bumping**: On every modification, update the `version` field in both `server/package.json` and `pwa/package.json` to the current timestamp in format `yyyyMMdd_HHmm`.
+- **Committing**: Always commit changes in the user's name without co-authoring. The commit message must include the version bump string (e.g., `versionbump 20260512_0655`).
+- **Pushing**: Always push the committed changes to the remote repository immediately after committing.
 - `server/`: Backend source code.
 - `documentation/`: Detailed architecture, API, and feature docs.
 - `podman/`: Container configuration files.

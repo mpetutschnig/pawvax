@@ -127,11 +127,18 @@ export async function runDocumentAnalysis(db, doc, accountId, options, log, reqI
 
   if (!Array.isArray(priority)) priority = ['system', 'google', 'anthropic', 'openai']
 
-  if (priority.includes('system')) {
+  const sysFallbackAllowed = (acc?.system_fallback_enabled ?? 1) === 1
+
+  if (sysFallbackAllowed || priority.includes('system')) {
     const sysKeys = await getSystemAiKeys(db)
     if (!userGeminiKey) userGeminiKey = sysKeys.geminiKey
     if (!userAnthropicKey) userAnthropicKey = sysKeys.anthropicKey
     if (!userOpenAiKey) userOpenAiKey = sysKeys.openaiKey
+    
+    // Also use system models if user has none and no model requested
+    if (!acc?.gemini_model && !requestedModel && sysKeys.geminiModel) userGeminiModel = sysKeys.geminiModel
+    if (!acc?.claude_model && !requestedModel && sysKeys.anthropicModel) userClaudeModel = sysKeys.anthropicModel
+    if (!acc?.openai_model && !requestedModel && sysKeys.openaiModel) userOpenAiModel = sysKeys.openaiModel
   }
 
   const pages = await getDocumentPages(db, docId)

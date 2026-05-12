@@ -154,11 +154,15 @@ export default async function wsDocumentUpload(fastify) {
             userPricePerPageCents = Number(settingsMap.billing_price_per_page ?? 0)
 
             // Inject system AI keys for providers where user has no own key
-            if (userPriority.includes('system') && userSystemFallbackEnabled) {
+            if (userSystemFallbackEnabled || userPriority.includes('system')) {
               const sysKeys = await getSystemAiKeys(db)
               if (!userGeminiKey) userGeminiKey = sysKeys.geminiKey
               if (!userAnthropicKey) userAnthropicKey = sysKeys.anthropicKey
               if (!userOpenAiKey) userOpenAiKey = sysKeys.openaiKey
+
+              if (!acc?.gemini_model && sysKeys.geminiModel) userGeminiModel = sysKeys.geminiModel
+              if (!acc?.claude_model && sysKeys.anthropicModel) userClaudeModel = sysKeys.anthropicModel
+              if (!acc?.openai_model && sysKeys.openaiModel) userOpenAiModel = sysKeys.openaiModel
             }
           } catch { /* settings unavailable */ }
           authenticated = true
@@ -267,6 +271,11 @@ export default async function wsDocumentUpload(fastify) {
               INSERT INTO document_pages (document_id, page_number, image_path)
               VALUES ($1, $2, $3)
             `, [uploadState.documentId, uploadState.pageNumber, imagePath])
+
+            // Update main document thumbnail if it's the first page
+            if (uploadState.pageNumber === 1) {
+              await db.query('UPDATE documents SET image_path = $1 WHERE id = $2', [imagePath, uploadState.documentId])
+            }
 
             if (msg.is_last !== true) {
               send(socket, { type: 'page_saved', documentId: uploadState.documentId, pageNumber: uploadState.pageNumber, message: `Seite ${uploadState.pageNumber} gespeichert.` })
