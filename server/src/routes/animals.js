@@ -1,3 +1,55 @@
+import {
+  findAnimalByTagIdAndActive,
+  findOwnAnimalByTagIdAndActive,
+  findAnimalWithOwnerByTagIdAndActive,
+  insertAnimalSharing,
+  insertAnimalSharingFallback,
+  updateAnimalSharing,
+  findAnimalDocumentsWithUploader,
+  findDocumentPages,
+  findPublicShareById,
+  findAnimalByIdWithOwner,
+  findAnimalSharingByRole,
+  findTagByTagId,
+  findTagByTagIdCaseInsensitive,
+  createAnimalWithTagTransaction,
+  findAnimalById,
+  findAnimalByIdAndAccount,
+  updateAnimal,
+  findAnimalArchiveState,
+  updateAnimalArchiveState,
+  unarchiveAnimal,
+  deleteAnimalTransaction,
+  findAnimalsByAccount,
+  getAnimalStats,
+  findTagsByAnimalId,
+  findAnimalBasicInfo,
+  findAnimalBasicInfoAndArchive,
+  findAccountRoleAndVerified,
+  insertAnimalTag,
+  findTagWithAccount,
+  updateTagActiveState,
+  findTagById,
+  deleteAnimalTag,
+  findAllSharingForAnimal,
+  insertAnimalPublicShare,
+  findActivePublicShares,
+  findAnimalPublicShare,
+  updatePublicShareExpiresAt,
+  deleteAnimalTransfers,
+  insertAnimalTransfer,
+  findAnimalTransferByCode,
+  deleteAnimalTransferByCode,
+  updateAnimalOwner,
+  updateAnimalAvatar,
+  findRecentlyScannedAnimals,
+  findAnimalOwner,
+  findRecentScans,
+  insertAnimalScan,
+  findScanHistoryLimit1,
+  insertDocument
+} from '../db/repositories/animalRepository.js'
+
 import { v4 as uuid } from 'uuid'
 import { getDb } from '../db/index.js'
 import { logAudit } from '../services/audit.js'
@@ -24,13 +76,7 @@ export default async function animalRoutes(fastify) {
     const originalTagId = req.params.tagId
     const tagId = normalizeTagId(originalTagId)
 
-    let { rows: [row] } = await db.query(`
-      SELECT a.*, ac.name AS owner_name
-      FROM animals a
-      JOIN animal_tags t ON t.animal_id = a.id
-      JOIN accounts ac ON ac.id = a.account_id
-      WHERE (t.tag_id = $1 OR UPPER(REPLACE(t.tag_id, ':', '')) = $1) AND t.active = 1
-    `, [tagId])
+    let row = await findAnimalByTagIdAndActive(db, tagId)
 
     if (!row) return reply.code(404).send({ error: 'Tag nicht gefunden' })
 
@@ -55,9 +101,7 @@ export default async function animalRoutes(fastify) {
     // Wenn immer noch kein sharing existiert, create es jetzt
     if (!sharing) {
       try {
-        await db.query(`INSERT INTO animal_sharing (id, animal_id, role, share_contact, share_breed, share_birthdate, share_address, share_dynamic_fields)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-          [uuid(), row.id, publicRole, 0, 1, 1, 0, 0])
+        await insertAnimalSharingFallback(db, uuid(), row.id, publicRole, 0, 1, 1, 0, 0)
         sharing = await getSharingForRole(db, row.id, publicRole)
       } catch (err) {
         fastify.log.warn({ err: err?.message, animalId: row.id, role: publicRole }, 'public sharing fallback insert failed')
@@ -79,13 +123,7 @@ export default async function animalRoutes(fastify) {
     if (sharing.share_contact) result.contact = { name: row.owner_name }
     if (sharing.share_address) result.address = row.address
 
-    const { rows: docs } = await db.query(`
-      SELECT d.*, uploader.name AS added_by_name, uploader.verified AS added_by_verified
-      FROM documents d
-      LEFT JOIN accounts uploader ON uploader.id = d.added_by_account
-      WHERE d.animal_id = $1
-      ORDER BY d.created_at DESC
-    `, [row.id])
+    const docs = await findAnimalDocumentsWithUploader(db, row.id)
 
     result.documents = docs.filter(d => {
       if (d.allowed_roles && !parseAllowedRoles(d.allowed_roles)) {
@@ -97,7 +135,7 @@ export default async function animalRoutes(fastify) {
     for (const d of result.documents) {
       try { d.extracted_json = JSON.parse(d.extracted_json) } catch { d.extracted_json = {} }
       try { d.record_permissions = d.record_permissions ? JSON.parse(d.record_permissions) : {} } catch { d.record_permissions = {} }
-      const { rows: pages } = await db.query('SELECT image_path FROM document_pages WHERE document_id = $1 ORDER BY id ASC', [d.id])
+      const pages = await findDocumentPages(db, d.id)
       d.pages = pages.map(p => p.image_path)
     }
 
@@ -108,19 +146,14 @@ export default async function animalRoutes(fastify) {
     const db = getDb()
     const { shareId } = req.params
 
-    const { rows: [share] } = await db.query('SELECT * FROM animal_public_shares WHERE id = $1', [shareId])
+    const share = await findPublicShareById(db, shareId)
     if (!share) return reply.code(404).send({ error: 'Freigabe nicht gefunden' })
 
     if (share.expires_at < Math.floor(Date.now() / 1000)) {
       return reply.code(410).send({ error: 'Diese Freigabe ist abgelaufen' })
     }
 
-    const { rows: [animal] } = await db.query(`
-      SELECT a.*, ac.name AS owner_name, ac.email AS owner_email
-      FROM animals a
-      JOIN accounts ac ON a.account_id = ac.id
-      WHERE a.id = $1
-    `, [share.animal_id])
+    const animal = await findAnimalByIdWithOwner(db, share.animal_id)
 
     if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden' })
 
@@ -128,11 +161,9 @@ export default async function animalRoutes(fastify) {
 
     // Verify guest sharing exists, create if missing
     const publicRole = getPublicSharingRole()
-    const { rows: [guestSharing] } = await db.query('SELECT * FROM animal_sharing WHERE animal_id = $1 AND role = $2', [animal.id, publicRole])
+    const guestSharing = await findAnimalSharingByRole(db, animal.id, publicRole)
     if (!guestSharing) {
-      await db.query(`INSERT INTO animal_sharing (id, animal_id, role, share_contact, share_breed, share_birthdate, share_address, share_dynamic_fields)
-                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-        [uuid(), animal.id, publicRole, 0, 1, 1, 0, 0])
+      await insertAnimalSharingFallback(db, uuid(), animal.id, publicRole, 0, 1, 1, 0, 0)
     }
 
     // Optional JWT für rollenbasierte Dokumentsichtbarkeit
@@ -170,11 +201,7 @@ export default async function animalRoutes(fastify) {
     const { accountId, role, roles, verified } = req.user
 
     // Eigenes Tier?
-    let { rows: [ownRow] } = await db.query(`
-      SELECT a.* FROM animals a
-      JOIN animal_tags t ON t.animal_id = a.id
-      WHERE (t.tag_id = $1 OR UPPER(REPLACE(t.tag_id, ':', '')) = $1) AND t.active = 1 AND a.account_id = $2
-    `, [tagId, accountId])
+    let ownRow = await findOwnAnimalByTagIdAndActive(db, tagId, accountId)
 
     if (ownRow) {
       ownRow.is_owner = true
@@ -185,13 +212,7 @@ export default async function animalRoutes(fastify) {
     const userRoles = (role || '').split(',').map(r => r.trim())
     const requestRole = userRoles.includes('vet') ? 'vet' : userRoles.includes('authority') ? 'authority' : 'guest'
 
-    let { rows: [row] } = await db.query(`
-      SELECT a.*, ac.name AS owner_name, ac.email AS owner_email
-      FROM animals a
-      JOIN animal_tags t ON t.animal_id = a.id
-      JOIN accounts ac ON ac.id = a.account_id
-      WHERE (t.tag_id = $1 OR UPPER(REPLACE(t.tag_id, ':', '')) = $1) AND t.active = 1
-    `, [tagId])
+    let row = await findAnimalWithOwnerByTagIdAndActive(db, tagId)
 
     if (!row) return reply.code(404).send({ error: 'Tag nicht gefunden' })
 
@@ -233,37 +254,17 @@ export default async function animalRoutes(fastify) {
     const animalId = uuid()
 
     if (tagId) {
-      const { rows: [existingTag] } = await db.query('SELECT animal_id FROM animal_tags WHERE tag_id = $1', [tagId])
+      const existingTag = await findTagByTagId(db, tagId)
       if (existingTag) {
         return reply.code(409).send({ error: 'Tag bereits vergeben', conflict: { animalId: existingTag.animal_id } })
       }
     }
 
-    const client = await db.connect()
-    try {
-      await client.query('BEGIN')
-
-      await client.query('INSERT INTO animals (id, account_id, name, species, breed, pedigree_name, birthdate, address) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
-        [animalId, accountId, name, species, breed ?? null, pedigree_name ?? null, birthdate ?? null, address ?? null])
-
-      if (tagId && tagType) {
-        await client.query('INSERT INTO animal_tags (tag_id, animal_id, tag_type) VALUES ($1, $2, $3)',
-          [tagId, animalId, tagType])
-      }
-
-      await ensureDefaultSharing(client, animalId)
-
-      await client.query('COMMIT')
-    } catch (e) {
-      await client.query('ROLLBACK')
-      throw e
-    } finally {
-      client.release()
-    }
+    await createAnimalWithTagTransaction(db, animalId, accountId, name, species, breed, pedigree_name, birthdate, address, tagId, tagType, ensureDefaultSharing)
 
     await logAudit(db, { accountId, role, action: 'create_animal', resource: 'animal', resourceId: animalId, ip: req.ip })
 
-    const { rows: [animal] } = await db.query('SELECT * FROM animals WHERE id = $1', [animalId])
+    const animal = await findAnimalById(db, animalId)
     return reply.code(201).send(animal)
   })
 
@@ -273,12 +274,7 @@ export default async function animalRoutes(fastify) {
     const { id } = req.params
     const { accountId, role, roles, verified } = req.user
 
-    const { rows: [animal] } = await db.query(`
-      SELECT a.*, ac.name AS owner_name, ac.email AS owner_email 
-      FROM animals a
-      JOIN accounts ac ON a.account_id = ac.id
-      WHERE a.id = $1
-    `, [id])
+    const animal = await findAnimalByIdWithOwner(db, id)
 
     if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden' })
 
@@ -319,7 +315,7 @@ export default async function animalRoutes(fastify) {
     const { id } = req.params
     const { accountId, role } = req.user
 
-    const { rows: [animal] } = await db.query('SELECT * FROM animals WHERE id = $1 AND account_id = $2', [id, accountId])
+    const animal = await findAnimalByIdAndAccount(db, id, accountId)
     if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden' })
 
     if (animal.is_archived) return reply.code(403).send({ error: 'Archivierte Tiere können nicht bearbeitet werden.' })
@@ -333,13 +329,12 @@ export default async function animalRoutes(fastify) {
       avatarPath = saveBase64Image(filename, req.body.avatar_base64)
     }
 
-    await db.query('UPDATE animals SET name=$1, species=$2, breed=$3, pedigree_name=$4, birthdate=$5, address=$6, dynamic_fields=$7, avatar_path=$8 WHERE id=$9',
-      [updated.name, updated.species, updated.breed, updated.pedigree_name ?? animal.pedigree_name ?? null, updated.birthdate, updated.address, updated.dynamic_fields ?? animal.dynamic_fields, avatarPath, id])
+    await updateAnimal(db, updated.name, updated.species, updated.breed, updated.pedigree_name ?? animal.pedigree_name ?? null, updated.birthdate, updated.address, updated.dynamic_fields ?? animal.dynamic_fields, avatarPath, id)
 
     await logAudit(db, { accountId, role, action: 'update_animal', resource: 'animal', resourceId: id,
       details: { before: animal, after: updated }, ip: req.ip })
 
-    const { rows: [result] } = await db.query('SELECT * FROM animals WHERE id = $1', [id])
+    const result = await findAnimalById(db, id)
     return result
   })
 
@@ -363,7 +358,7 @@ export default async function animalRoutes(fastify) {
     const { accountId, role } = req.user
     const { is_archived, archive_reason } = req.body || {}
 
-    const { rows: [animal] } = await db.query('SELECT id, is_archived FROM animals WHERE id = $1 AND account_id = $2', [id, accountId])
+    const animal = await findAnimalArchiveState(db, id, accountId)
     if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden oder keine Berechtigung' })
 
     // Determine new state: toggle if is_archived undefined, otherwise use provided value
@@ -381,8 +376,7 @@ export default async function animalRoutes(fastify) {
     }
 
     const now = new Date().toISOString()
-    await db.query('UPDATE animals SET is_archived = $1, archive_reason = $2, archived_at = $3 WHERE id = $4',
-      [newState ? 1 : 0, newState ? archive_reason : null, newState ? now : null, id])
+    await updateAnimalArchiveState(db, newState ? 1 : 0, newState ? archive_reason : null, newState ? now : null, id)
 
     const action = newState ? 'archive_animal' : 'unarchive_animal'
     await logAudit(db, {
@@ -404,11 +398,11 @@ export default async function animalRoutes(fastify) {
     const { id } = req.params
     const { accountId, role } = req.user
 
-    const { rows: [animal] } = await db.query('SELECT id, is_archived FROM animals WHERE id = $1 AND account_id = $2', [id, accountId])
+    const animal = await findAnimalArchiveState(db, id, accountId)
     if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden oder keine Berechtigung' })
     if (!animal.is_archived) return reply.code(400).send({ error: 'Tier ist nicht archiviert' })
 
-    await db.query('UPDATE animals SET is_archived = 0, archive_reason = NULL, archived_at = NULL WHERE id = $1', [id])
+    await unarchiveAnimal(db, id)
 
     await logAudit(db, {
       accountId,
@@ -429,7 +423,7 @@ export default async function animalRoutes(fastify) {
     const { accountId, role } = req.user
     const { confirmationText } = req.body || {}
 
-    const { rows: [animal] } = await db.query('SELECT * FROM animals WHERE id = $1 AND account_id = $2', [id, accountId])
+    const animal = await findAnimalByIdAndAccount(db, id, accountId)
     if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden' })
 
     // Sicherheitsabfrage: Namen oder Geburtsdatum muss eingegeben werden
@@ -440,12 +434,7 @@ export default async function animalRoutes(fastify) {
       return reply.code(400).send({ error: 'Sicherheitsbestätigung erforderlich: Gib den Namen oder das Geburtsdatum des Tieres ein' })
     }
 
-    await db.query('DELETE FROM document_pages WHERE document_id IN (SELECT id FROM documents WHERE animal_id = $1)', [id])
-    await db.query('DELETE FROM documents WHERE animal_id = $1', [id])
-    await db.query('DELETE FROM animal_tags WHERE animal_id = $1', [id])
-    await db.query('DELETE FROM animal_sharing WHERE animal_id = $1', [id])
-    await db.query('DELETE FROM animal_public_shares WHERE animal_id = $1', [id])
-    await db.query('DELETE FROM animals WHERE id = $1', [id])
+    await deleteAnimalTransaction(db, id)
 
     await logAudit(db, { accountId, role, action: 'delete_animal', resource: 'animal', resourceId: id,
       details: animal, ip: req.ip })
@@ -456,7 +445,7 @@ export default async function animalRoutes(fastify) {
   // Alle Tiere des Kontos
   fastify.get('/api/animals', async (req) => {
     const db = getDb()
-    const { rows } = await db.query('SELECT * FROM animals WHERE account_id = $1 ORDER BY is_archived ASC, name ASC', [req.user.accountId])
+    const rows = await findAnimalsByAccount(db, req.user.accountId)
     return rows
   })
 
@@ -464,15 +453,7 @@ export default async function animalRoutes(fastify) {
   fastify.get('/api/animals/stats', async (req) => {
     const db = getDb()
     const { accountId } = req.user
-    const { rows: [{ cnt: total }] } = await db.query('SELECT COUNT(*) as cnt FROM animals WHERE account_id = $1', [accountId])
-    const { rows: [{ cnt: active }] } = await db.query('SELECT COUNT(*) as cnt FROM animals WHERE account_id = $1 AND is_archived = 0', [accountId])
-    const { rows: [{ cnt: archived }] } = await db.query('SELECT COUNT(*) as cnt FROM animals WHERE account_id = $1 AND is_archived = 1', [accountId])
-    const { rows: [{ cnt: with_docs }] } = await db.query(`
-      SELECT COUNT(DISTINCT a.id) as cnt FROM animals a
-      JOIN documents d ON d.animal_id = a.id
-      WHERE a.account_id = $1
-    `, [accountId])
-    return { total, active, archived, with_documents: with_docs }
+    return await getAnimalStats(db, accountId)
   })
 
   // Dokumentliste eines Tieres (mit Rollenfilter)
@@ -486,7 +467,7 @@ export default async function animalRoutes(fastify) {
     const { accountId, role, roles, verified } = req.user
     const { id } = req.params
 
-    const { rows: [animal] } = await db.query('SELECT * FROM animals WHERE id = $1', [id])
+    const animal = await findAnimalById(db, id)
     if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden' })
 
     const parseDocs = (docs) => docs.map(d => {
@@ -497,13 +478,7 @@ export default async function animalRoutes(fastify) {
 
     // Eigentümer: voller Zugriff
     if (animal.account_id === accountId) {
-      const { rows } = await db.query(`
-        SELECT d.*, uploader.name AS added_by_name, uploader.verified AS added_by_verified 
-        FROM documents d
-        LEFT JOIN accounts uploader ON uploader.id = d.added_by_account
-        WHERE d.animal_id = $1 
-        ORDER BY d.created_at DESC
-      `, [id])
+      const rows = await findAnimalDocumentsWithUploader(db, id)
       return parseDocs(rows)
     }
 
@@ -516,13 +491,7 @@ export default async function animalRoutes(fastify) {
 
     if (!sharing) return []
 
-    const { rows: docs } = await db.query(`
-      SELECT d.*, uploader.name AS added_by_name, uploader.verified AS added_by_verified
-      FROM documents d
-      LEFT JOIN accounts uploader ON uploader.id = d.added_by_account
-      WHERE d.animal_id = $1 
-      ORDER BY d.created_at DESC
-    `, [id])
+    const docs = await findAnimalDocumentsWithUploader(db, id)
 
     return parseDocs(docs.filter(d => {
       return canRoleSeeDocument(d.allowed_roles, requestRole)
@@ -532,10 +501,10 @@ export default async function animalRoutes(fastify) {
   // Tag-Liste eines Tieres
   fastify.get('/api/animals/:id/tags', async (req, reply) => {
     const db = getDb()
-    const { rows: [animal] } = await db.query('SELECT id FROM animals WHERE id = $1', [req.params.id])
+    const animal = await findAnimalBasicInfo(db, req.params.id)
     if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden' })
 
-    const { rows } = await db.query('SELECT * FROM animal_tags WHERE animal_id = $1 ORDER BY added_at DESC', [req.params.id])
+    const rows = await findTagsByAnimalId(db, req.params.id)
     return rows
   })
 
@@ -561,33 +530,29 @@ export default async function animalRoutes(fastify) {
     const userRoles = (role || '').split(',').map(r => r.trim())
     const isVet = userRoles.includes('vet')
 
-    const { rows: [animal] } = await db.query('SELECT id, account_id, is_archived FROM animals WHERE id = $1', [id])
+    const animal = await findAnimalBasicInfoAndArchive(db, id)
     if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden' })
     if (animal.is_archived) return reply.code(403).send({ error: 'Tags können nicht zu archivierten Tieren hinzugefügt werden.' })
 
     if (animal.account_id !== accountId) {
       // Zero-Trust: Live-Check der DB, nicht nur des JWT
-      const { rows: [liveUser] } = await db.query('SELECT role, verified FROM accounts WHERE id = $1', [accountId])
+      const liveUser = await findAccountRoleAndVerified(db, accountId)
       const liveRoles = (liveUser.role || '').split(',').map(r => r.trim())
       if (!liveRoles.includes('vet') || !liveUser.verified) {
         return reply.code(403).send({ error: 'Nur verifizierte Tierärzte dürfen Tags zu fremden Tieren hinzufügen.' })
       }
     }
 
-    const { rows: [existing] } = await db.query(`
-      SELECT animal_id FROM animal_tags 
-      WHERE tag_id = $1 OR UPPER(REPLACE(tag_id, ':', '')) = $1
-    `, [tagId])
+    const existing = await findTagByTagIdCaseInsensitive(db, tagId)
     if (existing) {
       return reply.code(409).send({ error: 'Tag bereits vergeben', conflict: { animalId: existing.animal_id } })
     }
 
-    await db.query('INSERT INTO animal_tags (tag_id, animal_id, tag_type) VALUES ($1, $2, $3)',
-      [tagId, id, tagType])
+    await insertAnimalTag(db, tagId, id, tagType)
 
     await logAudit(db, { accountId, role, action: 'add_tag', resource: 'tag', resourceId: tagId, ip: req.ip })
 
-    const { rows: [newTag] } = await db.query('SELECT * FROM animal_tags WHERE tag_id = $1', [tagId])
+    const newTag = await findTagById(db, tagId)
     return reply.code(201).send(newTag)
   })
 
@@ -600,11 +565,7 @@ export default async function animalRoutes(fastify) {
     const userRoles = (role || '').split(',').map(r => r.trim())
     const isVet = userRoles.includes('vet')
 
-    const { rows: [row] } = await db.query(`
-      SELECT t.tag_id, a.account_id FROM animal_tags t
-      JOIN animals a ON a.id = t.animal_id
-      WHERE t.tag_id = $1
-    `, [tagId])
+    const row = await findTagWithAccount(db, tagId)
 
     if (!row) return reply.code(404).send({ error: 'Tag nicht gefunden' })
     if (row.account_id !== accountId && !isVet) {
@@ -612,12 +573,11 @@ export default async function animalRoutes(fastify) {
     }
 
     const { active } = req.body ?? {}
-    await db.query('UPDATE animal_tags SET active = $1 WHERE tag_id = $2',
-      [active === true ? 1 : 0, tagId])
+    await updateTagActiveState(db, active === true ? 1 : 0, tagId)
 
     await logAudit(db, { accountId, role, action: active ? 'activate_tag' : 'deactivate_tag', resource: 'tag', resourceId: tagId, ip: req.ip })
 
-    const { rows: [updatedTag] } = await db.query('SELECT * FROM animal_tags WHERE tag_id = $1', [tagId])
+    const updatedTag = await findTagById(db, tagId)
     return updatedTag
   })
 
@@ -626,16 +586,12 @@ export default async function animalRoutes(fastify) {
     const { tagId } = req.params
     const { accountId, role } = req.user
 
-    const { rows: [row] } = await db.query(`
-      SELECT t.tag_id, a.account_id FROM animal_tags t
-      JOIN animals a ON a.id = t.animal_id
-      WHERE t.tag_id = $1
-    `, [tagId])
+    const row = await findTagWithAccount(db, tagId)
 
     if (!row) return reply.code(404).send({ error: 'Tag nicht gefunden' })
     if (row.account_id !== accountId) return reply.code(403).send({ error: 'Keine Berechtigung' })
 
-    await db.query('DELETE FROM animal_tags WHERE tag_id = $1', [tagId])
+    await deleteAnimalTag(db, tagId)
     await logAudit(db, { accountId, role, action: 'delete_tag', resource: 'tag', resourceId: tagId, ip: req.ip })
 
     return { success: true }
@@ -644,12 +600,11 @@ export default async function animalRoutes(fastify) {
   // Freigabe-Einstellungen lesen
   fastify.get('/api/animals/:id/sharing', async (req, reply) => {
     const db = getDb()
-    const { rows: [animal] } = await db.query('SELECT id FROM animals WHERE id = $1 AND account_id = $2',
-      [req.params.id, req.user.accountId])
+    const animal = await findAnimalByIdAndAccount(db, req.params.id, req.user.accountId)
     if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden' })
 
     await ensureDefaultSharing(db, req.params.id)
-    const { rows: sharingRows } = await db.query('SELECT * FROM animal_sharing WHERE animal_id = $1 ORDER BY role', [req.params.id])
+    const sharingRows = await findAllSharingForAnimal(db, req.params.id)
     return sharingRows.map(row => ({ ...row, role: normalizeRole(row.role) }))
   })
 
@@ -675,13 +630,13 @@ export default async function animalRoutes(fastify) {
     const { id } = req.params
     const { accountId, role: userRole } = req.user
 
-    const { rows: [animal] } = await db.query('SELECT id FROM animals WHERE id = $1 AND account_id = $2', [id, accountId])
+    const animal = await findAnimalByIdAndAccount(db, id, accountId)
     if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden' })
 
     const { role, share_contact, share_breed, share_birthdate, share_address, share_dynamic_fields, share_raw_images } = req.body
     const targetRole = normalizeRole(role)
 
-    const { rows: [existing] } = await db.query('SELECT * FROM animal_sharing WHERE animal_id = $1 AND role = $2', [id, targetRole])
+    const existing = await findAnimalSharingByRole(db, id, targetRole)
 
     if (existing) {
       const merged = {
@@ -692,20 +647,15 @@ export default async function animalRoutes(fastify) {
         df: share_dynamic_fields ?? existing.share_dynamic_fields,
         ri: share_raw_images ?? existing.share_raw_images ?? 0,
       }
-      await db.query(`UPDATE animal_sharing SET share_contact=$1, share_breed=$2, share_birthdate=$3, share_address=$4, share_dynamic_fields=$5, share_raw_images=$6
-                  WHERE animal_id=$7 AND role=$8`,
-        [merged.c, merged.b, merged.d, merged.a, merged.df, merged.ri, id, targetRole])
+      await updateAnimalSharing(db, merged.c, merged.b, merged.d, merged.a, merged.df, merged.ri, id, targetRole)
     } else {
-      await db.query(`INSERT INTO animal_sharing (id, animal_id, role, share_contact, share_breed, share_birthdate, share_address, share_dynamic_fields, share_raw_images)
-                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-        [uuid(), id, targetRole,
-          share_contact ?? 0, share_breed ?? 1, share_birthdate ?? 1, share_address ?? 0, share_dynamic_fields ?? 0, share_raw_images ?? 0])
+      await insertAnimalSharing(db, uuid(), id, targetRole, share_contact ?? 0, share_breed ?? 1, share_birthdate ?? 1, share_address ?? 0, share_dynamic_fields ?? 0, share_raw_images ?? 0)
     }
 
     await logAudit(db, { accountId, role: userRole, action: 'update_sharing', resource: 'sharing', resourceId: id,
       details: req.body, ip: req.ip })
 
-    const { rows: [updatedRow] } = await db.query('SELECT * FROM animal_sharing WHERE animal_id = $1 AND role = $2', [id, targetRole])
+    const updatedRow = await findAnimalSharingByRole(db, id, targetRole)
     return updatedRow ? { ...updatedRow, role: normalizeRole(updatedRow.role) } : updatedRow
   })
 
@@ -719,7 +669,7 @@ export default async function animalRoutes(fastify) {
     const validRoles = ['guest', 'vet', 'authority']
     const allowedRole = validRoles.includes(allowedRoleRaw) ? allowedRoleRaw : 'guest'
 
-    const { rows: [animal] } = await db.query('SELECT id FROM animals WHERE id = $1 AND account_id = $2', [id, accountId])
+    const animal = await findAnimalByIdAndAccount(db, id, accountId)
     if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden oder keine Berechtigung' })
 
     const shareId = uuid()
@@ -727,8 +677,7 @@ export default async function animalRoutes(fastify) {
     const expiresAt = new Date()
     expiresAt.setDate(expiresAt.getDate() + 14) // 14 Tage gültig
 
-    await db.query('INSERT INTO animal_public_shares (id, animal_id, link_name, expires_at, allowed_role) VALUES ($1, $2, $3, $4, $5)',
-      [shareId, id, linkName, Math.floor(expiresAt.getTime() / 1000), allowedRole])
+    await insertAnimalPublicShare(db, shareId, id, linkName, Math.floor(expiresAt.getTime() / 1000), allowedRole)
 
     await logAudit(db, { accountId, role, action: 'create_temp_share', resource: 'sharing', resourceId: id, ip: req.ip })
 
@@ -742,16 +691,11 @@ export default async function animalRoutes(fastify) {
     const { accountId } = req.user
 
     // Verify ownership
-    const { rows: [animal] } = await db.query('SELECT id FROM animals WHERE id = $1 AND account_id = $2', [id, accountId])
+    const animal = await findAnimalByIdAndAccount(db, id, accountId)
     if (!animal) return reply.code(403).send({ error: 'Keine Berechtigung' })
 
     const now = Math.floor(Date.now() / 1000)
-    const { rows: shares } = await db.query(`
-      SELECT id, link_name, created_at, expires_at, allowed_role, (expires_at - $1) as seconds_remaining
-      FROM animal_public_shares
-      WHERE animal_id = $2 AND expires_at > $3
-      ORDER BY created_at DESC
-    `, [now, id, now])
+    const shares = await findActivePublicShares(db, id, now)
 
     return reply.code(200).send(shares.map(s => ({
       id: s.id,
@@ -771,16 +715,16 @@ export default async function animalRoutes(fastify) {
     const { accountId, role } = req.user
 
     // Verify ownership
-    const { rows: [animal] } = await db.query('SELECT id FROM animals WHERE id = $1 AND account_id = $2', [id, accountId])
+    const animal = await findAnimalByIdAndAccount(db, id, accountId)
     if (!animal) return reply.code(403).send({ error: 'Keine Berechtigung' })
 
     // Verify share belongs to this animal
-    const { rows: [share] } = await db.query('SELECT id FROM animal_public_shares WHERE id = $1 AND animal_id = $2', [shareId, id])
+    const share = await findAnimalPublicShare(db, shareId, id)
     if (!share) return reply.code(404).send({ error: 'Sharing-Link nicht gefunden' })
 
     // Soft delete: set expires_at to now
     const now = Math.floor(Date.now() / 1000)
-    await db.query('UPDATE animal_public_shares SET expires_at = $1 WHERE id = $2', [now, shareId])
+    await updatePublicShareExpiresAt(db, now, shareId)
 
     await logAudit(db, { accountId, role, action: 'revoke_share', resource: 'sharing', resourceId: shareId,
       details: { animal_id: id },
@@ -794,16 +738,16 @@ export default async function animalRoutes(fastify) {
     const { id } = req.params
     const { accountId, role } = req.user
 
-    const { rows: [animal] } = await db.query('SELECT id FROM animals WHERE id = $1 AND account_id = $2', [id, accountId])
+    const animal = await findAnimalByIdAndAccount(db, id, accountId)
     if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden oder keine Berechtigung' })
 
-    await db.query('DELETE FROM animal_transfers WHERE animal_id = $1', [id])
+    await deleteAnimalTransfers(db, id)
 
     const code = Math.random().toString().substring(2, 8) // 6 Ziffern
     const expiresAt = new Date()
     expiresAt.setHours(expiresAt.getHours() + 24) // 24 Stunden gültig
 
-    await db.query('INSERT INTO animal_transfers (code, animal_id, expires_at) VALUES ($1, $2, $3)', [code, id, expiresAt.toISOString()])
+    await insertAnimalTransfer(db, code, id, expiresAt.toISOString())
     await logAudit(db, { accountId, role, action: 'create_transfer_code', resource: 'animal', resourceId: id, ip: req.ip })
 
     return reply.code(201).send({ code })
@@ -817,15 +761,15 @@ export default async function animalRoutes(fastify) {
     const { code } = req.body
     const { accountId, role } = req.user
 
-    const { rows: [transfer] } = await db.query('SELECT * FROM animal_transfers WHERE code = $1', [code])
+    const transfer = await findAnimalTransferByCode(db, code)
     if (!transfer) return reply.code(404).send({ error: 'Ungültiger oder abgelaufener Code' })
     if (new Date(transfer.expires_at) < new Date()) {
-      await db.query('DELETE FROM animal_transfers WHERE code = $1', [code])
+      await deleteAnimalTransferByCode(db, code)
       return reply.code(400).send({ error: 'Dieser Code ist abgelaufen' })
     }
 
-    await db.query('UPDATE animals SET account_id = $1 WHERE id = $2', [accountId, transfer.animal_id])
-    await db.query('DELETE FROM animal_transfers WHERE animal_id = $1', [transfer.animal_id])
+    await updateAnimalOwner(db, accountId, transfer.animal_id)
+    await deleteAnimalTransfers(db, transfer.animal_id)
     await logAudit(db, { accountId, role, action: 'accept_transfer', resource: 'animal', resourceId: transfer.animal_id, ip: req.ip })
     return { success: true, animalId: transfer.animal_id }
   })
@@ -838,7 +782,7 @@ export default async function animalRoutes(fastify) {
     const imageData = base64Image || image
     const { accountId, role } = req.user
 
-    const { rows: [animal] } = await db.query('SELECT * FROM animals WHERE id = $1 AND account_id = $2', [id, accountId])
+    const animal = await findAnimalByIdAndAccount(db, id, accountId)
     if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden' })
 
     if (animal.is_archived) return reply.code(403).send({ error: 'Avatar kann für archivierte Tiere nicht geändert werden.' })
@@ -849,7 +793,7 @@ export default async function animalRoutes(fastify) {
       const filename = `avatar_${id}_${Date.now()}.webp`
       const filepath = await saveAvatarImage(filename, imageData)
 
-      await db.query('UPDATE animals SET avatar_path = $1 WHERE id = $2', [filepath, id])
+      await updateAnimalAvatar(db, filepath, id)
 
       await logAudit(db, {
         accountId, role, action: 'upload_avatar', resource: 'animal', resourceId: id,
@@ -871,13 +815,7 @@ export default async function animalRoutes(fastify) {
     const db = getDb()
     const { accountId } = req.user
 
-    const { rows: scans } = await db.query(`
-      SELECT DISTINCT ON (a.id) a.*, ast.scanned_at
-      FROM animal_scans ast
-      JOIN animals a ON a.id = ast.animal_id
-      WHERE ast.account_id = $1 AND a.account_id != $1
-      ORDER BY a.id, ast.scanned_at DESC
-    `, [accountId])
+    const scans = await findRecentlyScannedAnimals(db, accountId)
     scans.sort((a, b) => new Date(b.scanned_at).getTime() - new Date(a.scanned_at).getTime())
 
     return { scans, recent_count: scans.length }
@@ -889,7 +827,7 @@ export default async function animalRoutes(fastify) {
     const { id } = req.params
     const { accountId, role } = req.user
 
-    const { rows: [animal] } = await db.query('SELECT account_id FROM animals WHERE id = $1', [id])
+    const animal = await findAnimalOwner(db, id)
     if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden' })
 
     // Only owner can see recent scans
@@ -899,13 +837,7 @@ export default async function animalRoutes(fastify) {
 
     // Get scans from last 12 hours
     const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString()
-    const { rows: scans } = await db.query(`
-      SELECT ast.id, ast.animal_id, ast.account_id, ast.scanned_at, a.name as scanner_name
-      FROM animal_scans ast
-      JOIN accounts a ON a.id = ast.account_id
-      WHERE ast.animal_id = $1 AND ast.scanned_at > $2
-      ORDER BY ast.scanned_at DESC
-    `, [id, twelveHoursAgo])
+    const scans = await findRecentScans(db, id, twelveHoursAgo)
 
     return { scans, animal_id: id }
   })
@@ -916,14 +848,11 @@ export default async function animalRoutes(fastify) {
     const { id } = req.params
     const { accountId, role } = req.user
 
-    const { rows: [animal] } = await db.query('SELECT id FROM animals WHERE id = $1', [id])
+    const animal = await findAnimalBasicInfo(db, id)
     if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden' })
 
     const scanId = uuid()
-    await db.query(`
-      INSERT INTO animal_scans (id, animal_id, account_id, scanned_at)
-      VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
-    `, [scanId, id, accountId])
+    await insertAnimalScan(db, scanId, id, accountId)
 
     return { success: true, scanId }
   })
@@ -955,7 +884,7 @@ export default async function animalRoutes(fastify) {
     const userRoles = (role || '').split(',').map(r => r.trim())
     const isVet = userRoles.includes('vet')
 
-    const { rows: [animal] } = await db.query('SELECT id, account_id FROM animals WHERE id = $1', [id])
+    const animal = await findAnimalBasicInfoAndArchive(db, id)
     if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden' })
 
     // Owner can always add vaccinations; vet must have scanned the animal first
@@ -963,7 +892,7 @@ export default async function animalRoutes(fastify) {
       if (!isVet) {
         return reply.code(403).send({ error: 'Keine Berechtigung' })
       }
-      const { rows: [scanHistory] } = await db.query('SELECT id FROM animal_scans WHERE animal_id = $1 AND account_id = $2 LIMIT 1', [id, accountId])
+      const scanHistory = await findScanHistoryLimit1(db, id, accountId)
       if (!scanHistory) {
         return reply.code(403).send({ error: 'Sie müssen dieses Tier zuerst scannen, um Daten hinzuzufügen' })
       }
@@ -995,10 +924,7 @@ export default async function animalRoutes(fastify) {
 
     const docAllowedRoles = Array.isArray(allowed_roles) ? allowed_roles : ['vet', 'authority', 'guest']
 
-    await db.query(`
-      INSERT INTO documents (id, animal_id, doc_type, image_path, extracted_json, ocr_provider, added_by_role, added_by_account, allowed_roles, analysis_status)
-      VALUES ($1, $2, 'vaccination', '', $3, 'manual', $4, $5, $6, 'completed')
-    `, [docId, id, JSON.stringify(extractedJson), isVet ? 'vet' : 'user', accountId, JSON.stringify(docAllowedRoles)])
+    await insertDocument(db, docId, id, 'vaccination', '', JSON.stringify(extractedJson), 'manual', isVet ? 'vet' : 'user', accountId, JSON.stringify(docAllowedRoles), 'completed')
 
     await logAudit(db, { accountId, role, action: 'manual_vaccination_entry', resource: 'document', resourceId: docId, details: { vaccine_name, date }, ip: req.ip })
 
@@ -1032,7 +958,7 @@ export default async function animalRoutes(fastify) {
     const userRoles = (role || '').split(',').map(r => r.trim())
     const isVet = userRoles.includes('vet')
 
-    const { rows: [animal] } = await db.query('SELECT id, account_id FROM animals WHERE id = $1', [id])
+    const animal = await findAnimalBasicInfoAndArchive(db, id)
     if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden' })
 
     // Owner can always add treatments; vet must have scanned the animal first
@@ -1040,7 +966,7 @@ export default async function animalRoutes(fastify) {
       if (!isVet) {
         return reply.code(403).send({ error: 'Keine Berechtigung' })
       }
-      const { rows: [scanHistory] } = await db.query('SELECT id FROM animal_scans WHERE animal_id = $1 AND account_id = $2 LIMIT 1', [id, accountId])
+      const scanHistory = await findScanHistoryLimit1(db, id, accountId)
       if (!scanHistory) {
         return reply.code(403).send({ error: 'Sie müssen dieses Tier zuerst scannen, um Daten hinzuzufügen' })
       }
@@ -1067,10 +993,7 @@ export default async function animalRoutes(fastify) {
 
     const docAllowedRoles = Array.isArray(allowed_roles) ? allowed_roles : ['vet', 'authority', 'guest']
 
-    await db.query(`
-      INSERT INTO documents (id, animal_id, doc_type, image_path, extracted_json, ocr_provider, added_by_role, added_by_account, allowed_roles, analysis_status)
-      VALUES ($1, $2, 'treatment', '', $3, 'manual', $4, $5, $6, 'completed')
-    `, [docId, id, JSON.stringify(extractedJson), isVet ? 'vet' : 'user', accountId, JSON.stringify(docAllowedRoles)])
+    await insertDocument(db, docId, id, 'treatment', '', JSON.stringify(extractedJson), 'manual', isVet ? 'vet' : 'user', accountId, JSON.stringify(docAllowedRoles), 'completed')
 
     await logAudit(db, { accountId, role, action: 'manual_treatment_entry', resource: 'document', resourceId: docId, details: { substance, date }, ip: req.ip })
 

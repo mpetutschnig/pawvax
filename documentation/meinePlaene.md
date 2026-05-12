@@ -467,3 +467,4 @@ Persisted deploy test results (failed, 150/156 passed)
 
 ---------------------------
 
+bei internern api fehlern wie zum beispiel keine tokens mehr oder kein budget oder throtteling limits sollten deutlich besser fehlermeldungen und statuscodes mit tehcnischen fehlermeldungen ausgegeben werden. solche sachen gehören auch in das audit log und in die debug infos für weitere analysen.
