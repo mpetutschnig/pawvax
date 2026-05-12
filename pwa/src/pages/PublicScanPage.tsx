@@ -57,25 +57,30 @@ export default function PublicScanPage() {
       // Keine URL, bleibt unverändert
     }
 
-    // Vet/Authority/Admin: authenticated lookup → redirect to full animal view
+    // Authenticated lookup → check if user is owner, vet, or authority.
     const token = localStorage.getItem('token')
-    const roleStr = localStorage.getItem('role') || ''
-    const isPowerUser = roleStr.split(',').some(r => ['vet', 'authority', 'admin'].includes(r.trim()))
-    if (token && isPowerUser) {
+    if (token) {
       try {
         const res = await api.get(`/animals/by-tag/${encodeURIComponent(tagId)}`, {
           headers: { Authorization: `Bearer ${token}` }
         })
-        const animalId = res.data?.id
-        if (animalId) {
-          api.post(`/animals/${animalId}/track-scan`, {}, {
-            headers: { Authorization: `Bearer ${token}` }
-          }).catch(() => {})
-          navigate(`/animals/${animalId}`, { replace: true })
-          return
+        const animalData = res.data
+        if (animalData?.id) {
+          // If the user is the owner, OR they are a power user (vet/authority/admin), redirect to full animal view.
+          // The backend returns is_owner = true for owners.
+          const roleStr = localStorage.getItem('role') || ''
+          const isPowerUser = roleStr.split(',').some(r => ['vet', 'authority', 'admin'].includes(r.trim()))
+          
+          if (animalData.is_owner || isPowerUser) {
+            api.post(`/animals/${animalData.id}/track-scan`, {}, {
+              headers: { Authorization: `Bearer ${token}` }
+            }).catch(() => {})
+            navigate(`/animals/${animalData.id}`, { replace: true })
+            return
+          }
         }
-      } catch {
-        // Kein Zugriff via Sharing → weiter mit public scan
+      } catch (err: any) {
+        // If 403 (foreign animal, no special access) or 401 (token expired), fall through to public scan
       }
     }
 
