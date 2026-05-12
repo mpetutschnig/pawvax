@@ -18,10 +18,26 @@ export function useGlobalNfc() {
         reader = new window.NDEFReader()
         await reader.scan()
 
-        reader.onreading = async (event: { serialNumber: string }) => {
+        reader.onreading = async (event: { serialNumber: string, message: any }) => {
           if (!listening) return
 
-          const tagId = event.serialNumber.replace(/:/g, '').toUpperCase()
+          let tagId = (event.serialNumber || '').replace(/:/g, '').toUpperCase()
+
+          // If serialNumber is empty, try to get info from the message (NDEF payload)
+          if (!tagId && event.message?.records) {
+            for (const record of event.message.records) {
+              if (record.recordType === 'text' || record.recordType === 'url') {
+                const decoder = new TextDecoder()
+                const text = decoder.decode(record.data)
+                if (text) {
+                  tagId = text
+                  break
+                }
+              }
+            }
+          }
+
+          if (!tagId) return // Ignore empty reads
 
           try {
             const res = await getAnimalByTag(tagId)
