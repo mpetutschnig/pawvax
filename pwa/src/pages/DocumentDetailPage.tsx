@@ -432,8 +432,8 @@ export default function DocumentDetailPage() {
           <div style={{ marginBottom: 'var(--space-6)', padding: 'var(--space-4)', background: 'var(--warning-50)', borderRadius: 'var(--radius-md)', border: '1px solid var(--warning-200)', display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
             <div style={{ color: 'var(--warning-600)', fontSize: '24px' }}>🔒</div>
             <div>
-              <p style={{ margin: '0 0 4px 0', fontWeight: 600, color: 'var(--warning-900)' }}>Bild nicht freigegeben</p>
-              <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', color: 'var(--warning-700)' }}>Der Besitzer hat dieses Bild nicht für deinen Zugang freigegeben.</p>
+              <p style={{ margin: '0 0 4px 0', fontWeight: 600, color: 'var(--warning-900)' }}>{t('docDetail.imageNotShared')}</p>
+              <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', color: 'var(--warning-700)' }}>{t('docDetail.imageNotSharedDesc')}</p>
             </div>
           </div>
         )}
@@ -557,7 +557,7 @@ export default function DocumentDetailPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 'var(--space-3)' }}>
               <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', color: 'var(--primary-700)', marginBottom: 'var(--space-2)' }}>
-                  Tierprofil aus Dokument übernehmen?
+                  {t('docDetail.applyProfileSuggestion')}
                 </div>
                 <div style={{ display: 'grid', gap: 4, marginBottom: 'var(--space-3)' }}>
                   {profileSuggestions.map(s => (
@@ -567,7 +567,7 @@ export default function DocumentDetailPage() {
                   ))}
                 </div>
                 <button className="btn btn-primary" style={{ fontSize: 'var(--font-size-xs)', padding: '6px 12px' }} onClick={handleApplySuggestions}>
-                  Übernehmen
+                  {t('animals.acceptBtn')}
                 </button>
               </div>
               <button onClick={() => setSuggestionDismissed(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: 'var(--text-tertiary)', flexShrink: 0 }}>
@@ -707,14 +707,14 @@ export default function DocumentDetailPage() {
                           {savingReminder === recordKey
                             ? <div className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />
                             : isSaved
-                              ? <><CheckCircle size={14} /> Erinnerung gesetzt</>
-                              : <><Bell size={14} /> Erinnerung setzen</>
+                              ? <><CheckCircle size={14} /> {t('docDetail.reminderSet')}</>
+                              : <><Bell size={14} /> {t('docDetail.setReminder')}</>
                           }
                         </button>
                       )}
                       {doc.isOwner && (
                         <div style={{ marginTop: 'var(--space-3)', paddingTop: 'var(--space-2)', borderTop: '1px solid var(--border-subtle)', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                          <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Freigabe:</span>
+                          <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>{t('docDetail.sharingShort')}:</span>
                           {(['guest', 'vet', 'authority'] as const).map(r => (
                             <label key={r} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 'var(--font-size-xs)', cursor: 'pointer' }}>
                               <input type="checkbox" checked={recPerms.includes(r)} disabled={updatingRecordKey === dbKey}
@@ -787,14 +787,14 @@ export default function DocumentDetailPage() {
                         )}
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)', fontSize: 'var(--font-size-xs)', marginBottom: 'var(--space-3)' }}>
-                        {record.administered_at && <div><span style={{ color: 'var(--text-tertiary)' }}>Verabreicht</span><br /><strong>{record.administered_at}</strong></div>}
-                        {record.dosage && <div><span style={{ color: 'var(--text-tertiary)' }}>Dosierung</span><br /><strong>{record.dosage}</strong></div>}
-                        {record.vet_name && <div><span style={{ color: 'var(--text-tertiary)' }}>Tierarzt</span><br /><strong>{record.vet_name}</strong></div>}
-                        {nextDue && <div><span style={{ color: 'var(--text-tertiary)' }}>Nächste Behandlung</span><br /><strong style={{ color: dateColor }}>{nextDue}</strong></div>}
+                        {record.administered_at && <div><span style={{ color: 'var(--text-tertiary)' }}>{t('vaccine.administrationDate')}</span><br /><strong>{record.administered_at}</strong></div>}
+                        {record.dosage && <div><span style={{ color: 'var(--text-tertiary)' }}>{t('docDetail.dosage')}</span><br /><strong>{record.dosage}</strong></div>}
+                        {record.vet_name && <div><span style={{ color: 'var(--text-tertiary)' }}>{t('vaccine.vetName')}</span><br /><strong>{record.vet_name}</strong></div>}
+                        {nextDue && <div><span style={{ color: 'var(--text-tertiary)' }}>{t('docDetail.nextTreatment')}</span><br /><strong style={{ color: dateColor }}>{nextDue}</strong></div>}
                       </div>
                       {record.active_ingredient && <p style={{ margin: '0 0 var(--space-2) 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}><strong>{t('docDetail.activeIngredient')}:</strong> {record.active_ingredient}</p>}
                       {record.veterinarian?.practice && <p style={{ margin: '0 0 var(--space-2) 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}><strong>{t('docDetail.practice')}:</strong> {record.veterinarian.practice}</p>}
-                      {record.notes && <p style={{ margin: '0 0 var(--space-2) 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}><strong>Notizen:</strong> {record.notes}</p>}
+                      {record.notes && <p style={{ margin: '0 0 var(--space-2) 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}><strong>{t('docDetail.notes')}:</strong> {record.notes}</p>}
                       {canSetReminder && (
                         <button
                           className={`btn ${isSaved ? 'btn-ghost' : 'btn-secondary'} btn-full`}
@@ -805,14 +805,14 @@ export default function DocumentDetailPage() {
                           {savingReminder === recordKey
                             ? <div className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />
                             : isSaved
-                              ? <><CheckCircle size={14} /> Erinnerung gesetzt</>
-                              : <><Bell size={14} /> Erinnerung setzen</>
+                              ? <><CheckCircle size={14} /> {t('docDetail.reminderSet')}</>
+                              : <><Bell size={14} /> {t('docDetail.setReminder')}</>
                           }
                         </button>
                       )}
                       {doc.isOwner && (
                         <div style={{ marginTop: 'var(--space-3)', paddingTop: 'var(--space-2)', borderTop: '1px solid var(--border-subtle)', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                          <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Freigabe:</span>
+                          <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>{t('docDetail.sharingShort')}:</span>
                           {(['guest', 'vet', 'authority'] as const).map(r => (
                             <label key={r} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 'var(--font-size-xs)', cursor: 'pointer' }}>
                               <input type="checkbox" checked={recPerms.includes(r)} disabled={updatingRecordKey === dbKey}
@@ -851,20 +851,20 @@ export default function DocumentDetailPage() {
               )}
               {passport.identification && (
                 <div style={{ background: 'var(--surface)', padding: 'var(--space-3)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-3)' }}>
-                  <h4 style={{ margin: '0 0 var(--space-2) 0', fontSize: 'var(--font-size-sm)', fontWeight: 600 }}>Identifikation</h4>
+                  <h4 style={{ margin: '0 0 var(--space-2) 0', fontSize: 'var(--font-size-sm)', fontWeight: 600 }}>{t('docDetail.identification')}</h4>
                   {passport.identification.chip_code && <p style={{ margin: '4px 0', fontSize: 'var(--font-size-sm)' }}><span style={{ color: 'var(--text-secondary)' }}>Chip:</span> {passport.identification.chip_code}</p>}
-                  {passport.identification.chip_date && <p style={{ margin: '4px 0', fontSize: 'var(--font-size-sm)' }}><span style={{ color: 'var(--text-secondary)' }}>Chip-Datum:</span> {passport.identification.chip_date}</p>}
-                  {passport.identification.tattoo_code && <p style={{ margin: '4px 0', fontSize: 'var(--font-size-sm)' }}><span style={{ color: 'var(--text-secondary)' }}>Tätowierung:</span> {passport.identification.tattoo_code}</p>}
+                  {passport.identification.chip_date && <p style={{ margin: '4px 0', fontSize: 'var(--font-size-sm)' }}><span style={{ color: 'var(--text-secondary)' }}>{t('docDetail.chipDate')}:</span> {passport.identification.chip_date}</p>}
+                  {passport.identification.tattoo_code && <p style={{ margin: '4px 0', fontSize: 'var(--font-size-sm)' }}><span style={{ color: 'var(--text-secondary)' }}>{t('docDetail.tattoo')}:</span> {passport.identification.tattoo_code}</p>}
                 </div>
               )}
               {passport.issuing_authority && (
                 <div style={{ background: 'var(--surface)', padding: 'var(--space-3)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-3)' }}>
-                  <h4 style={{ margin: '0 0 var(--space-2) 0', fontSize: 'var(--font-size-sm)', fontWeight: 600 }}>Ausstellende Behörde</h4>
+                  <h4 style={{ margin: '0 0 var(--space-2) 0', fontSize: 'var(--font-size-sm)', fontWeight: 600 }}>{t('docDetail.issuingAuthority')}</h4>
                   {passport.issuing_authority.name && <p style={{ margin: '4px 0', fontSize: 'var(--font-size-sm)' }}>{passport.issuing_authority.name}</p>}
                   {passport.issuing_authority.address && <p style={{ margin: '4px 0', fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>{passport.issuing_authority.address}</p>}
                 </div>
               )}
-              {passport.passport_number && <p style={{ margin: 'var(--space-3) 0 0 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Reisepass-Nr.: {passport.passport_number}</p>}
+              {passport.passport_number && <p style={{ margin: 'var(--space-3) 0 0 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>{t('docDetail.passportNumberLabel')}: {passport.passport_number}</p>}
             </div>
           )
         })()}
@@ -879,25 +879,25 @@ export default function DocumentDetailPage() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)', marginBottom: 'var(--space-3)' }}>
                 {product.active_ingredient && (
                   <div style={{ background: 'var(--surface)', padding: 'var(--space-3)', borderRadius: 'var(--radius-md)' }}>
-                    <p style={{ margin: '0 0 4px 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Wirkstoff</p>
+                    <p style={{ margin: '0 0 4px 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>{t('docDetail.activeIngredient')}</p>
                     <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', fontWeight: 500 }}>{product.active_ingredient}</p>
                   </div>
                 )}
                 {product.dosage && (
                   <div style={{ background: 'var(--surface)', padding: 'var(--space-3)', borderRadius: 'var(--radius-md)' }}>
-                    <p style={{ margin: '0 0 4px 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Dosierung</p>
+                    <p style={{ margin: '0 0 4px 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>{t('docDetail.dosage')}</p>
                     <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', fontWeight: 500 }}>{product.dosage}</p>
                   </div>
                 )}
                 {product.batch_number && (
                   <div style={{ background: 'var(--surface)', padding: 'var(--space-3)', borderRadius: 'var(--radius-md)' }}>
-                    <p style={{ margin: '0 0 4px 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Chargennummer</p>
+                    <p style={{ margin: '0 0 4px 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>{t('vaccine.batchNumber')}</p>
                     <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', fontWeight: 500 }}>{product.batch_number}</p>
                   </div>
                 )}
                 {product.manufacturer && (
                   <div style={{ background: 'var(--surface)', padding: 'var(--space-3)', borderRadius: 'var(--radius-md)' }}>
-                    <p style={{ margin: '0 0 4px 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Hersteller</p>
+                    <p style={{ margin: '0 0 4px 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>{t('vaccine.manufacturer')}</p>
                     <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', fontWeight: 500 }}>{product.manufacturer}</p>
                   </div>
                 )}
@@ -929,7 +929,7 @@ export default function DocumentDetailPage() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)', marginBottom: 'var(--space-3)' }}>
                 {cert.result && (
                   <div style={{ background: 'var(--surface)', padding: 'var(--space-3)', borderRadius: 'var(--radius-md)' }}>
-                    <p style={{ margin: '0 0 4px 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Ergebnis</p>
+                    <p style={{ margin: '0 0 4px 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>{t('docDetail.result')}</p>
                     <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', fontWeight: 500 }}>{cert.result}</p>
                   </div>
                 )}
@@ -1034,7 +1034,7 @@ export default function DocumentDetailPage() {
                     onChange={(e) => setShareImageWithGuest(e.target.checked)}
                     style={{ width: 16, height: 16, accentColor: 'var(--primary-500)' }}
                   />
-                  <span style={{ fontSize: 'var(--font-size-sm)' }}>Bild für Gäste freigeben</span>
+                  <span style={{ fontSize: 'var(--font-size-sm)' }}>{t('docDetail.shareImageWithGuest')}</span>
                 </label>
               </div>
             )}

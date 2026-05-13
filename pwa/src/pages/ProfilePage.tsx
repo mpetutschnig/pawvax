@@ -100,7 +100,7 @@ export default function ProfilePage() {
   }
 
   const handleDeleteApiKey = async (id: string) => {
-    if (!confirm('API Key wirklich löschen?')) return
+    if (!confirm(t('profile.deleteApiKeyConfirm'))) return
     try {
       await deleteUserApiKey(id)
       await loadApiKeys()
@@ -871,7 +871,7 @@ export default function ProfilePage() {
                     style={{ background: 'none', border: 'none', padding: 0, textDecoration: 'underline', color: 'var(--danger-500)', fontSize: 'inherit', marginLeft: 'auto', cursor: 'pointer' }}
                     onClick={() => updateAiSetting('billing_consent_accepted_at', null)}
                   >
-                    Widerrufen
+                    {t('sharing.revoke')}
                   </button>
                 </div>
               )}
