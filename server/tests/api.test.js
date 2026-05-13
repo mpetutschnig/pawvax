@@ -18,7 +18,7 @@ import pg from 'pg'
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { computeRecordHash, flagDuplicates } from '../src/services/dedup.js'
-import { buildExtractedDocumentData, getPromptForDocumentType, normalizeDocumentType, parseStructuredModelResponse, PROMPTS } from '../src/services/ocr.js'
+import { buildExtractedDocumentData, getPromptForDocumentType, normalizeDocumentType, parseStructuredModelResponse, PROMPTS } from '../src/services/ocr/index.js'
 
 async function registerAndVerifyUser(name, email, password, role = 'user') {
   const registration = await apiCallWithToken(null, 'POST', '/auth/register', {
