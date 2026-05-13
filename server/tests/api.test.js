@@ -1791,7 +1791,7 @@ describe('Suite 15: Multilingual OCR Prompts', () => {
     const prompt = PROMPTS.en.classification
     expect(prompt).toContain('vaccination record')
     expect(prompt).toContain('pedigree')
-    expect(prompt).toContain('Dog Handler Certificate')
+    expect(prompt).toContain('dog handler certificate')
     expect(prompt).toContain('package insert')
   })
 
@@ -2674,5 +2674,1037 @@ describe('Suite 22: Billing Endpoints', () => {
     expect(entry).toHaveProperty('ocr_provider')
     expect(entry).toHaveProperty('is_system_fallback')
     expect(entry).toHaveProperty('analyzed_at')
+  })
+})
+
+// ════════════════════════════════════════════════════════════════
+// Suite 23: Auth — OAuth Providers & User API Keys
+// ════════════════════════════════════════════════════════════════
+
+describe('Suite 23: Auth — OAuth Providers & User API Keys', () => {
+  let userToken
+  let createdKeyId
+
+  beforeAll(async () => {
+    const ts = Date.now()
+    const res = await registerAndVerifyUser(`ApiKeyUser ${ts}`, `apikey-${ts}@test.com`, 'test1234')
+    userToken = res.data.token
+  })
+
+  test('23a. GET /auth/oauth/providers — returns provider map', async () => {
+    const { status, data } = await apiCallWithToken(null, 'GET', '/auth/oauth/providers')
+    expect(status).toBe(200)
+    expect(typeof data).toBe('object')
+    expect('supabase' in data).toBe(true)
+  })
+
+  test('23b. GET /accounts/api-keys — returns empty list initially', async () => {
+    const { status, data } = await apiCallWithToken(userToken, 'GET', '/accounts/api-keys')
+    expect(status).toBe(200)
+    expect(Array.isArray(data.keys)).toBe(true)
+  })
+
+  test('23c. POST /accounts/api-keys — creates key, returns raw key once', async () => {
+    const { status, data } = await apiCallWithToken(userToken, 'POST', '/accounts/api-keys', { description: 'Test Key' })
+    expect(status).toBe(201)
+    expect(typeof data.raw).toBe('string')
+    expect(data.raw.length).toBeGreaterThan(10)
+    expect(typeof data.id).toBe('string')
+    createdKeyId = data.id
+  })
+
+  test('23d. GET /accounts/api-keys — lists created key (hash masked)', async () => {
+    const { status, data } = await apiCallWithToken(userToken, 'GET', '/accounts/api-keys')
+    expect(status).toBe(200)
+    const key = data.keys.find(k => k.id === createdKeyId)
+    expect(key).toBeDefined()
+    expect(key.key_prefix).toContain('***')
+  })
+
+  test('23e. DELETE /accounts/api-keys/:id — deletes key', async () => {
+    const { status } = await apiCallWithToken(userToken, 'DELETE', `/accounts/api-keys/${createdKeyId}`)
+    expect(status).toBe(204)
+  })
+
+  test('23f. GET /accounts/api-keys — key no longer listed after deletion', async () => {
+    const { status, data } = await apiCallWithToken(userToken, 'GET', '/accounts/api-keys')
+    expect(status).toBe(200)
+    expect(data.keys.find(k => k.id === createdKeyId)).toBeUndefined()
+  })
+
+  test('23g. POST /accounts/api-keys — 401 without auth', async () => {
+    const { status } = await apiCallWithToken(null, 'POST', '/accounts/api-keys', { description: 'X' })
+    expect(status).toBe(401)
+  })
+
+  test('23h. DELETE /accounts/api-keys/:id — 404 for unknown id', async () => {
+    const { status } = await apiCallWithToken(userToken, 'DELETE', '/accounts/api-keys/00000000-0000-0000-0000-000000000000')
+    expect(status).toBe(404)
+  })
+})
+
+// ════════════════════════════════════════════════════════════════
+// Suite 24: Auth — User Verification Requests
+// ════════════════════════════════════════════════════════════════
+
+describe('Suite 24: Auth — User Verification Requests', () => {
+  let userToken
+  let requestId
+
+  beforeAll(async () => {
+    const ts = Date.now()
+    const res = await registerAndVerifyUser(`VerReqUser ${ts}`, `verreq-${ts}@test.com`, 'test1234')
+    userToken = res.data.token
+  })
+
+  test('24a. GET /accounts/verifications — returns empty requests list initially', async () => {
+    const { status, data } = await apiCallWithToken(userToken, 'GET', '/accounts/verifications')
+    expect(status).toBe(200)
+    expect(Array.isArray(data.requests)).toBe(true)
+  })
+
+  test('24b. POST /accounts/request-verification — submits JSON verification request', async () => {
+    const { status, data } = await apiCallWithToken(userToken, 'POST', '/accounts/request-verification', {
+      type: 'vet',
+      notes: 'Test verification'
+    })
+    expect(status).toBe(200)
+    expect(typeof data.requestId).toBe('string')
+    requestId = data.requestId
+  })
+
+  test('24c. GET /accounts/verifications — shows pending request', async () => {
+    const { status, data } = await apiCallWithToken(userToken, 'GET', '/accounts/verifications')
+    expect(status).toBe(200)
+    const req = data.requests.find(r => r.id === requestId)
+    expect(req).toBeDefined()
+    expect(req.status).toBe('pending')
+  })
+
+  test('24d. POST /accounts/request-verification — 409 on duplicate pending', async () => {
+    const { status } = await apiCallWithToken(userToken, 'POST', '/accounts/request-verification', {
+      type: 'vet',
+      notes: 'Duplicate attempt'
+    })
+    expect(status).toBe(409)
+  })
+
+  test('24e. GET /accounts/verifications — 401 without token', async () => {
+    const { status } = await apiCallWithToken(null, 'GET', '/accounts/verifications')
+    expect(status).toBe(401)
+  })
+})
+
+// ════════════════════════════════════════════════════════════════
+// Suite 25: Animals — Stats, By-Tag, Transfer, Avatar, Tag Delete
+// ════════════════════════════════════════════════════════════════
+
+describe('Suite 25: Animals — Stats, By-Tag, Transfer, Avatar, Tag Delete', () => {
+  let ownerToken, ownerUserId
+  let receiverToken
+  let animalId
+  let tagId
+
+  beforeAll(async () => {
+    const ts = Date.now()
+    const ownerRes = await registerAndVerifyUser(`TransferOwner ${ts}`, `towner-${ts}@test.com`, 'test1234')
+    ownerToken = ownerRes.data.token
+    ownerUserId = ownerRes.data.account.id
+
+    const receiverRes = await registerAndVerifyUser(`TransferReceiver ${ts}`, `treceiver-${ts}@test.com`, 'test1234')
+    receiverToken = receiverRes.data.token
+
+    // Create animal
+    const animalRes = await apiCallWithToken(ownerToken, 'POST', '/animals', {
+      name: 'Transfer Cat',
+      species: 'cat'
+    })
+    animalId = animalRes.data.id
+
+    // Add NFC tag
+    const tagRes = await apiCallWithToken(ownerToken, 'POST', `/animals/${animalId}/tags`, {
+      tagId: `TAG-XFER-${ts}`,
+      tagType: 'nfc'
+    })
+    tagId = tagRes.data.tag_id || `TAG-XFER-${ts}`
+  })
+
+  test('25a. GET /animals/stats — returns stats object', async () => {
+    const { status, data } = await apiCallWithToken(ownerToken, 'GET', '/animals/stats')
+    expect(status).toBe(200)
+    expect(typeof data).toBe('object')
+  })
+
+  test('25b. GET /animals/stats — 401 without token', async () => {
+    const { status } = await apiCallWithToken(null, 'GET', '/animals/stats')
+    expect(status).toBe(401)
+  })
+
+  test('25c. GET /animals/by-tag/:tagId — own animal, is_owner=true', async () => {
+    const { status, data } = await apiCallWithToken(ownerToken, 'GET', `/animals/by-tag/${tagId}`)
+    expect(status).toBe(200)
+    expect(data.is_owner).toBe(true)
+    expect(data.id).toBe(animalId)
+  })
+
+  test('25d. GET /animals/by-tag/:tagId — 404 for unknown tag', async () => {
+    const { status } = await apiCallWithToken(ownerToken, 'GET', '/animals/by-tag/NONEXISTENT-TAG-XYZ')
+    expect(status).toBe(404)
+  })
+
+  test('25e. POST /animals/:id/transfer — creates transfer code (6 hex chars)', async () => {
+    const { status, data } = await apiCallWithToken(ownerToken, 'POST', `/animals/${animalId}/transfer`)
+    expect(status).toBe(201)
+    expect(typeof data.code).toBe('string')
+    expect(data.code).toMatch(/^[0-9a-f]{6}$/)
+  })
+
+  test('25f. POST /animals/transfer/accept — 404 with invalid code', async () => {
+    const { status } = await apiCallWithToken(receiverToken, 'POST', '/animals/transfer/accept', { code: 'zzzzzz' })
+    expect(status).toBe(404)
+  })
+
+  test('25g. POST /animals/transfer/accept — accepts valid transfer code', async () => {
+    // Generate a fresh code
+    const codeRes = await apiCallWithToken(ownerToken, 'POST', `/animals/${animalId}/transfer`)
+    expect(codeRes.status).toBe(201)
+    const { code } = codeRes.data
+
+    const { status, data } = await apiCallWithToken(receiverToken, 'POST', '/animals/transfer/accept', { code })
+    expect(status).toBe(200)
+    expect(data.success).toBe(true)
+    expect(data.animalId).toBe(animalId)
+  })
+
+  test('25h. PATCH /animals/:id/avatar — 400 without base64 image', async () => {
+    // Receiver now owns the animal; use their token
+    const { status } = await apiCallWithToken(receiverToken, 'PATCH', `/animals/${animalId}/avatar`, {})
+    expect(status).toBe(400)
+  })
+
+  test('25i. PATCH /animals/:id/avatar — 404 for non-existent animal', async () => {
+    const { status } = await apiCallWithToken(ownerToken, 'PATCH', '/animals/00000000-0000-0000-0000-000000000000/avatar', {
+      base64Image: 'data:image/png;base64,abc'
+    })
+    expect(status).toBe(404)
+  })
+
+  test('25j. DELETE /animal-tags/:tagId — removes tag', async () => {
+    // Add a second tag to delete (receiver owns animal now)
+    const ts = Date.now()
+    const addRes = await apiCallWithToken(receiverToken, 'POST', `/animals/${animalId}/tags`, {
+      tagId: `TAG-DEL-${ts}`,
+      tagType: 'barcode'
+    })
+    const delTagId = addRes.data.tag_id || `TAG-DEL-${ts}`
+    const { status, data } = await apiCallWithToken(receiverToken, 'DELETE', `/animal-tags/${delTagId}`)
+    expect(status).toBe(200)
+    expect(data.success).toBe(true)
+  })
+
+  test('25k. DELETE /animal-tags/:tagId — 404 for unknown tag', async () => {
+    const { status } = await apiCallWithToken(ownerToken, 'DELETE', '/animal-tags/NONEXISTENT-TAG-404')
+    expect(status).toBe(404)
+  })
+
+  test('25l. DELETE /animal-tags/:tagId — 401 without auth', async () => {
+    const { status } = await apiCallWithToken(null, 'DELETE', `/animal-tags/${tagId}`)
+    expect(status).toBe(401)
+  })
+})
+
+// ════════════════════════════════════════════════════════════════
+// Suite 26: Animals — PUT Sharing Settings
+// ════════════════════════════════════════════════════════════════
+
+describe('Suite 26: Animals — PUT Sharing Settings', () => {
+  let userToken
+  let animalId
+
+  beforeAll(async () => {
+    const ts = Date.now()
+    const res = await registerAndVerifyUser(`SharingUser ${ts}`, `sharing-${ts}@test.com`, 'test1234')
+    userToken = res.data.token
+
+    const animalRes = await apiCallWithToken(userToken, 'POST', '/animals', { name: 'Share Pet', species: 'dog' })
+    animalId = animalRes.data.id
+  })
+
+  test('26a. PUT /animals/:id/sharing — updates guest sharing settings', async () => {
+    const { status, data } = await apiCallWithToken(userToken, 'PUT', `/animals/${animalId}/sharing`, {
+      role: 'guest',
+      share_contact: 0,
+      share_breed: 1,
+      share_birthdate: 1
+    })
+    expect(status).toBe(200)
+    expect(data.role).toBe('guest')
+    expect(data.share_breed).toBe(1)
+  })
+
+  test('26b. PUT /animals/:id/sharing — updates vet sharing settings', async () => {
+    const { status, data } = await apiCallWithToken(userToken, 'PUT', `/animals/${animalId}/sharing`, {
+      role: 'vet',
+      share_contact: 1,
+      share_breed: 1
+    })
+    expect(status).toBe(200)
+    expect(data.role).toBe('vet')
+    expect(data.share_contact).toBe(1)
+  })
+
+  test('26c. PUT /animals/:id/sharing — 404 for wrong animal', async () => {
+    const { status } = await apiCallWithToken(userToken, 'PUT', '/animals/00000000-0000-0000-0000-000000000000/sharing', {
+      role: 'guest'
+    })
+    expect(status).toBe(404)
+  })
+
+  test('26d. PUT /animals/:id/sharing — 401 without auth', async () => {
+    const { status } = await apiCallWithToken(null, 'PUT', `/animals/${animalId}/sharing`, { role: 'guest' })
+    expect(status).toBe(401)
+  })
+})
+
+// ════════════════════════════════════════════════════════════════
+// Suite 27: Animals — Manual Vaccinations & Treatments
+// ════════════════════════════════════════════════════════════════
+
+describe('Suite 27: Animals — Manual Vaccinations & Treatments', () => {
+  let userToken
+  let animalId
+
+  beforeAll(async () => {
+    const ts = Date.now()
+    const res = await registerAndVerifyUser(`VaxUser ${ts}`, `vax-${ts}@test.com`, 'test1234')
+    userToken = res.data.token
+
+    const animalRes = await apiCallWithToken(userToken, 'POST', '/animals', { name: 'Vaccine Dog', species: 'dog' })
+    animalId = animalRes.data.id
+  })
+
+  test('27a. POST /animals/:id/vaccinations — creates vaccination document', async () => {
+    const { status, data } = await apiCallWithToken(userToken, 'POST', `/animals/${animalId}/vaccinations`, {
+      vaccine_name: 'Rabies Vaccine',
+      date: '2026-01-15',
+      batch_number: 'BATCH001',
+      valid_until: '2027-01-15',
+      vet_name: 'Dr. Test'
+    })
+    expect(status).toBe(201)
+    expect(data.doc_type).toBe('vaccination')
+    expect(data.extracted_json.type).toBe('vaccination')
+    expect(data.extracted_json.payload.vaccinations[0].vaccine).toBe('Rabies Vaccine')
+  })
+
+  test('27b. POST /animals/:id/vaccinations — 422 missing vaccine_name', async () => {
+    const { status } = await apiCallWithToken(userToken, 'POST', `/animals/${animalId}/vaccinations`, {
+      date: '2026-01-15'
+    })
+    expect([400, 422]).toContain(status)
+  })
+
+  test('27c. POST /animals/:id/vaccinations — 422 missing date', async () => {
+    const { status } = await apiCallWithToken(userToken, 'POST', `/animals/${animalId}/vaccinations`, {
+      vaccine_name: 'SomeVaccine'
+    })
+    expect([400, 422]).toContain(status)
+  })
+
+  test('27d. POST /animals/:id/vaccinations — 404 for non-existent animal', async () => {
+    const { status } = await apiCallWithToken(userToken, 'POST', '/animals/00000000-0000-0000-0000-000000000000/vaccinations', {
+      vaccine_name: 'X',
+      date: '2026-01-01'
+    })
+    expect(status).toBe(404)
+  })
+
+  test('27e. POST /animals/:id/treatments — creates treatment document', async () => {
+    const { status, data } = await apiCallWithToken(userToken, 'POST', `/animals/${animalId}/treatments`, {
+      substance: 'Amoxicillin',
+      date: '2026-01-20',
+      dosage: '250mg',
+      vet_name: 'Dr. Smith'
+    })
+    expect(status).toBe(201)
+    expect(data.doc_type).toBe('treatment')
+    expect(data.extracted_json.payload.treatments[0].substance).toBe('Amoxicillin')
+  })
+
+  test('27f. POST /animals/:id/treatments — 422 missing substance', async () => {
+    const { status } = await apiCallWithToken(userToken, 'POST', `/animals/${animalId}/treatments`, {
+      date: '2026-01-20'
+    })
+    expect([400, 422]).toContain(status)
+  })
+
+  test('27g. POST /animals/:id/treatments — 404 for non-existent animal', async () => {
+    const { status } = await apiCallWithToken(userToken, 'POST', '/animals/00000000-0000-0000-0000-000000000000/treatments', {
+      substance: 'X',
+      date: '2026-01-01'
+    })
+    expect(status).toBe(404)
+  })
+
+  test('27h. POST /animals/:id/vaccinations — 401 without auth', async () => {
+    const { status } = await apiCallWithToken(null, 'POST', `/animals/${animalId}/vaccinations`, {
+      vaccine_name: 'X',
+      date: '2026-01-01'
+    })
+    expect(status).toBe(401)
+  })
+})
+
+// ════════════════════════════════════════════════════════════════
+// Suite 28: Documents — Record Permissions
+// ════════════════════════════════════════════════════════════════
+
+describe('Suite 28: Documents — Record Permissions', () => {
+  let ownerToken
+  let otherToken
+  let animalId
+  let docId
+
+  beforeAll(async () => {
+    const ts = Date.now()
+    const ownerRes = await registerAndVerifyUser(`RecordOwner ${ts}`, `recowner-${ts}@test.com`, 'test1234')
+    ownerToken = ownerRes.data.token
+
+    const otherRes = await registerAndVerifyUser(`RecordOther ${ts}`, `recother-${ts}@test.com`, 'test1234')
+    otherToken = otherRes.data.token
+
+    const animalRes = await apiCallWithToken(ownerToken, 'POST', '/animals', { name: 'Perm Animal', species: 'cat' })
+    animalId = animalRes.data.id
+
+    // Create manual vaccination as a doc with completed status
+    const docRes = await apiCallWithToken(ownerToken, 'POST', `/animals/${animalId}/vaccinations`, {
+      vaccine_name: 'PermTest Vax',
+      date: '2026-02-01'
+    })
+    docId = docRes.data.id
+  })
+
+  test('28a. PATCH /documents/:id/records — sets per-record role permissions', async () => {
+    const { status, data } = await apiCallWithToken(ownerToken, 'PATCH', `/documents/${docId}/records`, {
+      key: 'vaccination_0',
+      allowed_roles: ['vet', 'authority']
+    })
+    expect(status).toBe(200)
+    expect(data.success).toBe(true)
+    expect(Array.isArray(data.record_permissions['vaccination_0'])).toBe(true)
+  })
+
+  test('28b. PATCH /documents/:id/records — 400 missing key', async () => {
+    const { status } = await apiCallWithToken(ownerToken, 'PATCH', `/documents/${docId}/records`, {
+      allowed_roles: ['vet']
+    })
+    expect(status).toBe(400)
+  })
+
+  test('28c. PATCH /documents/:id/records — 400 missing allowed_roles', async () => {
+    const { status } = await apiCallWithToken(ownerToken, 'PATCH', `/documents/${docId}/records`, {
+      key: 'vaccination_0'
+    })
+    expect(status).toBe(400)
+  })
+
+  test('28d. PATCH /documents/:id/records — 404 for non-existent document', async () => {
+    const { status } = await apiCallWithToken(ownerToken, 'PATCH', '/documents/00000000-0000-0000-0000-000000000000/records', {
+      key: 'x',
+      allowed_roles: ['vet']
+    })
+    expect(status).toBe(404)
+  })
+
+  test('28e. PATCH /documents/:id/records — 403 if not owner', async () => {
+    const { status } = await apiCallWithToken(otherToken, 'PATCH', `/documents/${docId}/records`, {
+      key: 'vaccination_0',
+      allowed_roles: ['guest']
+    })
+    expect(status).toBe(403)
+  })
+
+  test('28f. PATCH /documents/:id/records — 401 without auth', async () => {
+    const { status } = await apiCallWithToken(null, 'PATCH', `/documents/${docId}/records`, {
+      key: 'vaccination_0',
+      allowed_roles: ['vet']
+    })
+    expect(status).toBe(401)
+  })
+})
+
+// ════════════════════════════════════════════════════════════════
+// Suite 29: Admin — Accounts, Verification Management, Animals, Settings
+// ════════════════════════════════════════════════════════════════
+
+describe('Suite 29: Admin — Accounts, Verification Management, Animals, Settings', () => {
+  let adminToken
+  let adminAccountId
+  let targetUserId
+  let targetToken
+  let verificationRequestId
+
+  beforeAll(async () => {
+    const ts = Date.now()
+    const adminRes = await registerAndVerifyUser(`Admin29 ${ts}`, `admin29-${ts}@test.com`, 'test1234', 'admin')
+    adminToken = adminRes.data.token
+    adminAccountId = adminRes.data.account.id
+
+    // Create a target user who will submit a verification request
+    const targetRes = await registerAndVerifyUser(`Target29 ${ts}`, `target29-${ts}@test.com`, 'test1234')
+    targetToken = targetRes.data.token
+    targetUserId = targetRes.data.account.id
+
+    // Submit a verification request as the target user
+    const vrRes = await apiCallWithToken(targetToken, 'POST', '/accounts/request-verification', {
+      type: 'vet',
+      notes: 'Suite 29 test'
+    })
+    verificationRequestId = vrRes.data.requestId
+  })
+
+  test('29a. GET /admin/version — returns server version', async () => {
+    const { status, data } = await apiCallWithToken(adminToken, 'GET', '/admin/version')
+    expect(status).toBe(200)
+    expect(typeof data.server).toBe('string')
+    expect(typeof data.buildTime).toBe('string')
+  })
+
+  test('29b. GET /admin/version — 401 without auth', async () => {
+    const { status } = await apiCallWithToken(null, 'GET', '/admin/version')
+    expect(status).toBe(401)
+  })
+
+  test('29c. GET /admin/accounts — returns list with required fields', async () => {
+    const { status, data } = await apiCallWithToken(adminToken, 'GET', '/admin/accounts')
+    expect(status).toBe(200)
+    expect(Array.isArray(data)).toBe(true)
+    const account = data.find(a => a.id === targetUserId)
+    expect(account).toBeDefined()
+    expect(account).toHaveProperty('email')
+    expect(account).toHaveProperty('role')
+  })
+
+  test('29d. GET /admin/accounts — 401 without auth', async () => {
+    const { status } = await apiCallWithToken(null, 'GET', '/admin/accounts')
+    expect(status).toBe(401)
+  })
+
+  test('29e. GET /admin/accounts — 403 for regular user', async () => {
+    const { status } = await apiCallWithToken(targetToken, 'GET', '/admin/accounts')
+    expect(status).toBe(403)
+  })
+
+  test('29f. GET /admin/accounts/pending-verification — returns filtered list', async () => {
+    const { status, data } = await apiCallWithToken(adminToken, 'GET', '/admin/accounts/pending-verification')
+    expect(status).toBe(200)
+    expect(Array.isArray(data)).toBe(true)
+    const found = data.find(a => a.id === targetUserId)
+    expect(found).toBeDefined()
+    expect(found.verification_status).toBe('pending')
+  })
+
+  test('29g. PATCH /admin/accounts/:id — updates account verified field', async () => {
+    const { status, data } = await apiCallWithToken(adminToken, 'PATCH', `/admin/accounts/${targetUserId}`, {
+      verified: true
+    })
+    expect(status).toBe(200)
+    expect(data.id).toBe(targetUserId)
+  })
+
+  test('29h. PATCH /admin/accounts/:id — 404 for unknown account', async () => {
+    const { status } = await apiCallWithToken(adminToken, 'PATCH', '/admin/accounts/00000000-0000-0000-0000-000000000000', {
+      verified: true
+    })
+    expect(status).toBe(404)
+  })
+
+  test('29i. POST /admin/accounts/:id/verify — approves account verification', async () => {
+    const { status, data } = await apiCallWithToken(adminToken, 'POST', `/admin/accounts/${targetUserId}/verify`, {
+      approved: true,
+      note: 'Approved in test suite 29'
+    })
+    expect(status).toBe(200)
+    expect(data.verification_status).toBe('approved')
+  })
+
+  test('29j. GET /admin/verifications — returns all verification requests', async () => {
+    const { status, data } = await apiCallWithToken(adminToken, 'GET', '/admin/verifications')
+    expect(status).toBe(200)
+    expect(Array.isArray(data.verifications)).toBe(true)
+    const vr = data.verifications.find(v => v.id === verificationRequestId)
+    expect(vr).toBeDefined()
+    expect(vr).toHaveProperty('account_id')
+    expect(vr).toHaveProperty('status')
+  })
+
+  test('29k. GET /admin/verifications — 401 without auth', async () => {
+    const { status } = await apiCallWithToken(null, 'GET', '/admin/verifications')
+    expect(status).toBe(401)
+  })
+
+  test('29l. GET /admin/verifications — 403 for regular user', async () => {
+    const { status } = await apiCallWithToken(targetToken, 'GET', '/admin/verifications')
+    expect(status).toBe(403)
+  })
+
+  test('29m. POST /admin/verifications/:id/reject — 400 missing reason', async () => {
+    // Create a fresh verification request to reject
+    const ts2 = Date.now()
+    const freshUserRes = await registerAndVerifyUser(`FreshVerUser ${ts2}`, `freshver-${ts2}@test.com`, 'test1234')
+    const freshToken = freshUserRes.data.token
+    const vrRes = await apiCallWithToken(freshToken, 'POST', '/accounts/request-verification', { type: 'vet' })
+    const freshVrId = vrRes.data.requestId
+
+    const { status } = await apiCallWithToken(adminToken, 'POST', `/admin/verifications/${freshVrId}/reject`, {})
+    expect(status).toBe(400)
+  })
+
+  test('29n. POST /admin/verifications/:id/reject — rejects pending request', async () => {
+    const ts2 = Date.now()
+    const freshUserRes = await registerAndVerifyUser(`FreshVerUser2 ${ts2}`, `freshver2-${ts2}@test.com`, 'test1234')
+    const freshToken = freshUserRes.data.token
+    const vrRes = await apiCallWithToken(freshToken, 'POST', '/accounts/request-verification', { type: 'vet' })
+    const freshVrId = vrRes.data.requestId
+
+    const { status, data } = await apiCallWithToken(adminToken, 'POST', `/admin/verifications/${freshVrId}/reject`, {
+      reason: 'Insufficient documentation'
+    })
+    expect(status).toBe(200)
+    expect(data.message).toBeTruthy()
+  })
+
+  test('29o. POST /admin/verifications/:id/approve — approves pending request', async () => {
+    const ts2 = Date.now()
+    const freshUserRes = await registerAndVerifyUser(`FreshVerUser3 ${ts2}`, `freshver3-${ts2}@test.com`, 'test1234')
+    const freshToken = freshUserRes.data.token
+    const vrRes = await apiCallWithToken(freshToken, 'POST', '/accounts/request-verification', { type: 'vet' })
+    const freshVrId = vrRes.data.requestId
+
+    const { status, data } = await apiCallWithToken(adminToken, 'POST', `/admin/verifications/${freshVrId}/approve`)
+    expect(status).toBe(200)
+    expect(data.message).toBeTruthy()
+  })
+
+  test('29p. POST /admin/verifications/:id/approve — 409 if already approved', async () => {
+    // Create fresh user, submit request, approve it, then try to approve again
+    const ts3 = Date.now() + 1
+    const freshRes = await registerAndVerifyUser(`FreshVerUser4 ${ts3}`, `freshver4-${ts3}@test.com`, 'test1234')
+    const freshToken = freshRes.data.token
+    const vrRes = await apiCallWithToken(freshToken, 'POST', '/accounts/request-verification', { type: 'vet' })
+    const freshVrId = vrRes.data.requestId
+
+    // Approve once
+    await apiCallWithToken(adminToken, 'POST', `/admin/verifications/${freshVrId}/approve`)
+
+    // Approve again → 409
+    const { status } = await apiCallWithToken(adminToken, 'POST', `/admin/verifications/${freshVrId}/approve`)
+    expect(status).toBe(409)
+  })
+
+  test('29q. GET /admin/animals — returns all animals with owner info', async () => {
+    const { status, data } = await apiCallWithToken(adminToken, 'GET', '/admin/animals')
+    expect(status).toBe(200)
+    expect(Array.isArray(data)).toBe(true)
+    if (data.length > 0) {
+      expect(data[0]).toHaveProperty('owner_name')
+      expect(data[0]).toHaveProperty('owner_email')
+    }
+  })
+
+  test('29r. GET /admin/settings — returns settings object with expected fields', async () => {
+    const { status, data } = await apiCallWithToken(adminToken, 'GET', '/admin/settings')
+    expect(status).toBe(200)
+    expect(data).toHaveProperty('app_name')
+    expect(data).toHaveProperty('mail_enabled')
+    expect(data).toHaveProperty('smtp_host')
+    expect(data).not.toHaveProperty('smtp_password')
+    expect(data).toHaveProperty('has_smtp_password')
+  })
+
+  test('29s. GET /admin/settings — 403 for regular user', async () => {
+    const { status } = await apiCallWithToken(targetToken, 'GET', '/admin/settings')
+    expect(status).toBe(403)
+  })
+})
+
+// ════════════════════════════════════════════════════════════════
+// Suite 30: Admin — Orphans
+// ════════════════════════════════════════════════════════════════
+
+describe('Suite 30: Admin — Orphans', () => {
+  let adminToken
+
+  beforeAll(async () => {
+    const ts = Date.now()
+    const adminRes = await registerAndVerifyUser(`Admin30 ${ts}`, `admin30-${ts}@test.com`, 'test1234', 'admin')
+    adminToken = adminRes.data.token
+  })
+
+  test('30a. GET /admin/orphans — returns categories list with total', async () => {
+    const { status, data } = await apiCallWithToken(adminToken, 'GET', '/admin/orphans')
+    expect(status).toBe(200)
+    expect(typeof data.total).toBe('number')
+    expect(Array.isArray(data.categories)).toBe(true)
+    // Each category has key, label, count
+    if (data.categories.length > 0) {
+      expect(data.categories[0]).toHaveProperty('key')
+      expect(data.categories[0]).toHaveProperty('count')
+    }
+  })
+
+  test('30b. GET /admin/orphans — 401 without auth', async () => {
+    const { status } = await apiCallWithToken(null, 'GET', '/admin/orphans')
+    expect(status).toBe(401)
+  })
+
+  test('30c. POST /admin/orphans/delete — 400 with empty categories', async () => {
+    const { status } = await apiCallWithToken(adminToken, 'POST', '/admin/orphans/delete', { categories: [] })
+    expect(status).toBe(400)
+  })
+
+  test('30d. POST /admin/orphans/delete — 400 with invalid category keys', async () => {
+    const { status } = await apiCallWithToken(adminToken, 'POST', '/admin/orphans/delete', {
+      categories: ['nonexistent_category_key']
+    })
+    expect(status).toBe(400)
+  })
+
+  test('30e. POST /admin/orphans/delete — processes valid category (returns deleted count)', async () => {
+    const { status, data } = await apiCallWithToken(adminToken, 'POST', '/admin/orphans/delete', {
+      categories: ['animals']
+    })
+    expect(status).toBe(200)
+    expect(typeof data.totalDeleted).toBe('number')
+    expect(data).toHaveProperty('deleted')
+    expect(data).toHaveProperty('report')
+  })
+
+  test('30f. POST /admin/orphans/delete — 401 without auth', async () => {
+    const { status } = await apiCallWithToken(null, 'POST', '/admin/orphans/delete', { categories: ['animals'] })
+    expect(status).toBe(401)
+  })
+})
+
+// ════════════════════════════════════════════════════════════════
+// Suite 31: Admin — Resource Deletion (Animals, Documents, Tags, Accounts)
+// ════════════════════════════════════════════════════════════════
+
+describe('Suite 31: Admin — Resource Deletion', () => {
+  let adminToken
+  let deletableUserId
+  let deletableAnimalId
+  let deletableDocId
+  let deletableTagId
+
+  beforeAll(async () => {
+    const ts = Date.now()
+    const adminRes = await registerAndVerifyUser(`Admin31 ${ts}`, `admin31-${ts}@test.com`, 'test1234', 'admin')
+    adminToken = adminRes.data.token
+
+    // Create a user + resources to delete
+    const userRes = await registerAndVerifyUser(`Deletable31 ${ts}`, `del31-${ts}@test.com`, 'test1234')
+    deletableUserId = userRes.data.account.id
+    const userToken = userRes.data.token
+
+    const animalRes = await apiCallWithToken(userToken, 'POST', '/animals', { name: 'Del Animal', species: 'dog' })
+    deletableAnimalId = animalRes.data.id
+
+    const tagRes = await apiCallWithToken(userToken, 'POST', `/animals/${deletableAnimalId}/tags`, {
+      tagId: `TAG-DELDOC-${ts}`,
+      tagType: 'barcode'
+    })
+    deletableTagId = tagRes.data.tag_id || `TAG-DELDOC-${ts}`
+
+    const docRes = await apiCallWithToken(userToken, 'POST', `/animals/${deletableAnimalId}/vaccinations`, {
+      vaccine_name: 'Del Vaccine',
+      date: '2026-01-01'
+    })
+    deletableDocId = docRes.data.id
+  })
+
+  test('31a. DELETE /admin/documents/:id — 204 on success', async () => {
+    const { status } = await apiCallWithToken(adminToken, 'DELETE', `/admin/documents/${deletableDocId}`)
+    expect(status).toBe(204)
+  })
+
+  test('31b. DELETE /admin/documents/:id — 404 for already deleted document', async () => {
+    const { status } = await apiCallWithToken(adminToken, 'DELETE', `/admin/documents/${deletableDocId}`)
+    expect(status).toBe(404)
+  })
+
+  test('31c. DELETE /admin/tags/:tagId — 204 on success', async () => {
+    const { status } = await apiCallWithToken(adminToken, 'DELETE', `/admin/tags/${deletableTagId}`)
+    expect(status).toBe(204)
+  })
+
+  test('31d. DELETE /admin/tags/:tagId — 404 for already deleted tag', async () => {
+    const { status } = await apiCallWithToken(adminToken, 'DELETE', `/admin/tags/${deletableTagId}`)
+    expect(status).toBe(404)
+  })
+
+  test('31e. DELETE /admin/animals/:id — 204 on success', async () => {
+    const { status } = await apiCallWithToken(adminToken, 'DELETE', `/admin/animals/${deletableAnimalId}`)
+    expect(status).toBe(204)
+  })
+
+  test('31f. DELETE /admin/animals/:id — 404 for already deleted animal', async () => {
+    const { status } = await apiCallWithToken(adminToken, 'DELETE', `/admin/animals/${deletableAnimalId}`)
+    expect(status).toBe(404)
+  })
+
+  test('31g. DELETE /admin/accounts/:id — 204 on success', async () => {
+    const { status } = await apiCallWithToken(adminToken, 'DELETE', `/admin/accounts/${deletableUserId}`)
+    expect(status).toBe(204)
+  })
+
+  test('31h. DELETE /admin/accounts/:id — 404 for already deleted account', async () => {
+    const { status } = await apiCallWithToken(adminToken, 'DELETE', `/admin/accounts/${deletableUserId}`)
+    expect(status).toBe(404)
+  })
+
+  test('31i. DELETE /admin/animals/:id — 401 without auth', async () => {
+    const { status } = await apiCallWithToken(null, 'DELETE', '/admin/animals/00000000-0000-0000-0000-000000000000')
+    expect(status).toBe(401)
+  })
+})
+
+// ════════════════════════════════════════════════════════════════
+// Suite 32: Admin — API Keys Management
+// ════════════════════════════════════════════════════════════════
+
+describe('Suite 32: Admin — API Keys Management', () => {
+  let adminToken
+  let vetUserId
+  let vetToken
+  let regularUserId
+  let regularToken
+  let createdKeyId
+
+  beforeAll(async () => {
+    const ts = Date.now()
+    const adminRes = await registerAndVerifyUser(`Admin32 ${ts}`, `admin32-${ts}@test.com`, 'test1234', 'admin')
+    adminToken = adminRes.data.token
+
+    // Create a regular user (not a vet)
+    const regRes = await registerAndVerifyUser(`Regular32 ${ts}`, `regular32-${ts}@test.com`, 'test1234')
+    regularUserId = regRes.data.account.id
+    regularToken = regRes.data.token
+
+    // Create a vet user (verified vet)
+    const vetRes = await registerAndVerifyUser(`Vet32 ${ts}`, `vet32-${ts}@test.com`, 'test1234', 'vet')
+    vetUserId = vetRes.data.account.id
+    // Mark the vet as verified in the DB
+    const db = await getTestDb()
+    try {
+      await db.query("UPDATE accounts SET verified = 1 WHERE id = $1", [vetUserId])
+    } finally {
+      await db.end()
+    }
+  })
+
+  test('32a. POST /admin/api-keys — 400 missing account_id and name', async () => {
+    const { status } = await apiCallWithToken(adminToken, 'POST', '/admin/api-keys', {})
+    expect(status).toBe(400)
+  })
+
+  test('32b. POST /admin/api-keys — 400 target is not a verified vet', async () => {
+    const { status } = await apiCallWithToken(adminToken, 'POST', '/admin/api-keys', {
+      account_id: regularUserId,
+      name: 'Regular Key'
+    })
+    expect(status).toBe(400)
+  })
+
+  test('32c. POST /admin/api-keys — creates key for verified vet', async () => {
+    const { status, data } = await apiCallWithToken(adminToken, 'POST', '/admin/api-keys', {
+      account_id: vetUserId,
+      name: 'Vet API Key'
+    })
+    expect(status).toBe(201)
+    expect(typeof data.key).toBe('string')
+    expect(typeof data.id).toBe('string')
+    expect(data.account_id).toBe(vetUserId)
+    createdKeyId = data.id
+  })
+
+  test('32d. GET /admin/api-keys — lists all API keys with account info', async () => {
+    const { status, data } = await apiCallWithToken(adminToken, 'GET', '/admin/api-keys')
+    expect(status).toBe(200)
+    expect(Array.isArray(data)).toBe(true)
+    const key = data.find(k => k.id === createdKeyId)
+    expect(key).toBeDefined()
+    expect(key).toHaveProperty('account_name')
+    expect(key).toHaveProperty('key_prefix')
+  })
+
+  test('32e. DELETE /admin/api-keys/:id — deactivates key (200 + success)', async () => {
+    const { status, data } = await apiCallWithToken(adminToken, 'DELETE', `/admin/api-keys/${createdKeyId}`)
+    expect(status).toBe(200)
+    expect(data.success).toBe(true)
+  })
+
+  test('32f. DELETE /admin/api-keys/:id — 404 for unknown key', async () => {
+    const { status } = await apiCallWithToken(adminToken, 'DELETE', '/admin/api-keys/00000000-0000-0000-0000-000000000000')
+    expect(status).toBe(404)
+  })
+
+  test('32g. POST /admin/api-keys — 401 without auth', async () => {
+    const { status } = await apiCallWithToken(null, 'POST', '/admin/api-keys', {
+      account_id: vetUserId,
+      name: 'X'
+    })
+    expect(status).toBe(401)
+  })
+
+  test('32h. GET /admin/api-keys — 403 for regular user', async () => {
+    const { status } = await apiCallWithToken(regularToken, 'GET', '/admin/api-keys')
+    expect(status).toBe(403)
+  })
+})
+
+// ════════════════════════════════════════════════════════════════
+// Suite 33: Admin — Tenants & Domains
+// ════════════════════════════════════════════════════════════════
+
+describe('Suite 33: Admin — Tenants & Domains', () => {
+  let adminToken
+  let regularToken
+  let tenantId
+  let domainId
+
+  beforeAll(async () => {
+    const ts = Date.now()
+    const adminRes = await registerAndVerifyUser(`Admin33 ${ts}`, `admin33-${ts}@test.com`, 'test1234', 'admin')
+    adminToken = adminRes.data.token
+
+    const regRes = await registerAndVerifyUser(`Regular33 ${ts}`, `regular33-${ts}@test.com`, 'test1234')
+    regularToken = regRes.data.token
+  })
+
+  test('33a. GET /admin/tenants — returns list (array)', async () => {
+    const { status, data } = await apiCallWithToken(adminToken, 'GET', '/admin/tenants')
+    expect(status).toBe(200)
+    expect(Array.isArray(data)).toBe(true)
+  })
+
+  test('33b. GET /admin/tenants — 401 without auth', async () => {
+    const { status } = await apiCallWithToken(null, 'GET', '/admin/tenants')
+    expect(status).toBe(401)
+  })
+
+  test('33c. GET /admin/tenants — 403 for regular user', async () => {
+    const { status } = await apiCallWithToken(regularToken, 'GET', '/admin/tenants')
+    expect(status).toBe(403)
+  })
+
+  test('33d. POST /admin/tenants — 400 missing name/slug', async () => {
+    const { status } = await apiCallWithToken(adminToken, 'POST', '/admin/tenants', { name: 'NoSlug' })
+    expect(status).toBe(400)
+  })
+
+  test('33e. POST /admin/tenants — creates tenant, returns id/name/slug', async () => {
+    const ts = Date.now()
+    const loginRes = await apiCallWithToken(adminToken, 'GET', '/accounts/me')
+    const adminId = loginRes.data.id
+    const { status, data } = await apiCallWithToken(adminToken, 'POST', '/admin/tenants', {
+      name: `Test Tenant ${ts}`,
+      slug: `test-tenant-${ts}`,
+      owner_id: adminId
+    })
+    expect(status).toBe(200)
+    expect(typeof data.id).toBe('string')
+    expect(data.name).toContain('Test Tenant')
+    tenantId = data.id
+  })
+
+  test('33f. GET /admin/tenants/:id/domains — returns empty list for new tenant', async () => {
+    const { status, data } = await apiCallWithToken(adminToken, 'GET', `/admin/tenants/${tenantId}/domains`)
+    expect(status).toBe(200)
+    expect(Array.isArray(data)).toBe(true)
+    expect(data.length).toBe(0)
+  })
+
+  test('33g. POST /admin/tenants/:id/domains — 400 missing domain', async () => {
+    const { status } = await apiCallWithToken(adminToken, 'POST', `/admin/tenants/${tenantId}/domains`, {})
+    expect(status).toBe(400)
+  })
+
+  test('33h. POST /admin/tenants/:id/domains — adds domain to tenant', async () => {
+    const { status, data } = await apiCallWithToken(adminToken, 'POST', `/admin/tenants/${tenantId}/domains`, {
+      domain: 'test-example.com',
+      is_primary: true
+    })
+    expect(status).toBe(200)
+    expect(typeof data.id).toBe('string')
+    expect(data.domain).toBe('test-example.com')
+    domainId = data.id
+  })
+
+  test('33i. GET /admin/tenants/:id/domains — now shows added domain', async () => {
+    const { status, data } = await apiCallWithToken(adminToken, 'GET', `/admin/tenants/${tenantId}/domains`)
+    expect(status).toBe(200)
+    expect(data.length).toBeGreaterThanOrEqual(1)
+    expect(data.find(d => d.id === domainId)).toBeDefined()
+  })
+
+  test('33j. DELETE /admin/domains/:id — 204 on success', async () => {
+    const { status } = await apiCallWithToken(adminToken, 'DELETE', `/admin/domains/${domainId}`)
+    expect(status).toBe(204)
+  })
+
+  test('33k. POST /admin/tenants — 401 without auth', async () => {
+    const { status } = await apiCallWithToken(null, 'POST', '/admin/tenants', { name: 'X', slug: 'x' })
+    expect(status).toBe(401)
+  })
+})
+
+// ════════════════════════════════════════════════════════════════
+// Suite 34: Billing — Settings Update
+// ════════════════════════════════════════════════════════════════
+
+describe('Suite 34: Billing — Settings Update', () => {
+  let userToken
+
+  beforeAll(async () => {
+    const ts = Date.now()
+    const res = await registerAndVerifyUser(`BillingSettings ${ts}`, `billsettings-${ts}@test.com`, 'test1234')
+    userToken = res.data.token
+  })
+
+  test('34a. PATCH /billing/settings — 400 with no recognized fields', async () => {
+    const { status } = await apiCallWithToken(userToken, 'PATCH', '/billing/settings', {})
+    expect(status).toBe(400)
+  })
+
+  test('34b. PATCH /billing/settings — sets systemFallbackEnabled', async () => {
+    const { status, data } = await apiCallWithToken(userToken, 'PATCH', '/billing/settings', {
+      systemFallbackEnabled: true
+    })
+    expect(status).toBe(200)
+    expect(data.ok).toBe(true)
+  })
+
+  test('34c. PATCH /billing/settings — sets budgetEur', async () => {
+    const { status, data } = await apiCallWithToken(userToken, 'PATCH', '/billing/settings', {
+      budgetEur: 50
+    })
+    expect(status).toBe(200)
+    expect(data.ok).toBe(true)
+  })
+
+  test('34d. PATCH /billing/settings — sets budgetEur to null (removes limit)', async () => {
+    const { status, data } = await apiCallWithToken(userToken, 'PATCH', '/billing/settings', {
+      budgetEur: null
+    })
+    expect(status).toBe(200)
+    expect(data.ok).toBe(true)
+  })
+
+  test('34e. PATCH /billing/settings — 401 without auth', async () => {
+    const { status } = await apiCallWithToken(null, 'PATCH', '/billing/settings', {
+      systemFallbackEnabled: true
+    })
+    expect(status).toBe(401)
   })
 })
