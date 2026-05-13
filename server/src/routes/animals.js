@@ -7,6 +7,7 @@ import {
   updateAnimalSharing,
   findAnimalDocumentsWithUploader,
   findDocumentPages,
+  findDocumentPagesByDocumentIds,
   findPublicShareById,
   findAnimalByIdWithOwner,
   findAnimalSharingByRole,
@@ -133,11 +134,11 @@ export default async function animalRoutes(fastify) {
       return effectiveRoles.some(r => canRoleSeeDocument(d.allowed_roles, r))
     })
 
+    const pagesByDoc = await findDocumentPagesByDocumentIds(db, result.documents.map(d => d.id))
     for (const d of result.documents) {
       try { d.extracted_json = JSON.parse(d.extracted_json) } catch { d.extracted_json = {} }
       try { d.record_permissions = d.record_permissions ? JSON.parse(d.record_permissions) : {} } catch { d.record_permissions = {} }
-      const pages = await findDocumentPages(db, d.id)
-      d.pages = pages.map(p => p.image_path)
+      d.pages = pagesByDoc[d.id] ?? []
     }
 
     return result

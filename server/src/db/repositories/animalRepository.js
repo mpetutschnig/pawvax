@@ -63,6 +63,20 @@ export async function findDocumentPages(db, documentId) {
   return rows
 }
 
+export async function findDocumentPagesByDocumentIds(db, documentIds) {
+  if (!documentIds.length) return {}
+  const { rows } = await db.query(
+    'SELECT document_id, image_path FROM document_pages WHERE document_id = ANY($1::text[]) ORDER BY id ASC',
+    [documentIds]
+  )
+  const grouped = {}
+  for (const row of rows) {
+    if (!grouped[row.document_id]) grouped[row.document_id] = []
+    grouped[row.document_id].push(row.image_path)
+  }
+  return grouped
+}
+
 export async function findPublicShareById(db, shareId) {
   const { rows } = await db.query('SELECT * FROM animal_public_shares WHERE id = $1', [shareId])
   return rows[0]

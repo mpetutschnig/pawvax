@@ -102,6 +102,7 @@ CREATE TABLE IF NOT EXISTS animal_sharing (
   share_birthdate   INTEGER NOT NULL DEFAULT 1,
   share_address     INTEGER NOT NULL DEFAULT 0,
   share_dynamic_fields INTEGER NOT NULL DEFAULT 0,
+  share_raw_images  INTEGER DEFAULT 0,
   UNIQUE(animal_id, role)
 );
 
@@ -110,6 +111,7 @@ CREATE TABLE IF NOT EXISTS animal_public_shares (
   animal_id TEXT NOT NULL REFERENCES animals(id) ON DELETE CASCADE,
   link_name TEXT,
   expires_at INTEGER NOT NULL,
+  allowed_role TEXT,
   created_at INTEGER DEFAULT (EXTRACT(EPOCH FROM CURRENT_TIMESTAMP)::INTEGER)
 );
 
@@ -154,22 +156,22 @@ CREATE TABLE IF NOT EXISTS org_memberships (
   org_id TEXT NOT NULL REFERENCES organizations(id),
   account_id TEXT NOT NULL REFERENCES accounts(id),
   role TEXT DEFAULT 'member',
-  invited_by TEXT REFERENCES accounts(id),
+  invited_by TEXT REFERENCES accounts(id) ON DELETE SET NULL,
   accepted INTEGER DEFAULT 0,
   created_at INTEGER DEFAULT (EXTRACT(EPOCH FROM CURRENT_TIMESTAMP)::INTEGER),
   PRIMARY KEY (org_id, account_id)
 );
 
 CREATE TABLE IF NOT EXISTS verification_requests (
-  id TEXT PRIMARY KEY,
-  account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
-  type TEXT NOT NULL DEFAULT 'vet',
-  status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'approved', 'rejected')),
-  notes TEXT,
+  id            TEXT PRIMARY KEY,
+  account_id    TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  type          TEXT NOT NULL CHECK(type IN ('vet', 'authority')),
+  status        TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'approved', 'rejected')),
+  notes         TEXT,
   document_path TEXT,
   rejection_reason TEXT,
-  created_at TEXT DEFAULT (CURRENT_TIMESTAMP),
-  updated_at TEXT DEFAULT (CURRENT_TIMESTAMP)
+  created_at    TEXT DEFAULT (CURRENT_TIMESTAMP),
+  updated_at    TEXT DEFAULT (CURRENT_TIMESTAMP)
 );
 
 CREATE TABLE IF NOT EXISTS reminders (
@@ -191,16 +193,6 @@ CREATE TABLE IF NOT EXISTS animal_scans (
   scanned_at TEXT DEFAULT (CURRENT_TIMESTAMP)
 );
 
-CREATE INDEX IF NOT EXISTS idx_documents_animal ON documents(animal_id);
-CREATE INDEX IF NOT EXISTS idx_tags_animal ON animal_tags(animal_id);
-CREATE INDEX IF NOT EXISTS idx_tags_active ON animal_tags(tag_id, active);
-CREATE INDEX IF NOT EXISTS idx_reminders_account ON reminders(account_id);
-CREATE INDEX IF NOT EXISTS idx_reminders_due ON reminders(due_date);
-CREATE INDEX IF NOT EXISTS idx_reminders_animal ON reminders(animal_id);
-CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log(created_at);
-CREATE INDEX IF NOT EXISTS idx_animal_scans_animal ON animal_scans(animal_id);
-CREATE INDEX IF NOT EXISTS idx_animal_scans_account ON animal_scans(account_id);
-
 CREATE TABLE IF NOT EXISTS animal_transfers (
   code       TEXT PRIMARY KEY,
   animal_id  TEXT NOT NULL REFERENCES animals(id) ON DELETE CASCADE,
@@ -216,24 +208,6 @@ CREATE TABLE IF NOT EXISTS api_keys (
   rate_limit    INTEGER DEFAULT 100,
   last_used_at  TEXT,
   created_at    TEXT DEFAULT (CURRENT_TIMESTAMP)
-);
-
-CREATE INDEX IF NOT EXISTS idx_animals_account ON animals(account_id);
-CREATE INDEX IF NOT EXISTS idx_tags_animal ON animal_tags(animal_id);
-CREATE INDEX IF NOT EXISTS idx_tags_active ON animal_tags(tag_id, active);
-CREATE INDEX IF NOT EXISTS idx_documents_animal ON documents(animal_id);
-CREATE INDEX IF NOT EXISTS idx_document_pages_doc ON document_pages(document_id);
-CREATE INDEX IF NOT EXISTS idx_analysis_history_doc ON analysis_history(document_id);
-CREATE INDEX IF NOT EXISTS idx_audit_account ON audit_log(account_id);
-CREATE INDEX IF NOT EXISTS idx_audit_resource ON audit_log(resource, resource_id);
-CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log(created_at);
-CREATE INDEX IF NOT EXISTS idx_sharing_animal ON animal_sharing(animal_id);
-CREATE INDEX IF NOT EXISTS idx_public_shares_animal ON animal_public_shares(animal_id);
-CREATE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys(key_hash);
-
-CREATE TABLE IF NOT EXISTS settings (
-  key TEXT PRIMARY KEY,
-  value TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS medical_administrations (
@@ -260,13 +234,6 @@ CREATE TABLE IF NOT EXISTS usage_logs (
   is_system_fallback INTEGER NOT NULL DEFAULT 0,
   analyzed_at TEXT DEFAULT (CURRENT_TIMESTAMP)
 );
-CREATE INDEX IF NOT EXISTS idx_usage_logs_account ON usage_logs(account_id);
-CREATE INDEX IF NOT EXISTS idx_usage_logs_analyzed ON usage_logs(analyzed_at);
-
-ALTER TABLE accounts ADD COLUMN IF NOT EXISTS billing_consent_accepted_at TEXT;
-ALTER TABLE accounts ADD COLUMN IF NOT EXISTS system_fallback_enabled INTEGER DEFAULT 1;
-ALTER TABLE accounts ADD COLUMN IF NOT EXISTS billing_page_limit INTEGER DEFAULT NULL;
-ALTER TABLE animal_sharing ADD COLUMN IF NOT EXISTS share_raw_images INTEGER DEFAULT 0;
 
 CREATE TABLE IF NOT EXISTS test_results (
   id               TEXT PRIMARY KEY,
@@ -280,56 +247,69 @@ CREATE TABLE IF NOT EXISTS test_results (
   created_at       INTEGER DEFAULT (EXTRACT(EPOCH FROM CURRENT_TIMESTAMP)::INTEGER)
 );
 
-CREATE INDEX IF NOT EXISTS idx_medical_admin_animal ON medical_administrations(animal_id);
-CREATE INDEX IF NOT EXISTS idx_medical_admin_document ON medical_administrations(document_id);
-CREATE INDEX IF NOT EXISTS idx_medical_admin_next_due ON medical_administrations(next_due_at);
-CREATE INDEX IF NOT EXISTS idx_test_results_timestamp ON test_results(test_timestamp DESC);
-CREATE INDEX IF NOT EXISTS idx_test_results_created ON test_results(created_at DESC);
+-- Indexes: animals & tags
+CREATE INDEX IF NOT EXISTS idx_animals_account ON animals(account_id);
+CREATE INDEX IF NOT EXISTS idx_tags_animal ON animal_tags(animal_id);
+CREATE INDEX IF NOT EXISTS idx_tags_active ON animal_tags(tag_id, active);
 
-CREATE TABLE IF NOT EXISTS verification_requests (
-  id            TEXT PRIMARY KEY,
-  account_id    TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
-  type          TEXT NOT NULL CHECK(type IN ('vet', 'authority')),
-  status        TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'approved', 'rejected')),
-  notes         TEXT,
-  document_path TEXT,
-  rejection_reason TEXT,
-  created_at    TEXT DEFAULT (CURRENT_TIMESTAMP),
-  updated_at    TEXT DEFAULT (CURRENT_TIMESTAMP)
-);
+-- Indexes: documents
+CREATE INDEX IF NOT EXISTS idx_documents_animal ON documents(animal_id);
+CREATE INDEX IF NOT EXISTS idx_documents_status ON documents(analysis_status);
+CREATE INDEX IF NOT EXISTS idx_documents_added_by ON documents(added_by_account);
+CREATE INDEX IF NOT EXISTS idx_document_pages_doc ON document_pages(document_id);
+CREATE INDEX IF NOT EXISTS idx_analysis_history_doc ON analysis_history(document_id);
 
-CREATE TABLE IF NOT EXISTS animal_scans (
-  id        TEXT PRIMARY KEY,
-  animal_id TEXT NOT NULL REFERENCES animals(id) ON DELETE CASCADE,
-  account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
-  scanned_at TEXT DEFAULT (CURRENT_TIMESTAMP)
-);
+-- Indexes: sharing & public links
+CREATE INDEX IF NOT EXISTS idx_sharing_animal ON animal_sharing(animal_id);
+CREATE INDEX IF NOT EXISTS idx_sharing_animal_role ON animal_sharing(animal_id, role);
+CREATE INDEX IF NOT EXISTS idx_public_shares_animal ON animal_public_shares(animal_id);
 
-CREATE INDEX IF NOT EXISTS idx_verification_requests_account ON verification_requests(account_id);
-CREATE INDEX IF NOT EXISTS idx_verification_requests_status ON verification_requests(status);
-CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_account ON email_verification_tokens(account_id);
-CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_expires ON email_verification_tokens(expires_at);
-CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_account ON password_reset_tokens(account_id);
-CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_expires ON password_reset_tokens(expires_at);
-CREATE INDEX IF NOT EXISTS idx_animal_scans_animal ON animal_scans(animal_id);
-CREATE INDEX IF NOT EXISTS idx_animal_scans_account ON animal_scans(account_id);
-CREATE INDEX IF NOT EXISTS idx_animal_scans_time ON animal_scans(scanned_at);
+-- Indexes: audit
+CREATE INDEX IF NOT EXISTS idx_audit_account ON audit_log(account_id);
+CREATE INDEX IF NOT EXISTS idx_audit_resource ON audit_log(resource, resource_id);
+CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log(created_at);
 
-CREATE TABLE IF NOT EXISTS reminders (
-  id          TEXT PRIMARY KEY,
-  account_id  TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
-  animal_id   TEXT NOT NULL REFERENCES animals(id) ON DELETE CASCADE,
-  document_id TEXT REFERENCES documents(id) ON DELETE SET NULL,
-  title       TEXT NOT NULL,
-  due_date    TEXT NOT NULL,
-  notes       TEXT,
-  dismissed_at TEXT,
-  created_at  TEXT DEFAULT (CURRENT_TIMESTAMP)
-);
+-- Indexes: JWT blacklist
+CREATE INDEX IF NOT EXISTS idx_jwt_blacklist_expires ON jwt_blacklist(expires_at);
 
+-- Indexes: API keys
+CREATE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys(key_hash);
+
+-- Indexes: reminders
 CREATE INDEX IF NOT EXISTS idx_reminders_account ON reminders(account_id);
 CREATE INDEX IF NOT EXISTS idx_reminders_due ON reminders(due_date);
 CREATE INDEX IF NOT EXISTS idx_reminders_animal ON reminders(animal_id);
 
--- Migration: add pedigree_name to animals
+-- Indexes: animal scans
+CREATE INDEX IF NOT EXISTS idx_animal_scans_animal ON animal_scans(animal_id);
+CREATE INDEX IF NOT EXISTS idx_animal_scans_account ON animal_scans(account_id);
+CREATE INDEX IF NOT EXISTS idx_animal_scans_time ON animal_scans(scanned_at);
+
+-- Indexes: verification requests
+CREATE INDEX IF NOT EXISTS idx_verification_requests_account ON verification_requests(account_id);
+CREATE INDEX IF NOT EXISTS idx_verification_requests_status ON verification_requests(status);
+
+-- Indexes: auth tokens
+CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_account ON email_verification_tokens(account_id);
+CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_expires ON email_verification_tokens(expires_at);
+CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_account ON password_reset_tokens(account_id);
+CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_expires ON password_reset_tokens(expires_at);
+
+-- Indexes: medical & usage
+CREATE INDEX IF NOT EXISTS idx_medical_admin_animal ON medical_administrations(animal_id);
+CREATE INDEX IF NOT EXISTS idx_medical_admin_document ON medical_administrations(document_id);
+CREATE INDEX IF NOT EXISTS idx_medical_admin_next_due ON medical_administrations(next_due_at);
+CREATE INDEX IF NOT EXISTS idx_usage_logs_account ON usage_logs(account_id);
+CREATE INDEX IF NOT EXISTS idx_usage_logs_analyzed ON usage_logs(analyzed_at);
+
+-- Indexes: test results
+CREATE INDEX IF NOT EXISTS idx_test_results_timestamp ON test_results(test_timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_test_results_created ON test_results(created_at DESC);
+
+-- Migrations: additive column changes
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS billing_consent_accepted_at TEXT;
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS system_fallback_enabled INTEGER DEFAULT 1;
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS billing_page_limit INTEGER DEFAULT NULL;
+ALTER TABLE animal_sharing ADD COLUMN IF NOT EXISTS share_raw_images INTEGER DEFAULT 0;
 ALTER TABLE animals ADD COLUMN IF NOT EXISTS pedigree_name TEXT;
+ALTER TABLE animal_public_shares ADD COLUMN IF NOT EXISTS allowed_role TEXT;
