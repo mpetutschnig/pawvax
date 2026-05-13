@@ -38,7 +38,11 @@ const S = {
 type Phase = 'capture' | 'configure' | 'uploading' | 'analysing' | 'error'
 type Group = { pages: File[]; previews: string[] }
 
-function parseAnalysisError(rawError: unknown, fallback: string): { userMessage: string; techMessage: string } {
+const HTTP_ERROR_CODE_MAP: Record<string, string> = {
+  budget_exceeded: 'docScan.budgetExceeded',
+}
+
+function parseAnalysisError(rawError: unknown, fallback: string, t?: (key: string) => string): { userMessage: string; techMessage: string } {
   if (!rawError) return { userMessage: fallback, techMessage: '' }
   if (typeof rawError === 'string') return { userMessage: rawError, techMessage: '' }
 
@@ -51,8 +55,11 @@ function parseAnalysisError(rawError: unknown, fallback: string): { userMessage:
     const status = response.status
     const data = response.data || {}
     techMessage = `HTTP ${status}: ${JSON.stringify(data)}`
-    if (data.error && typeof data.error === 'string') userMessage = data.error
-    else if (data.message && typeof data.message === 'string') userMessage = data.message
+    const rawCode = (data.error || data.message) as string | undefined
+    if (rawCode) {
+      const i18nKey = HTTP_ERROR_CODE_MAP[rawCode]
+      userMessage = (i18nKey && t) ? t(i18nKey) : rawCode
+    }
   } else if (err?.message) {
     userMessage = err.message || fallback
     techMessage = err.details || err.stack || ''
@@ -267,7 +274,7 @@ export default function DocumentScanPage() {
       })
       navigate(`/animals/${animalId}/documents/${documentId}`, { replace: true })
     } catch (err) {
-      const parsed = parseAnalysisError(err, t('animal.documentFailed'))
+      const parsed = parseAnalysisError(err, t('animal.documentFailed'), t)
       setErrorMsg(parsed.userMessage)
       setTechErrorMsg(parsed.techMessage)
       setPhase('error')
@@ -328,7 +335,7 @@ export default function DocumentScanPage() {
         })
       }
     } catch (err) {
-      const parsed = parseAnalysisError(err, t('common.unknownError'))
+      const parsed = parseAnalysisError(err, t('common.unknownError'), t)
       setErrorMsg(parsed.userMessage)
       setTechErrorMsg(parsed.techMessage)
       setPhase('error')
@@ -572,7 +579,7 @@ export default function DocumentScanPage() {
                   </button>
                 )}
                 <button className="btn btn-ghost flex-1" onClick={() => navigate(`/animals/${animalId}`)} type="button">
-                  {documentId ? t('docScan.saveForLater') : t('docScan.retry')}
+                  {documentId ? t('docScan.saveForLater') : t('common.cancel')}
                 </button>
                 {!documentId && (
                   <button className="btn btn-ghost flex-1" onClick={() => { setPhase('capture'); setErrorMsg(null); setTechErrorMsg(null); setGroups([{ pages: [], previews: [] }]); setActiveGroupIdx(0); setActivePageIdx(0) }} type="button">
