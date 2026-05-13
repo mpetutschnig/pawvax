@@ -201,7 +201,8 @@ export async function getAdminSettings(db = getDb()) {
     if (storedValue) {
       try {
         result[secretKey] = decrypt(storedValue)
-      } catch {
+      } catch (err) {
+        console.warn(`[appSettings] Failed to decrypt setting '${secretKey}', returning raw value:`, err?.message)
         result[secretKey] = storedValue
       }
     }

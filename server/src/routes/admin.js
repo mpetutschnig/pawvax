@@ -732,14 +732,24 @@ export default async function adminRoutes(fastify) {
       }
     }
 
-    await db.query('DELETE FROM org_memberships WHERE account_id = $1 OR invited_by = $2', [targetId, targetId])
-    await db.query('DELETE FROM organizations WHERE owner_id = $1', [targetId])
-    await db.query('DELETE FROM animals WHERE account_id = $1', [targetId])
-    await db.query('DELETE FROM animal_tags WHERE animal_id NOT IN (SELECT id FROM animals)')
-    await db.query('DELETE FROM documents WHERE animal_id NOT IN (SELECT id FROM animals)')
-    await db.query('UPDATE documents SET added_by_account = NULL WHERE added_by_account = $1', [targetId])
-    await db.query('DELETE FROM audit_log WHERE account_id = $1', [targetId])
-    await db.query('DELETE FROM accounts WHERE id = $1', [targetId])
+    const client = await db.connect()
+    try {
+      await client.query('BEGIN')
+      await client.query('DELETE FROM org_memberships WHERE account_id = $1 OR invited_by = $2', [targetId, targetId])
+      await client.query('DELETE FROM organizations WHERE owner_id = $1', [targetId])
+      await client.query('DELETE FROM animals WHERE account_id = $1', [targetId])
+      await client.query('DELETE FROM animal_tags WHERE animal_id NOT IN (SELECT id FROM animals)')
+      await client.query('DELETE FROM documents WHERE animal_id NOT IN (SELECT id FROM animals)')
+      await client.query('UPDATE documents SET added_by_account = NULL WHERE added_by_account = $1', [targetId])
+      await client.query('DELETE FROM audit_log WHERE account_id = $1', [targetId])
+      await client.query('DELETE FROM accounts WHERE id = $1', [targetId])
+      await client.query('COMMIT')
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
+    } finally {
+      client.release()
+    }
 
     await logAudit(db, { accountId, role, action: 'delete_account', resource: 'account', resourceId: targetId, ip: req.ip })
     return reply.code(204).send()
