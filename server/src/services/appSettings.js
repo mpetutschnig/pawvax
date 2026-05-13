@@ -239,6 +239,13 @@ export async function saveSettings(updates, dbClient, existingSettings = {}) {
   }
 }
 
+const MAIL_SECRET_KEY_ALIASES = {
+  smtp_password: 'smtpPassword',
+  oauth2_client_secret: 'oauth2ClientSecret',
+  oauth2_refresh_token: 'oauth2RefreshToken',
+  oauth2_access_token: 'oauth2AccessToken',
+}
+
 export async function getMailTransportConfig(db = getDb()) {
   const settings = await getSettingsMap(db)
   const config = {
@@ -253,16 +260,23 @@ export async function getMailTransportConfig(db = getDb()) {
     username: settings.smtp_username || '',
     oauth2Provider: settings.oauth2_provider || '',
     oauth2ClientId: settings.oauth2_client_id || '',
-    oauth2Tenant: settings.oauth2_tenant || ''
+    oauth2Tenant: settings.oauth2_tenant || '',
+    smtpPassword: null,
+    oauth2ClientSecret: null,
+    oauth2RefreshToken: null,
+    oauth2AccessToken: null,
   }
 
   for (const secretKey of SECRET_SETTINGS_KEYS) {
+    const alias = MAIL_SECRET_KEY_ALIASES[secretKey]
+    if (!alias) continue
     const storedValue = settings[secretKey]
     if (storedValue) {
       try {
-        config[secretKey] = decrypt(storedValue)
-      } catch {
-        config[secretKey] = storedValue
+        config[alias] = decrypt(storedValue)
+      } catch (err) {
+        console.warn(`[appSettings] Failed to decrypt mail setting '${secretKey}':`, err?.message)
+        config[alias] = storedValue
       }
     }
   }
@@ -287,7 +301,7 @@ export function isMailConfigured(config) {
   if (!config?.enabled) return false
   if (!config.fromAddress || !config.host || !config.port || !config.username) return false
   if (config.authMode === 'oauth2') {
-    return !!(config.oauth2ClientId && config.oauth2_client_secret && config.oauth2_refresh_token)
+    return !!(config.oauth2ClientId && config.oauth2ClientSecret && config.oauth2RefreshToken)
   }
-  return !!config.smtp_password
+  return !!config.smtpPassword
 }

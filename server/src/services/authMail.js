@@ -33,14 +33,14 @@ function buildTransportOptions(config) {
       type: 'OAuth2',
       user: config.username,
       clientId: config.oauth2ClientId,
-      clientSecret: config.oauth2_client_secret,
-      refreshToken: config.oauth2_refresh_token,
-      accessToken: config.oauth2_access_token
+      clientSecret: config.oauth2ClientSecret,
+      refreshToken: config.oauth2RefreshToken,
+      accessToken: config.oauth2AccessToken
     }
   } else {
     options.auth = {
       user: config.username,
-      pass: config.smtp_password
+      pass: config.smtpPassword
     }
   }
 
