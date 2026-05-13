@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { getDocument, deleteDocument, patchDocument, getAnimalDocuments, createReminder, getDocumentHistory, patchDocumentRecord, getAnimal, updateAnimal } from '../api/rest'
 import { generateICS, downloadBlob } from '../utils/ics'
+import { useCurrentUser } from '../hooks/useCurrentUser'
 import { normalizeVaccinationRecord } from '../utils/vaccination'
 
 
@@ -17,6 +18,7 @@ export default function DocumentDetailPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const { t, i18n } = useTranslation()
+  const { roles } = useCurrentUser()
   const [doc, setDoc] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -36,7 +38,6 @@ export default function DocumentDetailPage() {
 
   const [visibility, setVisibility] = useState<string[]>([])
   const [showJsonDetails, setShowJsonDetails] = useState(false)
-  const [roles] = useState<string[]>([])
   const [analysisHistory, setAnalysisHistory] = useState<any[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
   

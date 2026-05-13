@@ -64,7 +64,10 @@ export function useAiConfig(): AiConfigState {
         setRetryProvider('openai')
         setRetryModel(DEFAULT_MODEL_BY_PROVIDER.openai)
       }
-    }).catch(() => {}).finally(() => setLoading(false))
+      setLoading(false)
+    }).catch(() => {
+      setLoading(false)
+    })
 
     fetch('/api/ai/models', { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } })
       .then(r => r.json())
