@@ -20,13 +20,13 @@ export async function analyzeDocument(imagePath, userGeminiKey = null, model = n
   }
 
   if (process.env.NODE_ENV === 'test' && process.env.PAW_MOCK_OCR === '1') {
-    return analyzeWithMockOcr(imagePath, onProgress, normalizedLanguage, forcedDocumentType)
+    return analyzeWithMockOcr(absolutePath, onProgress, normalizedLanguage, forcedDocumentType)
   }
 
   try {
     const classificationResult = forcedDocumentType
       ? { type: forcedDocumentType, confidence: null }
-      : await classifyDocumentType(imagePath, userGeminiKey, userAnthropicKey, userOpenAiKey, priority, normalizedLanguage)
+      : await classifyDocumentType(absolutePath, userGeminiKey, userAnthropicKey, userOpenAiKey, priority, normalizedLanguage)
 
     const documentType = classificationResult.type
     const typeConfidence = classificationResult.confidence
@@ -42,14 +42,14 @@ export async function analyzeDocument(imagePath, userGeminiKey = null, model = n
       const { key, model: providerModel } = providerKeyMap[provider] || {}
       if (key) {
         log.info({ provider, model: providerModel, documentType, typeConfidence }, 'OCR analysis starting')
-        return await analyzeImageWithProvider(provider, key, providerModel, imagePath, prompt, documentType, typeConfidence, onProgress)
+        return await analyzeImageWithProvider(provider, key, providerModel, absolutePath, prompt, documentType, typeConfidence, onProgress)
       }
     }
 
     // Fallback if priority loop found no match but keys exist
-    if (userGeminiKey) return await analyzeImageWithProvider('google', userGeminiKey, model, imagePath, prompt, documentType, typeConfidence, onProgress)
-    if (userAnthropicKey) return await analyzeImageWithProvider('anthropic', userAnthropicKey, claudeModel, imagePath, prompt, documentType, typeConfidence, onProgress)
-    if (userOpenAiKey) return await analyzeImageWithProvider('openai', userOpenAiKey, openAiModel, imagePath, prompt, documentType, typeConfidence, onProgress)
+    if (userGeminiKey) return await analyzeImageWithProvider('google', userGeminiKey, model, absolutePath, prompt, documentType, typeConfidence, onProgress)
+    if (userAnthropicKey) return await analyzeImageWithProvider('anthropic', userAnthropicKey, claudeModel, absolutePath, prompt, documentType, typeConfidence, onProgress)
+    if (userOpenAiKey) return await analyzeImageWithProvider('openai', userOpenAiKey, openAiModel, absolutePath, prompt, documentType, typeConfidence, onProgress)
 
     throw Object.assign(new Error('Analysis not possible. No API tokens configured.'), { code: 401 })
   } catch (err) {
