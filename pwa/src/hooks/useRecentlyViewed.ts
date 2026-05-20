@@ -10,7 +10,7 @@ export interface RecentlyViewedAnimal {
 }
 
 const RECENT_STORAGE_KEY = 'recentlyViewedAnimals'
-const TTL_MS = 60 * 60 * 1000 // 1 hour
+const TTL_MS = 7 * 24 * 60 * 60 * 1000 // 7 days
 const MAX_ENTRIES = 20
 
 function readRecentStorage(): RecentlyViewedAnimal[] {

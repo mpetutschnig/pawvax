@@ -2,7 +2,8 @@ import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { getAnimal, getAnimalDocuments, getAnimalTags, updateAnimal, deleteAnimal, uploadAnimalAvatar, deleteDocument, patchDocumentRecord, patchDocument, addVaccination, addTreatment, getAnimalVoiceMemos } from '../api/rest'
-import { PageHeader } from '../components/PageHeader' 
+import { PageHeader } from '../components/PageHeader'
+import { addRecentlyViewedAnimal } from '../hooks/useRecentlyViewed'
 import { PawPrint, Cat, Edit2, Trash2, Camera, Search, Radio, ShieldAlert, AlertTriangle, RefreshCw, X, Syringe, FileText, CheckCircle, ArrowDownAZ, ArrowUpAZ, SlidersHorizontal, ArrowRightLeft, Share2, Plus, Pill, ChevronDown, ChevronUp, Landmark, Award, GraduationCap, Stethoscope, Mic } from 'lucide-react'
 import { VoiceRecordModal } from '../components/VoiceRecordModal'
 import { AnimalDTO } from '../types/animal'
@@ -174,8 +175,10 @@ export default function AnimalPage() {
     if (!id) return
     Promise.all([getAnimal(id), getAnimalDocuments(id), getAnimalTags(id), getAnimalVoiceMemos(id).catch(() => ({ data: [] }))])
       .then(([a, d, t, v]) => {
-        setAnimal(a.data as any)
-        setEditData(a.data as any)
+        const animalData = a.data as any
+        setAnimal(animalData)
+        setEditData(animalData)
+        addRecentlyViewedAnimal({ id: animalData.id, name: animalData.name, species: animalData.species, breed: animalData.breed, source: 'animal' })
         setDocuments(Array.isArray(d.data) ? d.data : [])
         setTags(Array.isArray(t.data) ? t.data : [])
         setVoiceMemos(Array.isArray(v.data) ? v.data : [])

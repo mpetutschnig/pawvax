@@ -289,7 +289,7 @@ export default function AnimalsPage() {
                   </div>
                 </div>
                 <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>
-                  {item.source === 'scan' ? t('recent.sourceScan') : t('recent.sourceShare')} · {formatDate(item.viewedAt, undefined, { timeStyle: 'short' })}
+                  {item.source === 'scan' ? t('recent.sourceScan') : item.source === 'animal' ? t('recent.sourceAnimal') : t('recent.sourceShare')} · {formatDate(item.viewedAt, undefined, { timeStyle: 'short' })}
                 </div>
               </Link>
             ))}
