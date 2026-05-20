@@ -33,18 +33,18 @@ async function processVoiceMemoAsync(db, memoId, audioPath, accountId, languageM
     await db.query("UPDATE voice_memos SET analysis_status = 'transcribing' WHERE id = $1", [memoId])
 
     const gladiaToken = await resolveGladiaToken(db, accountId)
-    const resultUrl = await submitToGladia(audioPath, gladiaToken)
+    const { resultUrl, debug: submitDebug } = await submitToGladia(audioPath, gladiaToken)
 
     await db.query(
-      "UPDATE voice_memos SET gladia_request_id = $1 WHERE id = $2",
-      [resultUrl, memoId]
+      "UPDATE voice_memos SET gladia_request_id = $1, gladia_debug_json = $2 WHERE id = $3",
+      [resultUrl, JSON.stringify({ submit: submitDebug }), memoId]
     )
 
-    const { transcriptionText, transcriptionJson } = await pollGladiaResult(resultUrl, gladiaToken)
+    const { transcriptionText, transcriptionJson, debugData } = await pollGladiaResult(resultUrl, gladiaToken)
 
     await db.query(
-      "UPDATE voice_memos SET transcription_text = $1, transcription_json = $2, analysis_status = 'pending_analysis' WHERE id = $3",
-      [transcriptionText, transcriptionJson, memoId]
+      "UPDATE voice_memos SET transcription_text = $1, transcription_json = $2, gladia_debug_json = $3, analysis_status = 'pending_analysis' WHERE id = $4",
+      [transcriptionText, transcriptionJson, JSON.stringify({ submit: submitDebug, poll: debugData }), memoId]
     )
 
     if (!transcriptionText || transcriptionText.trim().length === 0) {
@@ -69,10 +69,11 @@ async function processVoiceMemoAsync(db, memoId, audioPath, accountId, languageM
     const errorMsg = err.code === 422
       ? 'Kein Gladia-Token konfiguriert. Bitte im Profil oder Admin-Bereich eintragen.'
       : (err.message || 'Transkription fehlgeschlagen')
-    log.error({ err: err.message, stack: err.stack, memoId, errorMsg }, 'voice_memo_processing_failed')
+    const debugJson = err.gladiaDebug ? JSON.stringify(err.gladiaDebug) : null
+    log.error({ err: err.message, stack: err.stack, memoId, errorMsg, gladiaDebug: err.gladiaDebug }, 'voice_memo_processing_failed')
     await db.query(
-      "UPDATE voice_memos SET analysis_status = 'failed', error_message = $2 WHERE id = $1",
-      [memoId, errorMsg]
+      "UPDATE voice_memos SET analysis_status = 'failed', error_message = $2, gladia_debug_json = $3 WHERE id = $1",
+      [memoId, errorMsg, debugJson]
     ).catch(() => {})
     await logAudit(db, {
       accountId,
@@ -80,7 +81,7 @@ async function processVoiceMemoAsync(db, memoId, audioPath, accountId, languageM
       action: 'voice_memo_failed',
       resource: 'voice_memo',
       resourceId: memoId,
-      details: { errorMsg, errorCode: err.code ?? null, audioPath },
+      details: { errorMsg, errorCode: err.code ?? null, gladiaDebug: err.gladiaDebug ?? null },
       ip: null
     }).catch(() => {})
   }
@@ -246,7 +247,9 @@ export default async function voiceMemoRoutes(fastify) {
       allowed_roles: isCreator || isOwner ? parseRoles(memo.allowed_roles) : undefined,
       summary_roles: isCreator || isOwner ? parseRoles(memo.summary_roles) : undefined,
       transcription_roles: isCreator || isOwner ? parseRoles(memo.transcription_roles) : undefined,
-      can_delete: isCreator && roleStr.includes('vet')
+      can_delete: isCreator && roleStr.includes('vet'),
+      error_message: (isCreator || isOwner) ? memo.error_message : undefined,
+      gladia_debug_json: isCreator ? memo.gladia_debug_json : undefined
     })
   })
 

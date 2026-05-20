@@ -248,6 +248,34 @@ export default function VoiceMemoDetailPage() {
           ))}
         </div>
       )}
+
+      {/* Gladia Debug — vet/creator only */}
+      {memo.gladia_debug_json && (
+        <GladiaDebugPanel rawJson={memo.gladia_debug_json} />
+      )}
+    </div>
+  )
+}
+
+function GladiaDebugPanel({ rawJson }: { rawJson: string }) {
+  const [open, setOpen] = useState(false)
+  let parsed: any = null
+  try { parsed = JSON.parse(rawJson) } catch { parsed = rawJson }
+
+  return (
+    <div className="card" style={{ marginBottom: 'var(--space-4)', border: '1px solid var(--warning-300)' }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{ background: 'none', border: 'none', cursor: 'pointer', width: '100%', textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 0, fontWeight: 600, fontSize: 'var(--font-size-sm)', color: 'var(--warning-700)' }}
+      >
+        Gladia Debug
+        <span style={{ fontSize: 10 }}>{open ? '▲' : '▼'}</span>
+      </button>
+      {open && (
+        <pre style={{ marginTop: 'var(--space-3)', fontSize: 11, overflowX: 'auto', background: 'var(--surface-muted)', padding: 'var(--space-2)', borderRadius: 'var(--radius-sm)', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+          {JSON.stringify(parsed, null, 2)}
+        </pre>
+      )}
     </div>
   )
 }

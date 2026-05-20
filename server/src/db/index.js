@@ -220,6 +220,7 @@ export async function initDb(connectionString) {
   try { await pool.query("ALTER TABLE animals ADD COLUMN IF NOT EXISTS sex TEXT DEFAULT 'unknown'") } catch { /* already exists */ }
   try { await pool.query("ALTER TABLE usage_logs ADD COLUMN IF NOT EXISTS voice_memo_id TEXT REFERENCES voice_memos(id) ON DELETE SET NULL") } catch { /* already exists */ }
   try { await pool.query("ALTER TABLE voice_memos ADD COLUMN IF NOT EXISTS error_message TEXT") } catch { /* already exists */ }
+  try { await pool.query("ALTER TABLE voice_memos ADD COLUMN IF NOT EXISTS gladia_debug_json TEXT") } catch { /* already exists */ }
 
   // Migration: voice memo billing settings
   try {

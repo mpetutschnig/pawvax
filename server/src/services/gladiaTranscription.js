@@ -24,6 +24,7 @@ export async function resolveGladiaToken(db, accountId) {
   throw Object.assign(new Error('Kein Gladia-Token konfiguriert. Bitte im Profil oder in den Admin-Einstellungen eintragen.'), { code: 422 })
 }
 
+// Returns { resultUrl, debug: { upload, transcription_start } }
 export async function submitToGladia(audioPath, gladiaToken) {
   // Step 1: upload file to Gladia hosting → get Gladia-hosted audio_url
   const audioBuffer = readFileSync(audioPath)
@@ -37,14 +38,22 @@ export async function submitToGladia(audioPath, gladiaToken) {
     body: form
   })
 
+  const uploadBody = await uploadRes.text()
+  let uploadData
+  try { uploadData = JSON.parse(uploadBody) } catch { uploadData = { raw: uploadBody } }
+
   if (!uploadRes.ok) {
-    const err = await uploadRes.text().catch(() => String(uploadRes.status))
-    throw Object.assign(new Error(`Gladia upload failed (${uploadRes.status}): ${err}`), { code: 502 })
+    const err = Object.assign(new Error(`Gladia upload failed (${uploadRes.status}): ${uploadBody}`), { code: 502 })
+    err.gladiaDebug = { step: 'upload', status: uploadRes.status, response: uploadData }
+    throw err
   }
 
-  const uploadData = await uploadRes.json()
   const audioUrl = uploadData.audio_url
-  if (!audioUrl) throw Object.assign(new Error(`Gladia upload returned no audio_url. Response: ${JSON.stringify(uploadData)}`), { code: 502 })
+  if (!audioUrl) {
+    const err = Object.assign(new Error(`Gladia upload returned no audio_url. Response: ${uploadBody}`), { code: 502 })
+    err.gladiaDebug = { step: 'upload', status: uploadRes.status, response: uploadData }
+    throw err
+  }
 
   // Step 2: start transcription with Gladia-hosted URL
   const transcribeRes = await fetch(GLADIA_TRANSCRIBE_API, {
@@ -60,18 +69,30 @@ export async function submitToGladia(audioPath, gladiaToken) {
     })
   })
 
+  const transcribeBody = await transcribeRes.text()
+  let transcribeData
+  try { transcribeData = JSON.parse(transcribeBody) } catch { transcribeData = { raw: transcribeBody } }
+
   if (!transcribeRes.ok) {
-    const err = await transcribeRes.text().catch(() => String(transcribeRes.status))
-    throw Object.assign(new Error(`Gladia transcription start failed (${transcribeRes.status}): ${err}`), { code: 502 })
+    const err = Object.assign(new Error(`Gladia transcription start failed (${transcribeRes.status}): ${transcribeBody}`), { code: 502 })
+    err.gladiaDebug = { step: 'transcription_start', status: transcribeRes.status, upload: uploadData, response: transcribeData }
+    throw err
   }
 
-  const transcribeData = await transcribeRes.json()
-  // Prefer result_url for polling (exact URL returned by Gladia), fall back to constructing from id
   const resultUrl = transcribeData.result_url || (transcribeData.id ? `${GLADIA_TRANSCRIBE_API}${transcribeData.id}` : null)
-  if (!resultUrl) throw Object.assign(new Error(`Gladia returned no result_url or id. Response: ${JSON.stringify(transcribeData)}`), { code: 502 })
-  return resultUrl
+  if (!resultUrl) {
+    const err = Object.assign(new Error(`Gladia returned no result_url or id. Response: ${transcribeBody}`), { code: 502 })
+    err.gladiaDebug = { step: 'transcription_start', status: transcribeRes.status, upload: uploadData, response: transcribeData }
+    throw err
+  }
+
+  return {
+    resultUrl,
+    debug: { upload: uploadData, transcription_start: transcribeData }
+  }
 }
 
+// Returns { transcriptionText, transcriptionJson, debugData }
 export async function pollGladiaResult(resultUrl, gladiaToken) {
   for (let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt++) {
     await sleep(POLL_INTERVAL_MS)
@@ -80,12 +101,15 @@ export async function pollGladiaResult(resultUrl, gladiaToken) {
       headers: { 'x-gladia-key': gladiaToken, accept: 'application/json' }
     })
 
-    if (!res.ok) {
-      const err = await res.text().catch(() => String(res.status))
-      throw Object.assign(new Error(`Gladia poll failed (${res.status}): ${err}`), { code: 502 })
-    }
+    const body = await res.text()
+    let data
+    try { data = JSON.parse(body) } catch { data = { raw: body } }
 
-    const data = await res.json()
+    if (!res.ok) {
+      const err = Object.assign(new Error(`Gladia poll failed (${res.status}): ${body}`), { code: 502 })
+      err.gladiaDebug = { step: 'poll', attempt, status: res.status, response: data }
+      throw err
+    }
 
     if (data.status === 'done') {
       // Gladia v2 nests transcription under result.result (double result)
@@ -93,11 +117,17 @@ export async function pollGladiaResult(resultUrl, gladiaToken) {
       const fullTranscript = transcription?.full_transcript
         || transcription?.utterances?.map(u => u.text).join(' ')
         || ''
-      return { transcriptionText: fullTranscript, transcriptionJson: JSON.stringify(data.result) }
+      return {
+        transcriptionText: fullTranscript,
+        transcriptionJson: JSON.stringify(data.result),
+        debugData: data
+      }
     }
 
     if (data.status === 'error') {
-      throw Object.assign(new Error(`Gladia transcription error: ${JSON.stringify(data.error || data)}`), { code: 502 })
+      const err = Object.assign(new Error(`Gladia transcription error: ${JSON.stringify(data.error || data)}`), { code: 502 })
+      err.gladiaDebug = { step: 'poll', attempt, status: 'error', response: data }
+      throw err
     }
   }
 

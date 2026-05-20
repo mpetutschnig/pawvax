@@ -244,6 +244,7 @@ CREATE TABLE IF NOT EXISTS voice_memos (
   summary_roles TEXT DEFAULT '["vet","authority","guest"]',
   transcription_roles TEXT DEFAULT '["vet"]',
   error_message TEXT,
+  gladia_debug_json TEXT,
   created_at TEXT DEFAULT (CURRENT_TIMESTAMP)
 );
 
