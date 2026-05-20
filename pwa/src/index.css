@@ -1482,7 +1482,7 @@ html[data-theme="dark"] .nav-bar h2 {
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+  box-shadow: var(--shadow-lg);
   transition: background var(--t-fast), transform var(--t-fast);
   flex-shrink: 0;
 }
@@ -1504,24 +1504,26 @@ html[data-theme="dark"] .nav-bar h2 {
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 .fab-item-label {
-  background: var(--bg-card);
+  background: var(--bg-elevated);
   color: var(--text-primary);
-  padding: 6px 12px;
+  padding: 8px 14px;
   border-radius: var(--radius-md);
   font-size: var(--font-size-sm);
   font-weight: 500;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border);
   white-space: nowrap;
 }
 .fab-item-icon {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: var(--bg-card);
-  color: var(--primary-500);
+  background: var(--primary-500);
+  color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  box-shadow: var(--shadow-md);
   flex-shrink: 0;
 }
+.fab-item:hover .fab-item-icon { background: var(--primary-600); }
