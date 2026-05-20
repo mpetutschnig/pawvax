@@ -109,7 +109,7 @@ export default function VoiceMemoDetailPage() {
   const isBoth = memo.language_mode === 'both'
 
   return (
-    <div style={{ maxWidth: 720, margin: '0 auto', padding: 'var(--space-4)' }}>
+    <div style={{ maxWidth: 720, margin: '0 auto', padding: 'var(--space-4)', paddingBottom: 'calc(var(--bottom-nav-height) + var(--space-6))' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
         <button className="btn btn-ghost" onClick={() => navigate(`/animals/${id}`)} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
