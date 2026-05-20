@@ -67,7 +67,13 @@ async function processVoiceMemoAsync(db, memoId, audioPath, accountId, languageM
     await logVoiceMemoUsage(db, { accountId, voiceMemoId: memoId, aiProvider, hasOwnKey, languageMode })
   } catch (err) {
     log.error({ err: err.message, memoId }, 'Voice memo processing failed')
-    await db.query("UPDATE voice_memos SET analysis_status = 'failed' WHERE id = $1", [memoId]).catch(() => {})
+    const errorMsg = err.code === 422
+      ? 'Kein Gladia-Token konfiguriert. Bitte im Profil oder Admin-Bereich eintragen.'
+      : (err.message || 'Transkription fehlgeschlagen')
+    await db.query(
+      "UPDATE voice_memos SET analysis_status = 'failed', error_message = $2 WHERE id = $1",
+      [memoId, errorMsg]
+    ).catch(() => {})
   }
 }
 
@@ -75,7 +81,13 @@ export default async function voiceMemoRoutes(fastify) {
   // POST /api/animals/:id/voice-memos — vet only, multipart upload
   fastify.post('/api/animals/:id/voice-memos', {
     onRequest: [fastify.authenticate],
-    config: { rawBody: false }
+    config: { rawBody: false },
+    schema: {
+      summary: 'Upload voice memo (vet only)',
+      description: 'Uploads an audio file and triggers async Gladia transcription + AI analysis. Returns 202 immediately.',
+      tags: ['Voice Memos'],
+      security: [{ bearerAuth: [] }]
+    }
   }, async (req, reply) => {
     const { role, accountId, name: vetName } = req.user
     const roleStr = Array.isArray(role) ? role[0] : (role || 'user')
@@ -129,7 +141,15 @@ export default async function voiceMemoRoutes(fastify) {
   })
 
   // GET /api/animals/:id/voice-memos — role-filtered list
-  fastify.get('/api/animals/:id/voice-memos', { onRequest: [fastify.authenticate] }, async (req, reply) => {
+  fastify.get('/api/animals/:id/voice-memos', {
+    onRequest: [fastify.authenticate],
+    schema: {
+      summary: 'List voice memos for animal',
+      description: 'Returns voice memos visible to the caller based on their role and allowed_roles settings.',
+      tags: ['Voice Memos'],
+      security: [{ bearerAuth: [] }]
+    }
+  }, async (req, reply) => {
     const { accountId, role } = req.user
     const animalId = req.params.id
     const db = getDb()
@@ -170,7 +190,15 @@ export default async function voiceMemoRoutes(fastify) {
   })
 
   // GET /api/voice-memos/:id — full detail (role-filtered)
-  fastify.get('/api/voice-memos/:id', { onRequest: [fastify.authenticate] }, async (req, reply) => {
+  fastify.get('/api/voice-memos/:id', {
+    onRequest: [fastify.authenticate],
+    schema: {
+      summary: 'Get voice memo detail',
+      description: 'Returns memo detail. transcription_text and extracted_json fields are filtered based on caller role vs transcription_roles/summary_roles.',
+      tags: ['Voice Memos'],
+      security: [{ bearerAuth: [] }]
+    }
+  }, async (req, reply) => {
     const { accountId, role } = req.user
     const db = getDb()
     const roleStr = Array.isArray(role) ? role[0] : (role || 'user')
@@ -214,7 +242,15 @@ export default async function voiceMemoRoutes(fastify) {
   })
 
   // PATCH /api/voice-memos/:id — update role permissions (vet + creator only)
-  fastify.patch('/api/voice-memos/:id', { onRequest: [fastify.authenticate] }, async (req, reply) => {
+  fastify.patch('/api/voice-memos/:id', {
+    onRequest: [fastify.authenticate],
+    schema: {
+      summary: 'Update voice memo permissions',
+      description: 'Vet (creator) can update allowed_roles, summary_roles, transcription_roles.',
+      tags: ['Voice Memos'],
+      security: [{ bearerAuth: [] }]
+    }
+  }, async (req, reply) => {
     const { accountId, role } = req.user
     const roleStr = Array.isArray(role) ? role[0] : (role || 'user')
     const db = getDb()
@@ -241,7 +277,15 @@ export default async function voiceMemoRoutes(fastify) {
   })
 
   // DELETE /api/voice-memos/:id — vet + creator only
-  fastify.delete('/api/voice-memos/:id', { onRequest: [fastify.authenticate] }, async (req, reply) => {
+  fastify.delete('/api/voice-memos/:id', {
+    onRequest: [fastify.authenticate],
+    schema: {
+      summary: 'Delete voice memo (vet + creator only)',
+      description: 'Deletes the voice memo record and audio file. Only the vet who created it can delete.',
+      tags: ['Voice Memos'],
+      security: [{ bearerAuth: [] }]
+    }
+  }, async (req, reply) => {
     const { accountId, role } = req.user
     const roleStr = Array.isArray(role) ? role[0] : (role || 'user')
     if (!roleStr.includes('vet')) return reply.code(403).send({ error: 'Nur Tierärzte können Sprachnotizen löschen' })
@@ -271,7 +315,15 @@ export default async function voiceMemoRoutes(fastify) {
   })
 
   // POST /api/voice-memos/:id/retry — re-run analysis
-  fastify.post('/api/voice-memos/:id/retry', { onRequest: [fastify.authenticate] }, async (req, reply) => {
+  fastify.post('/api/voice-memos/:id/retry', {
+    onRequest: [fastify.authenticate],
+    schema: {
+      summary: 'Retry voice memo analysis',
+      description: 'Re-triggers Gladia transcription (or just AI analysis if transcription exists). Vet + creator only.',
+      tags: ['Voice Memos'],
+      security: [{ bearerAuth: [] }]
+    }
+  }, async (req, reply) => {
     const { accountId, role } = req.user
     const roleStr = Array.isArray(role) ? role[0] : (role || 'user')
     if (!roleStr.includes('vet')) return reply.code(403).send({ error: 'Nur Tierärzte können Analysen wiederholen' })
@@ -289,7 +341,15 @@ export default async function voiceMemoRoutes(fastify) {
   })
 
   // GET /api/voice-memos/:id/audio — stream audio file
-  fastify.get('/api/voice-memos/:id/audio', { onRequest: [fastify.authenticate] }, async (req, reply) => {
+  fastify.get('/api/voice-memos/:id/audio', {
+    onRequest: [fastify.authenticate],
+    schema: {
+      summary: 'Stream voice memo audio',
+      description: 'Returns the audio file as a stream. Requires Bearer token (use blob fetch in browser, not direct <audio src>).',
+      tags: ['Voice Memos'],
+      security: [{ bearerAuth: [] }]
+    }
+  }, async (req, reply) => {
     const { accountId, role } = req.user
     const db = getDb()
     const roleStr = Array.isArray(role) ? role[0] : (role || 'user')

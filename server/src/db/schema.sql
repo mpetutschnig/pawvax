@@ -243,6 +243,7 @@ CREATE TABLE IF NOT EXISTS voice_memos (
   allowed_roles TEXT DEFAULT '["vet","authority"]',
   summary_roles TEXT DEFAULT '["vet","authority","guest"]',
   transcription_roles TEXT DEFAULT '["vet"]',
+  error_message TEXT,
   created_at TEXT DEFAULT (CURRENT_TIMESTAMP)
 );
 

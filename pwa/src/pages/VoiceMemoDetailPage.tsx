@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeft, Mic, Trash2, RefreshCw } from 'lucide-react'
-import { getVoiceMemo, deleteVoiceMemo, retryVoiceMemo, getVoiceMemoAudioUrl, patchVoiceMemo } from '../api/rest'
+import { api, getVoiceMemo, deleteVoiceMemo, retryVoiceMemo, patchVoiceMemo } from '../api/rest'
 import { VerifiedBadge } from '../components/VerifiedBadge'
 
 function StatusBadge({ status }: { status: string }) {
@@ -33,6 +33,7 @@ export default function VoiceMemoDetailPage() {
   const [deleting, setDeleting] = useState(false)
   const [retrying, setRetrying] = useState(false)
   const [error, setError] = useState('')
+  const [audioSrc, setAudioSrc] = useState<string>('')
 
   const load = async () => {
     if (!memoId) return
@@ -47,6 +48,18 @@ export default function VoiceMemoDetailPage() {
   }
 
   useEffect(() => { load() }, [memoId])
+
+  useEffect(() => {
+    if (!memoId) return
+    let objectUrl = ''
+    api.get(`/voice-memos/${memoId}/audio`, { responseType: 'blob' })
+      .then((res: any) => {
+        objectUrl = URL.createObjectURL(res.data)
+        setAudioSrc(objectUrl)
+      })
+      .catch(() => {})
+    return () => { if (objectUrl) URL.revokeObjectURL(objectUrl) }
+  }, [memoId])
 
   useEffect(() => {
     if (!memo) return
@@ -121,6 +134,11 @@ export default function VoiceMemoDetailPage() {
               <RefreshCw size={16} /> {retrying ? t('common.loading') : t('common.retry')}
             </button>
           )}
+          {memo.analysis_status === 'failed' && memo.error_message && (
+            <div className="error-card" style={{ marginTop: 'var(--space-2)', fontSize: 'var(--font-size-sm)', padding: 'var(--space-2) var(--space-3)' }}>
+              {memo.error_message}
+            </div>
+          )}
           {memo.can_delete && (
             <button className="btn btn-danger" onClick={handleDelete} disabled={deleting} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
               <Trash2 size={16} /> {deleting ? t('common.loading') : t('common.delete')}
@@ -144,7 +162,10 @@ export default function VoiceMemoDetailPage() {
         <h3 style={{ margin: '0 0 var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
           <Mic size={16} /> {t('voiceMemo.playAudio')}
         </h3>
-        <audio controls src={getVoiceMemoAudioUrl(memoId!)} style={{ width: '100%' }} />
+        {audioSrc
+          ? <audio controls src={audioSrc} style={{ width: '100%' }} />
+          : <p className="text-muted" style={{ margin: 0, fontSize: 'var(--font-size-sm)' }}>{t('common.loading')}</p>
+        }
       </div>
 
       {/* AI Memo */}

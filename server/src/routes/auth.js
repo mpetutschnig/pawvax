@@ -1024,15 +1024,24 @@ export default async function authRoutes(fastify) {
     const { accountId } = req.user
 
     const { rows } = await db.query(`
-      SELECT 'document' AS type, d.id, d.analysis_status, a.name AS animal_name, a.id AS animal_id, d.created_at
+      SELECT 'document' AS type, d.id, d.analysis_status, a.name AS animal_name, a.id AS animal_id, d.created_at,
+             NULL AS error_message, FALSE AS recently_failed
       FROM documents d JOIN animals a ON a.id = d.animal_id
       WHERE a.account_id = $1
         AND d.analysis_status NOT IN ('completed', 'failed')
       UNION ALL
-      SELECT 'voice_memo', v.id, v.analysis_status, a.name, a.id, v.created_at
+      SELECT 'voice_memo', v.id, v.analysis_status, a.name, a.id, v.created_at,
+             NULL AS error_message, FALSE AS recently_failed
       FROM voice_memos v JOIN animals a ON a.id = v.animal_id
       WHERE v.account_id = $1
         AND v.analysis_status NOT IN ('completed', 'failed')
+      UNION ALL
+      SELECT 'voice_memo', v.id, v.analysis_status, a.name, a.id, v.created_at,
+             v.error_message, TRUE AS recently_failed
+      FROM voice_memos v JOIN animals a ON a.id = v.animal_id
+      WHERE v.account_id = $1
+        AND v.analysis_status = 'failed'
+        AND v.created_at > (CURRENT_TIMESTAMP - INTERVAL '10 minutes')
       ORDER BY created_at DESC
     `, [accountId])
 

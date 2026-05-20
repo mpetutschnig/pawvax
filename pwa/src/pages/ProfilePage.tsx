@@ -45,7 +45,7 @@ export default function ProfilePage() {
   const [creatingKey, setCreatingKey] = useState(false)
   const [createdKey, setCreatedKey] = useState<{ id: string; raw: string; description: string } | null>(null)
   const [copiedKey, setCopiedKey] = useState(false)
-  const [activeTab, setActiveTab] = useState<'account' | 'ai' | 'developer' | 'data'>('account')
+  const [activeTab, setActiveTab] = useState<'account' | 'ai' | 'tokens' | 'developer' | 'data'>('account')
 
   // Edit Profile state
   const [editName, setEditName] = useState('')
@@ -519,7 +519,8 @@ export default function ProfilePage() {
   const TABS = [
     { id: 'account' as const, label: t('profile.tabAccount'), icon: <User size={15} /> },
     { id: 'ai'      as const, label: t('profile.tabAi'),      icon: <Cpu size={15} /> },
-    { id: 'developer' as const, label: t('profile.tabDeveloper'), icon: <Key size={15} /> },
+    { id: 'tokens'  as const, label: t('profile.tabTokens'),  icon: <Key size={15} /> },
+    { id: 'developer' as const, label: t('profile.tabDeveloper'), icon: <BookOpen size={15} /> },
     { id: 'data'    as const, label: t('profile.tabData'),    icon: <Shield size={15} /> },
   ]
 
@@ -758,7 +759,12 @@ export default function ProfilePage() {
               ))}
             </div>
           </div>
+        </>
+      )}
 
+      {/* ── Tab: Tokens ───────────────────────────────────────── */}
+      {activeTab === 'tokens' && (
+        <>
           {/* Google Gemini */}
           <div className="card animate-fade-in" style={{ marginTop: 'var(--space-4)' }}>
             <h3 style={{ marginTop: 0, marginBottom: 'var(--space-3)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
@@ -893,7 +899,7 @@ export default function ProfilePage() {
       )}
 
       {/* ── Tab: Entwickler ───────────────────────────────────── */}
-      {activeTab === 'ai' && (
+      {activeTab === 'developer' && (
         <>
           {/* System-Fallback & Billing */}
           <div className="card animate-fade-in">
@@ -939,7 +945,7 @@ export default function ProfilePage() {
 
           <div className="card animate-fade-in" style={{ marginTop: 'var(--space-4)' }}>
             <h3 style={{ marginTop: 0, marginBottom: 'var(--space-3)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-              <Key size={18} color="var(--primary-500)" /> Gemini (Google)
+              <Key size={18} color="var(--primary-500)" /> {t('profile.apiKeysTitle')}
             </h3>
             <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-4)' }}>{t('profile.apiKeysDesc')}</p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 'var(--space-2)', marginBottom: 'var(--space-4)' }}>

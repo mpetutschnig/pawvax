@@ -1,4 +1,4 @@
-import { createReadStream } from 'fs'
+import { readFileSync } from 'fs'
 import { decrypt } from '../utils/crypto.js'
 import { getSettingsMap } from './appSettings.js'
 
@@ -22,8 +22,10 @@ export async function resolveGladiaToken(db, accountId) {
 }
 
 export async function submitToGladia(audioPath, gladiaToken) {
+  const audioBuffer = readFileSync(audioPath)
+  const audioBlob = new Blob([audioBuffer], { type: 'audio/webm' })
   const form = new FormData()
-  form.append('audio', new Blob([createReadStream(audioPath)]))
+  form.append('audio', audioBlob, 'memo.webm')
   form.append('language_config', JSON.stringify({ languages: ['de', 'en'] }))
 
   const res = await fetch(GLADIA_API, {
@@ -58,8 +60,10 @@ export async function pollGladiaResult(requestId, gladiaToken) {
     const data = await res.json()
 
     if (data.status === 'done') {
-      const fullTranscript = data.result?.transcription?.full_transcript
-        || data.result?.transcription?.utterances?.map(u => u.text).join(' ')
+      // Gladia v2 nests transcription under result.result (double result)
+      const transcription = data.result?.result?.transcription ?? data.result?.transcription
+      const fullTranscript = transcription?.full_transcript
+        || transcription?.utterances?.map(u => u.text).join(' ')
         || ''
       return { transcriptionText: fullTranscript, transcriptionJson: JSON.stringify(data.result) }
     }

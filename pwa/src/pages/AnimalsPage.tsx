@@ -29,19 +29,19 @@ export default function AnimalsPage() {
   }, [])
 
   const loadAnimals = async () => {
+    setLoading(true)
     try {
-      setLoading(true)
-      const [animalsRes, scannedRes] = await Promise.all([
-        api.getAnimals(),
-        api.getRecentlyScannedAnimals()
-      ])
+      const animalsRes = await api.getAnimals()
       setAnimals(animalsRes.data as any)
-      setRecentlyScanned(scannedRes.data.scans || [])
     } catch (err: any) {
       setError(err.response?.data?.error || t('animals.loadError'))
     } finally {
       setLoading(false)
     }
+    try {
+      const scannedRes = await api.getRecentlyScannedAnimals()
+      setRecentlyScanned(scannedRes.data.scans || [])
+    } catch {}
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
