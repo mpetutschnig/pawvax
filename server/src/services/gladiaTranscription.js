@@ -63,10 +63,7 @@ export async function submitToGladia(audioPath, gladiaToken) {
       'Content-Type': 'application/json',
       accept: 'application/json'
     },
-    body: JSON.stringify({
-      audio_url: audioUrl,
-      language_config: { languages: ['de', 'en'] }
-    })
+    body: JSON.stringify({ audio_url: audioUrl })
   })
 
   const transcribeBody = await transcribeRes.text()
