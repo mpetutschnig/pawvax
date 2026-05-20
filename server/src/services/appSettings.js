@@ -8,6 +8,9 @@ export const PUBLIC_SETTINGS_KEYS = new Set([
   'last_test_run',
   'mail_enabled',
   'billing_price_per_page',
+  'billing_voice_memo_de_cents',
+  'billing_voice_memo_en_cents',
+  'billing_voice_memo_both_cents',
   'maintenance_mode'
 ])
 
@@ -24,6 +27,7 @@ export const AI_SETTINGS_KEYS = [
   'system_anthropic_model',
   'system_openai_token',
   'system_openai_model',
+  'system_gladia_token',
 ]
 
 export const MAIL_SETTINGS_KEYS = [
@@ -53,6 +57,7 @@ export const SECRET_SETTINGS_KEYS = new Set([
   'system_gemini_token',
   'system_anthropic_token',
   'system_openai_token',
+  'system_gladia_token',
 ])
 
 const BOOLEAN_SETTING_KEYS = new Set(['mail_enabled', 'maintenance_mode'])
@@ -163,9 +168,11 @@ function applySecretStatus(settings) {
   settings.has_system_gemini_token = !!settings.system_gemini_token
   settings.has_system_anthropic_token = !!settings.system_anthropic_token
   settings.has_system_openai_token = !!settings.system_openai_token
+  settings.has_system_gladia_token = !!settings.system_gladia_token
   delete settings.system_gemini_token
   delete settings.system_anthropic_token
   delete settings.system_openai_token
+  delete settings.system_gladia_token
 
   return settings
 }
@@ -291,6 +298,7 @@ export async function getSystemAiKeys(db = getDb()) {
     geminiKey: decryptSetting(settings.system_gemini_token) || process.env.GEMINI_API_KEY || null,
     anthropicKey: decryptSetting(settings.system_anthropic_token) || process.env.ANTHROPIC_API_KEY || null,
     openaiKey: decryptSetting(settings.system_openai_token) || process.env.OPENAI_API_KEY || null,
+    gladiaKey: decryptSetting(settings.system_gladia_token) || null,
     geminiModel: settings.system_gemini_model || null,
     anthropicModel: settings.system_anthropic_model || null,
     openaiModel: settings.system_openai_model || null,

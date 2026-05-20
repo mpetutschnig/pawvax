@@ -15,12 +15,15 @@ import DocumentScanPage from './pages/DocumentScanPage'
 import AdminPage from './pages/AdminPage'
 import ProfilePage from './pages/ProfilePage'
 import DocumentDetailPage from './pages/DocumentDetailPage'
+import VoiceMemoDetailPage from './pages/VoiceMemoDetailPage'
 import PublicScanPage from './pages/PublicScanPage'
 import DocumentationPage from './pages/DocumentationPage'
 import WelcomePage from './pages/WelcomePage'
 import PublicSharePage from './pages/PublicSharePage'
 import RemindersPage from './pages/RemindersPage'
 import BillingPage from './pages/BillingPage'
+import { Toaster } from 'sonner'
+import { PendingTasksChip } from './components/PendingTasksChip'
 
 function GlobalBrand() {
   const location = useLocation()
@@ -343,6 +346,7 @@ export default function App() {
         <Route path="/animals/:id/tags" element={<RequireAuth><TagManagementPage /></RequireAuth>} />
         <Route path="/animals/:id/scan" element={<RequireAuth><DocumentScanPage /></RequireAuth>} />
         <Route path="/animals/:id/documents/:docId" element={<RequireAuth><DocumentDetailPage /></RequireAuth>} />
+        <Route path="/animals/:id/voice-memos/:memoId" element={<RequireAuth><VoiceMemoDetailPage /></RequireAuth>} />
         <Route path="/scan" element={<RequireAuth><ScanPage /></RequireAuth>} />
         <Route path="/docs" element={<RequireAuth><DocumentationPage /></RequireAuth>} />
         <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
@@ -350,7 +354,9 @@ export default function App() {
         <Route path="/admin" element={<RequireAuth adminOnly><AdminPage /></RequireAuth>} />
         <Route path="*" element={<Navigate to="/animals" replace />} />
       </Routes>
+      <PendingTasksChip />
       <BottomNav />
+      <Toaster position="bottom-center" />
     </ErrorBoundary>
   )
 }

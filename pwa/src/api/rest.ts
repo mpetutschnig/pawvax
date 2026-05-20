@@ -225,3 +225,29 @@ export const postBillingConsent = () => api.post('/billing/consent')
 export const adminGetBilling = () => api.get('/admin/billing')
 export const patchBillingSettings = (body: { systemFallbackEnabled?: boolean; budgetEur?: number | null }) =>
   api.patch('/billing/settings', body)
+
+// Voice Memos
+export const getAnimalVoiceMemos = (animalId: string) =>
+  api.get(`/animals/${animalId}/voice-memos`)
+
+export const uploadVoiceMemo = (animalId: string, form: FormData) =>
+  api.post(`/animals/${animalId}/voice-memos`, form, { headers: { 'Content-Type': 'multipart/form-data' } })
+
+export const getVoiceMemo = (id: string) =>
+  api.get(`/voice-memos/${id}`)
+
+export const patchVoiceMemo = (id: string, body: { allowed_roles?: string[]; summary_roles?: string[]; transcription_roles?: string[] }) =>
+  api.patch(`/voice-memos/${id}`, body)
+
+export const deleteVoiceMemo = (id: string) =>
+  api.delete(`/voice-memos/${id}`)
+
+export const retryVoiceMemo = (id: string) =>
+  api.post(`/voice-memos/${id}/retry`)
+
+export const getVoiceMemoAudioUrl = (id: string) =>
+  `${getServerUrl()}/api/voice-memos/${id}/audio`
+
+// Pending background tasks
+export const getPendingTasks = () =>
+  api.get('/accounts/me/pending-tasks')

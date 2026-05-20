@@ -1,9 +1,10 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { getAnimal, getAnimalDocuments, getAnimalTags, updateAnimal, deleteAnimal, uploadAnimalAvatar, deleteDocument, patchDocumentRecord, patchDocument, addVaccination, addTreatment } from '../api/rest'
+import { getAnimal, getAnimalDocuments, getAnimalTags, updateAnimal, deleteAnimal, uploadAnimalAvatar, deleteDocument, patchDocumentRecord, patchDocument, addVaccination, addTreatment, getAnimalVoiceMemos } from '../api/rest'
 import { PageHeader } from '../components/PageHeader' 
-import { PawPrint, Cat, Edit2, Trash2, Camera, Search, Radio, ShieldAlert, AlertTriangle, RefreshCw, X, Syringe, FileText, CheckCircle, ArrowDownAZ, ArrowUpAZ, SlidersHorizontal, ArrowRightLeft, Share2, Plus, Pill, ChevronDown, ChevronUp, Landmark, Award, GraduationCap, Stethoscope } from 'lucide-react'
+import { PawPrint, Cat, Edit2, Trash2, Camera, Search, Radio, ShieldAlert, AlertTriangle, RefreshCw, X, Syringe, FileText, CheckCircle, ArrowDownAZ, ArrowUpAZ, SlidersHorizontal, ArrowRightLeft, Share2, Plus, Pill, ChevronDown, ChevronUp, Landmark, Award, GraduationCap, Stethoscope, Mic } from 'lucide-react'
+import { VoiceRecordModal } from '../components/VoiceRecordModal'
 import { AnimalDTO } from '../types/animal'
 import { normalizeVaccinationRecord } from '../utils/vaccination'
 import { formatDate, formatDateOnly } from '../utils/date'
@@ -77,6 +78,8 @@ export default function AnimalPage() {
   const [archiveReason, setArchiveReason] = useState<'verstorben' | 'verloren' | 'verkauft' | 'abgegeben' | 'sonstiges' | ''>('')
 
   const [showFab, setShowFab] = useState(false)
+  const [showVoiceMemo, setShowVoiceMemo] = useState(false)
+  const [voiceMemos, setVoiceMemos] = useState<any[]>([])
 
   // Manual entry modals
   const [showVaxModal, setShowVaxModal] = useState(false)
@@ -169,18 +172,32 @@ export default function AnimalPage() {
 
   useEffect(() => {
     if (!id) return
-    Promise.all([getAnimal(id), getAnimalDocuments(id), getAnimalTags(id)])
-      .then(([a, d, t]) => {
+    Promise.all([getAnimal(id), getAnimalDocuments(id), getAnimalTags(id), getAnimalVoiceMemos(id).catch(() => ({ data: [] }))])
+      .then(([a, d, t, v]) => {
         setAnimal(a.data as any)
         setEditData(a.data as any)
         setDocuments(Array.isArray(d.data) ? d.data : [])
         setTags(Array.isArray(t.data) ? t.data : [])
+        setVoiceMemos(Array.isArray(v.data) ? v.data : [])
         // Load pending documents
         loadPendingDocuments(id)
       })
       .catch(() => setError(t('error.notFound')))
       .finally(() => setLoading(false))
   }, [id])
+
+  // Poll voice memos while any are in non-final state
+  useEffect(() => {
+    if (!id) return
+    const pending = ['pending_transcription', 'transcribing', 'pending_analysis', 'analyzing']
+    const hasPending = voiceMemos.some((m: any) => pending.includes(m.analysis_status))
+    if (!hasPending) return
+    const timer = setTimeout(async () => {
+      const r = await getAnimalVoiceMemos(id).catch(() => null)
+      if (r) setVoiceMemos(Array.isArray(r.data) ? r.data : [])
+    }, 4000)
+    return () => clearTimeout(timer)
+  }, [voiceMemos, id])
 
   // Auto-refresh pending documents when page is visible
   // On focus: immediate refresh + 30s polling
@@ -229,7 +246,8 @@ export default function AnimalPage() {
         name: editData.name,
         species: editData.species,
         breed: editData.breed || null,
-        birthdate: editData.birthdate || null
+        birthdate: editData.birthdate || null,
+        sex: (editData as any).sex || null
       })
       setAnimal(editData)
       setEditing(false)
@@ -667,6 +685,7 @@ export default function AnimalPage() {
                     )}
                     <p style={{ color: 'oklch(100% 0 0 / 0.70)', margin: 0, fontSize: 'var(--font-size-sm)' }}>
                       {animal.breed} {animal.birthdate ? `· ${new Date().getFullYear() - new Date(animal.birthdate).getFullYear()} ${t('animal.yearsOld')}` : ''}
+                      {(() => { const sexMap: Record<string, string> = { male: t('animal.sexMale'), female: t('animal.sexFemale'), castrated_male: t('animal.sexCastratedMale'), castrated_female: t('animal.sexCastratedFemale') }; const s = (animal as any).sex; return s && sexMap[s] ? ` · ${sexMap[s]}` : '' })()}
                     </p>
                     {animal.unique_id && (
                       <p style={{ color: 'oklch(100% 0 0 / 0.60)', margin: 0, fontSize: 'var(--font-size-xs)', marginTop: 'var(--space-1)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', cursor: 'pointer' }} onClick={() => {
@@ -956,6 +975,21 @@ export default function AnimalPage() {
                     value={editData?.birthdate || ''}
                     onChange={(e) => setEditData({ ...editData!, birthdate: e.target.value })}
                   />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">{t('animal.sex')}</label>
+                  <select
+                    className="form-select"
+                    value={(editData as any)?.sex || 'unknown'}
+                    onChange={(e) => setEditData({ ...editData!, sex: e.target.value } as any)}
+                  >
+                    <option value="unknown">{t('animal.sexUnknown')}</option>
+                    <option value="male">{t('animal.sexMale')}</option>
+                    <option value="female">{t('animal.sexFemale')}</option>
+                    <option value="castrated_male">{t('animal.sexCastratedMale')}</option>
+                    <option value="castrated_female">{t('animal.sexCastratedFemale')}</option>
+                  </select>
                 </div>
                 
                 <div className="form-group">
@@ -1904,6 +1938,45 @@ export default function AnimalPage() {
         </>
       )}
 
+      {/* Voice Memos Section */}
+      {voiceMemos.length > 0 && (
+        <div className="card" style={{ marginBottom: 'var(--space-4)' }}>
+          <h3 style={{ margin: '0 0 var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+            <Mic size={18} color="var(--primary-500)" /> {t('animal.voiceMemos')} ({voiceMemos.length})
+          </h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+            {voiceMemos.map((memo: any) => {
+              const extracted = memo.extracted_json ? (() => { try { return JSON.parse(memo.extracted_json) } catch { return {} } })() : {}
+              const title = extracted.title || extracted.title_de || null
+              const statusColor: Record<string, string> = {
+                completed: 'var(--success-500)', failed: 'var(--danger-500)',
+                transcribing: 'var(--primary-500)', analyzing: 'var(--primary-500)'
+              }
+              return (
+                <button
+                  key={memo.id}
+                  onClick={() => navigate(`/animals/${id}/voice-memos/${memo.id}`)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', background: 'none', border: 'none', cursor: 'pointer', padding: 'var(--space-2) var(--space-3)', borderRadius: 'var(--radius-md)', textAlign: 'left', transition: 'background 150ms' }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-alt)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                >
+                  <Mic size={16} color="var(--text-tertiary)" />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ margin: 0, fontWeight: 500, fontSize: 'var(--font-size-sm)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {title || formatDateOnly(memo.created_at)}
+                    </p>
+                    {title && <p className="text-muted" style={{ margin: 0, fontSize: 'var(--font-size-xs)' }}>{formatDateOnly(memo.created_at)}</p>}
+                  </div>
+                  <span style={{ fontSize: 'var(--font-size-xs)', color: statusColor[memo.analysis_status] || 'var(--text-tertiary)', flexShrink: 0 }}>
+                    {memo.analysis_status === 'completed' ? '✓' : memo.analysis_status === 'failed' ? '✕' : '⟳'}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {showArchiveDialog && (
         <div
           style={{
@@ -2051,6 +2124,18 @@ export default function AnimalPage() {
         </div>
       )}
 
+      {/* Voice Record Modal */}
+      {showVoiceMemo && id && (
+        <VoiceRecordModal
+          animalId={id}
+          onClose={() => setShowVoiceMemo(false)}
+          onSuccess={() => {
+            setShowVoiceMemo(false)
+            getAnimalVoiceMemos(id).then(r => setVoiceMemos(Array.isArray(r.data) ? r.data : []))
+          }}
+        />
+      )}
+
       {/* FAB Backdrop */}
       {showFab && (
         <div
@@ -2073,6 +2158,12 @@ export default function AnimalPage() {
         }}>
           {showFab && (
             <>
+              {isVet && (
+                <button className="fab-item" onClick={() => { setShowVoiceMemo(true); setShowFab(false) }}>
+                  <span className="fab-item-label">{t('animal.fabAddVoiceMemo')}</span>
+                  <div className="fab-item-icon"><Mic size={20} /></div>
+                </button>
+              )}
               <button className="fab-item" onClick={() => { navigate(`/animals/${id}/scan`); setShowFab(false) }}>
                 <span className="fab-item-label">{t('animal.fabAddDocument')}</span>
                 <div className="fab-item-icon"><FileText size={20} /></div>

@@ -3707,4 +3707,144 @@ describe('Suite 34: Billing — Settings Update', () => {
     })
     expect(status).toBe(401)
   })
+
+  // ════════════════════════════════════════════════════════════════
+  // 35. VOICE MEMOS API
+  // ════════════════════════════════════════════════════════════════
+  describe('35. Voice Memos API', () => {
+    let vetToken, vetAccountId
+    let ownerToken, ownerAccountId
+    let animalId
+    let memoId
+
+    beforeAll(async () => {
+      const email = `vet_vm_${Date.now()}@example.com`
+      const vetLogin = await registerAndVerifyUser('Vet VM', email, 'Password123!', 'vet')
+      vetToken = vetLogin.data.token
+      vetAccountId = vetLogin.data.account.id
+
+      const ownerEmail = `owner_vm_${Date.now()}@example.com`
+      const ownerLogin = await registerAndVerifyUser('Owner VM', ownerEmail, 'Password123!', 'user')
+      ownerToken = ownerLogin.data.token
+      ownerAccountId = ownerLogin.data.account.id
+
+      // Create animal as owner
+      const animal = await apiCallWithToken(ownerToken, 'POST', '/animals', {
+        name: 'VoiceTestTier',
+        species: 'dog'
+      })
+      expect(animal.status).toBe(201)
+      animalId = animal.data.id
+    })
+
+    test('35a. POST /animals/:id/voice-memos — 401 without auth', async () => {
+      const { status } = await fetch(`${API_URL}/animals/${animalId}/voice-memos`, { method: 'POST' })
+      expect(status).toBe(401)
+    })
+
+    test('35b. POST /animals/:id/voice-memos — 403 for non-vet', async () => {
+      const form = new FormData()
+      form.append('audio', new Blob(['fake-audio'], { type: 'audio/webm' }), 'memo.webm')
+      const res = await fetch(`${API_URL}/animals/${animalId}/voice-memos`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${ownerToken}` },
+        body: form
+      })
+      expect(res.status).toBe(403)
+    })
+
+    test('35c. POST /animals/:id/voice-memos — 202 accepted for vet', async () => {
+      const form = new FormData()
+      form.append('audio', new Blob(['fake-audio-data'], { type: 'audio/webm' }), 'memo.webm')
+      const res = await fetch(`${API_URL}/animals/${animalId}/voice-memos`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${vetToken}` },
+        body: form
+      })
+      expect(res.status).toBe(202)
+      const data = await res.json()
+      expect(data.id).toBeTruthy()
+      expect(data.status).toBe('pending_transcription')
+      memoId = data.id
+    })
+
+    test('35d. GET /animals/:id/voice-memos — returns list', async () => {
+      const { status, data } = await apiCallWithToken(ownerToken, 'GET', `/animals/${animalId}/voice-memos`)
+      expect(status).toBe(200)
+      expect(Array.isArray(data)).toBe(true)
+    })
+
+    test('35e. GET /voice-memos/:id — returns memo with analysis_status', async () => {
+      if (!memoId) return
+      const { status, data } = await apiCallWithToken(ownerToken, 'GET', `/voice-memos/${memoId}`)
+      expect(status).toBe(200)
+      expect(data.id).toBe(memoId)
+      expect(data.analysis_status).toBeTruthy()
+    })
+
+    test('35f. GET /voice-memos/:id — 404 for unknown id', async () => {
+      const { status } = await apiCallWithToken(ownerToken, 'GET', '/voice-memos/nonexistent-id')
+      expect(status).toBe(404)
+    })
+
+    test('35g. PATCH /voice-memos/:id — 403 for non-creator', async () => {
+      if (!memoId) return
+      const { status } = await apiCallWithToken(ownerToken, 'PATCH', `/voice-memos/${memoId}`, {
+        allowed_roles: ['vet']
+      })
+      expect(status).toBe(403)
+    })
+
+    test('35h. PATCH /voice-memos/:id — vet creator can update roles', async () => {
+      if (!memoId) return
+      const { status, data } = await apiCallWithToken(vetToken, 'PATCH', `/voice-memos/${memoId}`, {
+        allowed_roles: ['vet', 'authority'],
+        summary_roles: ['vet', 'authority', 'guest']
+      })
+      expect(status).toBe(200)
+      expect(data.success).toBe(true)
+    })
+
+    test('35i. POST /voice-memos/:id/retry — vet can retry', async () => {
+      if (!memoId) return
+      const { status, data } = await apiCallWithToken(vetToken, 'POST', `/voice-memos/${memoId}/retry`)
+      expect(status).toBe(200)
+      expect(data.status).toBe('pending_transcription')
+    })
+
+    test('35j. GET /accounts/me/pending-tasks — returns pending array', async () => {
+      const { status, data } = await apiCallWithToken(vetToken, 'GET', '/accounts/me/pending-tasks')
+      expect(status).toBe(200)
+      expect(typeof data.total).toBe('number')
+      expect(Array.isArray(data.items)).toBe(true)
+    })
+
+    test('35k. PATCH /accounts/me — can save gladia_token', async () => {
+      const { status, data } = await apiCallWithToken(vetToken, 'PATCH', '/accounts/me', {
+        gladia_token: 'gla_test_token'
+      })
+      expect(status).toBe(200)
+      expect(data.message).toBeTruthy()
+    })
+
+    test('35l. GET /accounts/me — has_gladia_token is true after save', async () => {
+      const { status, data } = await apiCallWithToken(vetToken, 'GET', '/accounts/me')
+      expect(status).toBe(200)
+      expect(data.has_gladia_token).toBe(true)
+    })
+
+    test('35m. DELETE /voice-memos/:id — 403 for non-creator', async () => {
+      if (!memoId) return
+      const nonCreatorEmail = `nc_vm_${Date.now()}@example.com`
+      const nc = await registerAndVerifyUser('NC VM', nonCreatorEmail, 'Password123!', 'vet')
+      const { status } = await apiCallWithToken(nc.data.token, 'DELETE', `/voice-memos/${memoId}`)
+      expect(status).toBe(403)
+    })
+
+    test('35n. DELETE /voice-memos/:id — 204 for vet creator', async () => {
+      if (!memoId) return
+      const { status } = await apiCallWithToken(vetToken, 'DELETE', `/voice-memos/${memoId}`)
+      expect(status).toBe(204)
+    })
+  })
 })

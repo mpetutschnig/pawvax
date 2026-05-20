@@ -224,6 +224,32 @@ CREATE TABLE IF NOT EXISTS medical_administrations (
   created_at       TEXT DEFAULT (CURRENT_TIMESTAMP)
 );
 
+CREATE TABLE IF NOT EXISTS voice_memos (
+  id TEXT PRIMARY KEY,
+  animal_id TEXT NOT NULL REFERENCES animals(id) ON DELETE CASCADE,
+  account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  audio_path TEXT NOT NULL,
+  audio_duration_seconds REAL,
+  language_mode TEXT NOT NULL DEFAULT 'de',
+  gladia_request_id TEXT,
+  transcription_text TEXT,
+  transcription_json TEXT,
+  extracted_json TEXT,
+  analysis_status TEXT NOT NULL DEFAULT 'pending_transcription',
+  ai_provider TEXT,
+  added_by_role TEXT NOT NULL DEFAULT 'vet',
+  added_by_name TEXT,
+  added_by_verified INTEGER DEFAULT 0,
+  allowed_roles TEXT DEFAULT '["vet","authority"]',
+  summary_roles TEXT DEFAULT '["vet","authority","guest"]',
+  transcription_roles TEXT DEFAULT '["vet"]',
+  created_at TEXT DEFAULT (CURRENT_TIMESTAMP)
+);
+
+CREATE INDEX IF NOT EXISTS idx_voice_memos_animal ON voice_memos(animal_id);
+CREATE INDEX IF NOT EXISTS idx_voice_memos_account ON voice_memos(account_id);
+CREATE INDEX IF NOT EXISTS idx_voice_memos_status ON voice_memos(analysis_status);
+
 CREATE TABLE IF NOT EXISTS usage_logs (
   id TEXT PRIMARY KEY,
   account_id TEXT REFERENCES accounts(id) ON DELETE CASCADE,

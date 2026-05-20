@@ -1,0 +1,232 @@
+import { useEffect, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { ArrowLeft, Mic, Trash2, RefreshCw } from 'lucide-react'
+import { getVoiceMemo, deleteVoiceMemo, retryVoiceMemo, getVoiceMemoAudioUrl, patchVoiceMemo } from '../api/rest'
+import { VerifiedBadge } from '../components/VerifiedBadge'
+
+function StatusBadge({ status }: { status: string }) {
+  const { t } = useTranslation()
+  const map: Record<string, { label: string; color: string }> = {
+    pending_transcription: { label: t('voiceMemo.statusPendingTranscription'), color: 'var(--warning-500)' },
+    transcribing:          { label: t('voiceMemo.statusTranscribing'),          color: 'var(--primary-500)' },
+    pending_analysis:      { label: t('voiceMemo.statusPendingAnalysis'),        color: 'var(--warning-500)' },
+    analyzing:             { label: t('voiceMemo.statusAnalyzing'),              color: 'var(--primary-500)' },
+    completed:             { label: t('voiceMemo.statusCompleted'),              color: 'var(--success-500)' },
+    failed:                { label: t('voiceMemo.statusFailed'),                 color: 'var(--danger-500)' },
+  }
+  const cfg = map[status] ?? { label: status, color: 'var(--text-tertiary)' }
+  return <span style={{ color: cfg.color, fontWeight: 500, fontSize: 'var(--font-size-sm)' }}>{cfg.label}</span>
+}
+
+function formatDate(s: string) {
+  if (!s) return ''
+  return new Date(s).toLocaleString()
+}
+
+export default function VoiceMemoDetailPage() {
+  const { t } = useTranslation()
+  const navigate = useNavigate()
+  const { id, memoId } = useParams<{ id: string; memoId: string }>()
+  const [memo, setMemo] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [deleting, setDeleting] = useState(false)
+  const [retrying, setRetrying] = useState(false)
+  const [error, setError] = useState('')
+
+  const load = async () => {
+    if (!memoId) return
+    try {
+      const res = await getVoiceMemo(memoId)
+      setMemo(res.data)
+    } catch {
+      setError('Sprachnotiz nicht gefunden')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { load() }, [memoId])
+
+  useEffect(() => {
+    if (!memo) return
+    const pending = ['pending_transcription', 'transcribing', 'pending_analysis', 'analyzing']
+    if (!pending.includes(memo.analysis_status)) return
+    const timer = setTimeout(load, 4000)
+    return () => clearTimeout(timer)
+  }, [memo])
+
+  const handleDelete = async () => {
+    if (!window.confirm(t('voiceMemo.deleteConfirm'))) return
+    setDeleting(true)
+    try {
+      await deleteVoiceMemo(memoId!)
+      navigate(`/animals/${id}`)
+    } catch {
+      setError('Löschen fehlgeschlagen')
+      setDeleting(false)
+    }
+  }
+
+  const handleRetry = async () => {
+    setRetrying(true)
+    try {
+      await retryVoiceMemo(memoId!)
+      await load()
+    } catch {
+      setError('Erneut analysieren fehlgeschlagen')
+    } finally {
+      setRetrying(false)
+    }
+  }
+
+  const savePermissions = async (field: string, roles: string[]) => {
+    try {
+      await patchVoiceMemo(memoId!, { [field]: roles })
+      setMemo((m: any) => ({ ...m, [field]: roles }))
+    } catch {
+      setError('Speichern fehlgeschlagen')
+    }
+  }
+
+  if (loading) return <div style={{ padding: 'var(--space-6)' }}>{t('common.loading')}</div>
+  if (error || !memo) return <div style={{ padding: 'var(--space-6)' }} className="error-card">{error || 'Fehler'}</div>
+
+  const extracted = memo.extracted_json || {}
+  const isBoth = memo.language_mode === 'both'
+
+  return (
+    <div style={{ maxWidth: 720, margin: '0 auto', padding: 'var(--space-4)' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
+        <button className="btn btn-ghost" onClick={() => navigate(`/animals/${id}`)} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
+          <ArrowLeft size={18} /> {t('common.back')}
+        </button>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-1)' }}>
+            <Mic size={20} color="var(--primary-500)" />
+            <h1 style={{ margin: 0, fontSize: 'var(--font-size-xl)' }}>
+              {extracted.title || extracted.title_de || t('animal.voiceMemos')}
+            </h1>
+          </div>
+          <p className="text-muted" style={{ margin: '0 0 var(--space-2)' }}>{formatDate(memo.created_at)}</p>
+          <StatusBadge status={memo.analysis_status} />
+        </div>
+        <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+          {memo.analysis_status === 'failed' && (
+            <button className="btn btn-outline" onClick={handleRetry} disabled={retrying} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
+              <RefreshCw size={16} /> {retrying ? t('common.loading') : t('common.retry')}
+            </button>
+          )}
+          {memo.can_delete && (
+            <button className="btn btn-danger" onClick={handleDelete} disabled={deleting} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
+              <Trash2 size={16} /> {deleting ? t('common.loading') : t('common.delete')}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Added by */}
+      <div className="card" style={{ marginBottom: 'var(--space-4)', padding: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+        <span className="text-muted" style={{ fontSize: 'var(--font-size-sm)' }}>{t('voiceMemo.addedBy')}:</span>
+        <VerifiedBadge name={memo.added_by_name || 'Tierarzt'} verified={memo.added_by_verified === 1} role="vet" />
+        {!memo.added_by_verified && <span style={{ fontSize: 'var(--font-size-sm)' }}>{memo.added_by_name || 'Tierarzt'}</span>}
+        {memo.ai_provider && (
+          <span className="badge" style={{ marginLeft: 'auto', fontSize: 10 }}>{memo.ai_provider}</span>
+        )}
+      </div>
+
+      {/* Audio player */}
+      <div className="card" style={{ marginBottom: 'var(--space-4)' }}>
+        <h3 style={{ margin: '0 0 var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+          <Mic size={16} /> {t('voiceMemo.playAudio')}
+        </h3>
+        <audio controls src={getVoiceMemoAudioUrl(memoId!)} style={{ width: '100%' }} />
+      </div>
+
+      {/* AI Memo */}
+      {memo.extracted_json && (
+        <div className="card" style={{ marginBottom: 'var(--space-4)' }}>
+          <h3 style={{ margin: '0 0 var(--space-3)' }}>{t('voiceMemo.memo')}</h3>
+          {isBoth ? (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)' }}>
+              {[['de', 'Deutsch'], ['en', 'English']].map(([lang, label]) => (
+                <div key={lang}>
+                  <p className="text-muted" style={{ margin: '0 0 var(--space-1)', fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>{label}</p>
+                  <p style={{ margin: '0 0 var(--space-2)', fontWeight: 600 }}>{extracted[`title_${lang}`]}</p>
+                  <p className="text-muted" style={{ margin: '0 0 var(--space-3)', fontSize: 'var(--font-size-sm)' }}>{extracted[`summary_${lang}`]}</p>
+                  <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', whiteSpace: 'pre-wrap' }}>{extracted[`content_${lang}`]}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <>
+              {extracted.summary && <p className="text-muted" style={{ margin: '0 0 var(--space-3)', fontSize: 'var(--font-size-sm)' }}>{extracted.summary}</p>}
+              {extracted.content && <p style={{ margin: '0 0 var(--space-3)', whiteSpace: 'pre-wrap' }}>{extracted.content}</p>}
+            </>
+          )}
+          {extracted.action_items?.length > 0 && (
+            <div style={{ marginTop: 'var(--space-3)', paddingTop: 'var(--space-3)', borderTop: '1px solid var(--border)' }}>
+              <p style={{ margin: '0 0 var(--space-2)', fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>Nächste Schritte</p>
+              <ul style={{ margin: 0, paddingLeft: 'var(--space-4)' }}>
+                {extracted.action_items.map((item: string, i: number) => <li key={i} style={{ fontSize: 'var(--font-size-sm)' }}>{item}</li>)}
+              </ul>
+            </div>
+          )}
+          {extracted.tags?.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-1)', marginTop: 'var(--space-3)' }}>
+              {extracted.tags.map((tag: string) => <span key={tag} className="badge" style={{ fontSize: 10 }}>{tag}</span>)}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Transcription */}
+      {memo.transcription_text && (
+        <div className="card" style={{ marginBottom: 'var(--space-4)' }}>
+          <h3 style={{ margin: '0 0 var(--space-3)' }}>{t('voiceMemo.transcription')}</h3>
+          <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', whiteSpace: 'pre-wrap', color: 'var(--text-secondary)' }}>{memo.transcription_text}</p>
+        </div>
+      )}
+
+      {/* Permissions panel — only for creator/owner */}
+      {memo.allowed_roles !== undefined && (
+        <div className="card" style={{ marginBottom: 'var(--space-4)' }}>
+          <h3 style={{ margin: '0 0 var(--space-3)' }}>{t('voiceMemo.permissions')}</h3>
+          {[
+            { key: 'allowed_roles', label: 'Sichtbar für', current: memo.allowed_roles },
+            { key: 'summary_roles', label: 'Zusammenfassung für', current: memo.summary_roles },
+            { key: 'transcription_roles', label: 'Transkription für', current: memo.transcription_roles },
+          ].map(({ key, label, current }) => (
+            <div key={key} style={{ marginBottom: 'var(--space-3)' }}>
+              <p style={{ margin: '0 0 var(--space-1)', fontWeight: 500, fontSize: 'var(--font-size-sm)' }}>{label}</p>
+              <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+                {['vet', 'authority', 'guest'].map(role => {
+                  const checked = (current || []).includes(role)
+                  return (
+                    <label key={role} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', cursor: 'pointer', fontSize: 'var(--font-size-sm)' }}>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => {
+                          const next = checked
+                            ? (current || []).filter((r: string) => r !== role)
+                            : [...(current || []), role]
+                          savePermissions(key, next)
+                        }}
+                      />
+                      {role}
+                    </label>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}

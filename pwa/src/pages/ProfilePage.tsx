@@ -22,6 +22,9 @@ export default function ProfilePage() {
   const [openaiToken, setOpenaiToken] = useState('')
   const [openaiError, setOpenaiError] = useState('')
   const [openaiSuccess, setOpenaiSuccess] = useState('')
+  const [gladiaToken, setGladiaToken] = useState('')
+  const [gladiaError, setGladiaError] = useState('')
+  const [gladiaSuccess, setGladiaSuccess] = useState('')
   const [showConfirmDelete, setShowConfirmDelete] = useState(false)
   const [deleteConfirmEmail, setDeleteConfirmEmail] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -372,6 +375,39 @@ export default function ProfilePage() {
     } catch (err) {
       setError(t('profile.saveError'))
       console.error(err)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const saveGladiaToken = async () => {
+    if (!gladiaToken) return
+    setSaving(true)
+    setGladiaError('')
+    setGladiaSuccess('')
+    try {
+      await patchMe({ gladia_token: gladiaToken })
+      setGladiaSuccess(t('profile.gladiaToken'))
+      setGladiaToken('')
+      setTimeout(() => {
+        loadProfile()
+        setGladiaSuccess('')
+      }, 3000)
+    } catch (err) {
+      setGladiaError(err instanceof Error ? err.message : t('profile.saveError'))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const clearGladiaToken = async () => {
+    setSaving(true)
+    try {
+      await patchMe({ gladia_token: null })
+      setGladiaToken('')
+      setTimeout(() => loadProfile(), 1000)
+    } catch (err) {
+      setError(t('profile.saveError'))
     } finally {
       setSaving(false)
     }
@@ -830,6 +866,29 @@ export default function ProfilePage() {
               <p style={{ fontSize: 'var(--font-size-xs)', margin: 0 }}>{t('profile.aiWarning')}</p>
             </div>
           </div>
+
+          {/* Gladia — only for vets */}
+          {roles.includes('vet') && (
+            <div className="card animate-fade-in" style={{ marginTop: 'var(--space-4)' }}>
+              <h3 style={{ marginTop: 0, marginBottom: 'var(--space-3)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                <Key size={18} color="var(--primary-500)" /> Gladia
+                {(profile as any).has_gladia_token && <span className="badge badge-success" style={{ fontSize: 10 }}>✓</span>}
+              </h3>
+              <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-4)' }}>{t('profile.gladiaTokenDesc')}</p>
+              {(profile as any).has_gladia_token
+                ? <p style={{ color: 'var(--success-600)', marginTop: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontWeight: 500 }}><CheckCircle size={16} /> {t('profile.gladiaToken')}</p>
+                : <div className="form-group" style={{ marginTop: 'var(--space-4)' }}><input className="form-input" type="password" placeholder="gla_..." value={gladiaToken} onChange={e => setGladiaToken(e.target.value)} /></div>
+              }
+              <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-3)' }}>
+                {!(profile as any).has_gladia_token
+                  ? <button className="btn btn-primary" onClick={saveGladiaToken} disabled={saving || !gladiaToken}>{saving ? t('common.loading') : t('common.save')}</button>
+                  : <button className="btn btn-danger" onClick={clearGladiaToken} disabled={saving}>{saving ? t('common.loading') : t('common.delete')}</button>
+                }
+              </div>
+              {gladiaError && <div className="error-card" style={{ marginTop: 'var(--space-3)', padding: 'var(--space-3)' }}><p style={{ margin: 0 }}>{gladiaError}</p></div>}
+              {gladiaSuccess && <div className="card" style={{ marginTop: 'var(--space-3)', padding: 'var(--space-3)', background: 'var(--success-50)', borderColor: 'var(--success-500)', display: 'flex', gap: 'var(--space-2)' }}><CheckCircle size={16} color="var(--success-600)" /><p style={{ margin: 0, color: 'var(--success-600)', fontWeight: 500, fontSize: 'var(--font-size-sm)' }}>{gladiaSuccess}</p></div>}
+            </div>
+          )}
         </>
       )}
 

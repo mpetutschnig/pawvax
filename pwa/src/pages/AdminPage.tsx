@@ -993,6 +993,24 @@ export default function AdminPage() {
               )
             })}
 
+            <div className="card" style={{ marginBottom: 'var(--space-4)' }}>
+              <h3 style={{ marginBottom: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                Gladia
+                {(appSettings as any).has_system_gladia_token && <span className="badge badge-success" style={{ fontSize: 10 }}>{t('admin.secretConfigured')}</span>}
+              </h3>
+              <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-3)' }}>{t('admin.gladiaSystemTokenDesc')}</p>
+              <div className="form-group">
+                <label className="form-label">{t('admin.gladiaSystemToken')}</label>
+                <input
+                  className="form-input"
+                  type="password"
+                  placeholder={(appSettings as any).has_system_gladia_token ? t('admin.secretConfiguredHint') : 'gla_...'}
+                  value={String((appSettings as any).system_gladia_token ?? '')}
+                  onChange={e => setAppSettings(s => ({ ...s, system_gladia_token: e.target.value } as any))}
+                />
+              </div>
+            </div>
+
             <button className="btn btn-primary" onClick={saveSettings} disabled={settingsSaving}>
               {settingsSaving ? t('common.loading') : t('admin.saveSettings')}
             </button>

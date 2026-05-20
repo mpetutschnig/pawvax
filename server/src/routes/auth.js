@@ -518,11 +518,12 @@ export default async function authRoutes(fastify) {
     const { rows: [account] } = await db.query('SELECT id, name, email, pending_email, role, verified, verification_status, email_verified, email_verification_required, gemini_model, claude_model, created_at, system_fallback_enabled, billing_consent_accepted_at FROM accounts WHERE id = $1', [req.user.accountId])
     if (!account) return reply.code(404).send({ error: 'Account nicht gefunden' })
     const roles = (account.role ?? 'user').split(',').map(r => r.trim())
-    const { rows: [fullAccount] } = await db.query('SELECT gemini_token, anthropic_token, openai_token, ai_provider_priority FROM accounts WHERE id = $1', [account.id])
+    const { rows: [fullAccount] } = await db.query('SELECT gemini_token, anthropic_token, openai_token, gladia_token, ai_provider_priority FROM accounts WHERE id = $1', [account.id])
     return { ...account, roles,
       has_gemini_token: !!fullAccount?.gemini_token,
       has_anthropic_token: !!fullAccount?.anthropic_token,
       has_openai_token: !!fullAccount?.openai_token,
+      has_gladia_token: !!fullAccount?.gladia_token,
       ai_provider_priority: fullAccount?.ai_provider_priority ?? null,
       has_system_ai: await getSystemAiKeys(db).then(k => !!(k.geminiKey || k.anthropicKey || k.openaiKey)).catch(() => false)
     }
@@ -531,7 +532,7 @@ export default async function authRoutes(fastify) {
   // Update own profile
   fastify.patch('/api/accounts/me', { onRequest: [fastify.authenticate] }, async (req, reply) => {
     const db = getDb()
-    const { name, email, password, currentPassword, gemini_token, gemini_model, anthropic_token, claude_model, openai_token, openai_model, ai_provider_priority, system_fallback_enabled, billing_consent_accepted_at } = req.body
+    const { name, email, password, currentPassword, gemini_token, gemini_model, anthropic_token, claude_model, openai_token, openai_model, gladia_token, ai_provider_priority, system_fallback_enabled, billing_consent_accepted_at } = req.body
     const accountId = req.user.accountId
     const updates = []
     const vals = []
@@ -600,6 +601,10 @@ export default async function authRoutes(fastify) {
     if (openai_token !== undefined) {
       vals.push(openai_token ? encrypt(openai_token) : null)
       updates.push(`openai_token = $${vals.length}`)
+    }
+    if (gladia_token !== undefined) {
+      vals.push(gladia_token ? encrypt(gladia_token) : null)
+      updates.push(`gladia_token = $${vals.length}`)
     }
     if (openai_model !== undefined) {
       if (!ALLOWED_OPENAI_MODELS.includes(openai_model)) {
@@ -1011,5 +1016,26 @@ export default async function authRoutes(fastify) {
     await logAudit(db, { accountId: account.id, role: account.role, action: 'supabase_login', resource: 'account', resourceId: account.id, ip: req.ip })
 
     return { token: pawToken, account }
+  })
+
+  // Pending background tasks (documents + voice memos not yet completed/failed)
+  fastify.get('/api/accounts/me/pending-tasks', { onRequest: [fastify.authenticate] }, async (req, reply) => {
+    const db = getDb()
+    const { accountId } = req.user
+
+    const { rows } = await db.query(`
+      SELECT 'document' AS type, d.id, d.analysis_status, a.name AS animal_name, a.id AS animal_id, d.created_at
+      FROM documents d JOIN animals a ON a.id = d.animal_id
+      WHERE a.account_id = $1
+        AND d.analysis_status NOT IN ('completed', 'failed')
+      UNION ALL
+      SELECT 'voice_memo', v.id, v.analysis_status, a.name, a.id, v.created_at
+      FROM voice_memos v JOIN animals a ON a.id = v.animal_id
+      WHERE v.account_id = $1
+        AND v.analysis_status NOT IN ('completed', 'failed')
+      ORDER BY created_at DESC
+    `, [accountId])
+
+    return reply.send({ total: rows.length, items: rows })
   })
 }

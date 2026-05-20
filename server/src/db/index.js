@@ -215,5 +215,18 @@ export async function initDb(connectionString) {
     await pool.query("ALTER TABLE documents ADD CONSTRAINT documents_doc_type_check CHECK (doc_type IN ('vaccination', 'pedigree', 'dog_certificate', 'medical_product', 'treatment', 'pet_passport', 'general', 'vet_report'))")
   } catch { /* ignore if fails (e.g. named differently) */ }
 
+  // Migration: voice memos — gladia token + animal sex + usage_logs extension
+  try { await pool.query("ALTER TABLE accounts ADD COLUMN IF NOT EXISTS gladia_token TEXT") } catch { /* already exists */ }
+  try { await pool.query("ALTER TABLE animals ADD COLUMN IF NOT EXISTS sex TEXT DEFAULT 'unknown'") } catch { /* already exists */ }
+  try { await pool.query("ALTER TABLE usage_logs ADD COLUMN IF NOT EXISTS voice_memo_id TEXT REFERENCES voice_memos(id) ON DELETE SET NULL") } catch { /* already exists */ }
+
+  // Migration: voice memo billing settings
+  try {
+    await pool.query("INSERT INTO settings (key, value) VALUES ('system_gladia_token', '') ON CONFLICT DO NOTHING")
+    await pool.query("INSERT INTO settings (key, value) VALUES ('billing_voice_memo_de_cents', '5') ON CONFLICT DO NOTHING")
+    await pool.query("INSERT INTO settings (key, value) VALUES ('billing_voice_memo_en_cents', '5') ON CONFLICT DO NOTHING")
+    await pool.query("INSERT INTO settings (key, value) VALUES ('billing_voice_memo_both_cents', '9') ON CONFLICT DO NOTHING")
+  } catch { /* ignore */ }
+
   return pool
 }

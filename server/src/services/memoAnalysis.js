@@ -1,0 +1,150 @@
+import { randomUUID } from 'node:crypto'
+import { decrypt } from '../utils/crypto.js'
+import { getSystemAiKeys, getSettingsMap } from './appSettings.js'
+import { resolveModel } from '../utils/aiModels.js'
+
+function buildPrompt(transcriptionText, languageMode) {
+  const langInstruction = {
+    de: 'Antworte ausschließlich auf Deutsch.',
+    en: 'Reply exclusively in English.',
+    both: 'Provide title_de, summary_de, content_de in German AND title_en, summary_en, content_en in English.'
+  }[languageMode] || 'Antworte ausschließlich auf Deutsch.'
+
+  const schema = languageMode === 'both'
+    ? `{ "title_de": "...", "summary_de": "...", "content_de": "...", "title_en": "...", "summary_en": "...", "content_en": "...", "tags": [], "action_items": [], "date_mentioned": null }`
+    : `{ "title": "Kurzer Titel (max 50 Zeichen)", "summary": "Sehr kurze Zusammenfassung (max 100 Zeichen)", "content": "Vollständiger Fließtext des Memos", "tags": ["tag1"], "action_items": ["Nächster Schritt"], "date_mentioned": null }`
+
+  return `Du bist ein Veterinär-Assistent. Analysiere diese Sprachnotiz eines Tierarztes und erstelle ein strukturiertes Memo als valides JSON.
+${langInstruction}
+Gib NUR das JSON zurück, keinen anderen Text.
+
+Schema:
+${schema}
+
+Transkription:
+${transcriptionText}`
+}
+
+async function callProvider(provider, key, model, prompt) {
+  if (provider === 'google') {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        generationConfig: { responseMimeType: 'application/json' },
+        contents: [{ parts: [{ text: prompt }] }]
+      })
+    })
+    if (!res.ok) throw new Error(`Gemini memo error (${res.status})`)
+    const data = await res.json()
+    return { provider: 'google', text: data.candidates?.[0]?.content?.parts?.[0]?.text || '{}' }
+  }
+
+  if (provider === 'anthropic') {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({
+        model,
+        max_tokens: 2048,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    })
+    if (!res.ok) throw new Error(`Claude memo error (${res.status})`)
+    const data = await res.json()
+    return { provider: 'anthropic', text: data.content?.[0]?.text || '{}' }
+  }
+
+  if (provider === 'openai') {
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+      body: JSON.stringify({
+        model,
+        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'system', content: 'You are a veterinary assistant. Always return valid JSON.' },
+          { role: 'user', content: prompt }
+        ]
+      })
+    })
+    if (!res.ok) throw new Error(`OpenAI memo error (${res.status})`)
+    const data = await res.json()
+    return { provider: 'openai', text: data.choices?.[0]?.message?.content || '{}' }
+  }
+
+  throw new Error(`Unknown provider: ${provider}`)
+}
+
+export async function analyzeMemoWithAI(db, accountId, transcriptionText, languageMode = 'de') {
+  const { rows: [acc] } = await db.query(
+    'SELECT gemini_token, gemini_model, anthropic_token, claude_model, openai_token, openai_model, ai_provider_priority, system_fallback_enabled, billing_budget_eur FROM accounts WHERE id = $1',
+    [accountId]
+  )
+
+  let userGeminiKey = null
+  let userAnthropicKey = null
+  let userOpenAiKey = null
+  try { userGeminiKey = acc?.gemini_token ? decrypt(acc.gemini_token) : null } catch {}
+  try { userAnthropicKey = acc?.anthropic_token ? decrypt(acc.anthropic_token) : null } catch {}
+  try { userOpenAiKey = acc?.openai_token ? decrypt(acc.openai_token) : null } catch {}
+
+  const sysFallbackAllowed = (acc?.system_fallback_enabled ?? 1) === 1
+  let priority = ['google', 'anthropic', 'openai']
+  try { if (acc?.ai_provider_priority) priority = JSON.parse(acc.ai_provider_priority).filter(p => p !== 'system') } catch {}
+
+  if (sysFallbackAllowed) {
+    const sysKeys = await getSystemAiKeys(db)
+    if (!userGeminiKey) userGeminiKey = sysKeys.geminiKey
+    if (!userAnthropicKey) userAnthropicKey = sysKeys.anthropicKey
+    if (!userOpenAiKey) userOpenAiKey = sysKeys.openaiKey
+  }
+
+  const providerKeys = {
+    google: userGeminiKey,
+    anthropic: userAnthropicKey,
+    openai: userOpenAiKey
+  }
+  const providerModels = {
+    google: resolveModel('google', acc?.gemini_model),
+    anthropic: resolveModel('anthropic', acc?.claude_model),
+    openai: resolveModel('openai', acc?.openai_model)
+  }
+
+  const prompt = buildPrompt(transcriptionText, languageMode)
+  let lastError = null
+
+  for (const p of priority) {
+    const key = providerKeys[p]
+    if (!key) continue
+    try {
+      const { provider, text } = await callProvider(p, key, providerModels[p], prompt)
+      let parsed = {}
+      try { parsed = JSON.parse(text) } catch { parsed = { content: text } }
+      return { extractedJson: parsed, aiProvider: provider }
+    } catch (err) {
+      lastError = err
+    }
+  }
+
+  throw Object.assign(new Error(`Memo-Analyse fehlgeschlagen: ${lastError?.message || 'Kein KI-Provider verfügbar'}`), { code: 502 })
+}
+
+export async function logVoiceMemoUsage(db, { accountId, voiceMemoId, aiProvider, hasOwnKey, languageMode }) {
+  const settings = await getSettingsMap(db)
+  const priceCentKey = languageMode === 'both' ? 'billing_voice_memo_both_cents'
+    : languageMode === 'en' ? 'billing_voice_memo_en_cents'
+    : 'billing_voice_memo_de_cents'
+  const costCents = Number(settings[priceCentKey] ?? 5)
+
+  try {
+    await db.query(
+      `INSERT INTO usage_logs (id, account_id, voice_memo_id, pages_analyzed, ocr_provider, model_used, is_system_fallback, analyzed_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP)`,
+      [randomUUID(), accountId, voiceMemoId, 1, aiProvider, aiProvider, hasOwnKey ? 0 : 1]
+    )
+  } catch { /* non-fatal */ }
+
+  return costCents
+}

@@ -6,6 +6,7 @@ export interface AnimalDTO {
   species: 'dog' | 'cat' | 'other'
   breed?: string
   birthdate?: string
+  sex?: 'male' | 'female' | 'castrated_male' | 'castrated_female' | 'unknown'
   avatar_path?: string
   address?: string
   dynamic_fields?: string
