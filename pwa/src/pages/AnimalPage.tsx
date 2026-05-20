@@ -76,6 +76,8 @@ export default function AnimalPage() {
   const [showArchiveDialog, setShowArchiveDialog] = useState(false)
   const [archiveReason, setArchiveReason] = useState<'verstorben' | 'verloren' | 'verkauft' | 'abgegeben' | 'sonstiges' | ''>('')
 
+  const [showFab, setShowFab] = useState(false)
+
   // Manual entry modals
   const [showVaxModal, setShowVaxModal] = useState(false)
   const [showTreatModal, setShowTreatModal] = useState(false)
@@ -2046,6 +2048,52 @@ export default function AnimalPage() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* FAB Backdrop */}
+      {showFab && (
+        <div
+          style={{ position: 'fixed', inset: 0, zIndex: 200 }}
+          onClick={() => setShowFab(false)}
+        />
+      )}
+
+      {/* FAB */}
+      {!loading && !animal?.is_archived && (
+        <div style={{
+          position: 'fixed',
+          bottom: 'calc(var(--bottom-nav-height) + 16px)',
+          right: '16px',
+          zIndex: 201,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'flex-end',
+          gap: '12px',
+        }}>
+          {showFab && (
+            <>
+              <button className="fab-item" onClick={() => { navigate(`/animals/${id}/scan`); setShowFab(false) }}>
+                <span className="fab-item-label">{t('animal.fabAddDocument')}</span>
+                <div className="fab-item-icon"><FileText size={20} /></div>
+              </button>
+              <button className="fab-item" onClick={() => { setShowVaxModal(true); setShowFab(false) }}>
+                <span className="fab-item-label">{t('animal.fabAddVaccination')}</span>
+                <div className="fab-item-icon"><Syringe size={20} /></div>
+              </button>
+              <button className="fab-item" onClick={() => { setShowTreatModal(true); setShowFab(false) }}>
+                <span className="fab-item-label">{t('animal.fabAddTreatment')}</span>
+                <div className="fab-item-icon"><Pill size={20} /></div>
+              </button>
+            </>
+          )}
+          <button
+            className="fab-main"
+            onClick={() => setShowFab(f => !f)}
+            aria-label={t('animal.fabAdd')}
+          >
+            <Plus size={24} style={{ transform: showFab ? 'rotate(45deg)' : 'none', transition: 'transform 200ms var(--ease-out)' }} />
+          </button>
         </div>
       )}
 
