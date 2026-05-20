@@ -160,6 +160,33 @@ fastify.get('/api/docs', (req, reply) => {
   reply.redirect('/documentation')
 })
 
+// llms.txt — AI-readable site description (https://llmstxt.org)
+fastify.get('/llms.txt', (req, reply) => {
+  reply.header('Content-Type', 'text/plain; charset=utf-8')
+  return `# PAW — Digitaler Tierimpfpass
+
+> Veterinary digital pet health record platform. Manage animals, vaccinations, treatments, AI-analyzed medical documents, voice memos, and NFC tags. Role-based access for owners, vets, authorities, and guests.
+
+## Docs
+- [API Documentation](https://pawapi.oxs.at/documentation): Full OpenAPI/Swagger specification for all endpoints
+
+## Key Concepts
+- **Animals**: pets with profiles (name, species, breed, sex, birthdate), owned by user accounts
+- **Documents**: uploaded PDFs/images; OCR + AI analysis extracts vaccinations, treatments, vet reports
+- **Voice Memos**: vet-recorded audio; Gladia transcription + AI memo extraction (title, summary, content, action items)
+- **NFC Tags**: physical chips linked to animals; public scan page at /t/:tagId
+- **Sharing**: configurable role-based access — owner, vet, authority, guest per animal
+
+## Authentication
+POST /api/auth/login → Bearer JWT. Roles: user, vet, authority, admin, guest.
+Personal AI provider tokens (Gemini, Claude, OpenAI, Gladia) stored encrypted per account.
+
+## Optional
+- [Swagger UI](https://pawapi.oxs.at/documentation)
+- [Public Scan](https://paw.oxs.at/public-scan): scan NFC tag without login
+`
+})
+
 // Fastify v5: Allow empty JSON body (e.g. DELETE requests with Content-Type: application/json but no body)
 fastify.addContentTypeParser('application/json', { parseAs: 'string' }, function (req, body, done) {
   if (!body || body.trim() === '') {
