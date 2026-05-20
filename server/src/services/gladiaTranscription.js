@@ -1,10 +1,10 @@
-import { readFileSync } from 'fs'
 import { decrypt } from '../utils/crypto.js'
 import { getSettingsMap } from './appSettings.js'
 
 const GLADIA_API = 'https://api.gladia.io/v2/pre-recorded'
 const POLL_INTERVAL_MS = 3000
 const MAX_POLL_ATTEMPTS = 40
+const PUBLIC_API_URL = process.env.PUBLIC_API_URL || 'https://pawapi.oxs.at'
 
 export async function resolveGladiaToken(db, accountId) {
   const { rows: [acc] } = await db.query('SELECT gladia_token FROM accounts WHERE id = $1', [accountId])
@@ -21,17 +21,19 @@ export async function resolveGladiaToken(db, accountId) {
   return token
 }
 
-export async function submitToGladia(audioPath, gladiaToken) {
-  const audioBuffer = readFileSync(audioPath)
-  const audioBlob = new Blob([audioBuffer], { type: 'audio/webm' })
-  const form = new FormData()
-  form.append('audio', audioBlob, 'memo.webm')
-  form.append('language_config', JSON.stringify({ languages: ['de', 'en'] }))
+export async function submitToGladia(audioRelPath, gladiaToken) {
+  const audioUrl = `${PUBLIC_API_URL}/uploads/${audioRelPath}`
 
   const res = await fetch(GLADIA_API, {
     method: 'POST',
-    headers: { 'x-gladia-key': gladiaToken },
-    body: form
+    headers: {
+      'x-gladia-key': gladiaToken,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      audio_url: audioUrl,
+      language_config: { languages: ['de', 'en'] }
+    })
   })
 
   if (!res.ok) {

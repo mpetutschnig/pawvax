@@ -28,12 +28,12 @@ async function canAccessAnimal(db, animalId, accountId, role) {
   return sharing ? { isOwner: false } : null
 }
 
-async function processVoiceMemoAsync(db, memoId, audioPath, accountId, languageMode, log) {
+async function processVoiceMemoAsync(db, memoId, audioPath, audioRelPath, accountId, languageMode, log) {
   try {
     await db.query("UPDATE voice_memos SET analysis_status = 'transcribing' WHERE id = $1", [memoId])
 
     const gladiaToken = await resolveGladiaToken(db, accountId)
-    const requestId = await submitToGladia(audioPath, gladiaToken)
+    const requestId = await submitToGladia(audioRelPath, gladiaToken)
 
     await db.query(
       "UPDATE voice_memos SET gladia_request_id = $1 WHERE id = $2",
@@ -135,7 +135,7 @@ export default async function voiceMemoRoutes(fastify) {
       ip: req.ip
     })
 
-    setImmediate(() => processVoiceMemoAsync(db, memoId, audioPath, accountId, resolvedLangMode, fastify.log))
+    setImmediate(() => processVoiceMemoAsync(db, memoId, audioPath, relPath, accountId, resolvedLangMode, fastify.log))
 
     return reply.code(202).send({ id: memoId, status: 'pending_transcription' })
   })
@@ -335,7 +335,7 @@ export default async function voiceMemoRoutes(fastify) {
 
     await db.query("UPDATE voice_memos SET analysis_status = 'pending_transcription' WHERE id = $1", [req.params.id])
     const audioPath = join(UPLOADS_DIR, memo.audio_path)
-    setImmediate(() => processVoiceMemoAsync(db, req.params.id, audioPath, accountId, memo.language_mode || 'de', fastify.log))
+    setImmediate(() => processVoiceMemoAsync(db, req.params.id, audioPath, memo.audio_path, accountId, memo.language_mode || 'de', fastify.log))
 
     return reply.send({ status: 'pending_transcription' })
   })
