@@ -1041,7 +1041,7 @@ export default async function authRoutes(fastify) {
       FROM voice_memos v JOIN animals a ON a.id = v.animal_id
       WHERE v.account_id = $1
         AND v.analysis_status = 'failed'
-        AND v.created_at > (CURRENT_TIMESTAMP - INTERVAL '10 minutes')
+        AND v.created_at::timestamp > (CURRENT_TIMESTAMP - INTERVAL '10 minutes')
       ORDER BY created_at DESC
     `, [accountId])
 
