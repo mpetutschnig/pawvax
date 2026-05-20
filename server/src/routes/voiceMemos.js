@@ -33,14 +33,14 @@ async function processVoiceMemoAsync(db, memoId, audioPath, accountId, languageM
     await db.query("UPDATE voice_memos SET analysis_status = 'transcribing' WHERE id = $1", [memoId])
 
     const gladiaToken = await resolveGladiaToken(db, accountId)
-    const requestId = await submitToGladia(audioPath, gladiaToken)
+    const resultUrl = await submitToGladia(audioPath, gladiaToken)
 
     await db.query(
       "UPDATE voice_memos SET gladia_request_id = $1 WHERE id = $2",
-      [requestId, memoId]
+      [resultUrl, memoId]
     )
 
-    const { transcriptionText, transcriptionJson } = await pollGladiaResult(requestId, gladiaToken)
+    const { transcriptionText, transcriptionJson } = await pollGladiaResult(resultUrl, gladiaToken)
 
     await db.query(
       "UPDATE voice_memos SET transcription_text = $1, transcription_json = $2, analysis_status = 'pending_analysis' WHERE id = $3",
@@ -66,14 +66,23 @@ async function processVoiceMemoAsync(db, memoId, audioPath, accountId, languageM
 
     await logVoiceMemoUsage(db, { accountId, voiceMemoId: memoId, aiProvider, hasOwnKey, languageMode })
   } catch (err) {
-    log.error({ err: err.message, memoId }, 'Voice memo processing failed')
     const errorMsg = err.code === 422
       ? 'Kein Gladia-Token konfiguriert. Bitte im Profil oder Admin-Bereich eintragen.'
       : (err.message || 'Transkription fehlgeschlagen')
+    log.error({ err: err.message, stack: err.stack, memoId, errorMsg }, 'voice_memo_processing_failed')
     await db.query(
       "UPDATE voice_memos SET analysis_status = 'failed', error_message = $2 WHERE id = $1",
       [memoId, errorMsg]
     ).catch(() => {})
+    await logAudit(db, {
+      accountId,
+      role: 'vet',
+      action: 'voice_memo_failed',
+      resource: 'voice_memo',
+      resourceId: memoId,
+      details: { errorMsg, errorCode: err.code ?? null, audioPath },
+      ip: null
+    }).catch(() => {})
   }
 }
 

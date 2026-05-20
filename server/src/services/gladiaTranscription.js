@@ -7,19 +7,21 @@ const GLADIA_TRANSCRIBE_API = 'https://api.gladia.io/v2/pre-recorded/'
 const POLL_INTERVAL_MS = 3000
 const MAX_POLL_ATTEMPTS = 40
 
+function tryDecrypt(value) {
+  if (!value) return null
+  try { return decrypt(value) } catch { return null }
+}
+
 export async function resolveGladiaToken(db, accountId) {
   const { rows: [acc] } = await db.query('SELECT gladia_token FROM accounts WHERE id = $1', [accountId])
-  let token = null
-  try { if (acc?.gladia_token) token = decrypt(acc.gladia_token) } catch {}
+  const userToken = tryDecrypt(acc?.gladia_token)
+  if (userToken) return userToken
 
-  if (!token) {
-    const settings = await getSettingsMap(db)
-    try { if (settings.system_gladia_token) token = decrypt(settings.system_gladia_token) } catch {}
-    if (!token && settings.system_gladia_token) token = settings.system_gladia_token
-  }
+  const settings = await getSettingsMap(db)
+  const systemToken = tryDecrypt(settings.system_gladia_token)
+  if (systemToken) return systemToken
 
-  if (!token) throw Object.assign(new Error('Kein Gladia-Token konfiguriert. Bitte im Profil oder in den Admin-Einstellungen eintragen.'), { code: 422 })
-  return token
+  throw Object.assign(new Error('Kein Gladia-Token konfiguriert. Bitte im Profil oder in den Admin-Einstellungen eintragen.'), { code: 422 })
 }
 
 export async function submitToGladia(audioPath, gladiaToken) {
@@ -40,8 +42,9 @@ export async function submitToGladia(audioPath, gladiaToken) {
     throw Object.assign(new Error(`Gladia upload failed (${uploadRes.status}): ${err}`), { code: 502 })
   }
 
-  const { audio_url: audioUrl } = await uploadRes.json()
-  if (!audioUrl) throw Object.assign(new Error('Gladia upload returned no audio_url'), { code: 502 })
+  const uploadData = await uploadRes.json()
+  const audioUrl = uploadData.audio_url
+  if (!audioUrl) throw Object.assign(new Error(`Gladia upload returned no audio_url. Response: ${JSON.stringify(uploadData)}`), { code: 502 })
 
   // Step 2: start transcription with Gladia-hosted URL
   const transcribeRes = await fetch(GLADIA_TRANSCRIBE_API, {
@@ -62,16 +65,18 @@ export async function submitToGladia(audioPath, gladiaToken) {
     throw Object.assign(new Error(`Gladia transcription start failed (${transcribeRes.status}): ${err}`), { code: 502 })
   }
 
-  const data = await transcribeRes.json()
-  if (!data.id) throw Object.assign(new Error('Gladia returned no request ID'), { code: 502 })
-  return data.id
+  const transcribeData = await transcribeRes.json()
+  // Prefer result_url for polling (exact URL returned by Gladia), fall back to constructing from id
+  const resultUrl = transcribeData.result_url || (transcribeData.id ? `${GLADIA_TRANSCRIBE_API}${transcribeData.id}` : null)
+  if (!resultUrl) throw Object.assign(new Error(`Gladia returned no result_url or id. Response: ${JSON.stringify(transcribeData)}`), { code: 502 })
+  return resultUrl
 }
 
-export async function pollGladiaResult(requestId, gladiaToken) {
+export async function pollGladiaResult(resultUrl, gladiaToken) {
   for (let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt++) {
     await sleep(POLL_INTERVAL_MS)
 
-    const res = await fetch(`${GLADIA_TRANSCRIBE_API}${requestId}`, {
+    const res = await fetch(resultUrl, {
       headers: { 'x-gladia-key': gladiaToken, accept: 'application/json' }
     })
 
@@ -92,7 +97,7 @@ export async function pollGladiaResult(requestId, gladiaToken) {
     }
 
     if (data.status === 'error') {
-      throw Object.assign(new Error(`Gladia transcription error: ${JSON.stringify(data.error || {})}`), { code: 502 })
+      throw Object.assign(new Error(`Gladia transcription error: ${JSON.stringify(data.error || data)}`), { code: 502 })
     }
   }
 
