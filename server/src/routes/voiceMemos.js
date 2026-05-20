@@ -65,6 +65,20 @@ async function processVoiceMemoAsync(db, memoId, audioPath, accountId, languageM
     )
 
     await logVoiceMemoUsage(db, { accountId, voiceMemoId: memoId, aiProvider, hasOwnKey, languageMode })
+    await logAudit(db, {
+      accountId,
+      role: 'vet',
+      action: 'voice_memo_completed',
+      resource: 'voice_memo',
+      resourceId: memoId,
+      details: {
+        aiProvider,
+        languageMode,
+        transcriptionLength: transcriptionText?.length ?? 0,
+        gladia: { submit: submitDebug, poll: { status: debugData?.status, id: debugData?.id, request_id: debugData?.request_id } }
+      },
+      ip: null
+    }).catch(() => {})
   } catch (err) {
     const errorMsg = err.code === 422
       ? 'Kein Gladia-Token konfiguriert. Bitte im Profil oder Admin-Bereich eintragen.'
@@ -81,7 +95,11 @@ async function processVoiceMemoAsync(db, memoId, audioPath, accountId, languageM
       action: 'voice_memo_failed',
       resource: 'voice_memo',
       resourceId: memoId,
-      details: { errorMsg, errorCode: err.code ?? null, gladiaDebug: err.gladiaDebug ?? null },
+      details: {
+        errorMsg,
+        errorCode: err.code ?? null,
+        gladia: err.gladiaDebug ?? null
+      },
       ip: null
     }).catch(() => {})
   }
