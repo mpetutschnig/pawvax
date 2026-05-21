@@ -1573,7 +1573,7 @@ export default function AnimalPage() {
                 <span className="badge">{generalDocs.length}</span>
               </div>
               <div>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)', minWidth: 0 }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)', minWidth: 0, tableLayout: 'fixed' }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid var(--border)' }}>
                       <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) 0', whiteSpace: 'nowrap' }}>Titel</th>
@@ -1596,7 +1596,7 @@ export default function AnimalPage() {
                                 {extracted.title || 'Dokument'}
                               </Link>
                             </td>
-                            <td className="col-mobile-hidden" style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '300px' }}>{summary || '—'}</td>
+                            <td className="col-mobile-hidden" style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>{summary || '—'}</td>
                             <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{extracted.document_date || formatDateOnly(doc.created_at, i18n.language === 'de' ? 'de-AT' : 'en-GB')}</td>
                             {isOwner && (
                               <td className="col-mobile-hidden" style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>
@@ -1783,7 +1783,7 @@ export default function AnimalPage() {
                             {doc.doc_type === 'vaccination' ? <Syringe size={16} color={doc.added_by_role === 'vet' ? "var(--success-600)" : "var(--primary-600)"} strokeWidth={2} /> : <FileText size={16} color={doc.added_by_role === 'vet' ? "var(--success-600)" : "var(--primary-600)"} strokeWidth={2} />}
                           </div>
                           <div style={{ flex: 1 }}>
-                            <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+                            <div style={{ fontWeight: 600, fontSize: 'var(--font-size-base)', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
                               {doc.extracted_json?.title || (doc.doc_type ? docTypeLabel(doc.doc_type) : 'Dokument')}
                               {doc.added_by_role === 'vet' && doc.added_by_verified && (
                                 <VerifiedBadge name={doc.added_by_name || 'Tierarzt'} verified={!!doc.added_by_verified} role="vet" />
@@ -1824,7 +1824,7 @@ export default function AnimalPage() {
                         {doc.doc_type === 'vaccination' ? <Syringe size={16} color={doc.added_by_role === 'vet' ? "var(--success-600)" : "var(--primary-600)"} strokeWidth={2} /> : <FileText size={16} color={doc.added_by_role === 'vet' ? "var(--success-600)" : "var(--primary-600)"} strokeWidth={2} />}
                       </div>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+                        <div style={{ fontWeight: 600, fontSize: 'var(--font-size-base)', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
                           {doc.extracted_json?.title || (doc.doc_type ? docTypeLabel(doc.doc_type) : 'Dokument')}
                           {doc.added_by_role === 'vet' && doc.added_by_verified && (
                             <VerifiedBadge name={doc.added_by_name || 'Tierarzt'} verified={!!doc.added_by_verified} role="vet" />
