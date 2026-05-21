@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { PawPrint, Calendar, User, MapPin, Syringe, Pill, FileText, ChevronUp, ChevronDown, ShieldCheck } from 'lucide-react'
+import { PawPrint, Calendar, User, MapPin, Syringe, Pill, FileText, ChevronUp, ChevronDown, ShieldCheck, Mic } from 'lucide-react'
 import { api } from '../api/rest'
 import { addRecentlyViewedAnimal } from '../hooks/useRecentlyViewed'
 
@@ -365,6 +365,28 @@ export default function PublicSharePage() {
             </p>
           </div>
         )
+      )}
+
+      {animal.voice_memos && animal.voice_memos.length > 0 && (
+        <div className="card animate-fade-in" style={{ marginBottom: 'var(--space-4)', animationDelay: '200ms' }}>
+          <h3 style={{ margin: '0 0 var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontSize: 'var(--font-size-base)' }}>
+            <Mic size={18} /> {t('animal.voiceMemos')} ({animal.voice_memos.length})
+          </h3>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)', tableLayout: 'fixed' }}>
+            <tbody>
+              {animal.voice_memos.map((vm: any) => (
+                <tr key={vm.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                  <td style={{ padding: 'var(--space-2) var(--space-2) var(--space-2) 0', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '40%' }}>
+                    {vm.title || new Date(vm.created_at).toLocaleDateString(i18n.language === 'de' ? 'de-AT' : 'en-GB')}
+                  </td>
+                  <td style={{ padding: 'var(--space-2) 0', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {vm.summary || vm.transcription_text || '—'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
 
       <div className="animate-fade-in" style={{ animationDelay: '200ms', textAlign: 'center', marginTop: 'var(--space-8)' }}>

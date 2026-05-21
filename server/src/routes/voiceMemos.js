@@ -20,7 +20,7 @@ async function canAccessAnimal(db, animalId, accountId, role) {
   const { rows: [animal] } = await db.query('SELECT account_id FROM animals WHERE id = $1', [animalId])
   if (!animal) return null
   if (animal.account_id === accountId) return { isOwner: true }
-  const roleStr = Array.isArray(role) ? role[0] : (role || 'user')
+  const roleStr = Array.isArray(role) ? role[0] : (role || 'guest')
   const { rows: [sharing] } = await db.query(
     'SELECT id FROM animal_sharing WHERE animal_id = $1 AND role = $2',
     [animalId, roleStr]
@@ -210,7 +210,7 @@ export default async function voiceMemoRoutes(fastify) {
 
   // GET /api/animals/:id/voice-memos — role-filtered list
   fastify.get('/api/animals/:id/voice-memos', {
-    onRequest: [fastify.authenticate],
+    onRequest: [fastify.authenticateOptional],
     schema: {
       summary: 'List voice memos for animal',
       description: 'Returns voice memos visible to the caller based on their role and allowed_roles settings.',
@@ -221,7 +221,7 @@ export default async function voiceMemoRoutes(fastify) {
     const { accountId, role } = req.user
     const animalId = req.params.id
     const db = getDb()
-    const roleStr = Array.isArray(role) ? role[0] : (role || 'user')
+    const roleStr = Array.isArray(role) ? role[0] : (role || 'guest')
 
     const { rows: [animal] } = await db.query('SELECT account_id FROM animals WHERE id = $1', [animalId])
     if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden' })
@@ -259,7 +259,7 @@ export default async function voiceMemoRoutes(fastify) {
 
   // GET /api/voice-memos/:id — full detail (role-filtered)
   fastify.get('/api/voice-memos/:id', {
-    onRequest: [fastify.authenticate],
+    onRequest: [fastify.authenticateOptional],
     schema: {
       summary: 'Get voice memo detail',
       description: 'Returns memo detail. transcription_text and extracted_json fields are filtered based on caller role vs transcription_roles/summary_roles.',
@@ -269,7 +269,7 @@ export default async function voiceMemoRoutes(fastify) {
   }, async (req, reply) => {
     const { accountId, role } = req.user
     const db = getDb()
-    const roleStr = Array.isArray(role) ? role[0] : (role || 'user')
+    const roleStr = Array.isArray(role) ? role[0] : (role || 'guest')
 
     const { rows: [memo] } = await db.query(
       'SELECT vm.*, a.account_id as owner_id FROM voice_memos vm JOIN animals a ON a.id = vm.animal_id WHERE vm.id = $1',
@@ -446,7 +446,7 @@ export default async function voiceMemoRoutes(fastify) {
 
   // GET /api/voice-memos/:id/audio — stream audio file
   fastify.get('/api/voice-memos/:id/audio', {
-    onRequest: [fastify.authenticate],
+    onRequest: [fastify.authenticateOptional],
     schema: {
       summary: 'Stream voice memo audio',
       description: 'Returns the audio file as a stream. Requires Bearer token (use blob fetch in browser, not direct <audio src>).',
@@ -456,7 +456,7 @@ export default async function voiceMemoRoutes(fastify) {
   }, async (req, reply) => {
     const { accountId, role } = req.user
     const db = getDb()
-    const roleStr = Array.isArray(role) ? role[0] : (role || 'user')
+    const roleStr = Array.isArray(role) ? role[0] : (role || 'guest')
 
     const { rows: [memo] } = await db.query(
       'SELECT vm.audio_path, vm.allowed_roles, a.account_id as owner_id FROM voice_memos vm JOIN animals a ON a.id = vm.animal_id WHERE vm.id = $1',

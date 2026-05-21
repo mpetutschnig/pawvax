@@ -141,6 +141,34 @@ export default async function animalRoutes(fastify) {
       d.pages = pagesByDoc[d.id] ?? []
     }
 
+    const parseJson = (val, fallback) => { try { return JSON.parse(val) } catch { return fallback } }
+    const { rows: vmRows } = await db.query(
+      'SELECT id, created_at, analysis_status, allowed_roles, summary_roles, transcription_roles, extracted_json, transcription_text, added_by_name, added_by_verified FROM voice_memos WHERE animal_id = $1 ORDER BY created_at DESC',
+      [row.id]
+    )
+    result.voice_memos = vmRows
+      .filter(vm => {
+        const allowed = parseJson(vm.allowed_roles, ['vet', 'authority'])
+        return effectiveRoles.some(r => allowed.includes(r))
+      })
+      .map(vm => {
+        const summaryRoles = parseJson(vm.summary_roles, ['vet', 'authority', 'guest'])
+        const transcriptionRoles = parseJson(vm.transcription_roles, ['vet'])
+        const canSeeSummary = effectiveRoles.some(r => summaryRoles.includes(r))
+        const canSeeTranscription = effectiveRoles.some(r => transcriptionRoles.includes(r))
+        const extracted = vm.extracted_json ? parseJson(vm.extracted_json, {}) : null
+        return {
+          id: vm.id,
+          created_at: vm.created_at,
+          analysis_status: vm.analysis_status,
+          added_by_name: vm.added_by_name,
+          added_by_verified: vm.added_by_verified,
+          title: canSeeSummary ? (extracted?.title || extracted?.title_de || null) : null,
+          summary: canSeeSummary ? (extracted?.summary || extracted?.summary_de || null) : null,
+          transcription_text: canSeeTranscription ? vm.transcription_text : null
+        }
+      })
+
     return result
   })
 
@@ -185,6 +213,37 @@ export default async function animalRoutes(fastify) {
     if (!shareResult && primaryRole !== 'guest') {
       shareResult = await applySharing(db, animal, 'guest', animal.owner_name, animal.owner_email, ['guest'])
     }
+
+    if (shareResult) {
+      const parseJson = (val, fallback) => { try { return JSON.parse(val) } catch { return fallback } }
+      const { rows: vmRows } = await db.query(
+        'SELECT id, created_at, analysis_status, allowed_roles, summary_roles, transcription_roles, extracted_json, transcription_text, added_by_name, added_by_verified FROM voice_memos WHERE animal_id = $1 ORDER BY created_at DESC',
+        [animal.id]
+      )
+      shareResult.voice_memos = vmRows
+        .filter(vm => {
+          const allowed = parseJson(vm.allowed_roles, ['vet', 'authority'])
+          return effectiveRoles.some(r => allowed.includes(r))
+        })
+        .map(vm => {
+          const summaryRoles = parseJson(vm.summary_roles, ['vet', 'authority', 'guest'])
+          const transcriptionRoles = parseJson(vm.transcription_roles, ['vet'])
+          const canSeeSummary = effectiveRoles.some(r => summaryRoles.includes(r))
+          const canSeeTranscription = effectiveRoles.some(r => transcriptionRoles.includes(r))
+          const extracted = vm.extracted_json ? parseJson(vm.extracted_json, {}) : null
+          return {
+            id: vm.id,
+            created_at: vm.created_at,
+            analysis_status: vm.analysis_status,
+            added_by_name: vm.added_by_name,
+            added_by_verified: vm.added_by_verified,
+            title: canSeeSummary ? (extracted?.title || extracted?.title_de || null) : null,
+            summary: canSeeSummary ? (extracted?.summary || extracted?.summary_de || null) : null,
+            transcription_text: canSeeTranscription ? vm.transcription_text : null
+          }
+        })
+    }
+
     return shareResult
   })
 

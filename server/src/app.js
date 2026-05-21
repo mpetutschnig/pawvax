@@ -210,6 +210,15 @@ fastify.decorate('authenticate', async function (req, reply) {
   }
 })
 
+// Optional auth — falls through as guest when no/invalid JWT
+fastify.decorate('authenticateOptional', async function (req, _reply) {
+  try {
+    await req.jwtVerify()
+  } catch {
+    req.user = { accountId: null, role: 'guest' }
+  }
+})
+
 // JWT Blacklist Check — prevent use of logged-out tokens
 fastify.addHook('preHandler', async (req, reply) => {
   if (req.user?.jti) {
