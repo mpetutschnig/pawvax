@@ -27,7 +27,8 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
-        globIgnores: ['pow/**']
+        globIgnores: ['pow/**'],
+        navigateFallbackDenylist: [/^\/pow/]
       }
     })
   ],
