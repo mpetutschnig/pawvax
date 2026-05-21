@@ -368,24 +368,36 @@ export default function PublicSharePage() {
       )}
 
       {animal.voice_memos && animal.voice_memos.length > 0 && (
-        <div className="card animate-fade-in" style={{ marginBottom: 'var(--space-4)', animationDelay: '200ms' }}>
-          <h3 style={{ margin: '0 0 var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontSize: 'var(--font-size-base)' }}>
+        <div className="animate-fade-in" style={{ marginBottom: 'var(--space-4)', animationDelay: '200ms' }}>
+          <h3 style={{ fontSize: 'var(--font-size-base)', marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
             <Mic size={18} /> {t('animal.voiceMemos')} ({animal.voice_memos.length})
           </h3>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)', tableLayout: 'fixed' }}>
-            <tbody>
-              {animal.voice_memos.map((vm: any) => (
-                <tr key={vm.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                  <td style={{ padding: 'var(--space-2) var(--space-2) var(--space-2) 0', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '40%' }}>
-                    {vm.title || new Date(vm.created_at).toLocaleDateString(i18n.language === 'de' ? 'de-AT' : 'en-GB')}
-                  </td>
-                  <td style={{ padding: 'var(--space-2) 0', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {vm.summary || vm.transcription_text || '—'}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          {animal.voice_memos.map((vm: any) => {
+            const vmId = `vm-${vm.id}`
+            const isExp = expandedRecordId === vmId
+            const title = vm.title || new Date(vm.created_at).toLocaleDateString(i18n.language === 'de' ? 'de-AT' : 'en-GB')
+            return (
+              <div key={vm.id} className="card card-sm" style={{ marginBottom: 'var(--space-2)', cursor: 'pointer' }}
+                onClick={() => setExpandedRecordId(isExp ? null : vmId)}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>{title}</span>
+                  {isExp ? <ChevronUp size={16} className="text-muted" /> : <ChevronDown size={16} className="text-muted" />}
+                </div>
+                {isExp && (
+                  <div className="animate-slide-up" style={{ marginTop: 'var(--space-3)', paddingTop: 'var(--space-3)', borderTop: '1px solid var(--border)' }}>
+                    {vm.summary && <p style={{ margin: '0 0 var(--space-2)', fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>{vm.summary}</p>}
+                    {vm.transcription_text && <p style={{ margin: 0, fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', whiteSpace: 'pre-wrap' }}>{vm.transcription_text}</p>}
+                    {vm.added_by_verified && vm.added_by_name && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 'var(--space-3)' }}>
+                        <ShieldCheck size={13} color="var(--primary-600)" />
+                        <span style={{ color: 'var(--primary-700)', fontWeight: 500, fontSize: 'var(--font-size-xs)' }}>{vm.added_by_name}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
 

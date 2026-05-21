@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import * as api from '../api/rest'
 import { PetCard } from '../components/PetCard'
 import { PageHeader } from '../components/PageHeader'
-import { Search, Plus, PawPrint, ArrowRightLeft, Clock } from 'lucide-react'
+import { Search, Plus, PawPrint, ArrowRightLeft } from 'lucide-react'
 import { AnimalListItemDTO } from '../types/animal'
 import { getRecentlyViewedAnimals, RecentlyViewedAnimal } from '../hooks/useRecentlyViewed'
 import { formatDate } from '../utils/date'
@@ -12,7 +12,6 @@ import { formatDate } from '../utils/date'
 export default function AnimalsPage() {
   const { t } = useTranslation()
   const [animals, setAnimals] = useState<(AnimalListItemDTO & { is_archived?: number })[]>([])
-  const [recentlyScanned, setRecentlyScanned] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [showTransferForm, setShowTransferForm] = useState(false)
@@ -38,10 +37,6 @@ export default function AnimalsPage() {
     } finally {
       setLoading(false)
     }
-    try {
-      const scannedRes = await api.getRecentlyScannedAnimals()
-      setRecentlyScanned(scannedRes.data.scans || [])
-    } catch {}
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -262,11 +257,11 @@ export default function AnimalsPage() {
         </>
       )}
 
-      {!showForm && !showTransferForm && recentlyViewed.length > 0 && (
+      {!showForm && !showTransferForm && recentlyViewed.filter(i => i.source !== 'animal').length > 0 && (
         <div className="card" style={{ marginTop: 'var(--space-4)', marginBottom: 'var(--space-4)' }}>
           <h3 style={{ marginBottom: 'var(--space-3)' }}>{t('recent.title')}</h3>
           <div style={{ display: 'grid', gap: 'var(--space-2)' }}>
-            {recentlyViewed.map((item) => (
+            {recentlyViewed.filter(i => i.source !== 'animal').map((item) => (
               <Link
                 key={item.id}
                 to={`/animals/${item.id}`}
@@ -297,43 +292,6 @@ export default function AnimalsPage() {
         </div>
       )}
 
-      {!showForm && !showTransferForm && recentlyScanned.length > 0 && (
-        <div className="card" style={{ marginTop: 'var(--space-4)', marginBottom: 'var(--space-4)', borderLeft: '4px solid var(--warning-500)', background: 'var(--warning-50)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
-            <Clock size={18} color="var(--warning-600)" />
-            <h3 style={{ margin: 0 }}>{t('profile.scannedHistory')}</h3>
-          </div>
-          <div style={{ display: 'grid', gap: 'var(--space-2)' }}>
-            {recentlyScanned.map((animal, idx) => (
-              <Link
-                key={`${animal.id}-${idx}`}
-                to={`/animals/${animal.id}`}
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  padding: 'var(--space-2) var(--space-3)',
-                  border: '1px solid var(--border-subtle)',
-                  borderRadius: 'var(--radius-sm)',
-                  textDecoration: 'none',
-                  color: 'inherit',
-                  background: 'var(--surface)'
-                }}
-              >
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>{animal.name}</div>
-                  <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>
-                    {animal.species || ''}{animal.breed ? ` · ${animal.breed}` : ''}
-                  </div>
-                </div>
-                <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>
-                  {formatDate(animal.scanned_at)}
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   )
 }

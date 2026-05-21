@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { getAnimal, getAnimalDocuments, getAnimalTags, updateAnimal, deleteAnimal, uploadAnimalAvatar, deleteDocument, patchDocumentRecord, patchDocument, addVaccination, addTreatment, getAnimalVoiceMemos } from '../api/rest'
+import { getAnimal, getAnimalDocuments, getAnimalTags, updateAnimal, deleteAnimal, uploadAnimalAvatar, deleteDocument, patchDocumentRecord, patchDocument, addVaccination, getAnimalVoiceMemos } from '../api/rest'
 import { PageHeader } from '../components/PageHeader'
 import { addRecentlyViewedAnimal } from '../hooks/useRecentlyViewed'
 import { PawPrint, Cat, Edit2, Trash2, Search, Radio, ShieldAlert, AlertTriangle, RefreshCw, X, Syringe, FileText, CheckCircle, ArrowDownAZ, ArrowUpAZ, SlidersHorizontal, ArrowRightLeft, Share2, Plus, Pill, ChevronDown, ChevronUp, Landmark, Award, GraduationCap, Stethoscope, Mic } from 'lucide-react'
@@ -84,9 +84,7 @@ export default function AnimalPage() {
 
   // Manual entry modals
   const [showVaxModal, setShowVaxModal] = useState(false)
-  const [showTreatModal, setShowTreatModal] = useState(false)
   const [manualVax, setManualVax] = useState({ vaccine_name: '', date: '', batch_number: '', valid_until: '', target_disease: '', vet_name: '', notes: '' })
-  const [manualTreat, setManualTreat] = useState({ substance: '', date: '', dosage: '', vet_name: '', notes: '', next_due: '' })
   const [savingManual, setSavingManual] = useState(false)
   const [manualError, setManualError] = useState<string | null>(null)
 
@@ -130,18 +128,6 @@ export default function AnimalPage() {
       setDocuments(res.data)
       setShowVaxModal(false)
       setManualVax({ vaccine_name: '', date: '', batch_number: '', valid_until: '', target_disease: '', vet_name: '', notes: '' })
-    } catch { setManualError('Fehler beim Speichern') } finally { setSavingManual(false) }
-  }
-
-  const handleSaveManualTreat = async () => {
-    if (!id || !manualTreat.substance || !manualTreat.date) return
-    setSavingManual(true); setManualError(null)
-    try {
-      await addTreatment(id, manualTreat)
-      const res = await getAnimalDocuments(id)
-      setDocuments(res.data)
-      setShowTreatModal(false)
-      setManualTreat({ substance: '', date: '', dosage: '', vet_name: '', notes: '', next_due: '' })
     } catch { setManualError('Fehler beim Speichern') } finally { setSavingManual(false) }
   }
 
@@ -1185,11 +1171,6 @@ export default function AnimalPage() {
                 <Pill size={18} color="var(--success-600)" />
                 <h3 style={{ margin: 0 }}>Behandlungen</h3>
                 {treatmentRecords.length > 0 && <span className="badge">{treatmentRecords.length}</span>}
-                {isOwner && (
-                  <button className="btn btn-outline" style={{ marginLeft: 'auto', fontSize: 'var(--font-size-xs)', padding: '4px 10px', display: 'flex', alignItems: 'center', gap: 4 }} onClick={() => setShowTreatModal(true)}>
-                    <Plus size={14} /> Eintragen
-                  </button>
-                )}
               </div>
               {treatmentRecords.length === 0 ? (
                 <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', margin: 0 }}>Noch keine Behandlungen eingetragen.</p>
@@ -1944,14 +1925,6 @@ export default function AnimalPage() {
             <Mic size={18} color="var(--primary-500)" /> {t('animal.voiceMemos')} ({voiceMemos.length})
           </h3>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)', tableLayout: 'fixed' }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) 0' }}>{t('voiceMemo.memo')}</th>
-                <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap', width: '90px' }} className="col-mobile-hidden">{t('vaccine.administrationDate')}</th>
-                <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)' }}>{t('voiceMemo.detailDiagnose')}</th>
-                <th style={{ width: '20px' }}></th>
-              </tr>
-            </thead>
             <tbody>
               {voiceMemos.map((memo: any) => {
                 const title = memo.title || formatDateOnly(memo.created_at)
@@ -1963,16 +1936,13 @@ export default function AnimalPage() {
                 return (
                   <tr key={memo.id} style={{ borderBottom: '1px solid var(--border-subtle)', cursor: 'pointer' }}
                     onClick={() => navigate(`/animals/${id}/voice-memos/${memo.id}`)}>
-                    <td style={{ padding: 'var(--space-2) 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      <span style={{ fontWeight: 500 }}>{title}</span>
+                    <td style={{ padding: 'var(--space-2) 0' }}>
+                      <div style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</div>
+                      {diagnose && (
+                        <div style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-size-xs)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 2 }}>{diagnose}</div>
+                      )}
                     </td>
-                    <td className="col-mobile-hidden" style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap', color: 'var(--text-secondary)' }}>
-                      {formatDateOnly(memo.created_at)}
-                    </td>
-                    <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-secondary)' }}>
-                      {diagnose || '—'}
-                    </td>
-                    <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', textAlign: 'right' }}>
+                    <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', textAlign: 'right', width: '20px' }}>
                       <span style={{ color: statusColor[memo.analysis_status] || 'var(--text-tertiary)', fontSize: 'var(--font-size-xs)' }}>
                         {memo.analysis_status === 'completed' ? '✓' : memo.analysis_status === 'failed' ? '✕' : '⟳'}
                       </span>
@@ -2105,33 +2075,6 @@ export default function AnimalPage() {
         </div>
       )}
 
-      {/* Manual Treatment Entry Modal */}
-      {showTreatModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'oklch(0% 0 0 / 0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'var(--space-4)' }}>
-          <div className="card" style={{ width: '100%', maxWidth: 480, maxHeight: '90dvh', overflowY: 'auto' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-4)' }}>
-              <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}><Pill size={18} /> Behandlung eintragen</h3>
-              <button className="btn btn-ghost" onClick={() => setShowTreatModal(false)}><X size={18} /></button>
-            </div>
-            {manualError && <div className="error-card" style={{ marginBottom: 'var(--space-3)' }}><p>{manualError}</p></div>}
-            <div style={{ display: 'grid', gap: 'var(--space-3)' }}>
-              <div className="form-group"><label className="form-label">Substanz / Medikament *</label><input className="form-input" value={manualTreat.substance} onChange={e => setManualTreat(p => ({ ...p, substance: e.target.value }))} placeholder="z.B. Frontline Spot-on" /></div>
-              <div className="form-group"><label className="form-label">Datum *</label><input className="form-input" type="date" value={manualTreat.date} onChange={e => setManualTreat(p => ({ ...p, date: e.target.value }))} /></div>
-              <div className="form-group"><label className="form-label">Dosierung</label><input className="form-input" value={manualTreat.dosage} onChange={e => setManualTreat(p => ({ ...p, dosage: e.target.value }))} placeholder="z.B. 1 Pipette" /></div>
-              <div className="form-group"><label className="form-label">Tierarzt</label><input className="form-input" value={manualTreat.vet_name} onChange={e => setManualTreat(p => ({ ...p, vet_name: e.target.value }))} /></div>
-              <div className="form-group"><label className="form-label">Nächste Fälligkeit</label><input className="form-input" type="date" value={manualTreat.next_due} onChange={e => setManualTreat(p => ({ ...p, next_due: e.target.value }))} /></div>
-              <div className="form-group"><label className="form-label">Notizen</label><textarea className="form-input" value={manualTreat.notes} onChange={e => setManualTreat(p => ({ ...p, notes: e.target.value }))} rows={2} /></div>
-            </div>
-            <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-4)', justifyContent: 'flex-end' }}>
-              <button className="btn btn-outline" onClick={() => setShowTreatModal(false)}>Abbrechen</button>
-              <button className="btn btn-primary" onClick={handleSaveManualTreat} disabled={savingManual || !manualTreat.substance || !manualTreat.date}>
-                {savingManual ? <div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} /> : 'Speichern'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Voice Record Modal */}
       {showVoiceMemo && id && (
         <VoiceRecordModal
@@ -2180,10 +2123,6 @@ export default function AnimalPage() {
               <button className="fab-item" onClick={() => { setShowVaxModal(true); setShowFab(false) }}>
                 <span className="fab-item-label">{t('animal.fabAddVaccination')}</span>
                 <div className="fab-item-icon"><Syringe size={20} /></div>
-              </button>
-              <button className="fab-item" onClick={() => { setShowTreatModal(true); setShowFab(false) }}>
-                <span className="fab-item-label">{t('animal.fabAddTreatment')}</span>
-                <div className="fab-item-icon"><Pill size={20} /></div>
               </button>
             </>
           )}
