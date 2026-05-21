@@ -125,7 +125,7 @@ export default function VoiceMemoDetailPage() {
   const isBoth = memo.language_mode === 'both'
 
   return (
-    <div style={{ maxWidth: 720, margin: '0 auto', padding: 'var(--space-4)', paddingBottom: 'calc(var(--bottom-nav-height) + var(--space-6))', overflowX: 'hidden' }}>
+    <div style={{ maxWidth: 720, width: '100%', boxSizing: 'border-box', margin: '0 auto', padding: 'var(--space-4)', paddingBottom: 'calc(var(--bottom-nav-height) + var(--space-6))', overflowX: 'hidden' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
         <button className="btn btn-ghost" onClick={() => navigate(`/animals/${id}`)} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
@@ -211,7 +211,7 @@ export default function VoiceMemoDetailPage() {
         <div className="card" style={{ marginBottom: 'var(--space-4)' }}>
           <h3 style={{ margin: '0 0 var(--space-3)' }}>{t('voiceMemo.memo')}</h3>
           {isBoth ? (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)', marginBottom: 'var(--space-3)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 'var(--space-4)', marginBottom: 'var(--space-3)' }}>
               {(['de', 'en'] as const).map(lang => (
                 <div key={lang}>
                   <p className="text-muted" style={{ margin: '0 0 var(--space-1)', fontSize: 'var(--font-size-xs)', fontWeight: 600, textTransform: 'uppercase' }}>{lang === 'de' ? 'Deutsch' : 'English'}</p>
@@ -232,7 +232,7 @@ export default function VoiceMemoDetailPage() {
           {extracted.details && (
             <div style={{ borderTop: '1px solid var(--border)', paddingTop: 'var(--space-3)', marginTop: 'var(--space-1)' }}>
               <p style={{ margin: '0 0 var(--space-2)', fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>{t('voiceMemo.details')}</p>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)', tableLayout: 'fixed', wordBreak: 'break-word' }}>
                 <tbody>
                   {extracted.details.diagnose && (
                     <tr>
