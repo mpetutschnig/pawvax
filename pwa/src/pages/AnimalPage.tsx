@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { getAnimal, getAnimalDocuments, getAnimalTags, updateAnimal, deleteAnimal, uploadAnimalAvatar, deleteDocument, patchDocumentRecord, patchDocument, addVaccination, addTreatment, getAnimalVoiceMemos } from '../api/rest'
 import { PageHeader } from '../components/PageHeader'
 import { addRecentlyViewedAnimal } from '../hooks/useRecentlyViewed'
-import { PawPrint, Cat, Edit2, Trash2, Camera, Search, Radio, ShieldAlert, AlertTriangle, RefreshCw, X, Syringe, FileText, CheckCircle, ArrowDownAZ, ArrowUpAZ, SlidersHorizontal, ArrowRightLeft, Share2, Plus, Pill, ChevronDown, ChevronUp, Landmark, Award, GraduationCap, Stethoscope, Mic } from 'lucide-react'
+import { PawPrint, Cat, Edit2, Trash2, Search, Radio, ShieldAlert, AlertTriangle, RefreshCw, X, Syringe, FileText, CheckCircle, ArrowDownAZ, ArrowUpAZ, SlidersHorizontal, ArrowRightLeft, Share2, Plus, Pill, ChevronDown, ChevronUp, Landmark, Award, GraduationCap, Stethoscope, Mic } from 'lucide-react'
 import { VoiceRecordModal } from '../components/VoiceRecordModal'
 import { AnimalDTO } from '../types/animal'
 import { normalizeVaccinationRecord } from '../utils/vaccination'
@@ -616,8 +616,8 @@ export default function AnimalPage() {
 
       {error && <div className="error-card"><p>{error}</p></div>}
 
-      <div className="content-grid">
-        <div style={{ minWidth: 0 }}>
+      <div className="animal-page-layout">
+        <div className="animal-section-profile">
           {!isOwner && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', padding: 'var(--space-3)', background: 'var(--info-100)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-4)', border: '1px solid var(--info-300)' }}>
               <ShieldAlert size={18} color="var(--info-700)" />
@@ -641,8 +641,6 @@ export default function AnimalPage() {
             </div>
           ) : null}
 
-          {!editing ? (
-            <>
               <div style={{
                 borderRadius: 'var(--radius-xl)',
                 background: 'linear-gradient(135deg, var(--primary-500), var(--primary-700))',
@@ -724,7 +722,10 @@ export default function AnimalPage() {
                   } catch { return null; }
                 })()}
               </div>
-
+        </div>
+        <div className="animal-section-actions">
+          {!editing ? (
+            <>
               {!isOwner && animal.contact && (
                 <div style={{ background: 'var(--surface)', padding: 'var(--space-3)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-4)', border: '1px solid var(--border)' }}>
                   <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>{t('publicScan.contact')}</div>
@@ -1037,8 +1038,7 @@ export default function AnimalPage() {
           )}
 
         </div>
-
-        <div style={{ minWidth: 0 }}>
+        <div className="animal-section-tables">
           {vaccinationRecords.length > 0 && (
             <div className="card" style={{ marginBottom: 'var(--space-4)', overflow: 'hidden' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
@@ -1635,12 +1635,8 @@ export default function AnimalPage() {
             </div>
           )}
 
-          {(isOwner || isVet) && !animal.is_archived && (
-            <Link to={`/animals/${id}/scan`} className="btn btn-primary btn-full" style={{ marginBottom: 'var(--space-3)' }}>
-              <Camera size={18} /> {t('animal.addDocument')}
-            </Link>
-          )}
-
+        </div>
+        <div className="animal-section-docs">
           {/* Document Tabs */}
           <div style={{ display: 'flex', gap: 'var(--space-3)', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border)' }}>
         <button
@@ -1947,37 +1943,45 @@ export default function AnimalPage() {
           <h3 style={{ margin: '0 0 var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
             <Mic size={18} color="var(--primary-500)" /> {t('animal.voiceMemos')} ({voiceMemos.length})
           </h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-            {voiceMemos.map((memo: any) => {
-              const title = memo.title || null
-              const summary = memo.summary || null
-              const statusColor: Record<string, string> = {
-                completed: 'var(--success-500)', failed: 'var(--danger-500)',
-                transcribing: 'var(--primary-500)', analyzing: 'var(--primary-500)'
-              }
-              const subtitle = summary || (title ? formatDateOnly(memo.created_at) : memo.added_by_name || '')
-              return (
-                <button
-                  key={memo.id}
-                  onClick={() => navigate(`/animals/${id}/voice-memos/${memo.id}`)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', background: 'none', border: 'none', cursor: 'pointer', padding: 'var(--space-2) var(--space-3)', borderRadius: 'var(--radius-md)', textAlign: 'left', transition: 'background 150ms' }}
-                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-alt)')}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'none')}
-                >
-                  <Mic size={16} color="var(--text-tertiary)" />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ margin: 0, fontWeight: 500, fontSize: 'var(--font-size-base)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {title || formatDateOnly(memo.created_at)}
-                    </p>
-                    {subtitle && <p className="text-muted" style={{ margin: 0, fontSize: 'var(--font-size-xs)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{subtitle}</p>}
-                  </div>
-                  <span style={{ fontSize: 'var(--font-size-xs)', color: statusColor[memo.analysis_status] || 'var(--text-tertiary)', flexShrink: 0 }}>
-                    {memo.analysis_status === 'completed' ? '✓' : memo.analysis_status === 'failed' ? '✕' : '⟳'}
-                  </span>
-                </button>
-              )
-            })}
-          </div>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)', tableLayout: 'fixed' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) 0' }}>{t('voiceMemo.memo')}</th>
+                <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap', width: '90px' }} className="col-mobile-hidden">{t('vaccine.administrationDate')}</th>
+                <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)' }}>{t('voiceMemo.detailDiagnose')}</th>
+                <th style={{ width: '20px' }}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {voiceMemos.map((memo: any) => {
+                const title = memo.title || formatDateOnly(memo.created_at)
+                const diagnose = memo.summary || null
+                const statusColor: Record<string, string> = {
+                  completed: 'var(--success-500)', failed: 'var(--danger-500)',
+                  transcribing: 'var(--primary-500)', analyzing: 'var(--primary-500)'
+                }
+                return (
+                  <tr key={memo.id} style={{ borderBottom: '1px solid var(--border-subtle)', cursor: 'pointer' }}
+                    onClick={() => navigate(`/animals/${id}/voice-memos/${memo.id}`)}>
+                    <td style={{ padding: 'var(--space-2) 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <span style={{ fontWeight: 500 }}>{title}</span>
+                    </td>
+                    <td className="col-mobile-hidden" style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap', color: 'var(--text-secondary)' }}>
+                      {formatDateOnly(memo.created_at)}
+                    </td>
+                    <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-secondary)' }}>
+                      {diagnose || '—'}
+                    </td>
+                    <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', textAlign: 'right' }}>
+                      <span style={{ color: statusColor[memo.analysis_status] || 'var(--text-tertiary)', fontSize: 'var(--font-size-xs)' }}>
+                        {memo.analysis_status === 'completed' ? '✓' : memo.analysis_status === 'failed' ? '✕' : '⟳'}
+                      </span>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
         </div>
       )}
 

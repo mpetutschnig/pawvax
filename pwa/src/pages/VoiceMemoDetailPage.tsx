@@ -152,6 +152,7 @@ export default function VoiceMemoDetailPage() {
           )}
           {memo.transcription_text && ['completed', 'failed'].includes(memo.analysis_status) && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{t('voiceMemo.reanalyzeLang')}:</span>
               <select
                 value={reanalyzeLang || memo.language_mode || 'de'}
                 onChange={e => setReanalyzeLang(e.target.value)}
@@ -204,6 +205,9 @@ export default function VoiceMemoDetailPage() {
           ? <audio controls src={audioSrc} style={{ width: '100%' }} />
           : <p className="text-muted" style={{ margin: 0, fontSize: 'var(--font-size-sm)' }}>{t('common.loading')}</p>
         }
+        {memo.allowed_roles !== undefined && (
+          <PermissionRow label={t('voiceMemo.permAllowedRoles')} field="allowed_roles" current={memo.allowed_roles} onSave={savePermissions} />
+        )}
       </div>
 
       {/* AI Memo */}
@@ -282,6 +286,9 @@ export default function VoiceMemoDetailPage() {
               {extracted.tags.map((tag: string) => <span key={tag} className="badge" style={{ fontSize: 10 }}>{tag}</span>)}
             </div>
           )}
+          {memo.summary_roles !== undefined && (
+            <PermissionRow label={t('voiceMemo.permSummaryRoles')} field="summary_roles" current={memo.summary_roles} onSave={savePermissions} />
+          )}
         </div>
       )}
 
@@ -290,44 +297,12 @@ export default function VoiceMemoDetailPage() {
         <div className="card" style={{ marginBottom: 'var(--space-4)' }}>
           <h3 style={{ margin: '0 0 var(--space-3)' }}>{t('voiceMemo.transcription')}</h3>
           <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', whiteSpace: 'pre-wrap', color: 'var(--text-secondary)' }}>{memo.transcription_text}</p>
+          {memo.transcription_roles !== undefined && (
+            <PermissionRow label={t('voiceMemo.permTranscriptionRoles')} field="transcription_roles" current={memo.transcription_roles} onSave={savePermissions} />
+          )}
         </div>
       )}
 
-      {/* Permissions panel — only for creator/owner */}
-      {memo.allowed_roles !== undefined && (
-        <div className="card" style={{ marginBottom: 'var(--space-4)' }}>
-          <h3 style={{ margin: '0 0 var(--space-3)' }}>{t('voiceMemo.permissions')}</h3>
-          {[
-            { key: 'allowed_roles', label: 'Sichtbar für', current: memo.allowed_roles },
-            { key: 'summary_roles', label: 'Zusammenfassung für', current: memo.summary_roles },
-            { key: 'transcription_roles', label: 'Transkription für', current: memo.transcription_roles },
-          ].map(({ key, label, current }) => (
-            <div key={key} style={{ marginBottom: 'var(--space-3)' }}>
-              <p style={{ margin: '0 0 var(--space-1)', fontWeight: 500, fontSize: 'var(--font-size-sm)' }}>{label}</p>
-              <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
-                {['vet', 'authority', 'guest'].map(role => {
-                  const checked = (current || []).includes(role)
-                  return (
-                    <label key={role} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', cursor: 'pointer', fontSize: 'var(--font-size-sm)' }}>
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => {
-                          const next = checked
-                            ? (current || []).filter((r: string) => r !== role)
-                            : [...(current || []), role]
-                          savePermissions(key, next)
-                        }}
-                      />
-                      {role}
-                    </label>
-                  )
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
 
       {/* AI Debug — vet/creator only */}
       {memo.ai_debug_json && (
@@ -338,6 +313,28 @@ export default function VoiceMemoDetailPage() {
       {memo.gladia_debug_json && (
         <DebugPanel rawJson={memo.gladia_debug_json} label="Gladia Debug" />
       )}
+    </div>
+  )
+}
+
+function PermissionRow({ label, field, current, onSave }: { label: string; field: string; current: string[]; onSave: (f: string, r: string[]) => void }) {
+  return (
+    <div style={{ borderTop: '1px solid var(--border)', paddingTop: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
+      <p style={{ margin: '0 0 var(--space-1)', fontWeight: 500, fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>{label}</p>
+      <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+        {(['vet', 'authority', 'guest'] as const).map(role => {
+          const checked = (current || []).includes(role)
+          return (
+            <label key={role} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', cursor: 'pointer', fontSize: 'var(--font-size-sm)' }}>
+              <input type="checkbox" checked={checked} onChange={() => {
+                const next = checked ? (current || []).filter(r => r !== role) : [...(current || []), role]
+                onSave(field, next)
+              }} />
+              {role}
+            </label>
+          )
+        })}
+      </div>
     </div>
   )
 }

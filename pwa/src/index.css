@@ -1403,6 +1403,25 @@ html[data-theme="dark"] .nav-bar h2 {
   }
 }
 
+/* Animal Page Layout — profile | tables | actions | docs */
+.animal-page-layout {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  min-width: 0;
+}
+@media (min-width: 1024px) {
+  .animal-page-layout {
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    align-items: start;
+  }
+  .animal-section-profile { grid-column: 1; grid-row: 1; min-width: 0; }
+  .animal-section-tables  { grid-column: 2; grid-row: 1 / span 2; min-width: 0; }
+  .animal-section-actions { grid-column: 1; grid-row: 2; min-width: 0; }
+  .animal-section-docs    { grid-column: 1 / -1; min-width: 0; }
+}
+
 /* ════════════════════════════════════════════════════════════════
    CHIP ROW (Horizontal scrolling chips on mobile)
    ════════════════════════════════════════════════════════════════ */

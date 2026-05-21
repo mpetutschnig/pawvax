@@ -847,5 +847,9 @@
   "voiceMemo.detailVorgehen": "Procedures",
   "voiceMemo.detailMedikamente": "Medications",
   "voiceMemo.detailTermine": "Appointments",
-  "voiceMemo.actionItems": "Next Steps"
+  "voiceMemo.actionItems": "Next Steps",
+  "voiceMemo.reanalyzeLang": "AI language",
+  "voiceMemo.permAllowedRoles": "Visible to",
+  "voiceMemo.permSummaryRoles": "Summary for",
+  "voiceMemo.permTranscriptionRoles": "Transcription for"
 }

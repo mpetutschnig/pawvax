@@ -847,5 +847,9 @@
   "voiceMemo.detailVorgehen": "Vorgehen",
   "voiceMemo.detailMedikamente": "Medikamente",
   "voiceMemo.detailTermine": "Termine",
-  "voiceMemo.actionItems": "Nächste Schritte"
+  "voiceMemo.actionItems": "Nächste Schritte",
+  "voiceMemo.reanalyzeLang": "KI-Sprache",
+  "voiceMemo.permAllowedRoles": "Sichtbar für",
+  "voiceMemo.permSummaryRoles": "Zusammenfassung für",
+  "voiceMemo.permTranscriptionRoles": "Transkription für"
 }

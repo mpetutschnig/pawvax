@@ -93,7 +93,7 @@ if (!jwtSecret || INSECURE_DEFAULTS.includes(jwtSecret)) {
 }
 
 // Plugins - CORS origins can be configured
-const defaultCorsOrigins = ['https://paw.oxs.at', 'https://vetsucht.oxs.at', 'https://pawapi.oxs.at', 'http://localhost:5173', 'http://localhost:3000']
+const defaultCorsOrigins = ['https://paw.oxs.at', 'https://vetsucht.oxs.at', 'https://vetzsucht.oxs.at', 'https://pawapi.oxs.at', 'http://localhost:5173', 'http://localhost:3000']
 await fastify.register(fastifyCors, {
   origin: (origin, cb) => {
     if (!origin || defaultCorsOrigins.includes(origin)) {
