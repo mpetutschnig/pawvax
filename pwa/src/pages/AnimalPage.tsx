@@ -1949,12 +1949,13 @@ export default function AnimalPage() {
           </h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
             {voiceMemos.map((memo: any) => {
-              const extracted = memo.extracted_json ? (() => { try { return JSON.parse(memo.extracted_json) } catch { return {} } })() : {}
-              const title = extracted.title || extracted.title_de || null
+              const title = memo.title || null
+              const summary = memo.summary || null
               const statusColor: Record<string, string> = {
                 completed: 'var(--success-500)', failed: 'var(--danger-500)',
                 transcribing: 'var(--primary-500)', analyzing: 'var(--primary-500)'
               }
+              const subtitle = summary || (title ? formatDateOnly(memo.created_at) : memo.added_by_name || '')
               return (
                 <button
                   key={memo.id}
@@ -1968,7 +1969,7 @@ export default function AnimalPage() {
                     <p style={{ margin: 0, fontWeight: 500, fontSize: 'var(--font-size-sm)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {title || formatDateOnly(memo.created_at)}
                     </p>
-                    {title && <p className="text-muted" style={{ margin: 0, fontSize: 'var(--font-size-xs)' }}>{formatDateOnly(memo.created_at)}</p>}
+                    {subtitle && <p className="text-muted" style={{ margin: 0, fontSize: 'var(--font-size-xs)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{subtitle}</p>}
                   </div>
                   <span style={{ fontSize: 'var(--font-size-xs)', color: statusColor[memo.analysis_status] || 'var(--text-tertiary)', flexShrink: 0 }}>
                     {memo.analysis_status === 'completed' ? '✓' : memo.analysis_status === 'failed' ? '✕' : '⟳'}
