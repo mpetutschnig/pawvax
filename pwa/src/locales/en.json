@@ -836,5 +836,6 @@
   "pending.taskCompleted": "Analysis complete!",
   "pending.chip": "{{count}} pending",
   "pending.document": "Document",
-  "pending.voiceMemo": "Voice Note"
+  "pending.voiceMemo": "Voice Note",
+  "pending.dismissAll": "Dismiss all"
 }

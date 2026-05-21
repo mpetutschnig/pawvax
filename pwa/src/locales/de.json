@@ -836,5 +836,6 @@
   "pending.taskCompleted": "Analyse abgeschlossen!",
   "pending.chip": "{{count}} ausstehend",
   "pending.document": "Dokument",
-  "pending.voiceMemo": "Sprachnotiz"
+  "pending.voiceMemo": "Sprachnotiz",
+  "pending.dismissAll": "Alle ausblenden"
 }

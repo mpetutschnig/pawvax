@@ -54,17 +54,33 @@ async function processVoiceMemoAsync(db, memoId, audioPath, accountId, languageM
 
     await db.query("UPDATE voice_memos SET analysis_status = 'analyzing' WHERE id = $1", [memoId])
 
-    const { extractedJson, aiProvider } = await analyzeMemoWithAI(db, accountId, transcriptionText, languageMode)
+    let extractedJson = null
+    let aiProvider = null
+    let aiSkipped = false
+    try {
+      const result = await analyzeMemoWithAI(db, accountId, transcriptionText, languageMode)
+      extractedJson = result.extractedJson
+      aiProvider = result.aiProvider
+    } catch (aiErr) {
+      const noProvider = aiErr.message?.includes('Kein KI-Provider') || aiErr.code === 503
+      if (noProvider) {
+        aiSkipped = true
+        log.warn({ memoId }, 'voice_memo_ai_skipped: no AI provider configured, completing with transcription only')
+      } else {
+        throw aiErr
+      }
+    }
 
     const { rows: [acc] } = await db.query('SELECT gemini_token, anthropic_token, openai_token FROM accounts WHERE id = $1', [accountId])
     const hasOwnKey = !!(acc?.gemini_token || acc?.anthropic_token || acc?.openai_token)
 
     await db.query(
-      "UPDATE voice_memos SET extracted_json = $1, ai_provider = $2, analysis_status = 'completed' WHERE id = $3",
-      [JSON.stringify(extractedJson), aiProvider, memoId]
+      "UPDATE voice_memos SET extracted_json = $1, ai_provider = $2, analysis_status = 'completed', error_message = $4 WHERE id = $3",
+      [extractedJson ? JSON.stringify(extractedJson) : null, aiProvider, memoId,
+       aiSkipped ? 'Kein KI-Provider konfiguriert — Transkription gespeichert, KI-Analyse nicht verfügbar.' : null]
     )
 
-    await logVoiceMemoUsage(db, { accountId, voiceMemoId: memoId, aiProvider, hasOwnKey, languageMode })
+    if (!aiSkipped) await logVoiceMemoUsage(db, { accountId, voiceMemoId: memoId, aiProvider, hasOwnKey, languageMode })
     await logAudit(db, {
       accountId,
       role: 'vet',
