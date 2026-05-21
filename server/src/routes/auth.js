@@ -76,6 +76,37 @@ function verifyJwtHS256(token, secret) {
   return payload
 }
 
+const jwksCache = new Map()
+
+async function fetchJwks(url) {
+  const cached = jwksCache.get(url)
+  if (cached && Date.now() - cached.fetchedAt < 60 * 60 * 1000) return cached.keys
+  const res = await fetch(url)
+  if (!res.ok) throw new Error(`JWKS fetch failed: ${res.status}`)
+  const { keys } = await res.json()
+  jwksCache.set(url, { keys, fetchedAt: Date.now() })
+  return keys
+}
+
+async function verifyJwtRS256(token) {
+  const parts = token.split('.')
+  if (parts.length !== 3) throw new Error('Invalid JWT')
+  const header = JSON.parse(Buffer.from(parts[0], 'base64url').toString('utf8'))
+  const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'))
+  if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) throw new Error('JWT expired')
+  const jwksUrl = `${payload.iss}/.well-known/jwks.json`
+  const keys = await fetchJwks(jwksUrl)
+  const jwk = keys.find(k => k.kid === header.kid)
+  if (!jwk) throw new Error('JWK not found for kid: ' + header.kid)
+  const publicKey = crypto.createPublicKey({ key: jwk, format: 'jwk' })
+  const signingInput = `${parts[0]}.${parts[1]}`
+  const signature = Buffer.from(parts[2], 'base64url')
+  const verifier = crypto.createVerify('RSA-SHA256')
+  verifier.update(signingInput)
+  if (!verifier.verify(publicKey, signature)) throw new Error('Invalid JWT signature')
+  return payload
+}
+
 const UPLOADS_DIR = process.env.UPLOADS_DIR
   ? resolve(process.env.UPLOADS_DIR)
   : resolve('./uploads')
@@ -831,7 +862,9 @@ export default async function authRoutes(fastify) {
     for (const [name, config] of Object.entries(OAUTH_PROVIDERS)) {
       providers[name] = !!process.env[config.clientIdEnv]
     }
-    providers.supabase = !!(await getSupabaseSecret(getDb()))
+    const db = getDb()
+    const { rows: supabaseUrlRows } = await db.query("SELECT value FROM settings WHERE key = 'supabase_url'")
+    providers.supabase = !!(supabaseUrlRows[0]?.value || await getSupabaseSecret(db))
     return reply.send(providers)
   })
 
@@ -992,12 +1025,17 @@ export default async function authRoutes(fastify) {
     if (!token) return reply.code(400).send({ error: 'Token fehlt' })
 
     const db = getDb()
-    const supabaseSecret = await getSupabaseSecret(db)
-    if (!supabaseSecret) return reply.code(503).send({ error: 'Supabase nicht konfiguriert' })
 
     let payload
     try {
-      payload = verifyJwtHS256(token, supabaseSecret)
+      const headerRaw = JSON.parse(Buffer.from(token.split('.')[0], 'base64url').toString('utf8'))
+      if (headerRaw.alg === 'RS256') {
+        payload = await verifyJwtRS256(token)
+      } else {
+        const supabaseSecret = await getSupabaseSecret(db)
+        if (!supabaseSecret) return reply.code(503).send({ error: 'Supabase nicht konfiguriert (kein HS256 Secret)' })
+        payload = verifyJwtHS256(token, supabaseSecret)
+      }
     } catch {
       return reply.code(401).send({ error: 'Ungültiges Supabase-Token' })
     }
