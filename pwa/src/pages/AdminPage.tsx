@@ -1117,19 +1117,19 @@ export default function AdminPage() {
                 <div style={{ fontWeight: 600, marginBottom: 'var(--space-3)', fontSize: 'var(--font-size-sm)' }}>Setup-Anleitung</div>
                 <ol style={{ margin: 0, paddingLeft: 'var(--space-5)', display: 'grid', gap: 'var(--space-2)', fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
                   <li>Supabase-Projekt anlegen auf <a href="https://supabase.com" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary-600)' }}>supabase.com</a></li>
-                  <li>JWT Secret kopieren: <em>Supabase Dashboard → Settings → API → JWT Secret</em></li>
+                  <li>JWT Secret kopieren: <em>Supabase Dashboard → Settings → API → JWT Keys → Tab „Legacy JWT Secret"</em></li>
                   <li>JWT Secret unten eintragen (wird verschlüsselt gespeichert)</li>
-                  <li>In deiner externen App: Supabase-JWT als URL-Parameter übergeben</li>
+                  <li>In der externen App: Supabase-JWT per Deep-Link übergeben: <code>{window.location.origin}/login?token=&lt;supabase_jwt&gt;</code></li>
                 </ol>
               </div>
 
               <div className="form-group">
-                <label className="form-label">Callback URL</label>
+                <label className="form-label">Redirect URL (für Magic Link / OAuth)</label>
                 <code style={{ fontSize: 'var(--font-size-xs)', background: 'var(--surface)', padding: 'var(--space-2)', borderRadius: 'var(--radius-sm)', display: 'block', wordBreak: 'break-all' }}>
-                  {(appSettings as any).server_url || window.location.origin}/api/auth/supabase
+                  {window.location.origin}/login
                 </code>
                 <p className="text-muted" style={{ marginTop: 'var(--space-2)', fontSize: 'var(--font-size-xs)' }}>
-                  Diese URL in Supabase unter Authentication → URL Configuration → Redirect URLs eintragen.
+                  Wenn Supabase direkt zur PWA weiterleiten soll (z.B. Magic Link), diese URL unter Authentication → URL Configuration → Redirect URLs eintragen.
                 </p>
               </div>
 
