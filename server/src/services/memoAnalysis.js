@@ -7,12 +7,39 @@ function buildPrompt(transcriptionText, languageMode) {
   const langInstruction = {
     de: 'Antworte ausschließlich auf Deutsch.',
     en: 'Reply exclusively in English.',
-    both: 'Provide title_de, summary_de, content_de in German AND title_en, summary_en, content_en in English.'
+    both: 'Provide title_de, summary_de, content_de in German AND title_en, summary_en, content_en in English. For the details object use the language of the transcription.'
   }[languageMode] || 'Antworte ausschließlich auf Deutsch.'
 
+  const detailsBlock = `"details": {
+    "diagnose": "Diagnose oder Verdachtsdiagnose (null falls nicht genannt)",
+    "befunde": "Klinische Befunde und Untersuchungsergebnisse (null falls nicht genannt)",
+    "vorgehen": ["Durchgeführte Maßnahmen und Behandlungsschritte"],
+    "medikamente": ["Medikament + Dosierung + Dauer, falls genannt"],
+    "termine": ["z.B. Wiedervorstellung in 2 Tagen, nächster Kontrolltermin"]
+  }`
+
   const schema = languageMode === 'both'
-    ? `{ "title_de": "...", "summary_de": "...", "content_de": "...", "title_en": "...", "summary_en": "...", "content_en": "...", "tags": [], "action_items": [], "date_mentioned": null }`
-    : `{ "title": "Kurzer Titel (max 50 Zeichen)", "summary": "Sehr kurze Zusammenfassung (max 100 Zeichen)", "content": "Vollständiger Fließtext des Memos", "tags": ["tag1"], "action_items": ["Nächster Schritt"], "date_mentioned": null }`
+    ? `{
+  "title_de": "Kurzer Titel auf Deutsch (max 50 Zeichen)",
+  "title_en": "Short title in English (max 50 chars)",
+  "summary_de": "Kurzzusammenfassung auf Deutsch (1-2 Sätze)",
+  "summary_en": "Short summary in English (1-2 sentences)",
+  "content_de": "Vollständiger Fließtext auf Deutsch",
+  "content_en": "Full text in English",
+  ${detailsBlock},
+  "tags": ["tag1"],
+  "action_items": ["Nächster konkreter Schritt"],
+  "date_mentioned": null
+}`
+    : `{
+  "title": "Kurzer Titel (max 50 Zeichen)",
+  "summary": "Kurzzusammenfassung in 1-2 Sätzen",
+  "content": "Vollständiger Fließtext des Memos",
+  ${detailsBlock},
+  "tags": ["tag1"],
+  "action_items": ["Nächster konkreter Schritt"],
+  "date_mentioned": null
+}`
 
   return `Du bist ein Veterinär-Assistent. Analysiere diese Sprachnotiz eines Tierarztes und erstelle ein strukturiertes Memo als valides JSON.
 ${langInstruction}
@@ -137,15 +164,16 @@ export async function analyzeMemoWithAI(db, accountId, transcriptionText, langua
       const { provider, text } = await callProvider(p, key, providerModels[p], prompt)
       let parsed = {}
       try { parsed = JSON.parse(text) } catch { parsed = { content: text } }
-      console.log('[memoAnalysis] success provider=%s keys=%s', provider, Object.keys(parsed).join(','))
-      return { extractedJson: parsed, aiProvider: provider }
+      const aiDebug = { provider, model: providerModels[p], rawResponse: text.slice(0, 3000) }
+      console.log('[memoAnalysis] success provider=%s fields=%s', provider, Object.keys(parsed).join(','))
+      return { extractedJson: parsed, aiProvider: provider, aiDebug }
     } catch (err) {
       console.error('[memoAnalysis] %s failed: %s', p, err.message)
       lastError = err
     }
   }
 
-  throw Object.assign(new Error(`Memo-Analyse fehlgeschlagen: ${lastError?.message || 'Kein KI-Provider verfügbar'}`), { code: 502 })
+  throw Object.assign(new Error(`Memo-Analyse fehlgeschlagen: ${lastError?.message || 'Kein KI-Provider verfügbar'}`), { code: 502, aiDebug: lastError?.aiDebug })
 }
 
 export async function logVoiceMemoUsage(db, { accountId, voiceMemoId, aiProvider, hasOwnKey, languageMode }) {

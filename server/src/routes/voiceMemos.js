@@ -28,6 +28,59 @@ async function canAccessAnimal(db, animalId, accountId, role) {
   return sharing ? { isOwner: false } : null
 }
 
+async function runAiAnalysisAsync(db, memoId, accountId, transcriptionText, languageMode, log, auditAction = 'voice_memo_reanalyzed') {
+  try {
+    await db.query("UPDATE voice_memos SET analysis_status = 'analyzing', error_message = NULL, ai_debug_json = NULL WHERE id = $1", [memoId])
+
+    let extractedJson = null, aiProvider = null, aiDebug = null, aiSkipped = false
+    try {
+      const result = await analyzeMemoWithAI(db, accountId, transcriptionText, languageMode)
+      extractedJson = result.extractedJson
+      aiProvider = result.aiProvider
+      aiDebug = result.aiDebug
+    } catch (aiErr) {
+      const noProvider = aiErr.message?.includes('Kein KI-Provider') || aiErr.code === 503
+      if (noProvider) {
+        aiSkipped = true
+        log.warn({ memoId }, 'voice_memo_ai_skipped: no provider configured')
+      } else {
+        const errMsg = aiErr.message || 'KI-Analyse fehlgeschlagen'
+        const errDebug = aiErr.aiDebug ? JSON.stringify(aiErr.aiDebug) : null
+        await db.query(
+          "UPDATE voice_memos SET analysis_status = 'completed', error_message = $2, ai_debug_json = $3 WHERE id = $1",
+          [memoId, errMsg, errDebug]
+        ).catch(() => {})
+        log.error({ err: aiErr.message, memoId }, 'voice_memo_ai_failed')
+        return
+      }
+    }
+
+    const { rows: [acc] } = await db.query('SELECT gemini_token, anthropic_token, openai_token FROM accounts WHERE id = $1', [accountId])
+    const hasOwnKey = !!(acc?.gemini_token || acc?.anthropic_token || acc?.openai_token)
+
+    await db.query(
+      "UPDATE voice_memos SET extracted_json = $1, ai_provider = $2, ai_debug_json = $3, analysis_status = 'completed', error_message = $5 WHERE id = $4",
+      [
+        extractedJson ? JSON.stringify(extractedJson) : null,
+        aiProvider,
+        aiDebug ? JSON.stringify(aiDebug) : null,
+        memoId,
+        aiSkipped ? 'Kein KI-Provider konfiguriert — Transkription gespeichert, KI-Analyse nicht verfügbar.' : null
+      ]
+    )
+
+    if (!aiSkipped) await logVoiceMemoUsage(db, { accountId, voiceMemoId: memoId, aiProvider, hasOwnKey, languageMode }).catch(() => {})
+    await logAudit(db, {
+      accountId, role: 'vet', action: auditAction,
+      resource: 'voice_memo', resourceId: memoId,
+      details: { aiProvider, languageMode, aiSkipped },
+      ip: null
+    }).catch(() => {})
+  } catch (err) {
+    log.error({ err: err.message, memoId }, 'runAiAnalysisAsync unexpected error')
+  }
+}
+
 async function processVoiceMemoAsync(db, memoId, audioPath, accountId, languageMode, log) {
   try {
     await db.query("UPDATE voice_memos SET analysis_status = 'transcribing' WHERE id = $1", [memoId])
@@ -48,50 +101,21 @@ async function processVoiceMemoAsync(db, memoId, audioPath, accountId, languageM
     )
 
     if (!transcriptionText || transcriptionText.trim().length === 0) {
-      await db.query("UPDATE voice_memos SET analysis_status = 'failed' WHERE id = $1", [memoId])
+      await db.query("UPDATE voice_memos SET analysis_status = 'failed', error_message = 'Transkription leer — keine Sprachaufnahme erkannt.' WHERE id = $1", [memoId])
       return
     }
 
-    await db.query("UPDATE voice_memos SET analysis_status = 'analyzing' WHERE id = $1", [memoId])
-
-    let extractedJson = null
-    let aiProvider = null
-    let aiSkipped = false
-    try {
-      const result = await analyzeMemoWithAI(db, accountId, transcriptionText, languageMode)
-      extractedJson = result.extractedJson
-      aiProvider = result.aiProvider
-    } catch (aiErr) {
-      const noProvider = aiErr.message?.includes('Kein KI-Provider') || aiErr.code === 503
-      if (noProvider) {
-        aiSkipped = true
-        log.warn({ memoId }, 'voice_memo_ai_skipped: no AI provider configured, completing with transcription only')
-      } else {
-        throw aiErr
-      }
-    }
-
-    const { rows: [acc] } = await db.query('SELECT gemini_token, anthropic_token, openai_token FROM accounts WHERE id = $1', [accountId])
-    const hasOwnKey = !!(acc?.gemini_token || acc?.anthropic_token || acc?.openai_token)
-
-    await db.query(
-      "UPDATE voice_memos SET extracted_json = $1, ai_provider = $2, analysis_status = 'completed', error_message = $4 WHERE id = $3",
-      [extractedJson ? JSON.stringify(extractedJson) : null, aiProvider, memoId,
-       aiSkipped ? 'Kein KI-Provider konfiguriert — Transkription gespeichert, KI-Analyse nicht verfügbar.' : null]
-    )
-
-    if (!aiSkipped) await logVoiceMemoUsage(db, { accountId, voiceMemoId: memoId, aiProvider, hasOwnKey, languageMode })
+    await runAiAnalysisAsync(db, memoId, accountId, transcriptionText, languageMode, log, 'voice_memo_completed')
     await logAudit(db, {
       accountId,
       role: 'vet',
-      action: 'voice_memo_completed',
+      action: 'voice_memo_transcribed',
       resource: 'voice_memo',
       resourceId: memoId,
       details: {
-        aiProvider,
         languageMode,
         transcriptionLength: transcriptionText?.length ?? 0,
-        gladia: { submit: submitDebug, poll: { status: debugData?.status, id: debugData?.id, request_id: debugData?.request_id } }
+        gladia: { submit: submitDebug, poll: { status: debugData?.status, id: debugData?.id } }
       },
       ip: null
     }).catch(() => {})
@@ -283,7 +307,8 @@ export default async function voiceMemoRoutes(fastify) {
       transcription_roles: isCreator || isOwner ? parseRoles(memo.transcription_roles) : undefined,
       can_delete: isCreator && roleStr.includes('vet'),
       error_message: (isCreator || isOwner) ? memo.error_message : undefined,
-      gladia_debug_json: isCreator ? memo.gladia_debug_json : undefined
+      gladia_debug_json: isCreator ? memo.gladia_debug_json : undefined,
+      ai_debug_json: isCreator ? memo.ai_debug_json : undefined
     })
   })
 
@@ -384,6 +409,31 @@ export default async function voiceMemoRoutes(fastify) {
     setImmediate(() => processVoiceMemoAsync(db, req.params.id, audioPath, accountId, memo.language_mode || 'de', fastify.log))
 
     return reply.send({ status: 'pending_transcription' })
+  })
+
+  // POST /api/voice-memos/:id/reanalyze — re-run AI only (keeps existing transcription)
+  fastify.post('/api/voice-memos/:id/reanalyze', {
+    onRequest: [fastify.authenticate],
+    schema: {
+      summary: 'Re-run AI analysis only',
+      description: 'Re-runs AI memo extraction using the existing transcription. Does not re-trigger Gladia. Vet + creator only.',
+      tags: ['Voice Memos'],
+      security: [{ bearerAuth: [] }]
+    }
+  }, async (req, reply) => {
+    const { accountId, role } = req.user
+    const roleStr = Array.isArray(role) ? role[0] : (role || 'user')
+    if (!roleStr.includes('vet')) return reply.code(403).send({ error: 'Nur Tierärzte können Analysen wiederholen' })
+
+    const db = getDb()
+    const { rows: [memo] } = await db.query('SELECT account_id, language_mode, transcription_text FROM voice_memos WHERE id = $1', [req.params.id])
+    if (!memo) return reply.code(404).send({ error: 'Sprachnotiz nicht gefunden' })
+    if (memo.account_id !== accountId) return reply.code(403).send({ error: 'Kein Zugriff' })
+    if (!memo.transcription_text) return reply.code(409).send({ error: 'Kein Transkript vorhanden — bitte zuerst Transkription starten' })
+
+    setImmediate(() => runAiAnalysisAsync(db, req.params.id, accountId, memo.transcription_text, memo.language_mode || 'de', fastify.log, 'voice_memo_reanalyzed'))
+
+    return reply.send({ status: 'analyzing' })
   })
 
   // GET /api/voice-memos/:id/audio — stream audio file

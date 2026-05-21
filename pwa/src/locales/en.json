@@ -837,5 +837,13 @@
   "pending.chip": "{{count}} pending",
   "pending.document": "Document",
   "pending.voiceMemo": "Voice Note",
-  "pending.dismissAll": "Dismiss all"
+  "pending.dismissAll": "Dismiss all",
+  "voiceMemo.reanalyzeAi": "Re-analyze with AI",
+  "voiceMemo.details": "Structured Details",
+  "voiceMemo.detailDiagnose": "Diagnosis",
+  "voiceMemo.detailBefunde": "Findings",
+  "voiceMemo.detailVorgehen": "Procedures",
+  "voiceMemo.detailMedikamente": "Medications",
+  "voiceMemo.detailTermine": "Appointments",
+  "voiceMemo.actionItems": "Next Steps"
 }

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeft, Mic, Trash2, RefreshCw } from 'lucide-react'
-import { api, getVoiceMemo, deleteVoiceMemo, retryVoiceMemo, patchVoiceMemo } from '../api/rest'
+import { api, getVoiceMemo, deleteVoiceMemo, retryVoiceMemo, reanalyzeMemo, patchVoiceMemo } from '../api/rest'
 import { VerifiedBadge } from '../components/VerifiedBadge'
 
 function StatusBadge({ status }: { status: string }) {
@@ -32,6 +32,7 @@ export default function VoiceMemoDetailPage() {
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState(false)
   const [retrying, setRetrying] = useState(false)
+  const [reanalyzing, setReanalyzing] = useState(false)
   const [error, setError] = useState('')
   const [audioSrc, setAudioSrc] = useState<string>('')
 
@@ -93,6 +94,18 @@ export default function VoiceMemoDetailPage() {
     }
   }
 
+  const handleReanalyze = async () => {
+    setReanalyzing(true)
+    try {
+      await reanalyzeMemo(memoId!)
+      await load()
+    } catch {
+      setError('KI-Analyse fehlgeschlagen')
+    } finally {
+      setReanalyzing(false)
+    }
+  }
+
   const savePermissions = async (field: string, roles: string[]) => {
     try {
       await patchVoiceMemo(memoId!, { [field]: roles })
@@ -122,7 +135,7 @@ export default function VoiceMemoDetailPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-1)' }}>
             <Mic size={20} color="var(--primary-500)" />
             <h1 style={{ margin: 0, fontSize: 'var(--font-size-xl)' }}>
-              {extracted.title || extracted.title_de || t('animal.voiceMemos')}
+              {extracted.title || extracted.title_de || formatDate(memo.created_at)}
             </h1>
           </div>
           <p className="text-muted" style={{ margin: '0 0 var(--space-2)' }}>{formatDate(memo.created_at)}</p>
@@ -132,6 +145,11 @@ export default function VoiceMemoDetailPage() {
           {memo.analysis_status === 'failed' && (
             <button className="btn btn-outline" onClick={handleRetry} disabled={retrying} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
               <RefreshCw size={16} /> {retrying ? t('common.loading') : t('common.retry')}
+            </button>
+          )}
+          {memo.transcription_text && ['completed', 'failed'].includes(memo.analysis_status) && (
+            <button className="btn btn-outline" onClick={handleReanalyze} disabled={reanalyzing} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
+              <RefreshCw size={16} /> {reanalyzing ? t('common.loading') : t('voiceMemo.reanalyzeAi')}
             </button>
           )}
           {memo.analysis_status === 'failed' && memo.error_message && (
@@ -178,25 +196,67 @@ export default function VoiceMemoDetailPage() {
         <div className="card" style={{ marginBottom: 'var(--space-4)' }}>
           <h3 style={{ margin: '0 0 var(--space-3)' }}>{t('voiceMemo.memo')}</h3>
           {isBoth ? (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)' }}>
-              {[['de', 'Deutsch'], ['en', 'English']].map(([lang, label]) => (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)', marginBottom: 'var(--space-3)' }}>
+              {(['de', 'en'] as const).map(lang => (
                 <div key={lang}>
-                  <p className="text-muted" style={{ margin: '0 0 var(--space-1)', fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>{label}</p>
-                  <p style={{ margin: '0 0 var(--space-2)', fontWeight: 600 }}>{extracted[`title_${lang}`]}</p>
-                  <p className="text-muted" style={{ margin: '0 0 var(--space-3)', fontSize: 'var(--font-size-sm)' }}>{extracted[`summary_${lang}`]}</p>
-                  <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', whiteSpace: 'pre-wrap' }}>{extracted[`content_${lang}`]}</p>
+                  <p className="text-muted" style={{ margin: '0 0 var(--space-1)', fontSize: 'var(--font-size-xs)', fontWeight: 600, textTransform: 'uppercase' }}>{lang === 'de' ? 'Deutsch' : 'English'}</p>
+                  {extracted[`title_${lang}`] && <p style={{ margin: '0 0 var(--space-2)', fontWeight: 600 }}>{extracted[`title_${lang}`]}</p>}
+                  {extracted[`summary_${lang}`] && <p className="text-muted" style={{ margin: '0 0 var(--space-2)', fontSize: 'var(--font-size-sm)' }}>{extracted[`summary_${lang}`]}</p>}
+                  {extracted[`content_${lang}`] && <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', whiteSpace: 'pre-wrap' }}>{extracted[`content_${lang}`]}</p>}
                 </div>
               ))}
             </div>
           ) : (
-            <>
-              {extracted.summary && <p className="text-muted" style={{ margin: '0 0 var(--space-3)', fontSize: 'var(--font-size-sm)' }}>{extracted.summary}</p>}
-              {extracted.content && <p style={{ margin: '0 0 var(--space-3)', whiteSpace: 'pre-wrap' }}>{extracted.content}</p>}
-            </>
+            <div style={{ marginBottom: 'var(--space-3)' }}>
+              {extracted.summary && <p className="text-muted" style={{ margin: '0 0 var(--space-2)', fontSize: 'var(--font-size-sm)' }}>{extracted.summary}</p>}
+              {extracted.content && <p style={{ margin: 0, whiteSpace: 'pre-wrap', fontSize: 'var(--font-size-sm)' }}>{extracted.content}</p>}
+            </div>
           )}
+
+          {/* Structured details table */}
+          {extracted.details && (
+            <div style={{ borderTop: '1px solid var(--border)', paddingTop: 'var(--space-3)', marginTop: 'var(--space-1)' }}>
+              <p style={{ margin: '0 0 var(--space-2)', fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>{t('voiceMemo.details')}</p>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)' }}>
+                <tbody>
+                  {extracted.details.diagnose && (
+                    <tr>
+                      <td style={{ padding: '4px 8px 4px 0', fontWeight: 500, whiteSpace: 'nowrap', verticalAlign: 'top', color: 'var(--text-secondary)', width: '30%' }}>{t('voiceMemo.detailDiagnose')}</td>
+                      <td style={{ padding: '4px 0' }}>{extracted.details.diagnose}</td>
+                    </tr>
+                  )}
+                  {extracted.details.befunde && (
+                    <tr>
+                      <td style={{ padding: '4px 8px 4px 0', fontWeight: 500, whiteSpace: 'nowrap', verticalAlign: 'top', color: 'var(--text-secondary)' }}>{t('voiceMemo.detailBefunde')}</td>
+                      <td style={{ padding: '4px 0' }}>{extracted.details.befunde}</td>
+                    </tr>
+                  )}
+                  {extracted.details.vorgehen?.length > 0 && (
+                    <tr>
+                      <td style={{ padding: '4px 8px 4px 0', fontWeight: 500, whiteSpace: 'nowrap', verticalAlign: 'top', color: 'var(--text-secondary)' }}>{t('voiceMemo.detailVorgehen')}</td>
+                      <td style={{ padding: '4px 0' }}><ul style={{ margin: 0, paddingLeft: 'var(--space-3)' }}>{extracted.details.vorgehen.map((v: string, i: number) => <li key={i}>{v}</li>)}</ul></td>
+                    </tr>
+                  )}
+                  {extracted.details.medikamente?.length > 0 && (
+                    <tr>
+                      <td style={{ padding: '4px 8px 4px 0', fontWeight: 500, whiteSpace: 'nowrap', verticalAlign: 'top', color: 'var(--text-secondary)' }}>{t('voiceMemo.detailMedikamente')}</td>
+                      <td style={{ padding: '4px 0' }}><ul style={{ margin: 0, paddingLeft: 'var(--space-3)' }}>{extracted.details.medikamente.map((m: string, i: number) => <li key={i}>{m}</li>)}</ul></td>
+                    </tr>
+                  )}
+                  {extracted.details.termine?.length > 0 && (
+                    <tr>
+                      <td style={{ padding: '4px 8px 4px 0', fontWeight: 500, whiteSpace: 'nowrap', verticalAlign: 'top', color: 'var(--text-secondary)' }}>{t('voiceMemo.detailTermine')}</td>
+                      <td style={{ padding: '4px 0' }}><ul style={{ margin: 0, paddingLeft: 'var(--space-3)' }}>{extracted.details.termine.map((t: string, i: number) => <li key={i}>{t}</li>)}</ul></td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+
           {extracted.action_items?.length > 0 && (
             <div style={{ marginTop: 'var(--space-3)', paddingTop: 'var(--space-3)', borderTop: '1px solid var(--border)' }}>
-              <p style={{ margin: '0 0 var(--space-2)', fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>Nächste Schritte</p>
+              <p style={{ margin: '0 0 var(--space-2)', fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>{t('voiceMemo.actionItems')}</p>
               <ul style={{ margin: 0, paddingLeft: 'var(--space-4)' }}>
                 {extracted.action_items.map((item: string, i: number) => <li key={i} style={{ fontSize: 'var(--font-size-sm)' }}>{item}</li>)}
               </ul>
@@ -254,15 +314,20 @@ export default function VoiceMemoDetailPage() {
         </div>
       )}
 
+      {/* AI Debug — vet/creator only */}
+      {memo.ai_debug_json && (
+        <DebugPanel rawJson={memo.ai_debug_json} label="KI Debug" />
+      )}
+
       {/* Gladia Debug — vet/creator only */}
       {memo.gladia_debug_json && (
-        <GladiaDebugPanel rawJson={memo.gladia_debug_json} />
+        <DebugPanel rawJson={memo.gladia_debug_json} label="Gladia Debug" />
       )}
     </div>
   )
 }
 
-function GladiaDebugPanel({ rawJson }: { rawJson: string }) {
+function DebugPanel({ rawJson, label }: { rawJson: string; label: string }) {
   const [open, setOpen] = useState(false)
   let parsed: any = null
   try { parsed = JSON.parse(rawJson) } catch { parsed = rawJson }
@@ -273,7 +338,7 @@ function GladiaDebugPanel({ rawJson }: { rawJson: string }) {
         onClick={() => setOpen(o => !o)}
         style={{ background: 'none', border: 'none', cursor: 'pointer', width: '100%', textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 0, fontWeight: 600, fontSize: 'var(--font-size-sm)', color: 'var(--warning-700)' }}
       >
-        Gladia Debug
+        {label}
         <span style={{ fontSize: 10 }}>{open ? '▲' : '▼'}</span>
       </button>
       {open && (

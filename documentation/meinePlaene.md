@@ -468,3 +468,13 @@ Persisted deploy test results (failed, 150/156 passed)
 ---------------------------
 
 bei internern api fehlern wie zum beispiel keine tokens mehr oder kein budget oder throtteling limits sollten deutlich besser fehlermeldungen und statuscodes mit tehcnischen fehlermeldungen ausgegeben werden. solche sachen gehören auch in das audit log und in die debug infos für weitere analysen.
+
+vereinfache auch das handling für alle user und rollen. also der scan von documenten sollte in jeder phase komplett gleich sein. einziger unterschied, ein neues dokument. da werden zuerst die bilder hochgeladen
+   oder fotografiert. aber sobald die bilder vorhanden sind muss alles gleich sein. erstelle commits in meinem namen und wenn nötig branchen, alles in meinem namen und ohne coauthoring. auch die KI analyse muss
+  leicht verständlich sein. wenn der user eigene token hinterlegt hat, dann nimm diese, wenn nicht frag nach ob er die systemtokens verwenden soll. und schlag die kosten vor. bei der KI provider auswahl und
+  modell auswahl nimm die billigsten modelle, diese sollten reichen. nfc barcode scan wie gehabt für die rollen guest, user, owner, vet, behörde, wobei user und owner eigentlich gleich sind. vets dürfen zu jeden
+  tier dokumente hinzufügen und scannen. sichtbarkeit von dokumenten wie gehabt, frag mich bei unklarheiten zu den themen. dann besprechen wir das alles durch. erstelle einen plan den wir jederzeit fortsetzen
+  können und keine aktionen doppelt machen.
+überprüfe den code auf DRY artifakte. wenn es doppelte methoden oder codeteile gibt fasse diese zusammen, wenn nötig verwende design patterns. teile files in mehrere dateien auf, wenn sie zu groß sind. das
+    projekt sollte leicht strukturiert sein und übersichtlich. entferne code smells erhöhe die qualität. analyisere was alles gemacht gehört und frag bei unklarheiten nach
+-------------
