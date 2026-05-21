@@ -229,8 +229,15 @@ export default function LoginPage() {
             </div>
           )}
           <h1 style={{ margin: 0, fontSize: 'var(--font-size-xl)' }}>{t('app.title')}</h1>
-          <p className="text-muted" style={{ margin: '4px 0 0 0' }}>{t('app.subtitle')}</p>
         </div>
+
+        <button
+          className="btn btn-ghost btn-full"
+          onClick={() => navigate('/public-scan')}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}
+        >
+          <ScanLine size={18} /> {t('auth.scanWithoutLogin')}
+        </button>
 
         <button
           style={{
@@ -441,20 +448,6 @@ export default function LoginPage() {
             )}
           </>
         )}
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', margin: 'var(--space-4) 0' }}>
-          <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-          <span className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>{t('common.or')}</span>
-          <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-        </div>
-
-        <button
-          className="btn btn-ghost btn-full"
-          onClick={() => navigate('/public-scan')}
-          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)' }}
-        >
-          <ScanLine size={18} /> {t('auth.scanWithoutLogin')}
-        </button>
 
         <div style={{ textAlign: 'center', marginTop: 'var(--space-4)', paddingTop: 'var(--space-3)', borderTop: '1px solid var(--border)' }}>
           <Link to="/tos" style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', textDecoration: 'none' }}>
