@@ -1019,6 +1019,26 @@ export default async function authRoutes(fastify) {
     return reply.redirect(`${pwaBase}?oauthToken=${token}`)
   })
 
+  async function createPawSession(db, payload, ip) {
+    const email = payload.email
+    if (!email) throw new Error('Keine E-Mail im Token')
+    let { rows: [account] } = await db.query('SELECT id, name, email, role, verified FROM accounts WHERE LOWER(email) = LOWER($1)', [email])
+    if (!account) {
+      const accountId = uuid()
+      const displayName = payload.user_metadata?.full_name || payload.user_metadata?.name || email.split('@')[0]
+      await db.query(
+        `INSERT INTO accounts (id, name, email, password_hash, role, verified, email_verified, created_at)
+         VALUES ($1, $2, $3, '', 'user', 0, 1, NOW())`,
+        [accountId, displayName, email.toLowerCase()]
+      )
+      account = { id: accountId, name: displayName, email: email.toLowerCase(), role: 'user', verified: 0 }
+    }
+    const jti = uuid()
+    const token = await fastify.jwt.sign({ accountId: account.id, role: account.role, jti })
+    await logAudit(db, { accountId: account.id, role: account.role, action: 'supabase_login', resource: 'account', resourceId: account.id, ip })
+    return { token, account }
+  }
+
   // Supabase Auth Handshake — POST /api/auth/supabase
   fastify.post('/api/auth/supabase', async (req, reply) => {
     const { token } = req.body || {}
@@ -1040,27 +1060,47 @@ export default async function authRoutes(fastify) {
       return reply.code(401).send({ error: 'Ungültiges Supabase-Token' })
     }
 
-    const email = payload.email
-    if (!email) return reply.code(400).send({ error: 'Keine E-Mail im Token' })
-    let { rows: [account] } = await db.query('SELECT id, name, email, role, verified FROM accounts WHERE LOWER(email) = LOWER($1)', [email])
+    try {
+      return await createPawSession(db, payload, req.ip)
+    } catch {
+      return reply.code(400).send({ error: 'Keine E-Mail im Token' })
+    }
+  })
 
-    if (!account) {
-      const accountId = uuid()
-      const displayName = payload.user_metadata?.full_name || payload.user_metadata?.name || email.split('@')[0]
-      await db.query(
-        `INSERT INTO accounts (id, name, email, password_hash, role, verified, email_verified, created_at)
-         VALUES ($1, $2, $3, '', 'user', 0, 1, NOW())`,
-        [accountId, displayName, email.toLowerCase()]
-      )
-      account = { id: accountId, name: displayName, email: email.toLowerCase(), role: 'user', verified: 0 }
+  // Supabase Email+Password Login — POST /api/auth/supabase/password
+  fastify.post('/api/auth/supabase/password', async (req, reply) => {
+    const { email, password } = req.body || {}
+    if (!email || !password) return reply.code(400).send({ error: 'E-Mail und Passwort erforderlich' })
+
+    const db = getDb()
+    const { rows: urlRows } = await db.query("SELECT value FROM settings WHERE key = 'supabase_url'")
+    const { rows: keyRows } = await db.query("SELECT value FROM settings WHERE key = 'supabase_anon_key'")
+    const supabaseUrl = urlRows[0]?.value
+    const supabaseAnonKey = keyRows[0]?.value
+    if (!supabaseUrl || !supabaseAnonKey) return reply.code(503).send({ error: 'Supabase nicht konfiguriert' })
+
+    const res = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: supabaseAnonKey },
+      body: JSON.stringify({ email, password })
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      return reply.code(401).send({ error: err.error_description || err.msg || 'Supabase-Login fehlgeschlagen' })
     }
 
-    const jti = uuid()
-    const pawToken = await fastify.jwt.sign({ accountId: account.id, role: account.role, jti })
+    const { access_token } = await res.json()
+    let payload
+    try {
+      const headerRaw = JSON.parse(Buffer.from(access_token.split('.')[0], 'base64url').toString('utf8'))
+      payload = headerRaw.alg === 'RS256'
+        ? await verifyJwtRS256(access_token)
+        : verifyJwtHS256(access_token, await getSupabaseSecret(db))
+    } catch {
+      return reply.code(401).send({ error: 'Token-Verifikation fehlgeschlagen' })
+    }
 
-    await logAudit(db, { accountId: account.id, role: account.role, action: 'supabase_login', resource: 'account', resourceId: account.id, ip: req.ip })
-
-    return { token: pawToken, account }
+    return createPawSession(db, payload, req.ip)
   })
 
   // Pending background tasks (documents + voice memos not yet completed/failed)

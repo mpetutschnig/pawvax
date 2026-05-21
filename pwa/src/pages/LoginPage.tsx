@@ -1,7 +1,7 @@
 import { useState, useEffect, FormEvent } from 'react'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { login, register, requestPasswordReset, resetPassword, verifyEmail, getOAuthUrl, supabaseLogin } from '../api/rest'
+import { login, register, requestPasswordReset, resetPassword, verifyEmail, getOAuthUrl, supabaseLogin, supabasePasswordLogin } from '../api/rest'
 import { PawPrint, LogIn, UserPlus, ScanLine } from 'lucide-react'
 
 export default function LoginPage() {
@@ -27,6 +27,11 @@ export default function LoginPage() {
   const [supabaseMagicEmail, setSupabaseMagicEmail] = useState('')
   const [supabaseMagicSent, setSupabaseMagicSent] = useState(false)
   const [supabaseLoading, setSupabaseLoading] = useState(false)
+  const [supabasePwMode, setSupabasePwMode] = useState(false)
+  const [supabasePwEmail, setSupabasePwEmail] = useState('')
+  const [supabasePwPassword, setSupabasePwPassword] = useState('')
+  const [supabasePwError, setSupabasePwError] = useState<string | null>(null)
+  const [supabasePwLoading, setSupabasePwLoading] = useState(false)
 
   useEffect(() => {
     fetch('/api/settings').then(res => res.json()).then(data => {
@@ -443,6 +448,56 @@ export default function LoginPage() {
                   }}
                 >
                   {supabaseLoading ? <div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} /> : 'Magic Link'}
+                </button>
+              </div>
+            )}
+
+            <button
+              className="btn btn-ghost btn-full"
+              style={{ marginTop: 'var(--space-2)', fontSize: 'var(--font-size-sm)' }}
+              onClick={() => { setSupabasePwMode(m => !m); setSupabasePwError(null) }}
+            >
+              {supabasePwMode ? '✕ Schließen' : 'Mit E-Mail + Passwort anmelden'}
+            </button>
+
+            {supabasePwMode && (
+              <div style={{ display: 'grid', gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
+                <input
+                  className="form-input"
+                  type="email"
+                  placeholder="E-Mail"
+                  value={supabasePwEmail}
+                  onChange={e => setSupabasePwEmail(e.target.value)}
+                />
+                <input
+                  className="form-input"
+                  type="password"
+                  placeholder="Passwort"
+                  value={supabasePwPassword}
+                  onChange={e => setSupabasePwPassword(e.target.value)}
+                />
+                {supabasePwError && <div className="error-card"><p>{supabasePwError}</p></div>}
+                <button
+                  className="btn btn-primary btn-full"
+                  disabled={supabasePwLoading || !supabasePwEmail || !supabasePwPassword}
+                  onClick={async () => {
+                    setSupabasePwLoading(true)
+                    setSupabasePwError(null)
+                    try {
+                      const res = await supabasePasswordLogin(supabasePwEmail, supabasePwPassword)
+                      localStorage.setItem('token', res.data.token)
+                      localStorage.setItem('role', res.data.account?.role || 'user')
+                      localStorage.setItem('verified', String(res.data.account?.verified || 0))
+                      navigate('/reminders')
+                    } catch (err: unknown) {
+                      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
+                      setSupabasePwError(msg ?? 'Login fehlgeschlagen')
+                    } finally {
+                      setSupabasePwLoading(false)
+                    }
+                  }}
+                >
+                  {supabasePwLoading ? <div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} /> : 'Anmelden'}
                 </button>
               </div>
             )}

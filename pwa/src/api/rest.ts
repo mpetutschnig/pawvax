@@ -219,6 +219,9 @@ export const getOAuthUrl = (provider: 'google' | 'github' | 'microsoft') =>
 export const supabaseLogin = (token: string) =>
   api.post('/auth/supabase', { token })
 
+export const supabasePasswordLogin = (email: string, password: string) =>
+  api.post('/auth/supabase/password', { email, password })
+
 // Billing
 export const getBillingMe = () => api.get('/billing/me')
 export const postBillingConsent = () => api.post('/billing/consent')
