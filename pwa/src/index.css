@@ -1391,6 +1391,10 @@ html[data-theme="dark"] .nav-bar h2 {
   display: grid;
   grid-template-columns: 1fr;
   gap: var(--space-6);
+  min-width: 0;
+}
+.content-grid > * {
+  min-width: 0;
 }
 @media (min-width: 1024px) {
   .content-grid {

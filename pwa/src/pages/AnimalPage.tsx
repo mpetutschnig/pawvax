@@ -679,7 +679,7 @@ export default function AnimalPage() {
                       </div>
                     )}
                   </div>
-                  <div>
+                  <div style={{ minWidth: 0, overflow: 'hidden' }}>
                     <h2 style={{ color: 'white', margin: 0, fontFamily: 'var(--font-display)' }}>{animal.name}</h2>
                     {animal.pedigree_name && (
                       <p style={{ color: 'oklch(100% 0 0 / 0.55)', margin: 0, fontSize: 'var(--font-size-xs)', fontStyle: 'italic' }}>
@@ -695,7 +695,7 @@ export default function AnimalPage() {
                         navigator.clipboard.writeText(animal.unique_id || '');
                         alert(t('common.copied'));
                       }}>
-                        <span>ID: <code style={{ background: 'oklch(100% 0 0 / 0.12)', padding: '2px 6px', borderRadius: 'var(--radius-xs)', fontFamily: 'var(--font-mono)' }}>{animal.unique_id}</code></span>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>ID: <code style={{ background: 'oklch(100% 0 0 / 0.12)', padding: '2px 6px', borderRadius: 'var(--radius-xs)', fontFamily: 'var(--font-mono)' }}>{animal.unique_id}</code></span>
                       </p>
                     )}
                   </div>
@@ -733,19 +733,19 @@ export default function AnimalPage() {
               )}
 
               {isOwner && !animal.is_archived && (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
-                  <button className="btn btn-secondary" onClick={() => setEditing(true)}><Edit2 size={16} /> {t('animal.edit')}</button>
-                  <button className="btn btn-outline" onClick={handleArchive} disabled={submitting} style={{ borderColor: 'var(--text-tertiary)', color: 'var(--text-secondary)' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)', marginBottom: 'var(--space-4)', overflow: 'hidden' }}>
+                  <button className="btn btn-secondary" style={{ minWidth: 0 }} onClick={() => setEditing(true)}><Edit2 size={16} /> {t('animal.edit')}</button>
+                  <button className="btn btn-outline" onClick={handleArchive} disabled={submitting} style={{ minWidth: 0, borderColor: 'var(--text-tertiary)', color: 'var(--text-secondary)' }}>
                     <Trash2 size={16} /> {t('animal.archiveAnimal')}
                   </button>
 
-                  <Link to={`/animals/${id}/tags`} className="btn btn-ghost" style={{ textDecoration: 'none', gridColumn: 'span 2' }}>
+                  <Link to={`/animals/${id}/tags`} className="btn btn-ghost" style={{ textDecoration: 'none', gridColumn: 'span 2', minWidth: 0 }}>
                     <Radio size={16} /> {t('animal.chips')}
                   </Link>
-                  <button className="btn btn-ghost" onClick={handleOpenShare}>
+                  <button className="btn btn-ghost" style={{ minWidth: 0 }} onClick={handleOpenShare}>
                     <Share2 size={16} /> {t('animal.sharing')}
                   </button>
-                  <button className="btn btn-ghost" onClick={() => setShowTransfer(true)}>
+                  <button className="btn btn-ghost" style={{ minWidth: 0 }} onClick={() => setShowTransfer(true)}>
                     <ArrowRightLeft size={16} /> {t('animal.transferBtn')}
                   </button>
                 </div>
