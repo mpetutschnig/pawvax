@@ -139,6 +139,11 @@ export default function VoiceMemoDetailPage() {
               {memo.error_message}
             </div>
           )}
+          {memo.analysis_status === 'completed' && memo.error_message && (
+            <div style={{ marginTop: 'var(--space-2)', fontSize: 'var(--font-size-sm)', padding: 'var(--space-2) var(--space-3)', background: 'var(--warning-50, #fffbeb)', border: '1px solid var(--warning-200, #fde68a)', borderRadius: 'var(--radius-sm)', color: 'var(--warning-700, #92400e)' }}>
+              {memo.error_message}
+            </div>
+          )}
           {memo.can_delete && (
             <button className="btn btn-danger" onClick={handleDelete} disabled={deleting} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
               <Trash2 size={16} /> {deleting ? t('common.loading') : t('common.delete')}

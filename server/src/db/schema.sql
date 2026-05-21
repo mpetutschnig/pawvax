@@ -256,6 +256,7 @@ CREATE TABLE IF NOT EXISTS usage_logs (
   id TEXT PRIMARY KEY,
   account_id TEXT REFERENCES accounts(id) ON DELETE CASCADE,
   document_id TEXT REFERENCES documents(id) ON DELETE SET NULL,
+  voice_memo_id TEXT REFERENCES voice_memos(id) ON DELETE SET NULL,
   pages_analyzed INTEGER NOT NULL DEFAULT 1,
   ocr_provider TEXT NOT NULL,
   model_used TEXT,

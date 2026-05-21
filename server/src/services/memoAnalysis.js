@@ -36,8 +36,13 @@ async function callProvider(provider, key, model, prompt) {
         contents: [{ parts: [{ text: prompt }] }]
       })
     })
-    if (!res.ok) throw new Error(`Gemini memo error (${res.status})`)
-    const data = await res.json()
+    const body = await res.text()
+    let data
+    try { data = JSON.parse(body) } catch { data = { raw: body } }
+    if (!res.ok) {
+      const err = Object.assign(new Error(`Gemini memo error (${res.status}): ${body.slice(0, 300)}`), { aiDebug: { provider, status: res.status, model, response: data } })
+      throw err
+    }
     return { provider: 'google', text: data.candidates?.[0]?.content?.parts?.[0]?.text || '{}' }
   }
 
@@ -45,14 +50,15 @@ async function callProvider(provider, key, model, prompt) {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({
-        model,
-        max_tokens: 2048,
-        messages: [{ role: 'user', content: prompt }]
-      })
+      body: JSON.stringify({ model, max_tokens: 2048, messages: [{ role: 'user', content: prompt }] })
     })
-    if (!res.ok) throw new Error(`Claude memo error (${res.status})`)
-    const data = await res.json()
+    const body = await res.text()
+    let data
+    try { data = JSON.parse(body) } catch { data = { raw: body } }
+    if (!res.ok) {
+      const err = Object.assign(new Error(`Claude memo error (${res.status}): ${body.slice(0, 300)}`), { aiDebug: { provider, status: res.status, model, response: data } })
+      throw err
+    }
     return { provider: 'anthropic', text: data.content?.[0]?.text || '{}' }
   }
 
@@ -69,8 +75,13 @@ async function callProvider(provider, key, model, prompt) {
         ]
       })
     })
-    if (!res.ok) throw new Error(`OpenAI memo error (${res.status})`)
-    const data = await res.json()
+    const body = await res.text()
+    let data
+    try { data = JSON.parse(body) } catch { data = { raw: body } }
+    if (!res.ok) {
+      const err = Object.assign(new Error(`OpenAI memo error (${res.status}): ${body.slice(0, 300)}`), { aiDebug: { provider, status: res.status, model, response: data } })
+      throw err
+    }
     return { provider: 'openai', text: data.choices?.[0]?.message?.content || '{}' }
   }
 
@@ -112,18 +123,24 @@ export async function analyzeMemoWithAI(db, accountId, transcriptionText, langua
     openai: resolveModel('openai', acc?.openai_model)
   }
 
+  console.log('[memoAnalysis] priority=%s sysFallback=%s keys=%s', priority.join(','), sysFallbackAllowed,
+    Object.entries(providerKeys).filter(([, v]) => v).map(([k]) => k).join(',') || 'none')
+
   const prompt = buildPrompt(transcriptionText, languageMode)
   let lastError = null
 
   for (const p of priority) {
     const key = providerKeys[p]
-    if (!key) continue
+    if (!key) { console.log('[memoAnalysis] skip %s — no key', p); continue }
+    console.log('[memoAnalysis] trying %s model=%s', p, providerModels[p])
     try {
       const { provider, text } = await callProvider(p, key, providerModels[p], prompt)
       let parsed = {}
       try { parsed = JSON.parse(text) } catch { parsed = { content: text } }
+      console.log('[memoAnalysis] success provider=%s keys=%s', provider, Object.keys(parsed).join(','))
       return { extractedJson: parsed, aiProvider: provider }
     } catch (err) {
+      console.error('[memoAnalysis] %s failed: %s', p, err.message)
       lastError = err
     }
   }
