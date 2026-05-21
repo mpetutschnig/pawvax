@@ -33,6 +33,7 @@ export default function VoiceMemoDetailPage() {
   const [deleting, setDeleting] = useState(false)
   const [retrying, setRetrying] = useState(false)
   const [reanalyzing, setReanalyzing] = useState(false)
+  const [reanalyzeLang, setReanalyzeLang] = useState<string>('')
   const [error, setError] = useState('')
   const [audioSrc, setAudioSrc] = useState<string>('')
 
@@ -97,7 +98,9 @@ export default function VoiceMemoDetailPage() {
   const handleReanalyze = async () => {
     setReanalyzing(true)
     try {
-      await reanalyzeMemo(memoId!)
+      const lang = reanalyzeLang || memo?.language_mode || 'de'
+      await reanalyzeMemo(memoId!, lang)
+      setMemo((m: any) => ({ ...m, language_mode: lang }))
       await load()
     } catch {
       setError('KI-Analyse fehlgeschlagen')
@@ -148,9 +151,21 @@ export default function VoiceMemoDetailPage() {
             </button>
           )}
           {memo.transcription_text && ['completed', 'failed'].includes(memo.analysis_status) && (
-            <button className="btn btn-outline" onClick={handleReanalyze} disabled={reanalyzing} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
-              <RefreshCw size={16} /> {reanalyzing ? t('common.loading') : t('voiceMemo.reanalyzeAi')}
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
+              <select
+                value={reanalyzeLang || memo.language_mode || 'de'}
+                onChange={e => setReanalyzeLang(e.target.value)}
+                disabled={reanalyzing}
+                style={{ fontSize: 'var(--font-size-sm)', padding: '4px 8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer' }}
+              >
+                <option value="de">{t('voiceMemo.languageDe')}</option>
+                <option value="en">{t('voiceMemo.languageEn')}</option>
+                <option value="both">{t('voiceMemo.languageBoth')}</option>
+              </select>
+              <button className="btn btn-outline" onClick={handleReanalyze} disabled={reanalyzing} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
+                <RefreshCw size={16} /> {reanalyzing ? t('common.loading') : t('voiceMemo.reanalyzeAi')}
+              </button>
+            </div>
           )}
           {memo.analysis_status === 'failed' && memo.error_message && (
             <div className="error-card" style={{ marginTop: 'var(--space-2)', fontSize: 'var(--font-size-sm)', padding: 'var(--space-2) var(--space-3)' }}>

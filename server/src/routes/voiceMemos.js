@@ -431,9 +431,17 @@ export default async function voiceMemoRoutes(fastify) {
     if (memo.account_id !== accountId) return reply.code(403).send({ error: 'Kein Zugriff' })
     if (!memo.transcription_text) return reply.code(409).send({ error: 'Kein Transkript vorhanden — bitte zuerst Transkription starten' })
 
-    setImmediate(() => runAiAnalysisAsync(db, req.params.id, accountId, memo.transcription_text, memo.language_mode || 'de', fastify.log, 'voice_memo_reanalyzed'))
+    const { language_mode: reqLangMode } = req.body || {}
+    const allowedLangModes = ['de', 'en', 'both']
+    const langMode = allowedLangModes.includes(reqLangMode) ? reqLangMode : (memo.language_mode || 'de')
 
-    return reply.send({ status: 'analyzing' })
+    if (langMode !== memo.language_mode) {
+      await db.query('UPDATE voice_memos SET language_mode = $1 WHERE id = $2', [langMode, req.params.id])
+    }
+
+    setImmediate(() => runAiAnalysisAsync(db, req.params.id, accountId, memo.transcription_text, langMode, fastify.log, 'voice_memo_reanalyzed'))
+
+    return reply.send({ status: 'analyzing', language_mode: langMode })
   })
 
   // GET /api/voice-memos/:id/audio — stream audio file

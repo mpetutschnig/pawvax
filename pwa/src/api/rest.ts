@@ -245,8 +245,8 @@ export const deleteVoiceMemo = (id: string) =>
 export const retryVoiceMemo = (id: string) =>
   api.post(`/voice-memos/${id}/retry`)
 
-export const reanalyzeMemo = (id: string) =>
-  api.post(`/voice-memos/${id}/reanalyze`)
+export const reanalyzeMemo = (id: string, languageMode?: string) =>
+  api.post(`/voice-memos/${id}/reanalyze`, languageMode ? { language_mode: languageMode } : {})
 
 export const getVoiceMemoAudioUrl = (id: string) =>
   `${getServerUrl()}/api/voice-memos/${id}/audio`
