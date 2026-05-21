@@ -1,728 +1,536 @@
-# 🐾 PAW — Startup Guide
+# PAW — Digital Animal Health Passport
 
-Digitaler Tierimpfpass mit Gemini Vision AI, Audit-Log, Rollenmodell, Freigaben, öffentlichem Scan-Profil und Admin-Panel.
-
----
-
-## 📋 Übersicht
-
-Das System besteht aus **3 Komponenten**:
-
-| Komponente | Rolle | Port | URL |
-|---|---|---|---|
-| **Server** | REST API + WebSocket | 3000 | `http://localhost:3000` |
-| **PWA** | Browser-App + Admin-Panel | 5173 | `http://localhost:5173` (+ Netzwerk-IP) |
-| **Android** (optional) | Native Mobile App | — | Android Emulator/Gerät |
-
-> 💡 **VS Code:** Debug-Panel (`Ctrl+Shift+D`) → **PAW Full Stack** → ▶ startet beide Dienste automatisch mit Debugger.
+> A secure, AI-powered Progressive Web App for managing veterinary records, vaccination passports, and animal health data — for pet owners, veterinarians, and authorities.
 
 ---
 
-## 🚀 Schritt-für-Schritt: Von Start bis Admin-Portal
+## What is PAW?
 
-### **Schritt 1: Vorbereitung (erste Benutzung)**
+PAW replaces the physical pet health booklet with a structured, role-aware digital health record. Pet owners upload vaccination certificates and medical documents via their phone camera. Veterinarians add clinical notes and voice memos directly at the examination table. Authorities verify vaccination status by tapping an NFC chip — without installing an app.
 
-```bash
-cd /files/FHJoanneum/2026SS/paw.oxs.at
+All parties share a single source of truth, filtered by role. No paper. No copies. No shared logins.
+
+---
+
+## Why PAW? USPs, Market Potential & Competition
+
+### The Problem
+
+Every pet owner in the EU carries a physical vaccination booklet. It gets lost, forgotten at home, damaged, or left at the vet. There is no standardized digital equivalent. Vets, border authorities, kennels, and groomers all need to see some of the same data — but different parts of it, under different trust levels.
+
+### Existing Alternatives — and Their Gaps
+
+| Alternative | What it does | What it lacks |
+|-------------|-------------|---------------|
+| **Physical EU pet passport** | Paper-based EU vaccination proof | Lost/damaged, no digital access, manual |
+| **TASSO / FINDEFIX (DE/AT)** | Microchip registration databases | Read-only lookup, no documents, no vet records |
+| **PetDesk / Vetster** | Appointment & reminder apps | No document storage, no AI analysis, no public sharing |
+| **VetCloud / easyVET** | Practice management software | Vet-side only, owners get limited read-only portal |
+| **Generic cloud storage (Drive, Dropbox)** | File storage | No domain model, no roles, no analysis, no NFC |
+| **Country vaccination databases (VETIDATA AT)** | Government registers | Government-controlled, no owner access, no sharing |
+
+**None of them combine**: structured document storage + AI analysis + role-based sharing + public NFC access + tamper-proof vet records + DSGVO-compliant self-service.
+
+### What PAW Does Better
+
+1. **AI-powered structured extraction** — Upload a photo of a paper vaccination certificate, get structured data (vaccine name, batch number, expiry, vet name) automatically. No typing.
+2. **Field-level role-based sharing** — The vet sees clinical records. The kennel sees vaccination status only. The border authority sees the rabies certificate. All from the same record, filtered by role. No all-or-nothing sharing.
+3. **Public NFC tap → instant verification** — Tap the pet's chip tag with any NFC-capable phone. No app install, no login. Vaccination status displayed immediately.
+4. **Tamper-proof vet records** — Documents uploaded by a verified vet cannot be deleted by the owner. Clinical integrity without a central authority.
+5. **Multi-AI provider flexibility** — Users choose their own AI provider (Gemini, Claude, OpenAI) or use the system fallback. No single vendor dependency. Users with their own API key pay nothing extra.
+6. **Voice memo → structured clinical note** — Vets dictate in the exam room. Gladia transcribes, AI structures the finding into diagnosis, medication, next appointment. No typing during consultation.
+7. **Self-hostable, data-sovereign** — Deploy on your own server. Full data export (ZIP) at any time. Account deletion with full cascade. No SaaS dependency.
+8. **Multi-tenant ready** — Organizations, vet networks, and insurance providers can run isolated branded instances.
+
+### Market Potential
+
+- **180 million pets** in the EU (cats, dogs, small animals)
+- **EU Pet Travel Regulation** requires standardized vaccination proof for cross-border travel — creating a legal driver for digitization
+- **Veterinary digitization** is an underserved market: most practices still use paper records for owner copies
+- **B2B2C opportunity**: vet practices, kennels, pet insurers, and animal shelters all need verified vaccination data — and currently have no interoperable way to access it
+- **Government adoption**: border authorities and animal welfare agencies benefit from instant NFC verification without building their own infrastructure
+
+---
+
+## Feature Overview
+
+### Animal Management
+- Create and manage profiles (species, breed, birthdate, sex, microchip ID, owner name, pedigree name)
+- Upload and crop profile avatars
+- Archive animals with reason (deceased, lost, sold, rehomed, other)
+- Ownership transfer via 6-character code (24-hour expiry)
+
+### ID Tags & Animal Lookup
+- Register NFC chips and barcodes to animals
+- Multiple tags per animal (chip, barcode, QR)
+- Global NFC listener — tap a tag from anywhere in the app to navigate to the animal
+- Public tag lookup — any NFC reader returns the animal's public profile (no login required)
+
+### Document Upload & AI Analysis
+- Upload multi-page documents (PDF, photo, camera scan)
+- Supported document types: vaccination records, vet reports, lab results, medication prescriptions, pedigrees, EU pet passports, dog certificates, general
+- Real-time analysis via WebSocket — status streamed to client
+- AI provider support (configurable priority per user):
+  - **Google Gemini** (default)
+  - **Anthropic Claude**
+  - **OpenAI GPT-4 Vision**
+- Structured data extraction: vaccines, dosages, expiry dates, diagnoses, medications, next appointments
+- Duplicate detection via content hash
+- Analysis history — re-analyze with a different provider at any time
+- Per-document tags and role-based visibility
+
+### Voice Memos
+- In-app audio recording
+- Transcription via Gladia (German and English)
+- AI structuring: diagnosis, findings, procedures, medications, next appointments
+- Audio playback in detail view
+- Per-memo sharing permissions
+
+### NFC & Public Access
+- Register NFC/barcode tags to animals
+- Tap any registered tag → navigate directly to that animal (when logged in)
+- **No-login public scan**: NFC tap or QR scan shows public profile (vaccination status, emergency contact) — no app install required on the reader side
+
+### Document Sharing & Permissions
+- Per-document `allowed_roles` (guest, vet, authority, owner)
+- Per-animal sharing presets
+- Temporary share links (14-day expiry)
+- Public profile toggle (opt-in)
+
+### Reminders
+- Create reminders linked to documents or animals
+- Calendar export as `.ics` file (client-side)
+- Email reminders (when SMTP configured)
+
+### Profile & User Settings
+- Personal AI provider configuration (own API keys, model selection)
+- AI provider priority ordering
+- Budget cap for system AI usage
+- Personal API key generation (for external integrations)
+- DSGVO: full data export as ZIP, account self-deletion with cascade
+
+### Admin Panel
+- User management (role assignment, verification, deletion)
+- Pending vet/authority verification review
+- Audit log: paginated, filterable, full action history with before/after state
+- System settings: app name, logo, theme color, SMTP, OAuth2 providers, system AI keys, price per page
+- Statistics dashboard
+- Database cleanup (orphaned records)
+- Billing overview for all users
+- API test run history
+- Multi-tenant (organization) management
+
+---
+
+## Roles & Access Control
+
+### Role Overview
+
+| Role | Description | How Granted |
+|------|-------------|-------------|
+| `user` | Standard pet owner | Self-registration |
+| `vet` | Verified veterinarian | Admin approval after verification request |
+| `authority` | Government / organization inspector | Admin approval after verification request |
+| `admin` | System administrator | Direct assignment |
+| `guest` | Unauthenticated / public | Default, no login required |
+
+### Capability Matrix
+
+| Capability | guest | user | vet | authority | admin |
+|-----------|:-----:|:----:|:---:|:---------:|:-----:|
+| View public animal profile | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Login & manage own animals | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Upload docs to own animals | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Add docs to **other** animals | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Delete own uploads | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Delete vet-uploaded docs | ❌ | ❌ | own only | ❌ | ✅ |
+| See vet-visible documents | ❌ | ❌ | ✅ | ❌ | ✅ |
+| See authority-visible docs | ❌ | ❌ | ❌ | ✅ | ✅ |
+| Add voice memos to any animal | ❌ | own | ✅ | ✅ | ✅ |
+| Manage system settings | ❌ | ❌ | ❌ | ❌ | ✅ |
+
+### Vet / Authority Verification Process
+
+1. User registers as a standard account
+2. Requests verification in Profile → optionally uploads supporting document
+3. Admin reviews request under Admin → Verifications
+4. Admin approves or rejects (with optional written reason)
+5. On approval: role badge active, vet/authority permissions enabled
+
+**Tamper protection:** Documents uploaded by a verified vet are flagged `added_by_role='vet'`. The animal's owner cannot delete these — only the uploading vet or an admin can. This creates an immutable clinical record without central authority.
+
+### Document Visibility Model
+
+Each document carries an `allowed_roles` field (e.g. `["guest", "vet"]`):
+
+```
+Owner      → always full access
+Vet        → access if "vet" ∈ allowed_roles
+Authority  → access if "authority" ∈ allowed_roles
+Guest/pub  → access if "guest" ∈ allowed_roles
+Unauth.    → public animal profile only (no document content)
 ```
 
-### **Schritt 2: Server konfigurieren & starten**
+Owner configures visibility per document after upload, or sets per-animal defaults.
 
+### Temporary Share Links
+
+- Created per animal, 14-day expiry
+- Holder sees the animal's guest-visible fields (no login required)
+- Owner can revoke at any time
+
+---
+
+## API
+
+Interactive docs (Swagger UI): `GET /documentation`
+
+All protected endpoints require `Authorization: Bearer <JWT>`.
+
+### Authentication
+```
+POST /api/auth/register                 Register account
+POST /api/auth/login                    Login → JWT (7-day)
+POST /api/auth/refresh                  Refresh JWT
+POST /api/auth/verify-email             Verify email token
+POST /api/auth/request-password-reset   Request reset link
+POST /api/auth/reset-password           Reset password
+POST /api/auth/logout                   Invalidate token
+GET  /api/auth/oauth/:provider          Initiate OAuth2 (google/github/microsoft)
+GET  /api/auth/oauth/:provider/callback OAuth2 callback
+```
+
+### Animals
+```
+GET    /api/animals                       List own animals
+POST   /api/animals                       Create animal
+GET    /api/animals/:id                   Get animal + documents
+PATCH  /api/animals/:id                   Update animal
+DELETE /api/animals/:id                   Delete (cascade)
+POST   /api/animals/:id/archive           Archive with reason
+POST   /api/animals/:id/unarchive         Restore
+POST   /api/animals/:id/transfer          Generate transfer code (24h)
+POST   /api/animals/transfer/accept       Accept transfer by code
+GET    /api/animals/recently-scanned      Last 20 scanned animals
+POST   /api/animals/:id/track-scan        Record scan event
+```
+
+### Tags & NFC
+```
+GET    /api/animals/:id/tags              List tags
+POST   /api/animals/:id/tags              Register tag (NFC/barcode)
+PATCH  /api/animals/:id/tags/:tagId       Activate / deactivate
+DELETE /api/animals/:id/tags/:tagId       Remove tag
+GET    /api/animals/by-tag/:tagId         Look up animal by tag ID (auth)
+GET    /api/public/tag/:tagId             Public tag lookup (no auth)
+```
+
+### Documents
+```
+GET    /api/animals/:id/documents         List animal's documents
+GET    /api/documents/:id                 Get document + analysis
+PATCH  /api/documents/:id                 Update tags, allowed_roles
+DELETE /api/documents/:id                 Delete + pages
+POST   /api/documents/:id/retry-analysis  Retry failed analysis
+POST   /api/documents/:id/re-analyze      Re-analyze with new provider
+GET    /api/documents/:id/history         Analysis history
+```
+
+**WebSocket upload** — `ws://<host>/ws?token=<JWT>`
+```
+1. Client → {type:"upload_start", animalId, filename, mimeType, allowedRoles}
+2. Server → {type:"ready"}
+3. Client → binary chunks (max 64 KB each)
+4. Client → {type:"upload_end"}
+5. Server → {type:"status", message}   (real-time progress)
+6. Server → {type:"done", document}    (final result)
+```
+
+### Sharing & Public Access
+```
+GET    /api/animals/:id/sharing           Get sharing config
+PUT    /api/animals/:id/sharing           Update per-role visibility
+POST   /api/animals/:id/public-share      Create share link
+GET    /api/animals/:id/public-shares     List share links
+DELETE /api/animals/:id/public-share/:id  Revoke link
+GET    /api/share/:shareId                Access shared animal (no login)
+```
+
+### Voice Memos
+```
+POST   /api/animals/:id/voice-memos       Upload + transcribe recording
+GET    /api/animals/:id/voice-memos       List memos
+GET    /api/voice-memos/:id               Get memo + transcript + analysis
+PATCH  /api/voice-memos/:id               Update
+DELETE /api/voice-memos/:id               Delete
+```
+
+### Reminders & Billing
+```
+POST   /api/reminders                     Create reminder
+GET    /api/reminders                     List active reminders
+PATCH  /api/reminders/:id/dismiss         Mark as done
+GET    /api/billing/me                    Own usage & costs
+POST   /api/billing/consent               Accept system AI billing
+```
+
+### Account & Data
+```
+GET    /api/accounts/me                   Own profile
+PATCH  /api/accounts/me                   Update (name, email, password, AI keys)
+DELETE /api/accounts/me                   Delete account (DSGVO, cascade)
+POST   /api/accounts/me/verify-request    Request vet/authority verification
+GET    /api/accounts/me/api-keys          List personal API keys
+POST   /api/accounts/me/api-keys          Generate API key (shown once)
+DELETE /api/accounts/me/api-keys/:id      Revoke API key
+GET    /api/accounts/me/export            Download data as ZIP (DSGVO Art. 20)
+```
+
+### Admin
+```
+GET    /api/admin/stats                   System statistics
+GET    /api/admin/accounts                List all accounts
+PATCH  /api/admin/accounts/:id            Change role/verification
+GET    /api/admin/verifications           Pending vet/authority requests
+POST   /api/admin/verifications/:id/approve
+POST   /api/admin/verifications/:id/reject
+GET    /api/admin/audit                   Audit log (paginated, filterable)
+GET    /api/admin/settings                System settings
+PATCH  /api/admin/settings                Update settings
+POST   /api/admin/settings/test-mail      Test SMTP
+GET    /api/admin/billing                 All users' usage & costs
+GET    /api/admin/cleanup                 Detect orphaned records
+DELETE /api/admin/cleanup                 Remove orphaned records
+```
+
+---
+
+## Tech Stack
+
+### Frontend
+| Layer | Technology |
+|-------|-----------|
+| Framework | React 18 + TypeScript |
+| Build | Vite 6 |
+| Styling | Tailwind CSS 3 + Shadcn UI (Radix primitives) |
+| Routing | React Router DOM 6 |
+| HTTP | Axios |
+| i18n | react-i18next (DE / EN) |
+| PWA | vite-plugin-pwa (service worker, installable) |
+| Scanning | html5-qrcode (read), qrcode.react (generate) |
+| NFC | Web NFC API (Chrome Android 89+) |
+
+### Backend
+| Layer | Technology |
+|-------|-----------|
+| Runtime | Node.js 18+ (ES Modules) |
+| Framework | Fastify 5 |
+| Auth | @fastify/jwt + bcrypt |
+| Database | PostgreSQL 13+ |
+| Image | Sharp (compression, rotation, EXIF strip) |
+| Email | Nodemailer |
+| OAuth2 | @fastify/oauth2 (Google, GitHub, Microsoft) |
+| WebSocket | @fastify/websocket |
+| API docs | Swagger UI (@fastify/swagger) |
+
+### AI & External Services
+| Service | Purpose |
+|---------|---------|
+| Google Gemini | Document OCR + structured extraction (default) |
+| Anthropic Claude | Alternative document analysis |
+| OpenAI GPT-4 Vision | Alternative document analysis |
+| Gladia v2 | Voice transcription (DE/EN) |
+
+### Infrastructure
+| Component | Technology |
+|-----------|-----------|
+| Containers | Podman / Docker |
+| Reverse proxy | Caddy (automatic TLS) |
+| Static serving | Nginx |
+| Orchestration | podman-compose / docker-compose |
+| Database | PostgreSQL 13+ (persistent volume) |
+
+---
+
+## Installation & Local Development
+
+### Prerequisites
+- Node.js 18+
+- PostgreSQL 13+ (or use the provided Docker/Podman setup)
+- npm 9+
+
+### Server
 ```bash
 cd server
 npm install
-cp .env.example .env
+cp .env.example .env     # fill in values
+npm run dev              # → http://localhost:3000
+                         # Swagger: http://localhost:3000/documentation
 ```
 
-**In `server/.env` eintragen:**
+### PWA
+```bash
+cd pwa
+npm install
+npm run dev              # → http://localhost:5173
+```
 
+### Minimal `.env` for local development
 ```env
 PORT=3000
-JWT_SECRET=super_secret_key_123
-GEMINI_API_KEY=
-DB_PATH=./paw.db
-UPLOADS_DIR=./uploads
-ADMIN_EMAIL=admin@example.com      # Erste Admin-Email
+JWT_SECRET=change_me_to_a_random_32_char_string
+DATABASE_URL=postgresql://paw:paw@localhost:5432/paw
+CORS_ORIGINS=http://localhost:5173
 ```
 
+---
+
+## Production Deployment (Podman / Docker)
+
+### Container Stack
+```
+paw-stack
+├── paw-api     (Fastify REST API + WebSocket)
+├── paw-pwa     (Nginx static serving)
+├── paw-db      (PostgreSQL 13)
+└── paw-caddy   (Caddy reverse proxy + automatic TLS)
+```
+
+### First Deploy
 ```bash
-npm run dev
+cp .env.podman .env      # edit: domain, secrets, API keys
+podman-compose up --build -d
+# or: docker compose up --build -d
 ```
 
-✅ **Erfolgreich, wenn du siehst:**
-```
-Server läuft auf http://0.0.0.0:3000
-✓ Admin-Rolle für admin@example.com gesetzt
-```
-
-### **Schritt 3: PWA starten**
-
+### Update Running Deployment
 ```bash
-cd pwa
-npm install
-npm run dev
+sudo bash /git/pawvax/scripts/setup-rootless-podman.sh update
 ```
 
 ---
 
-## 📱 Schritt 4: Erster Login & Admin-Setup
+## Pre- and Post-Deployment Checklist
 
-### **4a: User registrieren**
+### Before First Deploy
+- [ ] Generate JWT secret: `openssl rand -hex 32` → `JWT_SECRET`
+- [ ] Set `CORS_ORIGINS` to your production domain
+- [ ] Configure `DATABASE_URL` with production credentials
+- [ ] Set `ADMIN_EMAIL` — first account with this email gets admin role
+- [ ] Verify upload directory (`UPLOADS_DIR`) is on a persistent volume
+- [ ] Point DNS to server IP
+- [ ] (Optional) Add system AI keys (Gemini/Claude/OpenAI) for fallback analysis
+- [ ] (Optional) Configure SMTP and test with Admin → Settings → Test Mail
+- [ ] (Optional) Configure OAuth2 provider credentials
 
-1. Browser: **http://localhost:5173**
-2. „Registrieren" → Name, E-Mail, Passwort
+### Before Each Update
+- [ ] Back up database: `pg_dump paw > backup_$(date +%Y%m%d).sql`
+- [ ] Review migration notes / changelog
+- [ ] Tag current container image as rollback reference
 
-### **4b: Admin-Rolle zuweisen**
-
-**Via .env (empfohlen):**
-```bash
-# server/.env:
-ADMIN_EMAIL=deine@email.com
-# → Server neu starten
-```
-
-**Oder direkt:**
-```bash
-sqlite3 server/paw.db "UPDATE accounts SET role='admin', verified=1 WHERE email='deine@email.com'"
-```
-
-### **4c: Admin-Portal**
-
-Öffne: **http://localhost:5173/admin**
-
-Tabs:
-- 📊 **Statistiken** — Accounts, Tiere, Dokumente, Audit-Einträge
-- 👥 **Accounts** — Rollen ändern, Accounts verwalten
-- ✓ **Verifikationen** — Vet-Anträge genehmigen/ablehnen
-- 📋 **Audit-Log** — alle Änderungen paginiert
+### After Each Deploy
+- [ ] Health check: `GET https://your-domain/api/health`
+- [ ] Log in as admin — confirm admin panel loads
+- [ ] Upload a test document — confirm AI analysis completes
+- [ ] Inspect Audit Log for the test actions
+- [ ] Test public NFC/tag scan (no login)
+- [ ] (If SMTP) Trigger password reset — confirm email arrives
 
 ---
 
-## 👤 Benutzer-Rollen & Permissions
+## Billing Concept
 
-| Rolle | Scannen | Tiere anlegen | Dokumente hochladen | Dokumente löschen | Freigaben ändern |
-|---|---|---|---|---|---|
-| **readonly** | ✅ (nur public) | ❌ | ❌ | ❌ | ❌ |
-| **user** | ✅ | ✅ | ✅ | ✅ (eigene) | ✅ (eigene Tiere) |
-| **vet** (verifiziert) | ✅ | ✅ | ✅ mit grünem Badge | ✅ (eigene Uploads) | ✅ |
-| **authority** | ✅ | ✅ | ✅ mit blauem Badge | ✅ (eigene Uploads) | ✅ |
-| **admin** | ✅ | ✅ | ✅ | ✅ | ✅ |
+PAW separates **user-provided AI** from **system AI**:
 
-### Besondere Berechtigungsregeln
-
-- **Verifiziertes Tierarzt-Dokument**: Besitzer kann es **nicht löschen** — nur der Tierarzt der es hochgeladen hat. Besitzer kann nur Sichtbarkeit ändern.
-- **Readonly-User**: Kein „Scannen"-Menüpunkt in der App, kein Dokument-Upload möglich.
-- **Ohne Login (öffentlicher Scan)**: Zeigt nur Felder, die der Besitzer für `readonly` freigegeben hat.
-
----
-
-## 🔍 Scan-Modi
-
-### 1. Öffentlicher Scan (ohne Login)
-- Login-Screen → **„Tier scannen ohne Anmeldung"**
-- Barcode/QR-Code scannen → zeigt öffentliches Tierprofil
-- Daten basieren auf den `readonly`-Freigaben des Besitzers
-
-### 2. Authenticated Scan (mit Login)
-- Bottom Nav → **„Scannen"** (nur für non-readonly)
-- **Eigenes Tier** → voller Zugriff, Tier-Detailseite öffnet sich
-- **Fremdes Tier in DB** → Readonly-Ansicht, gefiltert nach Rollenfreigaben
-- **Unbekannter Tag** → Neues Tier registrieren
-
-### 3. Dokument-Scan
-- Im Tierprofil → **„Dokument scannen"**
-- Kamera öffnet sich, Bild wird direkt am Gerät komprimiert (max. 1200×1200px)
-- Per WebSocket an Server gesendet (Binary-Chunks + JSON-Kontrollmeldungen)
-- Gemini 3.1 Flash-Lite analysiert → strukturiertes JSON zurück
-
----
-
-## 🤖 Gemini Vision AI — Dokumentenanalyse
-
-### Aktivierung
-- **Server-weit**: `GEMINI_API_KEY` in `server/.env`
-- **Pro User**: Im Profil eigenen API-Key hinterlegen → wird für diesen User verwendet
-- **API-Key erforderlich**: Kein lokaler Fallback vorhanden
-
-### API-Key Validierung
-Beim Speichern im Profil wird der Key live gegen `GET https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview?key=...` geprüft. Nur bei HTTP 200 wird gespeichert.
-
-### Analysiertes JSON-Format
-
-**Impfdokument:**
-```json
-{
-  "type": "vaccination",
-  "document_date": "2024-03-15",
-  "summary": "Tollwut-Impfung für Hund Bello, gültig bis 2025-03-15",
-  "animal": { "name": "Bello", "species": "dog", "breed": "Labrador", "birthdate": "2020-01-10" },
-  "vaccinations": [{ "vaccine": "Nobivac Rabies", "date": "2024-03-15", "nextDue": "2025-03-15", "vet": "Dr. Müller" }],
-  "suggested_tags": ["Tollwut", "Nobivac", "Impfpass"]
-}
-```
-
-**Medikament:**
-```json
-{
-  "type": "medication",
-  "document_date": "2024-04-01",
-  "summary": "Antibiotikum-Verschreibung für Katze Luna",
-  "medications": [{
-    "name": "Amoxicillin",
-    "dosage": "10mg/kg",
-    "frequency": "2x täglich",
-    "startDate": "2024-04-01",
-    "endDate": "2024-04-10",
-    "details": "Breitspektrum-Penicillin, Wirkung gegen gram-positive Bakterien",
-    "manufacturer_link": "https://www.msd-tiergesundheit.de"
-  }],
-  "suggested_tags": ["Antibiotikum", "Rezept", "Amoxicillin"]
-}
-```
-
-### WebSocket Status-Events während Analyse
-```
-→ Technologie: Gemini 3.1 Flash-Lite wird initialisiert...
-→ Anmeldung bei Google API erfolgreich...
-→ Bild wird an Gemini gesendet (Base64-kodiert)...
-→ Analyse abgeschlossen. Ergebnis wird verarbeitet...
-```
-
----
-
-## 📄 Dokumenten-Features
-
-### Optische Hervorhebung nach Uploader
-| Uploader | Darstellung in der Liste |
-|---|---|
-| **Verifizierter Tierarzt** | Grüner Rahmen, grüner Hintergrund, grünes Häkchen-Badge „Tierarzt" |
-| **Behörde** | Blaues Badge „Behörde" |
-| **Besitzer/Admin** | Neutrales Badge „Besitzer" |
-
-### Dokument-Detailseite zeigt
-- **Zusammenfassung** (Gemini `summary`) als blaue Box direkt unter dem Bild
-- **Verifiziertes Tierarzt-Dokument Banner** (grün, mit CheckCircle-Icon) wenn `added_by_role = 'vet'`
-- **Tags** mit Uploader-Badge (unveränderbar: wer hat es hochgeladen)
-- **Freigaben** — wer darf es sehen (Tierarzt / Behörde / Lesender Zugriff)
-- **OCR-Text** — Volltext des erkannten Inhalts
-- **JSON-Details anzeigen** — das komplette Gemini-JSON ausklappen
-- **Kalender-Erinnerung erstellen** — für jedes Dokument, egal welchen Typs
-
-### Kalender-Reminder
-- Pre-fill mit Tier-Name, Dokumenttyp, Produkt (z.B. Impfstoff), erkanntem Datum
-- **Download als .ics** → native Kalender-App (iOS, Android, Desktop)
-- **Per E-Mail senden** → `mailto:`-Link mit Betreff + Inhalt
-
-### Bild-Rotation & Komprimierung
-- Vor dem Upload: Bild kann per Rotations-Button (90°) gedreht werden
-- Komprimierung am Device auf max. 1200×1200px, JPEG 80% Qualität
-- Nutzt `createImageBitmap()` (kein Out-Of-Memory Crash auf mobilen Browsern)
-
----
-
-## 📚 Interaktive API-Dokumentation (Swagger/OpenAPI)
-
-Fastify generiert automatisch eine interaktive API-Dokumentation.
-
-**Zugriff:** `http://localhost:3000/documentation` (bzw. auf deinem Server unter der entsprechenden Subdomain).
-
-**So testest du Endpoints im Swagger:**
-1. Logge dich in der PWA ein (`http://localhost:5173/login`).
-2. Öffne die Entwicklertools (F12) → Tab "Anwendung/Application" → "Lokaler Speicher/Local Storage".
-3. Kopiere den Wert des Schlüssels `token`.
-4. Klicke im Swagger UI oben rechts auf den grünen Button **"Authorize"** und füge den Token ein.
-5. Jetzt kannst du jeden Endpoint mit `Try it out` testen!
-
----
-
-## 🔌 API-Endpunkte
-
-### Öffentlich (kein Token nötig)
-
-| Method | Endpoint | Beschreibung |
-|---|---|---|
-| `GET` | `/api/public/tag/:tagId` | Öffentliches Tierprofil — nur readonly-freigegebene Felder |
-
-### Auth-Endpunkte
-
-| Method | Endpoint | Beschreibung |
-|---|---|---|
-| `POST` | `/api/auth/register` | Account erstellen |
-| `POST` | `/api/auth/login` | Login → JWT Token |
-
-### Animals (🔐 JWT erforderlich)
-
-| Method | Endpoint | Beschreibung |
-|---|---|---|
-| `GET` | `/api/animals` | Eigene Tiere auflisten |
-| `POST` | `/api/animals` | Neues Tier anlegen |
-| `GET` | `/api/animals/:id` | Tier-Details |
-| `PATCH` | `/api/animals/:id` | Tier bearbeiten |
-| `DELETE` | `/api/animals/:id` | Tier löschen (nur Besitzer) |
-| `GET` | `/api/animals/by-tag/:tagId` | Tier per Tag-ID suchen |
-| `GET` | `/api/animals/:id/documents` | Dokumente eines Tieres |
-| `GET` | `/api/animals/:id/tags` | Tags eines Tieres |
-| `POST` | `/api/animals/:id/tags` | Neuen Tag hinzufügen |
-| `PATCH` | `/api/animals/:id/tags/:tagId` | Tag aktivieren/deaktivieren |
-| `GET` | `/api/animals/:id/sharing` | Freigaben anzeigen |
-| `PUT` | `/api/animals/:id/sharing` | Freigaben aktualisieren |
-
-### Documents (🔐 JWT erforderlich)
-
-| Method | Endpoint | Beschreibung |
-|---|---|---|
-| `GET` | `/api/documents/:id` | Dokument-Details inkl. JSON |
-| `PATCH` | `/api/documents/:id` | Tags/Sichtbarkeit bearbeiten |
-| `DELETE` | `/api/documents/:id` | Dokument löschen |
-
-> **Löschen-Regeln**: Besitzer oder Uploader darf löschen — **außer** der Uploader war ein verifizierter Vet und du bist nicht dieser Vet.
-
-### WebSocket Upload
-
-| Endpoint | Beschreibung |
-|---|---|
-| `ws://.../ws?token=JWT` | Dokument-Upload via WebSocket |
+| Source | Cost to user |
+|--------|-------------|
+| User's own API key (Gemini/Claude/OpenAI) | User's own API quota — no PAW charge |
+| System AI fallback | Configurable €/page — requires explicit consent |
 
 **Flow:**
-1. Verbinden mit `?token=JWT`
-2. JSON (Text-Frame): `{ "type": "upload_start", "animalId": "...", "filename": "scan.jpg", "mimeType": "image/jpeg", "allowedRoles": ["vet"] }`
-3. Server antwortet (Text-Frame): `{ "type": "ready" }`
-4. Binär-Frames: JPEG-Chunks (max. 64KB each)
-5. JSON (Text-Frame): `{ "type": "upload_end" }` ← **MUSS Text-Frame sein, nicht Binary!**
-6. Server sendet Status-Updates: `{ "type": "status", "message": "..." }`
-7. Server sendet Ergebnis: `{ "type": "done", "document": { ... } }`
+1. User configures preferred provider + own key → analyzed at their cost, PAW charges nothing
+2. No key / quota exhausted → system fallback offered; user must accept billing consent
+3. Each analyzed page creates a `usage_logs` entry (provider, cost, page count, timestamp)
+4. Admin sets price per page in Admin → Settings
+5. User can set an optional budget cap — analysis pauses when limit reached
+6. Full history visible to user in Billing page; aggregate view for admin
 
-### Accounts (🔐 JWT erforderlich)
-
-| Method | Endpoint | Beschreibung |
-|---|---|---|
-| `GET` | `/api/accounts/me` | Eigenes Profil |
-| `PATCH` | `/api/accounts/me` | Profil bearbeiten (inkl. Gemini-Key) |
-| `DELETE` | `/api/accounts/me` | Account löschen (DSGVO Art. 17) |
-| `POST` | `/api/accounts/me/verify-request` | Vet-Verifikation beantragen |
-
-### Admin (🔐 Admin-JWT erforderlich)
-
-| Method | Endpoint | Beschreibung |
-|---|---|---|
-| `GET` | `/api/admin/stats` | Systemstatistiken |
-| `GET` | `/api/admin/accounts` | Alle Accounts |
-| `PATCH` | `/api/admin/accounts/:id` | Rolle/Verifikation ändern |
-| `GET` | `/api/admin/verifications` | Pending Vet-Anträge |
-| `POST` | `/api/admin/verifications/:id/approve` | Vet genehmigen |
-| `POST` | `/api/admin/verifications/:id/reject` | Vet ablehnen |
-| `GET` | `/api/admin/animals` | Alle Tiere |
-| `GET` | `/api/admin/audit` | Audit-Log (paginiert) |
+**Revenue model options (for operators):**
+- **Pay-per-use**: charge per page via system AI (metered)
+- **Subscription**: flat monthly fee with included AI quota
+- **White-label**: organizations license a branded tenant instance
 
 ---
 
-## ✅ Verifikationsprozess (Tierarzt)
+## Market Positioning
 
-```
-User → "Verifikation beantragen" (Profil-Seite)
-     → Status: "pending"
-Admin → Admin-Panel → Tab "Verifikationen"
-     → "Genehmigen" klicken
-     → account.verified = 1
-User → Alle künftigen Dokument-Uploads bekommen:
-     → added_by_role = 'vet'
-     → Grünes Tierarzt-Badge in der Dokumentenliste
-     → Grünes Banner "Verifiziertes Tierarztdokument" in der Detailansicht
-     → Dokument kann nur vom Tierarzt selbst gelöscht werden
-```
+### Target Markets
 
----
+**B2C — Pet Owners**
+Families and individuals who travel with pets or need to share health records with vets, boarders, and kennels. Entry point: free account with own AI key; upgrade to system AI for convenience.
 
-## 🔐 Sicherheit & Datenfluss
+**B2B — Veterinary Practices**
+Clinics that want to issue tamper-proof digital records. Vet users add structured notes, owners receive a permanent shareable copy. Reduces paper, phone calls, and lost records.
 
-### Login-Token (JWT)
-- Enthält: `accountId`, `name`, `email`, `role`, `roles[]`, `verified`
-- Gespeichert in `localStorage`
+**B2G — Government & Animal Authorities**
+Border control, animal welfare agencies, hunting authorities. Instant NFC verification — no app install on the reader side, no login, no paper.
 
-### Datenisolation
-- User sieht NUR seine eigenen Tiere
-- Vets/Behörden sehen nur freigegebene Tiere und Felder
-- Felderweise Filterung via `animal_sharing`-Tabelle (Impfungen, Medikamente, Kontakt, Rasse, etc.)
+**B2B2C — Pet Services & Insurers**
+Kennels, groomers, and insurers access share links or public NFC profiles without account creation. Insurers verify vaccination dates without manual document submission.
 
-### Gemini API Key
-- Wird im Nutzerprofil gespeichert und vor dem Speichern live validiert
-- Beim Analyse-Prozess: Server liest Key aus DB, sendet Request direkt an Google
-
-### Audit-Log
-Jede Änderung wird protokolliert: `who` (accountId + role), `when`, `what` (action), `details` (JSON before/after)
+### Go-to-Market Path
+1. **Direct B2C launch** in DACH region — EU pet travel regulation creates immediate demand
+2. **Vet practice partnerships** — integrate as owner-facing record portal for existing practices
+3. **White-label tenant licensing** — sell to vet networks, pet insurance providers, animal shelters
+4. **Open API** for third-party services (kennels, travel apps) gated by share tokens
 
 ---
 
-## 📱 Android App (Kotlin) — Integration
+## Project Structure
 
-### Server-URL für lokales Testen eintragen
-Wenn du die App im Android Studio entwickelst, trage im Login-Screen diese URLs ein:
-
-| Gerät | URL |
-|---|---|
-| **Android Emulator** | `http://10.0.2.2:3000/api/` |
-| **USB-Debugging** | `http://localhost:3000/api/` (nach `adb reverse tcp:3000 tcp:3000`) |
-| **LAN-Gerät** | `http://192.168.X.X:3000/api/` (IP des Servers im lokalen WLAN) |
-
-Beim Implementieren der Android App müssen folgende Punkte beachtet werden:
-
-### A. Bild-Komprimierung vor Upload
-```kotlin
-// Max. 1200x1200px, JPEG 80%
-Bitmap.compress(Bitmap.CompressFormat.JPEG, 80, outputStream)
 ```
-
-### B. WebSocket Upload-Flow (OkHttp)
-```kotlin
-// 1. Text-Frame (upload_start)
-webSocket.send("""{"type":"upload_start","animalId":"...","filename":"scan.jpg","mimeType":"image/jpeg","allowedRoles":["vet"]}""")
-
-// 2. Binary-Frames (Chunks à 64KB)
-webSocket.send(ByteString.of(*chunk))
-
-// 3. Text-Frame (upload_end) — NICHT als ByteString!
-webSocket.send("""{"type":"upload_end"}""")
-```
-
-### C. Status-Events lauschen
-```kotlin
-override fun onMessage(webSocket: WebSocket, text: String) {
-    val json = JSONObject(text)
-    when (json.getString("type")) {
-        "status" -> showStatus(json.getString("message"))
-        "done"   -> showResult(json.getJSONObject("document"))
-    }
-}
-```
-
-### D. NFC/QR URL-Parsing
-```kotlin
-val tagId = if (payload.startsWith("http")) Uri.parse(payload).lastPathSegment else payload
-```
-
-### E. Gemini Key Validierung
-```kotlin
-val response = okHttpClient.newCall(Request.Builder()
-    .url("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview?key=$key")
-    .build()).execute()
-if (response.isSuccessful) saveKey(key)
-```
-
----
-
-## 📊 Admin-Panel Tabs erklärt
-
-### 📊 Statistiken
-Accounts, Tiere, Dokumente, Audit-Einträge
-
-### 👥 Accounts
-- Liste aller User
-- Rolle via Dropdown ändern (user → vet → authority → admin)
-- Verifiziert-Checkbox manuell setzen
-
-### ✓ Verifikationen
-- Pending-Anfragen von Tierärzten
-- **Genehmigen** → `verified = 1`, Vet-Badge aktiv
-- **Ablehnen** → Status `rejected`
-
-### 📋 Audit-Log
-Paginiert, filterbar nach Resource und Account-ID
-
----
-
-## ✅ Features Testing & Deployment
-
-### 🧪 Feature-Testing (Development)
-
-#### 1. **Register/Login (JWT 7-Tage Expiry)**
-```bash
-# Registrieren
-→ /login → "Registrieren"
-→ E-Mail, Passwort eintragen
-→ Login & Token in localStorage gespeichert
-→ Token hat 7-Tage Gültigkeitsdauer (JWT expiry)
-→ Logout blacklistet Token sofort (JWT jti blacklist)
-```
-
-#### 2. **Create Animal + Multi-Page Document Upload** ⭐ **NEU**
-```bash
-# Tier anlegen
-→ /animals → "Neues Tier"
-→ Name, Art, Rasse, Geburtsdatum
-
-# Dokument mit mehreren Seiten scannen
-→ Tier-Details → "Dokument scannen"
-→ Erste Seite fotografieren + "Add page" Button
-→ 2-3 weitere Seiten hinzufügen (Thumbnails sichtbar)
-→ Seite entfernen mit X-Button möglich
-→ "Hochladen & analysieren" → alle Seiten kombiniert
-→ OCR-Text kombiniert, AI schlägt document type vor
-→ Ergebnis zeigt Seitenzahl: "Pages: 3"
-```
-
-#### 3. **Dark/Light Mode Toggle** ⭐ **NEU**
-```bash
-# Profil-Seite → Sun/Moon Icon oben rechts
-→ Light (☀️) → Dark (🌙) → System (Voreinstellung)
-→ Einstellung in localStorage persistent
-→ Automatische CSS-Token-Anpassung (oklch Farben)
-```
-
-#### 4. **Admin Panel (Mobile-Responsive)** ⭐ **NEU**
-```bash
-# Desktop: Sidebar immer sichtbar
-# Mobile (<768px): Hamburger Menu ☰
-→ Click ☰ → Drawer slides in
-→ Click Menü-Item → Drawer closes
-→ Alle Tabs (Statistiken, Accounts, Verifikationen, Audit-Log) funktionieren
-```
-
-#### 5. **Create Organization + Invite** ⭐ **NEU**
-```bash
-# Profil → (neue Org-Seite falls Frontend integriert)
-# Oder API-Test:
-POST /api/organizations
-{ "name": "Familie Schmidt", "type": "family" }
-→ Erhalte organizationId
-
-# Andere User einladen:
-POST /api/organizations/:id/invite
-{ "email": "anna@example.com" }
-
-# User akzeptiert Einladung:
-POST /api/organizations/:id/accept
-→ Org-Mitgliedschaft aktiv
-```
-
-### 🚀 Production Deployment
-
-#### **Schritt 1: JWT_SECRET Generieren**
-```bash
-# Sicherer random 64-hex-String (NICHT 'changeme'!)
-openssl rand -hex 32
-# Ausgabe: ab12cd34ef56...
-
-# In server/.env:
-JWT_SECRET=ab12cd34ef56...
-```
-
-#### **Schritt 2: ENCRYPTION_KEY (Auto)**
-```bash
-# Die AES-256 encryption key wird automatisch aus JWT_SECRET abgeleitet
-# via SHA-256(JWT_SECRET) - kein separates Env-Var nötig!
-```
-
-#### **Schritt 3: npm start (kein --watch)**
-```bash
-cd server
-
-# Development (mit auto-reload):
-npm run dev
-
-# Production (WICHTIG: KEIN --watch):
-npm start
-# Falls package.json kein "start" hat → node src/app.js statt npm run dev
-
-# Oder:
-NODE_ENV=production node src/app.js
-```
-
-#### **Schritt 4: CORS Origins für deine Domain**
-```javascript
-// server/src/app.js Zeile 31-33:
-await fastify.register(fastifyCors, {
-  origin: [
-    'https://deine-domain.com',           // ← ANPASSEN!
-    'https://www.deine-domain.com',       // ← ANPASSEN!
-    'http://localhost:5173'               // Dev only
-  ],
-  credentials: true
-})
-```
-
-#### **Schritt 5: PWA Production Build**
-```bash
-cd pwa
-
-# Build optimiert (statt dev):
-npm run build
-# Outputs: dist/
-
-# Serve lokal testen:
-npm run preview
-
-# Oder production serve:
-# (nginx, Apache, Vercel, etc.)
-```
-
-#### **Schritt 6: Umgebungsvariablen sichern**
-```bash
-# server/.env (Secrets, NICHT in Git!)
-PORT=3000
-JWT_SECRET=ab12cd34ef56...    # Aus openssl generiert
-GEMINI_API_KEY=your_key_here  # Optional
-DB_PATH=./paw.db
-UPLOADS_DIR=./uploads
-ADMIN_EMAIL=admin@deine-domain.com
-```
-
-#### **Schritt 7: Datenbank-Backup**
-```bash
-# Vor Deployment: SQLite sichern
-cp server/paw.db server/paw.db.backup
-
-# Uploads-Folder sichern:
-tar -czf uploads.tar.gz server/uploads/
-```
-
-#### **Schritt 8: Test nach Deployment**
-```bash
-# Health-Check:
-curl https://deine-domain.com/health
-# → {"status":"ok"}
-
-# Login testen:
-curl -X POST https://deine-domain.com/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"admin@...","password":"..."}'
-# → JWT Token zurück
-
-# Admin-Panel:
-https://deine-domain.com/#/admin
-```
-
----
-
-## 🔧 Konfiguration (.env)
-
-```bash
-# server/.env
-PORT=3000
-JWT_SECRET=changeme_to_something_secure
-GEMINI_API_KEY=
-DB_PATH=./paw.db
-UPLOADS_DIR=./uploads
-ADMIN_EMAIL=admin@example.com
-```
-
----
-
-## 🐳 Container-Deployment (Podman)
-
-```bash
-# .env im Projekt-Root:
-JWT_SECRET=ein_langer_zufallsstring_hier
-ADMIN_EMAIL=deine@email.com
-
-# Starten:
-podman compose up --build
-
-# Stoppen:
-podman compose down
-
-# Logs:
-podman compose logs -f
-```
-
-| Gerät | URL |
-|---|---|
-| **Lokal** | `http://localhost` |
-| **Handy im LAN** | `http://192.168.x.x` |
-
----
-
-## 🐛 Häufige Probleme
-
-| Problem | Lösung |
-|---|---|
-| „Tag nicht gefunden" | Tag existiert noch nicht → Neues Tier anlegen |
-| „Kein Zugriff auf diese Tierdaten" | Besitzer muss Freigaben setzen (🔐 Freigaben) |
-| Seite lädt nach Kamera-Foto neu | Normales Verhalten bei sehr alten Browsern — Update des Browsers |
-| Gemini liefert falschen Dokumenttyp | Gemini prüft jetzt doppelt — Bilder von weiter weg fotografieren |
-| API-Key wird nicht gespeichert | Key wird live validiert — ungültiger Key wird abgelehnt |
-| Menu-Icons fehlen | Token leer? → Neu einloggen |
-| WebSocket upload_end wird nicht erkannt | `upload_end` muss als Text-Frame (nicht Binary) gesendet werden |
-
----
-
-## 🎯 Checkliste: Erste Schritte
-
-- [ ] Server starten (`npm run dev` in `server/`)
-- [ ] PWA starten (`npm run dev` in `pwa/`)
-- [ ] PWA öffnen: http://localhost:5173
-- [ ] Registrieren mit Email + Passwort
-- [ ] Admin-Rolle zuweisen (ADMIN_EMAIL in .env)
-- [ ] Admin-Panel öffnen: http://localhost:5173/admin
-- [ ] Gemini API-Key im Profil hinterlegen (optional)
-- [ ] Barcode/QR-Code scannen → Tier anlegen
-- [ ] Dokument fotografieren → Gemini-Analyse abwarten
-- [ ] Tags & Zusammenfassung prüfen
-- [ ] Freigaben einstellen
-- [ ] Öffentliches Profil testen (logout → „Tier scannen ohne Anmeldung")
-- [ ] Audit-Log ansehen
-
----
-
-## 📁 Projektstruktur
-
-```text
 paw.oxs.at/
-├── server/
+├── server/                  # Fastify REST API + WebSocket
 │   ├── src/
-│   │   ├── app.js                    # Fastify Setup, Routes
-│   │   ├── db/
-│   │   │   ├── index.js              # DB Init, Migrations
-│   │   │   └── schema.sql            # DB Schema
-│   │   ├── routes/                   # API Endpoints
-│   │   ├── services/                 # OCR, Audit Logging, Storage
-│   │   └── ws/                       # WebSocket Upload Handler
-│   ├── .env.example
-│   └── package.json
-├── pwa/
+│   │   ├── app.js           # Server setup
+│   │   ├── db/              # PostgreSQL queries, migrations
+│   │   ├── routes/          # API endpoints by domain
+│   │   ├── services/        # OCR, Gladia, audit, storage, analysis pipeline
+│   │   ├── utils/           # Crypto, AI model lists, path helpers
+│   │   └── ws/              # WebSocket upload handler
+│   ├── tests/               # Integration tests (150+ tests)
+│   └── .env.example
+│
+├── pwa/                     # React 18 + Vite PWA
 │   ├── src/
-│   │   ├── App.tsx                   # Main App + Routing
-│   │   ├── api/
-│   │   │   └── rest.ts               # API Client
-│   │   ├── pages/                    # React Views (Login, Animals, Scan...)
-│   │   └── index.css                 # Styles & Theme Variables
-│   └── package.json
-└── android/                          # Native Kotlin App
+│   │   ├── App.tsx          # Routing, layout
+│   │   ├── pages/           # Route-level components
+│   │   ├── components/      # Reusable UI
+│   │   ├── hooks/           # useGlobalNfc, useTheme, useBarcode …
+│   │   ├── api/rest.ts      # Axios wrapper + auth
+│   │   └── locales/         # de.json, en.json
+│   └── public/
+│
+├── docs/
+│   ├── TOS-de.md            # Terms of Service (German)
+│   └── TOS-en.md            # Terms of Service (English)
+│
+├── Containerfile.server
+├── Containerfile.pwa
+├── podman-compose.yml
+├── Caddyfile
+├── nginx.conf
+└── .env.podman
 ```
 
 ---
 
-## ✨ Tipps & Tricks für die Entwicklung
+## Legal
 
-### QR-Code zum Testen generieren
-- Nutze ein Online-Tool (z.B. qr-code-generator.com).
-- Text eingeben: `TEST-BARCODE-12345`
-- QR-Code auf dem Bildschirm anzeigen und mit dem Barcode-Scanner der App einscannen.
+See [Terms of Service (German)](docs/TOS-de.md) | [Terms of Service (English)](docs/TOS-en.md)
 
-### NFC-Tag simulieren (Android Emulator)
-Du kannst NFC-Scans im Emulator über das Terminal simulieren:
-```bash
-adb emu gsm send-nfc-test-event nfc_data
-```
-*Oder direkt in Android Studio: Extended controls (...) → Virtual sensors → NFC → "Tap tag".*
-
-### Mehrere Accounts lokal testen
-Öffne ein normales Browserfenster und ein Inkognito-Fenster, um das Teilen von Tieren (Vet vs. User) zu testen.
-
-### Datenbank zurücksetzen
-```bash
-rm server/paw.db
-# Server neu starten → eine frische, leere Datenbank wird erstellt.
-```
+PAW is not a certified medical device. AI-generated analysis is informational only and does not replace professional veterinary diagnosis.
 
 ---
 
-## 📞 Support
-
-- **Fehler im Server?** → `server/.env` prüfen, `server/paw.db` zurücksetzen
-- **Fehler in PWA?** → Browser-Console (F12)
-- **Fehler in Android?** → Logcat in Android Studio
-- **Datenbank korrupt?** → `rm server/paw.db` und neu starten
-
----
-
-**Viel Erfolg! 🚀🐾**
+*© PAW Project — All rights reserved*
