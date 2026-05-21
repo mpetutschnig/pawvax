@@ -1110,26 +1110,63 @@ export default function AdminPage() {
                 )}
               </div>
               <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-4)' }}>
-                Erlaubt Login via Supabase-JWT-Token von externen Apps (z.B. per <code>?token=</code> URL-Parameter).
+                Erlaubt Login via Supabase-JWT — per Deep-Link aus externer App oder direkt über Magic Link / OAuth in der PWA.
               </p>
 
               <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-md)', padding: 'var(--space-4)', marginBottom: 'var(--space-4)', border: '1px solid var(--border)' }}>
                 <div style={{ fontWeight: 600, marginBottom: 'var(--space-3)', fontSize: 'var(--font-size-sm)' }}>Setup-Anleitung</div>
                 <ol style={{ margin: 0, paddingLeft: 'var(--space-5)', display: 'grid', gap: 'var(--space-2)', fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
                   <li>Supabase-Projekt anlegen auf <a href="https://supabase.com" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary-600)' }}>supabase.com</a></li>
-                  <li>JWT Secret kopieren: <em>Supabase Dashboard → Settings → API → JWT Keys → Tab „Legacy JWT Secret"</em></li>
-                  <li>JWT Secret unten eintragen (wird verschlüsselt gespeichert)</li>
-                  <li>In der externen App: Supabase-JWT per Deep-Link übergeben: <code>{window.location.origin}/login?token=&lt;supabase_jwt&gt;</code></li>
+                  <li>JWT Secret kopieren: <em>Settings → API → JWT Keys → Tab „Legacy JWT Secret"</em> → unten eintragen</li>
+                  <li>Project URL + Anon Key kopieren: <em>Settings → API → Project URL / anon public</em> → unten eintragen</li>
+                  <li>Redirect URL in Supabase eintragen: <em>Authentication → URL Configuration → Redirect URLs</em></li>
+                  <li>OAuth-Provider aktivieren (optional): <em>Authentication → Providers</em> → Provider-Namen unten eintragen</li>
                 </ol>
               </div>
 
               <div className="form-group">
-                <label className="form-label">Redirect URL (für Magic Link / OAuth)</label>
+                <label className="form-label">Redirect URL</label>
                 <code style={{ fontSize: 'var(--font-size-xs)', background: 'var(--surface)', padding: 'var(--space-2)', borderRadius: 'var(--radius-sm)', display: 'block', wordBreak: 'break-all' }}>
                   {window.location.origin}/login
                 </code>
                 <p className="text-muted" style={{ marginTop: 'var(--space-2)', fontSize: 'var(--font-size-xs)' }}>
-                  Wenn Supabase direkt zur PWA weiterleiten soll (z.B. Magic Link), diese URL unter Authentication → URL Configuration → Redirect URLs eintragen.
+                  Diese URL in Supabase unter Authentication → URL Configuration → Redirect URLs eintragen.
+                </p>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Project URL</label>
+                <input
+                  type="url"
+                  className="form-input"
+                  placeholder="https://xxxxxxxxxxxxxxxxxxxx.supabase.co"
+                  value={(appSettings as any).supabase_url || ''}
+                  onChange={e => setAppSettings((s: any) => ({ ...s, supabase_url: e.target.value }))}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Anon Key (public)</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="eyJhbGci... (anon/public key aus Supabase Dashboard)"
+                  value={(appSettings as any).supabase_anon_key || ''}
+                  onChange={e => setAppSettings((s: any) => ({ ...s, supabase_anon_key: e.target.value }))}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">OAuth Provider (kommagetrennt)</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="google,github,azure"
+                  value={(appSettings as any).supabase_oauth_providers || ''}
+                  onChange={e => setAppSettings((s: any) => ({ ...s, supabase_oauth_providers: e.target.value }))}
+                />
+                <p className="text-muted" style={{ marginTop: 'var(--space-1)', fontSize: 'var(--font-size-xs)' }}>
+                  Leer lassen wenn nur Magic Link gewünscht. Mögliche Werte: google, github, azure, apple, discord, ...
                 </p>
               </div>
 

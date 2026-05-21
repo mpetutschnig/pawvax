@@ -11,7 +11,10 @@ export const PUBLIC_SETTINGS_KEYS = new Set([
   'billing_voice_memo_de_cents',
   'billing_voice_memo_en_cents',
   'billing_voice_memo_both_cents',
-  'maintenance_mode'
+  'maintenance_mode',
+  'supabase_url',
+  'supabase_anon_key',
+  'supabase_oauth_providers',
 ])
 
 export const GOVERNANCE_SETTINGS_KEYS = [
@@ -49,7 +52,7 @@ export const MAIL_SETTINGS_KEYS = [
   'oauth2_tenant'
 ]
 
-export const AUTH_SETTINGS_KEYS = ['supabase_jwt_secret']
+export const AUTH_SETTINGS_KEYS = ['supabase_jwt_secret', 'supabase_url', 'supabase_anon_key', 'supabase_oauth_providers']
 
 export const SECRET_SETTINGS_KEYS = new Set([
   'smtp_password',
@@ -207,6 +210,9 @@ export async function getAdminSettings(db = getDb()) {
     maintenance_mode: normalizeBoolean(raw.maintenance_mode),
     audit_retention_days: Number(raw.audit_retention_days || 365),
     default_rate_limit_per_min: Number(raw.default_rate_limit_per_min || 60),
+    supabase_url: raw.supabase_url || '',
+    supabase_anon_key: raw.supabase_anon_key || '',
+    supabase_oauth_providers: raw.supabase_oauth_providers || '',
   }
 
   for (const secretKey of SECRET_SETTINGS_KEYS) {

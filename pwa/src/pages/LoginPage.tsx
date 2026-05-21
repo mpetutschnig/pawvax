@@ -23,13 +23,50 @@ export default function LoginPage() {
     return localStorage.getItem('paw_server_url') || window.location.origin
   })
   const [oauthProviders, setOauthProviders] = useState<Record<string, boolean>>({})
+  const [supabaseConfig, setSupabaseConfig] = useState<{ url: string; anonKey: string; oauthProviders: string[] } | null>(null)
+  const [supabaseMagicEmail, setSupabaseMagicEmail] = useState('')
+  const [supabaseMagicSent, setSupabaseMagicSent] = useState(false)
+  const [supabaseLoading, setSupabaseLoading] = useState(false)
 
   useEffect(() => {
-    fetch('/api/settings').then(res => res.json()).then(data => { if (data.logo_data) setLogoData(data.logo_data) }).catch(() => {})
+    fetch('/api/settings').then(res => res.json()).then(data => {
+      if (data.logo_data) setLogoData(data.logo_data)
+      if (data.supabase_url && data.supabase_anon_key) {
+        setSupabaseConfig({
+          url: data.supabase_url,
+          anonKey: data.supabase_anon_key,
+          oauthProviders: data.supabase_oauth_providers ? data.supabase_oauth_providers.split(',').map((s: string) => s.trim()).filter(Boolean) : [],
+        })
+      }
+    }).catch(() => {})
     fetch('/api/auth/oauth/providers').then(res => res.json()).then(setOauthProviders).catch(() => {})
   }, [])
 
   useEffect(() => {
+    const hash = window.location.hash
+    if (hash.includes('access_token=')) {
+      const params = new URLSearchParams(hash.slice(1))
+      const accessToken = params.get('access_token')
+      if (accessToken) {
+        window.history.replaceState(null, '', window.location.pathname + window.location.search)
+        setTokenActionInProgress(true)
+        ;(async () => {
+          try {
+            const res = await supabaseLogin(accessToken)
+            localStorage.setItem('token', res.data.token)
+            localStorage.setItem('role', res.data.account?.role || 'user')
+            localStorage.setItem('verified', String(res.data.account?.verified || 0))
+            navigate('/reminders')
+          } catch (err: unknown) {
+            const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
+            setError(msg ?? 'Supabase-Login fehlgeschlagen')
+            setTokenActionInProgress(false)
+          }
+        })()
+        return
+      }
+    }
+
     const verifyToken = searchParams.get('verifyToken')
     const resetToken = searchParams.get('resetToken')
     const oauthToken = searchParams.get('oauthToken')
@@ -338,6 +375,70 @@ export default function LoginPage() {
                 </a>
               )}
             </div>
+          </>
+        )}
+
+        {mode === 'login' && supabaseConfig && (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', margin: 'var(--space-4) 0 var(--space-3) 0' }}>
+              <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+              <span className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>oder via Supabase</span>
+              <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+            </div>
+
+            {supabaseConfig.oauthProviders.length > 0 && (
+              <div style={{ display: 'grid', gap: 'var(--space-2)', marginBottom: 'var(--space-2)' }}>
+                {supabaseConfig.oauthProviders.map(provider => (
+                  <a
+                    key={provider}
+                    href={`${supabaseConfig.url}/auth/v1/authorize?provider=${provider}&redirect_to=${encodeURIComponent(window.location.origin + '/login')}`}
+                    className="btn btn-ghost btn-full"
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)', textDecoration: 'none', textTransform: 'capitalize' }}
+                  >
+                    Mit {provider} anmelden (Supabase)
+                  </a>
+                ))}
+              </div>
+            )}
+
+            {supabaseMagicSent ? (
+              <div className="success-card" style={{ marginBottom: 'var(--space-2)' }}>
+                <p style={{ margin: 0, fontSize: 'var(--font-size-sm)' }}>Magic Link gesendet — E-Mail prüfen und Link klicken.</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                <input
+                  className="form-input"
+                  type="email"
+                  placeholder="E-Mail für Magic Link"
+                  value={supabaseMagicEmail}
+                  onChange={e => setSupabaseMagicEmail(e.target.value)}
+                  style={{ flex: 1 }}
+                />
+                <button
+                  className="btn btn-ghost"
+                  disabled={supabaseLoading || !supabaseMagicEmail}
+                  onClick={async () => {
+                    setSupabaseLoading(true)
+                    try {
+                      const res = await fetch(`${supabaseConfig.url}/auth/v1/otp`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', apikey: supabaseConfig.anonKey },
+                        body: JSON.stringify({ email: supabaseMagicEmail, create_user: true, options: { emailRedirectTo: window.location.origin + '/login' } }),
+                      })
+                      if (!res.ok) throw new Error()
+                      setSupabaseMagicSent(true)
+                    } catch {
+                      setError('Magic Link konnte nicht gesendet werden')
+                    } finally {
+                      setSupabaseLoading(false)
+                    }
+                  }}
+                >
+                  {supabaseLoading ? <div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} /> : 'Magic Link'}
+                </button>
+              </div>
+            )}
           </>
         )}
 
