@@ -1,7 +1,7 @@
-# Nutzungsbedingungen — PAW (Digitaler Tierimpfpass)
+# Allgemeine Geschäftsbedingungen (AGB) — [Appname]
 
 **Stand:** Mai 2026
-**Anbieter:** PAW Project (im Folgenden „PAW", „wir", „uns")
+**Anbieter:** [Provider] (im Folgenden „[Appname]", „wir", „uns")
 
 ---
 
@@ -91,7 +91,7 @@ Ihre Rechte als betroffene Person:
 - **Datenübertragbarkeit (Art. 20 DSGVO):** Export aller Daten als ZIP-Datei (verfügbar unter Profil → Daten exportieren)
 - **Widerspruch (Art. 21 DSGVO):** Widerspruch gegen bestimmte Verarbeitungsvorgänge
 
-Zur Ausübung Ihrer Rechte wenden Sie sich an: **datenschutz@paw.example.com**
+Zur Ausübung Ihrer Rechte wenden Sie sich an: **datenschutz@[domain]**
 
 Weitere Details entnehmen Sie unserer Datenschutzerklärung.
 
@@ -149,5 +149,5 @@ Es gilt österreichisches Recht unter Ausschluss des UN-Kaufrechts (CISG). Geric
 ## 16. Kontakt
 
 Bei Fragen zu diesen Nutzungsbedingungen:
-**E-Mail:** legal@paw.example.com
-**Adresse:** PAW Project, [Adresse], Graz, Österreich
+**E-Mail:** legal@[domain]
+**Adresse:** [Provider], [Adresse], Graz, Österreich

@@ -1,13 +1,13 @@
-# Terms of Service — PAW (Digital Animal Health Passport)
+# Terms and Conditions — [Appname] (Digital Animal Health Passport)
 
 **Effective date:** May 2026
-**Provider:** PAW Project (hereinafter "PAW", "we", "us")
+**Provider:** [Provider] (hereinafter "[Appname]", "we", "us")
 
 ---
 
 ## 1. Scope
 
-These Terms of Service govern your use of the PAW platform (Progressive Web App and API, hereinafter "Service"). By creating an account or using the Service you agree to these terms.
+These Terms and Conditions govern your use of the PAW platform (Progressive Web App and API, hereinafter "Service"). By creating an account or using the Service you agree to these terms.
 
 ---
 
@@ -91,7 +91,7 @@ Your rights as a data subject:
 - **Data portability (Art. 20 GDPR):** Export all data as a ZIP file (available under Profile → Export data)
 - **Objection (Art. 21 GDPR):** Object to specific processing activities
 
-To exercise your rights, contact: **privacy@paw.example.com**
+To exercise your rights, contact: **privacy@[domain]**
 
 For further detail, see our Privacy Policy.
 
@@ -136,7 +136,7 @@ To the extent permitted by law, PAW is not liable for:
 
 ## 14. Changes to These Terms
 
-PAW reserves the right to update these Terms of Service. Material changes will be communicated by email or in-app notification. Continued use of the Service after changes take effect constitutes acceptance.
+PAW reserves the right to update these Terms and Conditions. Material changes will be communicated by email or in-app notification. Continued use of the Service after changes take effect constitutes acceptance.
 
 ---
 
@@ -149,5 +149,5 @@ These terms are governed by Austrian law, excluding the UN Convention on Contrac
 ## 16. Contact
 
 For questions about these Terms:
-**Email:** legal@paw.example.com
-**Address:** PAW Project, [Address], Graz, Austria
+**Email:** legal@[domain]
+**Address:** [Provider], [Address], Graz, Austria

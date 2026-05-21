@@ -1,18 +1,573 @@
-# PAW — Digital Animal Health Passport
+[🇩🇪 Deutsche Version](#deutsche-version) | [🇬🇧 English Version](#english-version)
+
+---
+
+<a name="deutsche-version"></a>
+
+# [Appname] — Digitaler Tiergesundheitspass
+
+> Eine sichere, KI-gestützte Progressive Web App zur Verwaltung von Tierarztunterlagen, Impfpässen und Tiergesundheitsdaten — für Tierbesitzer, Tierärzte und Behörden.
+
+---
+
+## Was ist [Appname]?
+
+[Appname] ersetzt das physische Tiergesundheitsheft durch eine strukturierte, rollenbasierte digitale Gesundheitsakte. Tierbesitzer laden Impfbescheinigungen und medizinische Dokumente per Smartphone-Kamera hoch. Tierärzte fügen Befunde und Sprachnotizen direkt am Untersuchungstisch hinzu. Behörden prüfen den Impfstatus per NFC-Scan — ohne App-Installation.
+
+Alle Beteiligten teilen eine einzige Datenquelle, gefiltert nach Rolle. Kein Papier. Keine Kopien. Kein geteilter Login.
+
+---
+
+## Warum [Appname]? USPs, Marktpotenzial & Mitbewerber
+
+### Das Problem
+
+Jeder Tierbesitzer in der EU trägt ein physisches Impfheft mit sich. Es geht verloren, wird vergessen, beschädigt oder beim Tierarzt liegengelassen. Ein standardisiertes digitales Äquivalent existiert nicht. Tierärzte, Grenzbehörden, Tierheime und Tierpensionen benötigen teils dieselben Daten — aber unterschiedliche Ausschnitte davon, unter unterschiedlichen Vertrauensstufen.
+
+### Bestehende Alternativen — und ihre Lücken
+
+| Alternative | Funktion | Lücke |
+|-------------|---------|-------|
+| **Physischer EU-Tierreisepass** | Papierbasierter Impfnachweis | Verlierbar, kein digitaler Zugriff, manuell |
+| **TASSO / FINDEFIX (DE/AT)** | Mikrochip-Registerdatenbanken | Nur Abfrage, keine Dokumente, keine Tierarztakten |
+| **PetDesk / Vetster** | Termin- & Erinnerungs-Apps | Kein Dokumentenspeicher, keine KI-Analyse, kein öffentliches Teilen |
+| **VetCloud / easyVET** | Praxisverwaltungssoftware | Tierarzt-seitig, Besitzer erhalten nur eingeschränkten Lesezugriff |
+| **Cloud-Speicher (Drive, Dropbox)** | Dateispeicher | Kein Domänenmodell, keine Rollen, keine Analyse, kein NFC |
+| **Nationale Impfdatenbanken (VETIDATA AT)** | Behördliche Register | Staatlich kontrolliert, kein Besitzerzugang, kein Teilen |
+
+**Keiner davon kombiniert**: strukturierten Dokumentenspeicher + KI-Analyse + rollenbasiertes Teilen + öffentlichen NFC-Zugriff + manipulationssichere Tierarztdokumente + DSGVO-konformes Selbstmanagement.
+
+### Was [Appname] besser macht
+
+1. **KI-gestützte Datenextraktion** — Foto eines Papier-Impfpasses hochladen, strukturierte Daten (Impfstoffname, Chargennummer, Ablaufdatum, Tierarztname) automatisch erhalten. Kein Abtippen.
+2. **Feldbasierte Rollenfreigabe** — Der Tierarzt sieht Befunde. Die Tierpension sieht nur den Impfstatus. Die Grenzbehörde sieht das Tollwut-Zertifikat. Alles aus derselben Akte, nach Rolle gefiltert. Kein Alles-oder-nichts.
+3. **NFC-Tap → sofortige Verifizierung** — Chip-Tag mit jedem NFC-fähigen Smartphone antippen. Keine App-Installation, kein Login. Impfstatus sofort angezeigt.
+4. **Manipulationssichere Tierarztdokumente** — Dokumente, die ein verifizierter Tierarzt hochgeladen hat, kann der Besitzer nicht löschen. Klinische Integrität ohne zentrale Instanz.
+5. **Multi-KI-Anbieter-Flexibilität** — Nutzer wählen eigenen KI-Anbieter (Gemini, Claude, OpenAI) oder verwenden den System-Fallback. Keine Abhängigkeit von einem Anbieter. Eigener API-Key: keine Zusatzkosten.
+6. **Sprachnotiz → strukturierter Befund** — Tierarzt diktiert im Untersuchungsraum. Gladia transkribiert, KI strukturiert: Diagnose, Medikation, nächster Termin. Kein Tippen während der Konsultation.
+7. **Selbst-hostbar, datensouverän** — Auf eigenem Server betreiben. Vollständiger Datenexport (ZIP) jederzeit. Kontolöschung mit vollständiger Kaskade. Keine SaaS-Abhängigkeit.
+8. **Mandantenfähig** — Organisationen, Tierarztnetze und Versicherer können isolierte, gebrandete Instanzen betreiben.
+
+### Marktpotenzial
+
+- **180 Millionen Haustiere** in der EU (Hunde, Katzen, Kleintiere)
+- **EU-Tierreiseverordnung** verlangt standardisierten Impfnachweis für grenzüberschreitende Reisen — gesetzlicher Treiber für Digitalisierung
+- **Veterinärdigitalisierung** ist ein unterversorgter Markt: die meisten Praxen verwenden noch Papier für Besitzerkopien
+- **B2B2C-Potenzial**: Tierarztpraxen, Tierheime, Tierversicherer und Tierheime benötigen verifizierte Impfdaten — und haben derzeit keinen interoperablen Zugang
+- **Behördliche Nutzung**: Grenzbehörden und Tierschutzbehörden profitieren von sofortiger NFC-Verifikation ohne eigene Infrastruktur
+
+---
+
+## Funktionsübersicht
+
+### Tierverwaltung
+- Profile anlegen und verwalten (Art, Rasse, Geburtsdatum, Geschlecht, Chip-ID, Besitzername, Zuchtname)
+- Profilbilder hochladen und zuschneiden
+- Tiere archivieren mit Grund (verstorben, entlaufen, verkauft, weitervermittelt, anderes)
+- Eigentumsübertragung per 6-stelligem Code (24 Stunden gültig)
+
+### ID-Tags & Tiersuche
+- NFC-Chips und Barcodes bei Tieren registrieren
+- Mehrere Tags pro Tier (Chip, Barcode, QR)
+- Globaler NFC-Listener — Tag antippen, Tier-Detailseite öffnet sich sofort
+- Öffentliche Tag-Abfrage — jedes NFC-Gerät liefert das öffentliche Tierprofil (kein Login nötig)
+
+### Dokumenten-Upload & KI-Analyse
+- Mehrseitige Dokumente hochladen (PDF, Foto, Kamerascan)
+- Unterstützte Dokumenttypen: Impfpässe, Tierarztberichte, Laborbefunde, Rezepte, Ahnentafeln, EU-Tierreisepässe, Hundesteuerbescheide, allgemeine Dokumente
+- Echtzeit-Analyse per WebSocket — Status wird live an den Client gestreamt
+- KI-Anbieter (Priorität pro Benutzer konfigurierbar):
+  - **Google Gemini** (Standard)
+  - **Anthropic Claude**
+  - **OpenAI GPT-4 Vision**
+- Strukturierte Datenextraktion: Impfstoffe, Dosierungen, Ablaufdaten, Diagnosen, Medikamente, nächste Termine
+- Duplikaterkennung per Inhalts-Hash
+- Analysehistorie — jederzeit mit anderem Anbieter neu analysieren
+- Tags und rollenbasierte Sichtbarkeit pro Dokument
+
+### Sprachnotizen
+- Audioaufnahme in der App
+- Transkription via Gladia (Deutsch und Englisch)
+- KI-Strukturierung: Diagnose, Befunde, Vorgehen, Medikamente, nächste Termine
+- Audiowiedergabe in der Detailansicht
+- Freigabeberechtigungen pro Notiz
+
+### NFC & Öffentlicher Zugriff
+- NFC/Barcode-Tags bei Tieren registrieren
+- Registrierten Tag antippen → direkt zur Tier-Detailseite (wenn eingeloggt)
+- **Login-freier öffentlicher Scan**: NFC-Tap oder QR-Scan zeigt öffentliches Profil (Impfstatus, Notfallkontakt) — keine App-Installation auf Leserseite nötig
+- iOS: NDEF URL-kodierte Tags öffnen sich nativ in Safari
+
+### Dokumentenfreigabe & Berechtigungen
+- `allowed_roles` pro Dokument (Gast, Tierarzt, Behörde, Besitzer)
+- Freigabevoreinstellungen pro Tier
+- Temporäre Freigabe-Links (14 Tage Gültigkeit)
+- Öffentliches Profil (opt-in)
+
+### Erinnerungen
+- Erinnerungen verknüpft mit Dokumenten oder Tieren anlegen
+- Kalenderexport als `.ics`-Datei (clientseitig)
+- E-Mail-Erinnerungen (wenn SMTP konfiguriert)
+
+### Profil & Benutzereinstellungen
+- Persönliche KI-Anbieter-Konfiguration (eigene API-Keys, Modellauswahl)
+- KI-Anbieter-Prioritätsreihenfolge
+- Budgetlimit für System-KI
+- Persönliche API-Key-Generierung (für externe Integrationen)
+- DSGVO: vollständiger Datenexport als ZIP, Konto-Selbstlöschung mit Kaskade
+
+### Admin-Panel
+- Benutzerverwaltung (Rollenzuweisung, Verifikation, Löschung)
+- Ausstehende Tierarzt-/Behörden-Verifikationsanträge
+- Audit-Log: paginiert, filterbar, vollständige Aktionshistorie mit Vorher-/Nachher-Zustand
+- Systemeinstellungen: App-Name, Logo, Designfarbe, SMTP, OAuth2-Anbieter, System-KI-Keys, Preis pro Seite
+- Statistik-Dashboard
+- Datenbankbereinigung (verwaiste Datensätze)
+- Abrechnungsübersicht aller Benutzer
+- API-Testlauf-Historie
+- Mandantenverwaltung (Organisationen)
+
+---
+
+## Rollen & Zugriffssteuerung
+
+### Rollenübersicht
+
+| Rolle | Beschreibung | Vergabe |
+|-------|-------------|---------|
+| `user` | Standard-Tierbesitzer | Selbstregistrierung |
+| `vet` | Verifizierter Tierarzt | Admin-Genehmigung nach Antrag |
+| `authority` | Behörde / Organisationsinspektor | Admin-Genehmigung nach Antrag |
+| `admin` | Systemadministrator | Direkte Zuweisung |
+| `guest` | Nicht eingeloggt / öffentlich | Standard, kein Login nötig |
+
+### Berechtigungsmatrix
+
+| Berechtigung | Gast | User | Tierarzt | Behörde | Admin |
+|-------------|:----:|:----:|:--------:|:-------:|:-----:|
+| Öffentliches Tierprofil ansehen | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Login & eigene Tiere verwalten | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Docs bei eigenen Tieren hochladen | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Docs bei **fremden** Tieren hochladen | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Eigene Uploads löschen | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Tierarzt-Uploads löschen | ❌ | ❌ | nur eigene | ❌ | ✅ |
+| Tierarzt-sichtige Dokumente sehen | ❌ | ❌ | ✅ | ❌ | ✅ |
+| Behörden-sichtige Dokumente sehen | ❌ | ❌ | ❌ | ✅ | ✅ |
+| Sprachnotizen bei beliebigen Tieren | ❌ | eigene | ✅ | ✅ | ✅ |
+| Systemeinstellungen verwalten | ❌ | ❌ | ❌ | ❌ | ✅ |
+
+### Tierarzt-/Behörden-Verifikationsprozess
+
+1. Benutzer registriert sich als Standard-Account
+2. Stellt Verifikationsantrag im Profil → lädt optional Nachweis hoch
+3. Admin prüft Antrag unter Admin → Verifikationen
+4. Admin genehmigt oder lehnt ab (mit optionalem Kommentar)
+5. Bei Genehmigung: Rollen-Badge aktiv, Tierarzt-/Behördenberechtigungen freigeschalten
+
+**Manipulationsschutz:** Dokumente, die ein verifizierter Tierarzt hochgeladen hat, sind mit `added_by_role='vet'` markiert. Der Tierbesitzer kann diese nicht löschen — nur der hochladende Tierarzt oder ein Admin. Dadurch entsteht eine unveränderliche klinische Akte ohne zentrale Instanz.
+
+### Dokumenten-Sichtbarkeitsmodell
+
+Jedes Dokument trägt ein `allowed_roles`-Feld (z.B. `["guest", "vet"]`):
+
+```
+Besitzer   → immer vollständiger Zugriff
+Tierarzt   → Zugriff wenn "vet" ∈ allowed_roles
+Behörde    → Zugriff wenn "authority" ∈ allowed_roles
+Gast/pub   → Zugriff wenn "guest" ∈ allowed_roles
+Unauth.    → nur öffentliches Tierprofil (kein Dokumenteninhalt)
+```
+
+### Temporäre Freigabe-Links
+
+- Pro Tier, 14 Tage Gültigkeit
+- Inhaber sieht Gast-sichtige Felder (kein Login nötig)
+- Besitzer kann jederzeit widerrufen
+
+---
+
+## API
+
+Interaktive Dokumentation (Swagger UI): `GET /documentation`
+
+Alle geschützten Endpunkte benötigen `Authorization: Bearer <JWT>`.
+
+### Authentifizierung
+```
+POST /api/auth/register                 Account registrieren
+POST /api/auth/login                    Login → JWT (7 Tage)
+POST /api/auth/refresh                  JWT erneuern
+POST /api/auth/verify-email             E-Mail-Token verifizieren
+POST /api/auth/request-password-reset   Passwort-Reset anfordern
+POST /api/auth/reset-password           Passwort zurücksetzen
+POST /api/auth/logout                   Token invalidieren
+GET  /api/auth/oauth/:provider          OAuth2 starten (google/github/microsoft)
+GET  /api/auth/oauth/:provider/callback OAuth2 Callback
+```
+
+### Tiere
+```
+GET    /api/animals                       Eigene Tiere auflisten
+POST   /api/animals                       Tier anlegen
+GET    /api/animals/:id                   Tier + Dokumente abrufen
+PATCH  /api/animals/:id                   Tier aktualisieren
+DELETE /api/animals/:id                   Löschen (Kaskade)
+POST   /api/animals/:id/archive           Archivieren mit Grund
+POST   /api/animals/:id/unarchive         Wiederherstellen
+POST   /api/animals/:id/transfer          Übertragungscode generieren (24h)
+POST   /api/animals/transfer/accept       Übertragung per Code annehmen
+GET    /api/animals/recently-scanned      Letzte 20 gescannte Tiere
+POST   /api/animals/:id/track-scan        Scan-Ereignis erfassen
+```
+
+### Tags & NFC
+```
+GET    /api/animals/:id/tags              Tags auflisten
+POST   /api/animals/:id/tags              Tag registrieren (NFC/Barcode)
+PATCH  /api/animals/:id/tags/:tagId       Aktivieren / Deaktivieren
+DELETE /api/animals/:id/tags/:tagId       Tag entfernen
+GET    /api/animals/by-tag/:tagId         Tier per Tag-ID suchen (auth)
+GET    /api/public/tag/:tagId             Öffentliche Tag-Abfrage (kein Auth)
+```
+
+### Dokumente
+```
+GET    /api/animals/:id/documents         Dokumente eines Tieres
+GET    /api/documents/:id                 Dokument + Analyse abrufen
+PATCH  /api/documents/:id                 Tags, allowed_roles aktualisieren
+DELETE /api/documents/:id                 Löschen + Seiten
+POST   /api/documents/:id/retry-analysis  Fehlgeschlagene Analyse wiederholen
+POST   /api/documents/:id/re-analyze      Mit neuem Anbieter neu analysieren
+GET    /api/documents/:id/history         Analysehistorie
+```
+
+**WebSocket-Upload** — `ws://<host>/ws?token=<JWT>`
+```
+1. Client → {type:"upload_start", animalId, filename, mimeType, allowedRoles}
+2. Server → {type:"ready"}
+3. Client → Binär-Chunks (max. 64 KB)
+4. Client → {type:"upload_end"}
+5. Server → {type:"status", message}   (Echtzeit-Fortschritt)
+6. Server → {type:"done", document}    (Endergebnis)
+```
+
+### Freigabe & Öffentlicher Zugriff
+```
+GET    /api/animals/:id/sharing           Freigabekonfiguration abrufen
+PUT    /api/animals/:id/sharing           Rollen-Sichtbarkeit aktualisieren
+POST   /api/animals/:id/public-share      Freigabe-Link erstellen
+GET    /api/animals/:id/public-shares     Freigabe-Links auflisten
+DELETE /api/animals/:id/public-share/:id  Link widerrufen
+GET    /api/share/:shareId                Geteiltes Tier aufrufen (kein Login)
+```
+
+### Sprachnotizen
+```
+POST   /api/animals/:id/voice-memos       Aufnahme hochladen + transkribieren
+GET    /api/animals/:id/voice-memos       Notizen auflisten
+GET    /api/voice-memos/:id               Notiz + Transkript + Analyse
+PATCH  /api/voice-memos/:id               Aktualisieren
+DELETE /api/voice-memos/:id               Löschen
+```
+
+### Erinnerungen & Abrechnung
+```
+POST   /api/reminders                     Erinnerung anlegen
+GET    /api/reminders                     Aktive Erinnerungen auflisten
+PATCH  /api/reminders/:id/dismiss         Als erledigt markieren
+GET    /api/billing/me                    Eigene Nutzung & Kosten
+POST   /api/billing/consent               System-KI-Abrechnung akzeptieren
+```
+
+### Konto & Daten
+```
+GET    /api/accounts/me                   Eigenes Profil
+PATCH  /api/accounts/me                   Aktualisieren (Name, E-Mail, Passwort, KI-Keys)
+DELETE /api/accounts/me                   Konto löschen (DSGVO, Kaskade)
+POST   /api/accounts/me/verify-request    Tierarzt-/Behördenverifikation beantragen
+GET    /api/accounts/me/api-keys          Persönliche API-Keys auflisten
+POST   /api/accounts/me/api-keys          API-Key generieren (einmalig angezeigt)
+DELETE /api/accounts/me/api-keys/:id      API-Key widerrufen
+GET    /api/accounts/me/export            Daten als ZIP herunterladen (DSGVO Art. 20)
+```
+
+### Admin
+```
+GET    /api/admin/stats                   Systemstatistiken
+GET    /api/admin/accounts                Alle Accounts
+PATCH  /api/admin/accounts/:id            Rolle/Verifikation ändern
+GET    /api/admin/verifications           Ausstehende Verifikationsanträge
+POST   /api/admin/verifications/:id/approve
+POST   /api/admin/verifications/:id/reject
+GET    /api/admin/audit                   Audit-Log (paginiert, filterbar)
+GET    /api/admin/settings                Systemeinstellungen
+PATCH  /api/admin/settings                Einstellungen aktualisieren
+POST   /api/admin/settings/test-mail      SMTP testen
+GET    /api/admin/billing                 Nutzung & Kosten aller Benutzer
+GET    /api/admin/cleanup                 Verwaiste Datensätze erkennen
+DELETE /api/admin/cleanup                 Verwaiste Datensätze löschen
+```
+
+---
+
+## Technologie-Stack
+
+### Frontend
+| Bereich | Technologie |
+|---------|------------|
+| Framework | React 18 + TypeScript |
+| Build | Vite 6 |
+| Styling | Tailwind CSS 3 + Shadcn UI (Radix primitives) |
+| Routing | React Router DOM 6 |
+| HTTP | Axios |
+| i18n | react-i18next (DE / EN) |
+| PWA | vite-plugin-pwa (Service Worker, installierbar) |
+| Scannen | html5-qrcode (lesen), qrcode.react (generieren) |
+| NFC | Web NFC API (Chrome Android 89+); iOS: NDEF URL-Tags öffnen nativ in Safari |
+
+### Backend
+| Bereich | Technologie |
+|---------|------------|
+| Runtime | Node.js 18+ (ES Modules) |
+| Framework | Fastify 5 |
+| Auth | @fastify/jwt + bcrypt |
+| Datenbank | PostgreSQL 13+ |
+| Bildverarbeitung | Sharp (Komprimierung, Rotation, EXIF-Entfernung) |
+| E-Mail | Nodemailer |
+| OAuth2 | @fastify/oauth2 (Google, GitHub, Microsoft) |
+| WebSocket | @fastify/websocket |
+| API-Doku | Swagger UI (@fastify/swagger) |
+
+### KI & Externe Dienste
+| Dienst | Zweck |
+|--------|-------|
+| Google Gemini | Dokument-OCR + strukturierte Extraktion (Standard) |
+| Anthropic Claude | Alternative Dokumentenanalyse |
+| OpenAI GPT-4 Vision | Alternative Dokumentenanalyse |
+| Gladia v2 | Sprachtranskription (DE/EN) |
+
+### Infrastruktur
+| Komponente | Technologie |
+|-----------|------------|
+| Container | Podman (rootless) |
+| Orchestrierung | systemd Quadlets |
+| Reverse Proxy | Caddy (automatisches TLS) |
+| Statisches Serving | Nginx |
+| Datenbank | PostgreSQL 13+ (persistentes Volume) |
+
+---
+
+## Installation & Lokale Entwicklung
+
+### Voraussetzungen
+- Node.js 18+
+- PostgreSQL 13+ (oder Docker/Podman-Setup verwenden)
+- npm 9+
+
+### Server
+```bash
+cd server
+npm install
+cp .env.example .env     # Werte eintragen
+npm run dev              # → http://localhost:3000
+                         # Swagger: http://localhost:3000/documentation
+```
+
+### PWA
+```bash
+cd pwa
+npm install
+npm run dev              # → http://localhost:5173
+```
+
+### Minimales `.env` für lokale Entwicklung
+```env
+PORT=3000
+JWT_SECRET=durch_zufaelligen_32-stelligen_string_ersetzen
+DATABASE_URL=postgresql://paw:paw@localhost:5432/paw
+CORS_ORIGINS=http://localhost:5173
+```
+
+---
+
+## Produktions-Deployment (Podman / systemd Quadlets)
+
+### Container-Stack
+
+Verwaltet durch **systemd Quadlets** (Podman rootless) — Unit-Dateien in `podman/`:
+
+```
+podman/
+├── paw-api.container     (Fastify REST API + WebSocket)
+├── paw-pwa.container     (Nginx statisches Serving)
+├── postgres.container    (PostgreSQL 13)
+└── caddy.service         (Caddy Reverse Proxy + TLS)
+```
+
+### Erstes Deployment
+```bash
+sudo bash /git/pawvax/scripts/setup-rootless-podman.sh
+```
+
+### Deployment aktualisieren
+```bash
+sudo bash /git/pawvax/scripts/setup-rootless-podman.sh update
+```
+
+### Service-Steuerung
+```bash
+systemctl --user status paw-api      # Status prüfen
+journalctl --user -u paw-api -f      # Logs verfolgen
+systemctl --user restart paw-api     # Service neu starten
+```
+
+---
+
+## Vor- und Nach-Deployment-Checkliste
+
+### Vor dem ersten Deployment
+- [ ] JWT-Secret generieren: `openssl rand -hex 32` → `JWT_SECRET`
+- [ ] `CORS_ORIGINS` auf Produktionsdomain setzen
+- [ ] `DATABASE_URL` mit Produktionszugangsdaten konfigurieren
+- [ ] `ADMIN_EMAIL` setzen — erster Account mit dieser E-Mail erhält Admin-Rolle
+- [ ] Upload-Verzeichnis (`UPLOADS_DIR`) auf persistentem Volume prüfen
+- [ ] DNS auf Server-IP zeigen lassen
+- [ ] (Optional) System-KI-Keys (Gemini/Claude/OpenAI) für Fallback-Analyse hinterlegen
+- [ ] (Optional) SMTP konfigurieren und mit Admin → Einstellungen → Test-Mail prüfen
+- [ ] (Optional) OAuth2-Provider-Zugangsdaten konfigurieren
+
+### Vor jedem Update
+- [ ] Datenbank sichern: `pg_dump paw > backup_$(date +%Y%m%d).sql`
+- [ ] Migrations-/Änderungshinweise lesen
+- [ ] Aktuelles Container-Image als Rollback-Referenz taggen
+
+### Nach jedem Deployment
+- [ ] Health-Check: `GET https://ihre-domain/api/health`
+- [ ] Als Admin einloggen — Admin-Panel prüfen
+- [ ] Testdokument hochladen — KI-Analyse prüfen
+- [ ] Audit-Log auf Test-Aktionen prüfen
+- [ ] Öffentlichen NFC/Tag-Scan testen (kein Login)
+- [ ] (Bei SMTP) Passwort-Reset auslösen — E-Mail-Eingang prüfen
+
+---
+
+## Abrechnungskonzept
+
+[Appname] trennt **nutzerbereitgestellte KI** von **System-KI**:
+
+| Quelle | Kosten für Nutzer |
+|--------|------------------|
+| Eigener API-Key (Gemini/Claude/OpenAI) | Eigenes API-Kontingent — keine [Appname]-Kosten |
+| System-KI-Fallback | Konfigurierbar €/Seite — erfordert ausdrückliche Einwilligung |
+
+**Ablauf:**
+1. Nutzer konfiguriert Anbieter + eigenen Key → wird auf eigene Kosten analysiert, [Appname] berechnet nichts
+2. Kein Key / Kontingent erschöpft → System-Fallback angeboten; Nutzer muss Abrechnungseinwilligung erteilen
+3. Jede analysierte Seite erstellt einen `usage_logs`-Eintrag (Anbieter, Kosten, Seitenanzahl, Zeitstempel)
+4. Admin setzt Preis pro Seite unter Admin → Einstellungen
+5. Optionales Budgetlimit — Analyse pausiert bei Überschreitung
+6. Vollständige Historie für Nutzer unter Abrechnung; Gesamtübersicht für Admin
+
+**Erlösmodell-Optionen (für Betreiber):**
+- **Pay-per-Use**: Abrechnung pro Seite via System-KI (metered)
+- **Abonnement**: Monatliche Pauschale mit inkludiertem KI-Kontingent
+- **White-Label**: Organisationen lizenzieren eine gebrandete Mandanteninstanz
+
+---
+
+## Marktpositionierung
+
+### Zielmärkte
+
+**B2C — Tierbesitzer**
+Familien und Einzelpersonen, die mit Tieren reisen oder Gesundheitsdaten mit Tierärzten, Pensionen und Behörden teilen müssen. Einstieg: kostenloser Account mit eigenem KI-Key; Upgrade auf System-KI für Komfort.
+
+**B2B — Tierarztpraxen**
+Praxen, die manipulationssichere digitale Unterlagen ausstellen möchten. Tierärzte fügen strukturierte Befunde hinzu, Besitzer erhalten eine permanente, teilbare Kopie. Weniger Papier, Telefonanrufe und verlorene Unterlagen.
+
+**B2G — Behörden & Tierschutzbehörden**
+Grenzkontrolle, Tierschutzbehörden, Jagdbehörden. Sofortige NFC-Verifikation — keine App-Installation auf Leserseite, kein Login, kein Papier.
+
+**B2B2C — Tierdienstleister & Versicherer**
+Tierheime, Tierpfleger und Versicherer nutzen Freigabe-Links oder öffentliche NFC-Profile ohne Account. Versicherer prüfen Impfdaten ohne manuelle Dokumenteneinreichung.
+
+### Go-to-Market-Strategie
+1. **Direkter B2C-Launch** im DACH-Raum — EU-Tierreiseverordnung schafft sofortigen Bedarf
+2. **Tierarzt-Praxis-Partnerschaften** — als besitzerseitiges Aktenportal für bestehende Praxen integrieren
+3. **White-Label-Mandantenlizenzierung** — an Tierarztnetze, Tierversicherer und Tierheime verkaufen
+4. **Offene API** für Drittdienste (Pensionen, Reise-Apps) abgesichert durch Share-Tokens
+
+---
+
+## Projektstruktur
+
+```
+[Appname]/
+├── server/                  # Fastify REST API + WebSocket
+│   ├── src/
+│   │   ├── app.js           # Server-Setup
+│   │   ├── db/              # PostgreSQL-Abfragen, Migrationen
+│   │   ├── routes/          # API-Endpunkte nach Domäne
+│   │   ├── services/        # OCR, Gladia, Audit, Storage, Analyse-Pipeline
+│   │   ├── utils/           # Crypto, KI-Modell-Listen, Pfad-Helfer
+│   │   └── ws/              # WebSocket-Upload-Handler
+│   ├── tests/               # Integrationstests (150+ Tests)
+│   └── .env.example
+│
+├── pwa/                     # React 18 + Vite PWA
+│   ├── src/
+│   │   ├── App.tsx          # Routing, Layout
+│   │   ├── pages/           # Seitenkomponenten
+│   │   ├── components/      # Wiederverwendbare UI
+│   │   ├── hooks/           # useGlobalNfc, useTheme, useBarcode …
+│   │   ├── api/rest.ts      # Axios-Wrapper + Auth
+│   │   └── locales/         # de.json, en.json
+│   └── public/
+│
+├── docs/
+│   ├── TOC-de.md            # Allgemeine Geschäftsbedingungen
+│   └── TOC-en.md            # Terms and Conditions
+│
+├── podman/                  # systemd Quadlet Unit-Dateien
+├── Containerfile.server
+├── Containerfile.pwa
+├── Caddyfile
+├── nginx.conf
+└── .env.podman
+```
+
+---
+
+## Rechtliches
+
+Siehe [AGB (Deutsch)](docs/TOC-de.md) | [Terms and Conditions (English)](docs/TOC-en.md)
+
+[Appname] ist kein zertifiziertes Medizinprodukt. KI-generierte Analysen dienen ausschließlich der Information und ersetzen keine tierärztliche Diagnose.
+
+---
+
+*© [Appname] — Alle Rechte vorbehalten*
+
+---
+---
+
+<a name="english-version"></a>
+
+# [Appname] — Digital Animal Health Passport
 
 > A secure, AI-powered Progressive Web App for managing veterinary records, vaccination passports, and animal health data — for pet owners, veterinarians, and authorities.
 
 ---
 
-## What is PAW?
+## What is [Appname]?
 
-PAW replaces the physical pet health booklet with a structured, role-aware digital health record. Pet owners upload vaccination certificates and medical documents via their phone camera. Veterinarians add clinical notes and voice memos directly at the examination table. Authorities verify vaccination status by tapping an NFC chip — without installing an app.
+[Appname] replaces the physical pet health booklet with a structured, role-aware digital health record. Pet owners upload vaccination certificates and medical documents via their phone camera. Veterinarians add clinical notes and voice memos directly at the examination table. Authorities verify vaccination status by tapping an NFC chip — without installing an app.
 
 All parties share a single source of truth, filtered by role. No paper. No copies. No shared logins.
 
 ---
 
-## Why PAW? USPs, Market Potential & Competition
+## Why [Appname]? USPs, Market Potential & Competition
 
 ### The Problem
 
@@ -31,7 +586,7 @@ Every pet owner in the EU carries a physical vaccination booklet. It gets lost, 
 
 **None of them combine**: structured document storage + AI analysis + role-based sharing + public NFC access + tamper-proof vet records + DSGVO-compliant self-service.
 
-### What PAW Does Better
+### What [Appname] Does Better
 
 1. **AI-powered structured extraction** — Upload a photo of a paper vaccination certificate, get structured data (vaccine name, batch number, expiry, vet name) automatically. No typing.
 2. **Field-level role-based sharing** — The vet sees clinical records. The kennel sees vaccination status only. The border authority sees the rabies certificate. All from the same record, filtered by role. No all-or-nothing sharing.
@@ -65,6 +620,7 @@ Every pet owner in the EU carries a physical vaccination booklet. It gets lost, 
 - Multiple tags per animal (chip, barcode, QR)
 - Global NFC listener — tap a tag from anywhere in the app to navigate to the animal
 - Public tag lookup — any NFC reader returns the animal's public profile (no login required)
+- iOS: NDEF URL-encoded tags open natively in Safari
 
 ### Document Upload & AI Analysis
 - Upload multi-page documents (PDF, photo, camera scan)
@@ -318,7 +874,7 @@ DELETE /api/admin/cleanup                 Remove orphaned records
 | i18n | react-i18next (DE / EN) |
 | PWA | vite-plugin-pwa (service worker, installable) |
 | Scanning | html5-qrcode (read), qrcode.react (generate) |
-| NFC | Web NFC API (Chrome Android 89+); on iOS, NDEF URL tags open in Safari natively |
+| NFC | Web NFC API (Chrome Android 89+); on iOS, NDEF URL tags open natively in Safari |
 
 ### Backend
 | Layer | Technology |
@@ -344,10 +900,10 @@ DELETE /api/admin/cleanup                 Remove orphaned records
 ### Infrastructure
 | Component | Technology |
 |-----------|-----------|
-| Containers | Podman / Docker |
+| Containers | Podman (rootless) |
+| Orchestration | systemd quadlets |
 | Reverse proxy | Caddy (automatic TLS) |
 | Static serving | Nginx |
-| Orchestration | systemd quadlets (Podman rootless) |
 | Database | PostgreSQL 13+ (persistent volume) |
 
 ---
@@ -385,11 +941,11 @@ CORS_ORIGINS=http://localhost:5173
 
 ---
 
-## Production Deployment (Podman / Docker)
+## Production Deployment (Podman / systemd Quadlets)
 
 ### Container Stack
 
-Managed by **systemd quadlets** (Podman rootless) — unit files live in `podman/`:
+Managed by **systemd quadlets** (Podman rootless) — unit files in `podman/`:
 
 ```
 podman/
@@ -398,8 +954,6 @@ podman/
 ├── postgres.container    (PostgreSQL 13)
 └── caddy.service         (Caddy reverse proxy + TLS)
 ```
-
-Quadlets are loaded by systemd as native services — no compose daemon needed.
 
 ### First Deploy
 ```bash
@@ -450,15 +1004,15 @@ systemctl --user restart paw-api     # restart service
 
 ## Billing Concept
 
-PAW separates **user-provided AI** from **system AI**:
+[Appname] separates **user-provided AI** from **system AI**:
 
 | Source | Cost to user |
 |--------|-------------|
-| User's own API key (Gemini/Claude/OpenAI) | User's own API quota — no PAW charge |
+| User's own API key (Gemini/Claude/OpenAI) | User's own API quota — no [Appname] charge |
 | System AI fallback | Configurable €/page — requires explicit consent |
 
 **Flow:**
-1. User configures preferred provider + own key → analyzed at their cost, PAW charges nothing
+1. User configures preferred provider + own key → analyzed at their cost, [Appname] charges nothing
 2. No key / quota exhausted → system fallback offered; user must accept billing consent
 3. Each analyzed page creates a `usage_logs` entry (provider, cost, page count, timestamp)
 4. Admin sets price per page in Admin → Settings
@@ -499,7 +1053,7 @@ Kennels, groomers, and insurers access share links or public NFC profiles withou
 ## Project Structure
 
 ```
-paw.oxs.at/
+[Appname]/
 ├── server/                  # Fastify REST API + WebSocket
 │   ├── src/
 │   │   ├── app.js           # Server setup
@@ -522,12 +1076,12 @@ paw.oxs.at/
 │   └── public/
 │
 ├── docs/
-│   ├── TOS-de.md            # Terms of Service (German)
-│   └── TOS-en.md            # Terms of Service (English)
+│   ├── TOC-de.md            # Allgemeine Geschäftsbedingungen
+│   └── TOC-en.md            # Terms and Conditions
 │
+├── podman/                  # systemd quadlet unit files
 ├── Containerfile.server
 ├── Containerfile.pwa
-├── podman-compose.yml
 ├── Caddyfile
 ├── nginx.conf
 └── .env.podman
@@ -537,10 +1091,10 @@ paw.oxs.at/
 
 ## Legal
 
-See [Terms of Service (German)](docs/TOS-de.md) | [Terms of Service (English)](docs/TOS-en.md)
+See [Terms and Conditions (English)](docs/TOC-en.md) | [AGB (Deutsch)](docs/TOC-de.md)
 
-PAW is not a certified medical device. AI-generated analysis is informational only and does not replace professional veterinary diagnosis.
+[Appname] is not a certified medical device. AI-generated analysis is informational only and does not replace professional veterinary diagnosis.
 
 ---
 
-*© PAW Project — All rights reserved*
+*© [Appname] — All rights reserved*
