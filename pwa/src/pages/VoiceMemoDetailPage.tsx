@@ -151,7 +151,7 @@ export default function VoiceMemoDetailPage() {
             </button>
           )}
           {memo.transcription_text && ['completed', 'failed'].includes(memo.analysis_status) && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', flexWrap: 'wrap' }}>
               <select
                 value={reanalyzeLang || memo.language_mode || 'de'}
                 onChange={e => setReanalyzeLang(e.target.value)}
@@ -162,7 +162,7 @@ export default function VoiceMemoDetailPage() {
                 <option value="en">{t('voiceMemo.languageEn')}</option>
                 <option value="both">{t('voiceMemo.languageBoth')}</option>
               </select>
-              <button className="btn btn-outline" onClick={handleReanalyze} disabled={reanalyzing} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
+              <button className="btn btn-outline" onClick={handleReanalyze} disabled={reanalyzing} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', whiteSpace: 'nowrap' }}>
                 <RefreshCw size={16} /> {reanalyzing ? t('common.loading') : t('voiceMemo.reanalyzeAi')}
               </button>
             </div>
