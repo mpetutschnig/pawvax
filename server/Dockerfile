@@ -13,6 +13,7 @@ RUN npm install --omit=dev
 
 # Copy application
 COPY src ./src
+COPY public ./public
 
 # Create upload directory
 RUN mkdir -p /app/uploads
