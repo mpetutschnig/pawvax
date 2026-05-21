@@ -1052,7 +1052,7 @@ export default function AnimalPage() {
                 )}
               </div>
               <div>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)', minWidth: 0 }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)', minWidth: 0, tableLayout: 'fixed' }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid var(--border)' }}>
                       <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) 0', whiteSpace: 'nowrap' }}>{t('animal.vaccinations')}</th>
@@ -1130,7 +1130,7 @@ export default function AnimalPage() {
                 <span className="badge badge-success">{vetReportRecords.length}</span>
               </div>
               <div>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)', minWidth: 0 }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)', minWidth: 0, tableLayout: 'fixed' }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid var(--border)' }}>
                       <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) 0', whiteSpace: 'nowrap' }}>Befund / Behandlung</th>
@@ -1195,7 +1195,7 @@ export default function AnimalPage() {
                 <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', margin: 0 }}>Noch keine Behandlungen eingetragen.</p>
               ) : (
                 <div>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)', minWidth: 0 }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)', minWidth: 0, tableLayout: 'fixed' }}>
                     <thead>
                       <tr style={{ borderBottom: '1px solid var(--border)' }}>
                         <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) 0', whiteSpace: 'nowrap' }}>Substanz</th>
@@ -1275,7 +1275,7 @@ export default function AnimalPage() {
                 <span className="badge">{petPassportDocs.length}</span>
               </div>
               <div>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)', minWidth: 0 }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)', minWidth: 0, tableLayout: 'fixed' }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid var(--border)' }}>
                       <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) 0', whiteSpace: 'nowrap' }}>Titel</th>
@@ -1356,7 +1356,7 @@ export default function AnimalPage() {
                 <span className="badge">{medicalProductDocs.length}</span>
               </div>
               <div>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)', minWidth: 0 }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)', minWidth: 0, tableLayout: 'fixed' }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid var(--border)' }}>
                       <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) 0', whiteSpace: 'nowrap' }}>Produkt</th>
@@ -1435,7 +1435,7 @@ export default function AnimalPage() {
                 <span className="badge">{pedigreeDocs.length}</span>
               </div>
               <div>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)', minWidth: 0 }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)', minWidth: 0, tableLayout: 'fixed' }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid var(--border)' }}>
                       <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) 0', whiteSpace: 'nowrap' }}>Titel</th>
@@ -1503,7 +1503,7 @@ export default function AnimalPage() {
                 <span className="badge">{dogCertificateDocs.length}</span>
               </div>
               <div>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)', minWidth: 0 }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)', minWidth: 0, tableLayout: 'fixed' }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid var(--border)' }}>
                       <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) 0', whiteSpace: 'nowrap' }}>Titel</th>
@@ -1966,7 +1966,7 @@ export default function AnimalPage() {
                 >
                   <Mic size={16} color="var(--text-tertiary)" />
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ margin: 0, fontWeight: 500, fontSize: 'var(--font-size-sm)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <p style={{ margin: 0, fontWeight: 500, fontSize: 'var(--font-size-base)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {title || formatDateOnly(memo.created_at)}
                     </p>
                     {subtitle && <p className="text-muted" style={{ margin: 0, fontSize: 'var(--font-size-xs)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{subtitle}</p>}
