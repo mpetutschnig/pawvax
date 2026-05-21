@@ -27,7 +27,7 @@ pawapi.oxs.at {
 }
 
 # PWA domains — PWA + API proxy for sub-paths
-vetsucht.oxs.at, paw.oxs.at {
+vetzsucht.oxs.at, vetsucht.oxs.at, paw.oxs.at {
   encode gzip
 
   # API routes - proxy to Node.js API on port 3000
