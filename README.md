@@ -318,7 +318,7 @@ DELETE /api/admin/cleanup                 Remove orphaned records
 | i18n | react-i18next (DE / EN) |
 | PWA | vite-plugin-pwa (service worker, installable) |
 | Scanning | html5-qrcode (read), qrcode.react (generate) |
-| NFC | Web NFC API (Chrome Android 89+) |
+| NFC | Web NFC API (Chrome Android 89+); on iOS, NDEF URL tags open in Safari natively |
 
 ### Backend
 | Layer | Technology |
@@ -347,7 +347,7 @@ DELETE /api/admin/cleanup                 Remove orphaned records
 | Containers | Podman / Docker |
 | Reverse proxy | Caddy (automatic TLS) |
 | Static serving | Nginx |
-| Orchestration | podman-compose / docker-compose |
+| Orchestration | systemd quadlets (Podman rootless) |
 | Database | PostgreSQL 13+ (persistent volume) |
 
 ---
@@ -388,24 +388,34 @@ CORS_ORIGINS=http://localhost:5173
 ## Production Deployment (Podman / Docker)
 
 ### Container Stack
+
+Managed by **systemd quadlets** (Podman rootless) — unit files live in `podman/`:
+
 ```
-paw-stack
-├── paw-api     (Fastify REST API + WebSocket)
-├── paw-pwa     (Nginx static serving)
-├── paw-db      (PostgreSQL 13)
-└── paw-caddy   (Caddy reverse proxy + automatic TLS)
+podman/
+├── paw-api.container     (Fastify REST API + WebSocket)
+├── paw-pwa.container     (Nginx static serving)
+├── postgres.container    (PostgreSQL 13)
+└── caddy.service         (Caddy reverse proxy + TLS)
 ```
+
+Quadlets are loaded by systemd as native services — no compose daemon needed.
 
 ### First Deploy
 ```bash
-cp .env.podman .env      # edit: domain, secrets, API keys
-podman-compose up --build -d
-# or: docker compose up --build -d
+sudo bash /git/pawvax/scripts/setup-rootless-podman.sh
 ```
 
 ### Update Running Deployment
 ```bash
 sudo bash /git/pawvax/scripts/setup-rootless-podman.sh update
+```
+
+### Service Control
+```bash
+systemctl --user status paw-api      # check status
+journalctl --user -u paw-api -f      # follow logs
+systemctl --user restart paw-api     # restart service
 ```
 
 ---
