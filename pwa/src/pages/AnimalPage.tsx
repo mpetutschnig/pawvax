@@ -617,7 +617,7 @@ export default function AnimalPage() {
       {error && <div className="error-card"><p>{error}</p></div>}
 
       <div className="content-grid">
-        <div>
+        <div style={{ minWidth: 0 }}>
           {!isOwner && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', padding: 'var(--space-3)', background: 'var(--info-100)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-4)', border: '1px solid var(--info-300)' }}>
               <ShieldAlert size={18} color="var(--info-700)" />
@@ -1038,7 +1038,7 @@ export default function AnimalPage() {
 
         </div>
 
-        <div>
+        <div style={{ minWidth: 0 }}>
           {vaccinationRecords.length > 0 && (
             <div className="card" style={{ marginBottom: 'var(--space-4)', overflow: 'hidden' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
