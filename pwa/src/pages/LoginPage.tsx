@@ -391,7 +391,7 @@ export default function LoginPage() {
                 {supabaseConfig.oauthProviders.map(provider => (
                   <a
                     key={provider}
-                    href={`${supabaseConfig.url}/auth/v1/authorize?provider=${provider}&redirect_to=${encodeURIComponent(window.location.origin + '/login')}`}
+                    href={`${supabaseConfig.url}/auth/v1/authorize?provider=${provider}&redirect_to=${encodeURIComponent(window.location.origin)}`}
                     className="btn btn-ghost btn-full"
                     style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)', textDecoration: 'none', textTransform: 'capitalize' }}
                   >
@@ -424,7 +424,7 @@ export default function LoginPage() {
                       const res = await fetch(`${supabaseConfig.url}/auth/v1/otp`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', apikey: supabaseConfig.anonKey },
-                        body: JSON.stringify({ email: supabaseMagicEmail, create_user: true, options: { emailRedirectTo: window.location.origin + '/login' } }),
+                        body: JSON.stringify({ email: supabaseMagicEmail, create_user: true, options: { emailRedirectTo: window.location.origin } }),
                       })
                       if (!res.ok) throw new Error()
                       setSupabaseMagicSent(true)

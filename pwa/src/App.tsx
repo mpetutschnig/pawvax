@@ -346,6 +346,19 @@ function DebugOverlay() {
   )
 }
 
+function RootRedirect() {
+  const navigate = useNavigate()
+  useEffect(() => {
+    const hash = window.location.hash
+    if (hash.includes('access_token=') || hash.includes('error_code=')) {
+      navigate('/login' + hash, { replace: true })
+    } else {
+      navigate('/animals', { replace: true })
+    }
+  }, [navigate])
+  return null
+}
+
 export default function App() {
   useGlobalNfc()
   const [, setTokenRefreshed] = useState(false)
@@ -374,7 +387,7 @@ export default function App() {
         <Route path="/tos" element={<TosPage />} />
         <Route path="/t/:tagId" element={<PublicScanPage />} />
         <Route path="/share/:shareId" element={<PublicSharePage />} />
-        <Route path="/" element={<Navigate to="/animals" replace />} />
+        <Route path="/" element={<RootRedirect />} />
         <Route path="/reminders" element={<RequireAuth><RemindersPage /></RequireAuth>} />
         <Route path="/animals" element={<RequireAuth><AnimalsPage /></RequireAuth>} />
         <Route path="/animals/:id" element={<RequireAuth><AnimalPage /></RequireAuth>} />
