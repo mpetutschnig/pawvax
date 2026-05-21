@@ -125,7 +125,7 @@ export default function VoiceMemoDetailPage() {
   const isBoth = memo.language_mode === 'both'
 
   return (
-    <div style={{ maxWidth: 720, margin: '0 auto', padding: 'var(--space-4)', paddingBottom: 'calc(var(--bottom-nav-height) + var(--space-6))' }}>
+    <div style={{ maxWidth: 720, margin: '0 auto', padding: 'var(--space-4)', paddingBottom: 'calc(var(--bottom-nav-height) + var(--space-6))', overflowX: 'hidden' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
         <button className="btn btn-ghost" onClick={() => navigate(`/animals/${id}`)} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
@@ -236,31 +236,31 @@ export default function VoiceMemoDetailPage() {
                 <tbody>
                   {extracted.details.diagnose && (
                     <tr>
-                      <td style={{ padding: '4px 8px 4px 0', fontWeight: 500, whiteSpace: 'nowrap', verticalAlign: 'top', color: 'var(--text-secondary)', width: '30%' }}>{t('voiceMemo.detailDiagnose')}</td>
+                      <td style={{ padding: '4px 8px 4px 0', fontWeight: 500, verticalAlign: 'top', color: 'var(--text-secondary)', width: '30%' }}>{t('voiceMemo.detailDiagnose')}</td>
                       <td style={{ padding: '4px 0' }}>{extracted.details.diagnose}</td>
                     </tr>
                   )}
                   {extracted.details.befunde && (
                     <tr>
-                      <td style={{ padding: '4px 8px 4px 0', fontWeight: 500, whiteSpace: 'nowrap', verticalAlign: 'top', color: 'var(--text-secondary)' }}>{t('voiceMemo.detailBefunde')}</td>
+                      <td style={{ padding: '4px 8px 4px 0', fontWeight: 500, verticalAlign: 'top', color: 'var(--text-secondary)' }}>{t('voiceMemo.detailBefunde')}</td>
                       <td style={{ padding: '4px 0' }}>{extracted.details.befunde}</td>
                     </tr>
                   )}
                   {extracted.details.vorgehen?.length > 0 && (
                     <tr>
-                      <td style={{ padding: '4px 8px 4px 0', fontWeight: 500, whiteSpace: 'nowrap', verticalAlign: 'top', color: 'var(--text-secondary)' }}>{t('voiceMemo.detailVorgehen')}</td>
+                      <td style={{ padding: '4px 8px 4px 0', fontWeight: 500, verticalAlign: 'top', color: 'var(--text-secondary)' }}>{t('voiceMemo.detailVorgehen')}</td>
                       <td style={{ padding: '4px 0' }}><ul style={{ margin: 0, paddingLeft: 'var(--space-3)' }}>{extracted.details.vorgehen.map((v: string, i: number) => <li key={i}>{v}</li>)}</ul></td>
                     </tr>
                   )}
                   {extracted.details.medikamente?.length > 0 && (
                     <tr>
-                      <td style={{ padding: '4px 8px 4px 0', fontWeight: 500, whiteSpace: 'nowrap', verticalAlign: 'top', color: 'var(--text-secondary)' }}>{t('voiceMemo.detailMedikamente')}</td>
+                      <td style={{ padding: '4px 8px 4px 0', fontWeight: 500, verticalAlign: 'top', color: 'var(--text-secondary)' }}>{t('voiceMemo.detailMedikamente')}</td>
                       <td style={{ padding: '4px 0' }}><ul style={{ margin: 0, paddingLeft: 'var(--space-3)' }}>{extracted.details.medikamente.map((m: string, i: number) => <li key={i}>{m}</li>)}</ul></td>
                     </tr>
                   )}
                   {extracted.details.termine?.length > 0 && (
                     <tr>
-                      <td style={{ padding: '4px 8px 4px 0', fontWeight: 500, whiteSpace: 'nowrap', verticalAlign: 'top', color: 'var(--text-secondary)' }}>{t('voiceMemo.detailTermine')}</td>
+                      <td style={{ padding: '4px 8px 4px 0', fontWeight: 500, verticalAlign: 'top', color: 'var(--text-secondary)' }}>{t('voiceMemo.detailTermine')}</td>
                       <td style={{ padding: '4px 0' }}><ul style={{ margin: 0, paddingLeft: 'var(--space-3)' }}>{extracted.details.termine.map((t: string, i: number) => <li key={i}>{t}</li>)}</ul></td>
                     </tr>
                   )}
@@ -357,7 +357,7 @@ function DebugPanel({ rawJson, label }: { rawJson: string; label: string }) {
         <span style={{ fontSize: 10 }}>{open ? '▲' : '▼'}</span>
       </button>
       {open && (
-        <pre style={{ marginTop: 'var(--space-3)', fontSize: 11, overflowX: 'auto', background: 'var(--surface-muted)', padding: 'var(--space-2)', borderRadius: 'var(--radius-sm)', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+        <pre style={{ marginTop: 'var(--space-3)', fontSize: 11, background: 'var(--surface-muted)', padding: 'var(--space-2)', borderRadius: 'var(--radius-sm)', whiteSpace: 'pre-wrap', wordBreak: 'break-all', overflowWrap: 'break-word' }}>
           {JSON.stringify(parsed, null, 2)}
         </pre>
       )}
