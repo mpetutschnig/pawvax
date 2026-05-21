@@ -385,6 +385,7 @@ export default function App() {
         <Route path="/welcome" element={<WelcomePage />} />
         <Route path="/public-scan" element={<PublicScanPage />} />
         <Route path="/tos" element={<TosPage />} />
+        <Route path="/pow" element={<div style={{position:'fixed',inset:0,zIndex:9999}}><iframe src="/pow/index.html" style={{width:'100%',height:'100%',border:'none'}} title="Präsentation" /></div>} />
         <Route path="/t/:tagId" element={<PublicScanPage />} />
         <Route path="/share/:shareId" element={<PublicSharePage />} />
         <Route path="/" element={<RootRedirect />} />
