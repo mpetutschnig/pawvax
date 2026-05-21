@@ -11,6 +11,7 @@ import fastifySwagger from '@fastify/swagger'
 import fastifySwaggerUi from '@fastify/swagger-ui'
 import { join, dirname, resolve } from 'path'
 import { fileURLToPath } from 'url'
+import { readFileSync } from 'fs'
 import { initDb, getDb } from './db/index.js'
 import authRoutes from './routes/auth.js'
 import animalRoutes from './routes/animals.js'
@@ -360,8 +361,15 @@ await fastify.register(reminderRoutes)
 await fastify.register(billingRoutes)
 await fastify.register(voiceMemoRoutes)
 
-// Presentation redirect
-fastify.get('/pow', (_req, reply) => reply.redirect('/pow/presentation.html'))
+// Presentation — serve HTML directly to avoid redirect with wrong port
+fastify.get('/pow', (_req, reply) => {
+  try {
+    const html = readFileSync(join(__dir, '..', 'public', 'pow', 'presentation.html'), 'utf-8')
+    return reply.type('text/html').send(html)
+  } catch {
+    return reply.code(404).send({ error: 'Not found' })
+  }
+})
 
 // Healthcheck
 fastify.get('/health', async () => ({ status: 'ok' }))
