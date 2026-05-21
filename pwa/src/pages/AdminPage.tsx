@@ -1185,6 +1185,15 @@ export default function AdminPage() {
                   onChange={e => setAppSettings((s: any) => ({ ...s, supabase_jwt_secret: e.target.value }))}
                 />
               </div>
+
+              <button
+                className="btn btn-primary"
+                onClick={saveSettings}
+                disabled={settingsSaving}
+                style={{ marginTop: 'var(--space-4)', width: '100%' }}
+              >
+                {settingsSaving ? <div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} /> : t('admin.saveSettings')}
+              </button>
             </div>
 
             {/* Governance & Sicherheit */}
