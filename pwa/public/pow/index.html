@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PAW — eCard for pets</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #000;
+    color: #fff;
+    font-family: 'Arial Black', 'Helvetica Neue', sans-serif;
+    height: 100vh;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  .slide {
+    display: none;
+    position: absolute;
+    inset: 0;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 0.2em;
+    text-align: center;
+    padding: 60px;
+    animation: fadeIn 0.25s ease;
+  }
+
+  .slide.active { display: flex; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: scale(0.97); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+
+  .slide img {
+    max-width: 100%;
+    max-height: 100vh;
+    object-fit: contain;
+  }
+
+  .word {
+    font-size: clamp(48px, 10vw, 120px);
+    font-weight: 900;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    text-transform: uppercase;
+  }
+
+  .word.accent { color: #e8ff00; }
+  .word.dim    { color: #888; font-size: clamp(32px, 6vw, 72px); font-weight: 700; }
+
+  .dot {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 8px;
+    z-index: 10;
+  }
+  .dot span {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #333;
+    transition: background 0.2s;
+  }
+  .dot span.on { background: #fff; }
+
+  .nav-hint {
+    position: fixed;
+    bottom: 50px;
+    right: 40px;
+    font-size: 12px;
+    color: #333;
+    letter-spacing: 0.1em;
+  }
+</style>
+</head>
+<body>
+
+<!-- SLIDE 0: Gandalf 1 -->
+<div class="slide active">
+  <img src="Gandalf_1.png" alt="Und was ist euer USP?">
+</div>
+
+<!-- SLIDE 1 -->
+<div class="slide">
+  <div class="word accent">Papier.</div>
+  <div class="word">Verloren.</div>
+</div>
+
+<!-- SLIDE 2 -->
+<div class="slide">
+  <div class="word accent">Nie wieder.</div>
+</div>
+
+<!-- SLIDE 3 -->
+<div class="slide">
+  <div class="word">Smartphone.</div>
+  <div class="word accent">Tag. Fertig.</div>
+</div>
+
+<!-- SLIDE 4 -->
+<div class="slide">
+  <div class="word">QR. NFC. Link.</div>
+  <div class="word dim">Drei Wege. Ein Ziel.</div>
+</div>
+
+<!-- SLIDE 5 -->
+<div class="slide">
+  <div class="word">Ohne Login.</div>
+  <div class="word accent">Sofort sichtbar.</div>
+</div>
+
+<!-- SLIDE 6 -->
+<div class="slide">
+  <div class="word">Tierarzt scannt.</div>
+  <div class="word accent">Alles da.</div>
+</div>
+
+<!-- SLIDE 7 -->
+<div class="slide">
+  <div class="word">KI liest.</div>
+  <div class="word">KI versteht.</div>
+  <div class="word accent">KI speichert.</div>
+</div>
+
+<!-- SLIDE 8 -->
+<div class="slide">
+  <div class="word accent">Sprechen genügt.</div>
+</div>
+
+<!-- SLIDE 9 -->
+<div class="slide">
+  <div class="word accent">Automatisch übersetzt.</div>
+</div>
+
+<!-- SLIDE 10 -->
+<div class="slide">
+  <div class="word">Strukturiert.</div>
+  <div class="word">Sofort.</div>
+  <div class="word accent">Überall.</div>
+</div>
+
+<!-- SLIDE 11 -->
+<div class="slide">
+  <div class="word">Ein Scan.</div>
+  <div class="word accent">Alles drin.</div>
+</div>
+
+<!-- SLIDE 12 -->
+<div class="slide">
+  <div class="word">Kein Aufwand.</div>
+  <div class="word accent">Null Fehler.</div>
+</div>
+
+<!-- SLIDE 13 -->
+<div class="slide">
+  <div class="word accent">PAW.</div>
+  <div class="word dim">eCard for pets.</div>
+</div>
+
+<!-- SLIDE 14 -->
+<div class="slide">
+  <div class="word">Gibt's das</div>
+  <div class="word accent">schon?</div>
+</div>
+
+<!-- SLIDE 15 -->
+<div class="slide">
+  <div class="word accent">NEIN.</div>
+</div>
+
+<!-- SLIDE 16 -->
+<div class="slide">
+  <div class="word">Was gibt</div>
+  <div class="word dim">es stattdessen?</div>
+</div>
+
+<!-- SLIDE 17: Konkurrenz 1 -->
+<div class="slide">
+  <div class="word accent">Papierheft.</div>
+  <div class="word dim">Verlierbar. Unleserlich. 1980.</div>
+</div>
+
+<!-- SLIDE 18: Konkurrenz 2 -->
+<div class="slide">
+  <div class="word accent">Tierarzt-Software.</div>
+  <div class="word dim">Geschlossen. Kein Zugriff für Besitzer.</div>
+</div>
+
+<!-- SLIDE 19: Konkurrenz 3 -->
+<div class="slide">
+  <div class="word accent">Foto-App.</div>
+  <div class="word dim">Kein NFC. Kein KI. Keine Struktur.</div>
+</div>
+
+<!-- SLIDE 20 -->
+<div class="slide">
+  <div class="word">Und wir?</div>
+</div>
+
+<!-- SLIDE 21 -->
+<div class="slide">
+  <div class="word">NFC-Scan.</div>
+  <div class="word accent">Sofort. Ohne Login.</div>
+</div>
+
+<!-- SLIDE 22 -->
+<div class="slide">
+  <div class="word">Dokument hochladen.</div>
+  <div class="word accent">KI liest. KI strukturiert.</div>
+</div>
+
+<!-- SLIDE 23 -->
+<div class="slide">
+  <div class="word">Sprachnotiz.</div>
+  <div class="word accent">Tierarzt spricht. PAW speichert.</div>
+</div>
+
+<!-- SLIDE 24 -->
+<div class="slide">
+  <div class="word">Gast. Tierarzt.</div>
+  <div class="word">Behörde. Besitzer.</div>
+  <div class="word accent">Jeder sieht genau genug.</div>
+</div>
+
+<!-- SLIDE 25 -->
+<div class="slide">
+  <div class="word accent">PAW.</div>
+  <div class="word dim">Das ist unser USP.</div>
+</div>
+
+<!-- SLIDE 26: Gandalf 2 -->
+<div class="slide">
+  <img src="Gandalf_2.png" alt="Was war nochmals euer USP?">
+</div>
+
+<div class="dot" id="dots"></div>
+<div class="nav-hint">← →</div>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  const dotsEl = document.getElementById('dots');
+  let current = 0;
+
+  // Build dots
+  slides.forEach((_, i) => {
+    const s = document.createElement('span');
+    dotsEl.appendChild(s);
+  });
+
+  function show(n) {
+    slides[current].classList.remove('active');
+    current = (n + slides.length) % slides.length;
+    slides[current].classList.add('active');
+    document.querySelectorAll('.dot span').forEach((d, i) => {
+      d.classList.toggle('on', i === current);
+    });
+  }
+
+  show(0);
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') show(current + 1);
+    if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')                    show(current - 1);
+  });
+
+  document.addEventListener('click', e => {
+    if (e.clientX > window.innerWidth / 2) show(current + 1);
+    else show(current - 1);
+  });
+
+  // Touch swipe
+  let tx = 0;
+  document.addEventListener('touchstart', e => tx = e.touches[0].clientX);
+  document.addEventListener('touchend',   e => {
+    const dx = tx - e.changedTouches[0].clientX;
+    if (Math.abs(dx) > 40) dx > 0 ? show(current + 1) : show(current - 1);
+  });
+</script>
+</body>
+</html>
