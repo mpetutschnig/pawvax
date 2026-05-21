@@ -285,6 +285,7 @@
   "auth.resetSuccess": "Your password has been updated. Please log in.",
   "auth.resetTokenMissing": "The reset link is missing or invalid.",
   "auth.scanWithoutLogin": "Scan pet without login",
+  "auth.tos": "Terms and Conditions",
   "auth.sendResetLink": "Send reset link",
   "auth.verifyError": "The confirmation link is invalid or expired.",
   "auth.verifySuccess": "Your email address has been confirmed. You can log in now.",

@@ -1,5 +1,5 @@
 import { useState, useEffect, FormEvent } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { login, register, requestPasswordReset, resetPassword, verifyEmail, getOAuthUrl, supabaseLogin } from '../api/rest'
 import { PawPrint, LogIn, UserPlus, ScanLine } from 'lucide-react'
@@ -354,6 +354,12 @@ export default function LoginPage() {
         >
           <ScanLine size={18} /> {t('auth.scanWithoutLogin')}
         </button>
+
+        <div style={{ textAlign: 'center', marginTop: 'var(--space-4)', paddingTop: 'var(--space-3)', borderTop: '1px solid var(--border)' }}>
+          <Link to="/tos" style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', textDecoration: 'none' }}>
+            {t('auth.tos')}
+          </Link>
+        </div>
       </div>
     </div>
   )

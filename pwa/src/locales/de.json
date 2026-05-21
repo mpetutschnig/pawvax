@@ -285,6 +285,7 @@
   "auth.resetSuccess": "Dein Passwort wurde aktualisiert. Bitte melde dich an.",
   "auth.resetTokenMissing": "Der Reset-Link fehlt oder ist ungültig.",
   "auth.scanWithoutLogin": "Tier scannen ohne Anmeldung",
+  "auth.tos": "Nutzungsbedingungen (AGB)",
   "auth.sendResetLink": "Reset-Link senden",
   "auth.verifyError": "Der Bestätigungslink ist ungültig oder abgelaufen.",
   "auth.verifySuccess": "Deine E-Mail-Adresse wurde bestätigt. Du kannst dich jetzt anmelden.",

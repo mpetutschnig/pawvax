@@ -525,8 +525,8 @@ Tierheime, Tierpfleger und Versicherer nutzen Freigabe-Links oder öffentliche N
 │   └── public/
 │
 ├── docs/
-│   ├── TOC-de.md            # Allgemeine Geschäftsbedingungen
-│   └── TOC-en.md            # Terms and Conditions
+│   ├── TOS-de.md            # Allgemeine Geschäftsbedingungen
+│   └── TOS-en.md            # Terms and Conditions
 │
 ├── podman/                  # systemd Quadlet Unit-Dateien
 ├── Containerfile.server
@@ -540,7 +540,7 @@ Tierheime, Tierpfleger und Versicherer nutzen Freigabe-Links oder öffentliche N
 
 ## Rechtliches
 
-Siehe [AGB (Deutsch)](docs/TOC-de.md) | [Terms and Conditions (English)](docs/TOC-en.md)
+Siehe [AGB (Deutsch)](docs/TOS-de.md) | [Terms and Conditions (English)](docs/TOS-en.md)
 
 [Appname] ist kein zertifiziertes Medizinprodukt. KI-generierte Analysen dienen ausschließlich der Information und ersetzen keine tierärztliche Diagnose.
 
@@ -1076,8 +1076,8 @@ Kennels, groomers, and insurers access share links or public NFC profiles withou
 │   └── public/
 │
 ├── docs/
-│   ├── TOC-de.md            # Allgemeine Geschäftsbedingungen
-│   └── TOC-en.md            # Terms and Conditions
+│   ├── TOS-de.md            # Allgemeine Geschäftsbedingungen
+│   └── TOS-en.md            # Terms and Conditions
 │
 ├── podman/                  # systemd quadlet unit files
 ├── Containerfile.server
@@ -1091,7 +1091,7 @@ Kennels, groomers, and insurers access share links or public NFC profiles withou
 
 ## Legal
 
-See [Terms and Conditions (English)](docs/TOC-en.md) | [AGB (Deutsch)](docs/TOC-de.md)
+See [Terms and Conditions (English)](docs/TOS-en.md) | [AGB (Deutsch)](docs/TOS-de.md)
 
 [Appname] is not a certified medical device. AI-generated analysis is informational only and does not replace professional veterinary diagnosis.
 

@@ -1528,3 +1528,13 @@ html[data-theme="dark"] .nav-bar h2 {
   flex-shrink: 0;
 }
 .fab-item:hover .fab-item-icon { background: var(--primary-600); }
+
+/* ── TOS page ── */
+.tos-content { color: var(--text-primary); }
+.tos-content h1 { font-size: var(--font-size-2xl); font-weight: 700; margin: 0 0 var(--space-2); }
+.tos-content h2 { font-size: var(--font-size-lg); font-weight: 600; margin: var(--space-6) 0 var(--space-2); padding-bottom: var(--space-1); border-bottom: 1px solid var(--border); }
+.tos-content p { margin: var(--space-2) 0; line-height: 1.65; }
+.tos-content ul { margin: var(--space-2) 0 var(--space-2) var(--space-5); padding: 0; }
+.tos-content li { margin-bottom: var(--space-1); line-height: 1.65; }
+.tos-content strong { font-weight: 600; }
+.tos-content .text-muted { color: var(--text-secondary); font-size: var(--font-size-sm); }
