@@ -1,6 +1,7 @@
 {
   "admin.accountManagement": "Account Management",
   "admin.accounts": "Accounts",
+  "admin.tenants": "Tenants",
   "admin.action": "Action",
   "admin.actions": "Actions",
   "admin.adminUser": "Administrator",

@@ -1,6 +1,7 @@
 {
   "admin.accountManagement": "Account-Verwaltung",
   "admin.accounts": "Accounts",
+  "admin.tenants": "Mandanten",
   "admin.action": "Aktion",
   "admin.actions": "Aktionen",
   "admin.adminUser": "Administrator",

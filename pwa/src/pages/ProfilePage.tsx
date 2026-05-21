@@ -511,8 +511,8 @@ export default function ProfilePage() {
   const isVerified = profile.verified === 1 || profile.verified === true
   const isPending = profile.verification_status === 'pending' || ((roles.includes('vet') || roles.includes('authority')) && !isVerified)
   
-  const hasVerifiedRole = roles.includes('vet') || roles.includes('authority') || roles.includes('veterinarian')
-  const isVet = roles.includes('veterinarian') && !isPending
+  const hasVerifiedRole = roles.includes('vet') || roles.includes('authority')
+  const isVet = roles.includes('vet') && !isPending
   const isOrg = roles.includes('authority') && !isPending
   const isAdmin = roles.includes('admin')
 
@@ -526,7 +526,7 @@ export default function ProfilePage() {
 
   return (
     <div className="container page">
-      <PageHeader title={t('profile.title')} showThemeToggle showLogout />
+      <PageHeader title={t('profile.title')} />
 
       {error && <div className="error-card" style={{ marginBottom: 'var(--space-4)' }}><p>{error}</p></div>}
       {success && <div className="card" style={{ background: 'var(--success-50)', borderColor: 'var(--success-500)', marginBottom: 'var(--space-4)', display: 'flex', gap: 'var(--space-2)' }}><CheckCircle size={20} color="var(--success-600)" /><p style={{ margin: 0, color: 'var(--success-600)', fontWeight: 500 }}>{success}</p></div>}

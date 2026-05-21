@@ -99,7 +99,7 @@ export default function BillingPage() {
 
   return (
     <div className="container page">
-      <PageHeader title={t('billing.title')} backTo="/animals" showThemeToggle />
+      <PageHeader title={t('billing.title')} backTo="/animals" />
 
       {isAdmin && (
         <div style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-4)' }}>

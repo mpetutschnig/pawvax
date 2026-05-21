@@ -102,7 +102,7 @@ export default function ScanPage() {
   if (mode === 'new-animal') {
     return (
       <div className="container page">
-        <PageHeader title={t('animals.createNew')} showThemeToggle />
+        <PageHeader title={t('animals.createNew')} />
         <div className="card animate-slide-up">
           <div style={{ textAlign: 'center', marginBottom: 'var(--space-6)' }}>
             <div style={{ fontSize: '3rem', marginBottom: 'var(--space-4)' }}>❓</div>
@@ -141,7 +141,7 @@ export default function ScanPage() {
 
   return (
     <div className="container page">
-      <PageHeader title={t('scan.title')} showThemeToggle showLogout />
+      <PageHeader title={t('scan.title')} />
 
       {mode === 'choose' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>

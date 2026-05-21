@@ -1,44 +1,17 @@
-import React, { useState } from 'react'
+import React from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { ChevronLeft, Sun, Moon, LogOut, User } from 'lucide-react'
-import { useTheme } from '../hooks/useTheme'
-import { logout } from '../api/rest'
+import { ChevronLeft } from 'lucide-react'
 
 interface PageHeaderProps {
   title: string
   backTo?: string
-  showThemeToggle?: boolean
-  showLogout?: boolean
   actions?: React.ReactNode
 }
 
-export function PageHeader({
-  title,
-  backTo,
-  showThemeToggle = false,
-  showLogout = true,
-  actions
-}: PageHeaderProps) {
+export function PageHeader({ title, backTo, actions }: PageHeaderProps) {
   const navigate = useNavigate()
-  const { t, i18n } = useTranslation()
-  const { theme, toggleTheme } = useTheme()
-  const [loggingOut, setLoggingOut] = useState(false)
-
-  const handleLogout = async () => {
-    setLoggingOut(true)
-    try {
-      await logout()
-    } catch (err) {
-      console.error('Logout error:', err)
-    } finally {
-      localStorage.removeItem('token')
-      localStorage.removeItem('role')
-      localStorage.removeItem('roles')
-      localStorage.removeItem('verified')
-      navigate('/login')
-    }
-  }
+  const { t } = useTranslation()
 
   return (
     <div className="nav-bar">
@@ -62,94 +35,11 @@ export function PageHeader({
         )}
         <h2>{title}</h2>
       </div>
-
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-        {actions}
-        {showThemeToggle && (
-          <button
-            onClick={toggleTheme}
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              color: 'var(--text)',
-              padding: 'var(--space-2)',
-              display: 'flex',
-              alignItems: 'center',
-              opacity: 0.7,
-              transition: 'opacity 0.2s'
-            }}
-            aria-label={t('theme.light')}
-            title={`${t('theme.light')}/${t('theme.dark')}`}
-          >
-            {theme === 'light' ? (
-              <Moon size={20} />
-            ) : (
-              <Sun size={20} />
-            )}
-          </button>
-        )}
-        <button
-          onClick={() => i18n.changeLanguage(i18n.language === 'de' ? 'en' : 'de')}
-          style={{
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            color: 'var(--text)',
-            padding: 'var(--space-2)',
-            display: 'flex',
-            alignItems: 'center',
-            opacity: 0.7,
-            fontWeight: 600,
-            fontSize: 'var(--font-size-sm)',
-            transition: 'opacity 0.2s'
-          }}
-          title="Switch language"
-        >
-          {i18n.language === 'de' ? 'EN' : 'DE'}
-        </button>
-        {showLogout && (
-          <button
-            onClick={() => navigate('/profile')}
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              color: 'var(--text)',
-              padding: 'var(--space-2)',
-              display: 'flex',
-              alignItems: 'center',
-              opacity: 0.7,
-              transition: 'opacity 0.2s'
-            }}
-            aria-label={t('nav.profile')}
-            title={t('nav.profile')}
-          >
-            <User size={20} />
-          </button>
-        )}
-        {showLogout && (
-          <button
-            onClick={handleLogout}
-            disabled={loggingOut}
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: loggingOut ? 'not-allowed' : 'pointer',
-              color: 'var(--text)',
-              padding: 'var(--space-2)',
-              display: 'flex',
-              alignItems: 'center',
-              opacity: loggingOut ? 0.5 : 0.7,
-              transition: 'opacity 0.2s'
-            }}
-            aria-label={t('logout')}
-            title={t('logout')}
-          >
-            <LogOut size={20} />
-          </button>
-        )}
-      </div>
+      {actions && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+          {actions}
+        </div>
+      )}
     </div>
   )
 }

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { formatDate } from '../utils/date'
 import {
@@ -161,7 +162,9 @@ const defaultAdminSettings: AdminSettingsState = {
 
 export default function AdminPage() {
   const { t, i18n } = useTranslation()
-  const [section, setSection] = useState<Section>('overview')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const section = (searchParams.get('section') as Section) || 'overview'
+  const setSection = (s: Section) => setSearchParams({ section: s }, { replace: true })
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)

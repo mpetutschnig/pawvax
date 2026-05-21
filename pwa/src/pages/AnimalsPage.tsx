@@ -108,7 +108,7 @@ export default function AnimalsPage() {
 
   return (
     <div className="container page">
-      <PageHeader title={`${t('animals.myAnimals')} (${animals.length})`} showThemeToggle />
+      <PageHeader title={`${t('animals.myAnimals')} (${animals.length})`} />
 
       <div style={{ position: 'relative', marginBottom: 'var(--space-4)' }}>
         <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />

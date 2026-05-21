@@ -101,7 +101,7 @@ export default function TagManagementPage() {
 
   return (
     <div className="container page">
-      <PageHeader title={t('chip.manage')} backTo={`/animals/${id}`} showThemeToggle />
+      <PageHeader title={t('chip.manage')} backTo={`/animals/${id}`} />
 
       {error && <div className="error-card" style={{ marginBottom: 'var(--space-4)' }}><p>{error}</p></div>}
       {conflictError && (

@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Routes, Route, Navigate, useLocation, Link } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation, Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { PawPrint, ScanLine, User, Settings, Receipt, Bug } from 'lucide-react'
+import { PawPrint, ScanLine, User, Settings, Receipt, Bug, Sun, Moon, LogOut } from 'lucide-react'
 import { useGlobalNfc } from './hooks/useGlobalNfc'
-import { api } from './api/rest'
+import { useTheme } from './hooks/useTheme'
+import { api, logout } from './api/rest'
 import { generateThemeVariables, applyTheme } from './utils/colors'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import LoginPage from './pages/LoginPage'
@@ -27,13 +28,16 @@ import { PendingTasksChip } from './components/PendingTasksChip'
 
 function GlobalBrand() {
   const location = useLocation()
-  const { t } = useTranslation()
+  const navigate = useNavigate()
+  const { t, i18n } = useTranslation()
+  const { theme, toggleTheme } = useTheme()
   const [settings, setSettings] = useState({ app_name: 'PAW', logo_data: '', theme_color: '' })
   const [account, setAccount] = useState<any>(null)
+  const [loggingOut, setLoggingOut] = useState(false)
   const token = localStorage.getItem('token')
   const roleStr = token ? (localStorage.getItem('role') || 'user') : ''
   const roles = roleStr.split(',').map(r => r.trim()).filter(Boolean)
-  
+
   useEffect(() => {
     fetch('/api/settings').then(res => res.json()).then(data => setSettings(data)).catch(() => {})
   }, [])
@@ -43,7 +47,7 @@ function GlobalBrand() {
       api.get('/accounts/me').then(res => setAccount(res.data)).catch(() => {})
     }
   }, [token, location.pathname])
-  
+
   useEffect(() => {
     if (settings.app_name) document.title = settings.app_name
     if (settings.logo_data) {
@@ -58,34 +62,63 @@ function GlobalBrand() {
     if (settings.theme_color) {
       const meta = document.querySelector('meta[name="theme-color"]')
       if (meta) meta.setAttribute('content', settings.theme_color)
-      
-      // Dynamische Paletten-Generierung & Injektion
       const themeVars = generateThemeVariables(settings.theme_color)
       applyTheme(themeVars)
     }
   }, [settings])
 
+  const handleLogout = async () => {
+    setLoggingOut(true)
+    try { await logout() } catch {}
+    finally {
+      localStorage.removeItem('token')
+      localStorage.removeItem('role')
+      localStorage.removeItem('roles')
+      localStorage.removeItem('verified')
+      navigate('/login')
+    }
+  }
+
   const hideOn = ['/login', '/welcome', '/admin', '/public-scan', '/share']
   if (hideOn.some(path => location.pathname.startsWith(path))) return null
-  if (!settings.logo_data && (!settings.app_name || settings.app_name === 'PAW')) return null
 
+  const hasBranding = settings.logo_data || (settings.app_name && settings.app_name !== 'PAW')
   const aiDisabled = account && !account.system_fallback_enabled && !account.has_gemini_token && !account.has_anthropic_token && !account.has_openai_token
+  const btnStyle = { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text)', padding: 'var(--space-2)', display: 'flex', alignItems: 'center', opacity: 0.7, transition: 'opacity 0.2s' }
 
   return (
     <>
-      <div style={{ display: 'flex', alignItems: 'center', padding: '10px var(--space-4)', background: 'var(--surface)', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, zIndex: 100 }}>
-        <div style={{ flex: 1 }}></div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-          {settings.logo_data && <img src={settings.logo_data} alt="Logo" style={{ height: '24px', objectFit: 'contain' }} />}
-          <span style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-primary)' }}>{settings.app_name || 'PAW'}</span>
+      <div style={{ display: 'flex', alignItems: 'center', padding: '8px var(--space-4)', background: 'var(--surface)', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, zIndex: 100, gap: 'var(--space-2)' }}>
+        {/* Branding — center when present */}
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {hasBranding && settings.logo_data && <img src={settings.logo_data} alt="Logo" style={{ height: '24px', objectFit: 'contain' }} />}
+          {hasBranding && <span style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-primary)' }}>{settings.app_name}</span>}
         </div>
-        <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', gap: '4px', flexWrap: 'wrap' }}>
+        {/* Role badges */}
+        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center' }}>
           {roles.map((r: string) => (
             <span key={r} className={`badge ${r === 'vet' ? 'badge-success' : 'badge-info'}`} style={{ fontSize: '10px', padding: '2px 6px', textTransform: 'capitalize' }}>
               {r === 'vet' ? t('docScan.vet') : r === 'authority' ? t('docScan.authority') : r === 'admin' ? 'Admin' : r === 'guest' ? t('docScan.guestAccess') : 'User'}
             </span>
           ))}
         </div>
+        {/* Global action buttons */}
+        {token && (
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <button onClick={toggleTheme} style={btnStyle} aria-label={t('theme.light')} title={`${t('theme.light')}/${t('theme.dark')}`}>
+              {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
+            </button>
+            <button onClick={() => i18n.changeLanguage(i18n.language === 'de' ? 'en' : 'de')} style={{ ...btnStyle, fontWeight: 600, fontSize: 'var(--font-size-sm)' }} title="Switch language">
+              {i18n.language === 'de' ? 'EN' : 'DE'}
+            </button>
+            <button onClick={() => navigate('/profile')} style={btnStyle} aria-label={t('nav.profile')} title={t('nav.profile')}>
+              <User size={18} />
+            </button>
+            <button onClick={handleLogout} disabled={loggingOut} style={{ ...btnStyle, opacity: loggingOut ? 0.4 : 0.7, cursor: loggingOut ? 'not-allowed' : 'pointer' }} aria-label={t('logout')} title={t('logout')}>
+              <LogOut size={18} />
+            </button>
+          </div>
+        )}
       </div>
       {aiDisabled && (
         <div style={{ background: 'var(--warning-50)', borderBottom: '1px solid var(--warning-500)', padding: '6px var(--space-4)', fontSize: '12px', textAlign: 'center', color: 'var(--warning-600)' }}>

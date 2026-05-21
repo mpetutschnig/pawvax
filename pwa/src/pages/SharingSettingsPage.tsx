@@ -110,7 +110,7 @@ export default function SharingSettingsPage() {
 
   return (
     <div className="container page">
-      <PageHeader title={t('animal.sharing')} backTo={`/animals/${id}`} showThemeToggle />
+      <PageHeader title={t('animal.sharing')} backTo={`/animals/${id}`} />
 
       <div className="card animate-slide-up" style={{ marginBottom: 'var(--space-6)' }}>
         <p className="text-muted" style={{ margin: 0, fontSize: 'var(--font-size-sm)' }}>

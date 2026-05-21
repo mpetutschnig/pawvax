@@ -612,7 +612,7 @@ export default function AnimalPage() {
   const generalDocs = documents.filter(d => d.analysis_status !== 'pending_analysis' && (d.doc_type === 'general' || d.ocr_provider === 'none'))
   return (
     <div className="container page">
-      <PageHeader title={animal.name} backTo="/animals" showThemeToggle />
+      <PageHeader title={animal.name} backTo="/animals" />
 
       {error && <div className="error-card"><p>{error}</p></div>}
 

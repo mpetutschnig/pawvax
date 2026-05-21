@@ -331,7 +331,7 @@ export default function DocumentDetailPage() {
 
   return (
     <div className="container page">
-      <PageHeader title={doc.extracted_json?.title || config.label} backTo={`/animals/${animalId}`} showThemeToggle />
+      <PageHeader title={doc.extracted_json?.title || config.label} backTo={`/animals/${animalId}`} />
       {error && <div className="error-card" style={{ marginBottom: 'var(--space-4)' }}><p>{error}</p></div>}
 
       <div className="card animate-slide-up">

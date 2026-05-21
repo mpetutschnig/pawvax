@@ -1105,7 +1105,8 @@ html[data-theme="dark"] .nav-bar h2 {
   padding: var(--space-6);
   overflow-y: auto;
   animation: slideIn var(--t-base) var(--ease-out);
-  z-index: 50;
+  z-index: 150;
+  padding-bottom: calc(var(--bottom-nav-height) + var(--space-4));
 }
 
 @keyframes slideIn {

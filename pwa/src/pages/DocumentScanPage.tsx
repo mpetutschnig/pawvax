@@ -428,7 +428,7 @@ export default function DocumentScanPage() {
 
   return (
     <div className="container page">
-      <PageHeader title={t('docScan.title')} backTo={`/animals/${animalId}`} showThemeToggle />
+      <PageHeader title={t('docScan.title')} backTo={`/animals/${animalId}`} />
 
       {phase === 'capture' && (
         <div className="card animate-slide-up">

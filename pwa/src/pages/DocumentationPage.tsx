@@ -369,7 +369,7 @@ export default function DocumentationPage() {
 
   return (
     <div className="container page">
-      <PageHeader title={t('docs.title') || 'Dokumentation'} backTo="/profile" showThemeToggle />
+      <PageHeader title={t('docs.title') || 'Dokumentation'} backTo="/profile" />
 
       <div className="card" style={{ padding: '0 0 var(--space-4) 0', overflow: 'hidden' }}>
         <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
