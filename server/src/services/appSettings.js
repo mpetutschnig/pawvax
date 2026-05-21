@@ -49,6 +49,8 @@ export const MAIL_SETTINGS_KEYS = [
   'oauth2_tenant'
 ]
 
+export const AUTH_SETTINGS_KEYS = ['supabase_jwt_secret']
+
 export const SECRET_SETTINGS_KEYS = new Set([
   'smtp_password',
   'oauth2_client_secret',
@@ -58,6 +60,7 @@ export const SECRET_SETTINGS_KEYS = new Set([
   'system_anthropic_token',
   'system_openai_token',
   'system_gladia_token',
+  'supabase_jwt_secret',
 ])
 
 const BOOLEAN_SETTING_KEYS = new Set(['mail_enabled', 'maintenance_mode'])
@@ -173,6 +176,9 @@ function applySecretStatus(settings) {
   delete settings.system_anthropic_token
   delete settings.system_openai_token
   delete settings.system_gladia_token
+
+  settings.has_supabase_jwt_secret = !!settings.supabase_jwt_secret
+  delete settings.supabase_jwt_secret
 
   return settings
 }

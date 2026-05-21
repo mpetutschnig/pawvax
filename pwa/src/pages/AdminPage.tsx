@@ -1118,7 +1118,7 @@ export default function AdminPage() {
                 <ol style={{ margin: 0, paddingLeft: 'var(--space-5)', display: 'grid', gap: 'var(--space-2)', fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
                   <li>Supabase-Projekt anlegen auf <a href="https://supabase.com" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary-600)' }}>supabase.com</a></li>
                   <li>JWT Secret kopieren: <em>Supabase Dashboard → Settings → API → JWT Secret</em></li>
-                  <li>ENV-Variable auf dem PAW-Server setzen: <code>SUPABASE_JWT_SECRET=&lt;secret&gt;</code></li>
+                  <li>JWT Secret unten eintragen (wird verschlüsselt gespeichert)</li>
                   <li>In deiner externen App: Supabase-JWT als URL-Parameter übergeben</li>
                 </ol>
               </div>
@@ -1134,10 +1134,19 @@ export default function AdminPage() {
               </div>
 
               <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label">ENV-Variable</label>
-                <code style={{ fontSize: 'var(--font-size-xs)', background: 'var(--surface)', padding: 'var(--space-2)', borderRadius: 'var(--radius-sm)', display: 'block' }}>
-                  SUPABASE_JWT_SECRET=&lt;aus Supabase Dashboard kopieren&gt;
-                </code>
+                <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                  JWT Secret
+                  {(appSettings as any).has_supabase_jwt_secret && (
+                    <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 99, background: 'var(--success-50)', color: 'var(--success-700)', border: '1px solid var(--success-300)' }}>✓ Gespeichert</span>
+                  )}
+                </label>
+                <input
+                  type="password"
+                  className="form-input"
+                  placeholder={(appSettings as any).has_supabase_jwt_secret ? 'Neues Secret eingeben (leer lassen = unverändert)' : 'JWT Secret aus Supabase Dashboard'}
+                  value={(appSettings as any).supabase_jwt_secret || ''}
+                  onChange={e => setAppSettings((s: any) => ({ ...s, supabase_jwt_secret: e.target.value }))}
+                />
               </div>
             </div>
 

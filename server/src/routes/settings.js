@@ -6,6 +6,7 @@ import {
   getPublicSettings,
   isMailConfigured,
   AI_SETTINGS_KEYS,
+  AUTH_SETTINGS_KEYS,
   MAIL_SETTINGS_KEYS,
   PUBLIC_SETTINGS_KEYS,
   GOVERNANCE_SETTINGS_KEYS,
@@ -38,9 +39,10 @@ export default async function settingsRoutes(fastify) {
     const updates = {}
     for (const [key, value] of Object.entries(incoming)) {
       if (
-        PUBLIC_SETTINGS_KEYS.has(key) || 
-        MAIL_SETTINGS_KEYS.includes(key) || 
+        PUBLIC_SETTINGS_KEYS.has(key) ||
+        MAIL_SETTINGS_KEYS.includes(key) ||
         AI_SETTINGS_KEYS.includes(key) ||
+        AUTH_SETTINGS_KEYS.includes(key) ||
         GOVERNANCE_SETTINGS_KEYS.includes(key)
       ) {
         updates[key] = value

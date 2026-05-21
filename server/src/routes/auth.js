@@ -14,6 +14,14 @@ import { generateApiKey, hashApiKey } from '../utils/apikey.js'
 import { createVerify } from 'crypto'
 import { getSystemAiKeys } from '../services/appSettings.js'
 
+async function getSupabaseSecret(db) {
+  const { rows } = await db.query("SELECT value FROM settings WHERE key = 'supabase_jwt_secret'")
+  if (rows[0]?.value) {
+    try { return decrypt(rows[0].value) } catch { return rows[0].value }
+  }
+  return process.env.SUPABASE_JWT_SECRET || null
+}
+
 const oauthStates = new Map()
 
 // Purge expired OAuth states every 60 minutes to prevent unbounded memory growth
@@ -823,7 +831,7 @@ export default async function authRoutes(fastify) {
     for (const [name, config] of Object.entries(OAUTH_PROVIDERS)) {
       providers[name] = !!process.env[config.clientIdEnv]
     }
-    providers.supabase = !!process.env.SUPABASE_JWT_SECRET
+    providers.supabase = !!(await getSupabaseSecret(getDb()))
     return reply.send(providers)
   })
 
@@ -983,7 +991,8 @@ export default async function authRoutes(fastify) {
     const { token } = req.body || {}
     if (!token) return reply.code(400).send({ error: 'Token fehlt' })
 
-    const supabaseSecret = process.env.SUPABASE_JWT_SECRET
+    const db = getDb()
+    const supabaseSecret = await getSupabaseSecret(db)
     if (!supabaseSecret) return reply.code(503).send({ error: 'Supabase nicht konfiguriert' })
 
     let payload
@@ -995,8 +1004,6 @@ export default async function authRoutes(fastify) {
 
     const email = payload.email
     if (!email) return reply.code(400).send({ error: 'Keine E-Mail im Token' })
-
-    const db = getDb()
     let { rows: [account] } = await db.query('SELECT id, name, email, role, verified FROM accounts WHERE LOWER(email) = LOWER($1)', [email])
 
     if (!account) {
