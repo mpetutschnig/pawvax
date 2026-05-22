@@ -1098,10 +1098,9 @@ export default async function authRoutes(fastify) {
 <body>
   <div class="card">
     <h1>Vetzsucht</h1>
-    <p>Du wirst weitergeleitet…</p>
+    <p>Klicke auf den Button, um fortzufahren.</p>
     <a href="${href}">${label}</a>
   </div>
-  <script>window.location.replace("${href}")</script>
 </body>
 </html>`)
   })
