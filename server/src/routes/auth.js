@@ -1040,7 +1040,7 @@ export default async function authRoutes(fastify) {
   }
 
   // Supabase link proxy — prevents email clients from consuming one-time tokens
-  fastify.get('/auth/confirm', async (req, reply) => {
+  fastify.get('/api/auth/confirm', async (req, reply) => {
     const { token, type, redirect_to } = req.query
     if (!token || !type) return reply.code(400).send({ error: 'token und type sind erforderlich' })
 
