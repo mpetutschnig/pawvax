@@ -1050,7 +1050,10 @@ export default async function authRoutes(fastify) {
     const dest = new URL(`${supabaseUrl}/auth/v1/verify`)
     dest.searchParams.set('token', token)
     dest.searchParams.set('type', type)
-    dest.searchParams.set('redirect_to', redirect_to || process.env.PWA_URL || '/')
+    const defaultRedirect = type === 'recovery'
+      ? (process.env.SUPABASE_RECOVERY_REDIRECT_URL || process.env.PWA_URL || '/')
+      : (process.env.PWA_URL || '/')
+    dest.searchParams.set('redirect_to', redirect_to || defaultRedirect)
 
     const labels = {
       signup:       'E-Mail-Adresse bestätigen',
