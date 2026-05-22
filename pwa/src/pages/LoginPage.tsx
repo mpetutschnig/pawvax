@@ -50,6 +50,18 @@ export default function LoginPage() {
 
   useEffect(() => {
     const hash = window.location.hash
+    if (hash.includes('error=') && !hash.includes('access_token=')) {
+      const params = new URLSearchParams(hash.slice(1))
+      const errorCode = params.get('error_code')
+      const errorDescription = params.get('error_description')
+      window.history.replaceState(null, '', window.location.pathname + window.location.search)
+      if (errorCode === 'otp_expired') {
+        setError('Dieser Link ist abgelaufen oder wurde bereits verwendet. Bitte fordere einen neuen Link an.')
+      } else {
+        setError(errorDescription?.replace(/\+/g, ' ') || 'Authentifizierung fehlgeschlagen')
+      }
+      return
+    }
     if (hash.includes('access_token=')) {
       const params = new URLSearchParams(hash.slice(1))
       const accessToken = params.get('access_token')
