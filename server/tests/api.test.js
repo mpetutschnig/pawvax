@@ -91,6 +91,11 @@ function waitForWsMessage(ws, timeoutMs = 5000) {
   })
 }
 
+const TINY_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9oN8m6kAAAAASUVORK5CYII=',
+  'base64'
+)
+
 async function createDocumentFixtureViaWs(token, animalId, allowedRoles = ['guest']) {
   const ws = new WebSocket(toWsUrl(API_URL))
 
@@ -117,8 +122,8 @@ async function createDocumentFixtureViaWs(token, animalId, allowedRoles = ['gues
   ws.send(JSON.stringify({
     type: 'upload_start',
     animalId,
-    filename: 'test-fixture.jpg',
-    mimeType: 'image/jpeg',
+    filename: 'test-fixture.png',
+    mimeType: 'image/png',
     allowedRoles,
     documentId
   }))
@@ -130,13 +135,13 @@ async function createDocumentFixtureViaWs(token, animalId, allowedRoles = ['gues
     throw new Error(`Unexpected WS ready response: ${JSON.stringify(readyMsg)}`)
   }
 
-  ws.send(Buffer.from('fake-image-chunk'))
-  ws.send(JSON.stringify({ type: 'upload_end' }))
+  ws.send(TINY_PNG)
+  ws.send(JSON.stringify({ type: 'upload_end', is_last: true }))
 
   let doneMsg
   while (true) {
-    const msg = await waitForWsMessage(ws)
-    if (msg.type === 'done' || msg.type === 'error') {
+    const msg = await waitForWsMessage(ws, 15000)
+    if (msg.type === 'result' || msg.type === 'error') {
       doneMsg = msg
       break
     }
