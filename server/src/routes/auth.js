@@ -1045,6 +1045,16 @@ export default async function authRoutes(fastify) {
     if (!token || !type) return reply.code(400).send({ error: 'token und type sind erforderlich' })
 
     const db = getDb()
+
+    const ua = req.headers['user-agent'] || ''
+    const isBot = /bot|crawl|spider|google|bing|yahoo|baidu|yandex|facebook|twitter|slack|linkedin|prefetch|preview|scan/i.test(ua)
+    logAudit(db, {
+      action: 'auth.confirm.visit',
+      resource: 'auth',
+      ip: req.ip,
+      details: { type, redirect_to, user_agent: ua, suspected_bot: isBot }
+    }).catch(() => {})
+
     const { rows: urlRows } = await db.query("SELECT value FROM settings WHERE key = 'supabase_url'")
     const supabaseUrl = urlRows[0]?.value || process.env.SUPABASE_URL
     if (!supabaseUrl) return reply.code(500).send({ error: 'SUPABASE_URL nicht konfiguriert' })
