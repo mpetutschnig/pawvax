@@ -1050,7 +1050,7 @@ export default async function authRoutes(fastify) {
     if (!supabaseUrl) return reply.code(500).send({ error: 'SUPABASE_URL nicht konfiguriert' })
 
     const dest = new URL(`${supabaseUrl}/auth/v1/verify`)
-    dest.searchParams.set('token_hash', token)
+    dest.searchParams.set('token', token)
     dest.searchParams.set('type', type)
     const defaultRedirect = type === 'recovery'
       ? (process.env.SUPABASE_RECOVERY_REDIRECT_URL || process.env.PWA_URL || '/')
