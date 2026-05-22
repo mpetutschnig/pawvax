@@ -124,10 +124,27 @@ async function createDocumentFixtureViaWs(token, animalId, allowedRoles = ['gues
   }))
 
   const readyMsg = await waitForWsMessage(ws)
-  ws.close()
 
   if (readyMsg.type !== 'ready' || readyMsg.documentId !== documentId) {
+    ws.close()
     throw new Error(`Unexpected WS ready response: ${JSON.stringify(readyMsg)}`)
+  }
+
+  ws.send(Buffer.from('fake-image-chunk'))
+  ws.send(JSON.stringify({ type: 'upload_end' }))
+
+  let doneMsg
+  while (true) {
+    const msg = await waitForWsMessage(ws)
+    if (msg.type === 'done' || msg.type === 'error') {
+      doneMsg = msg
+      break
+    }
+  }
+
+  ws.close()
+  if (doneMsg && doneMsg.type === 'error') {
+    throw new Error(`Upload failed: ${doneMsg.message}`)
   }
 
   return documentId
@@ -1434,8 +1451,22 @@ describe('Suite 12: Reminders', () => {
       const docId = `reminder-doc-${Date.now()}`
       ws.send(JSON.stringify({ type: 'upload_start', animalId: animalId12, filename: 'test.jpg', mimeType: 'image/jpeg', allowedRoles: ['guest'], documentId: docId }))
       const readyMsg = await waitForWsMessage(ws)
+      if (readyMsg.type !== 'ready') { ws.close(); return null }
+
+      ws.send(Buffer.from('fake-image-chunk'))
+      ws.send(JSON.stringify({ type: 'upload_end' }))
+
+      let doneMsg
+      while (true) {
+        const msg = await waitForWsMessage(ws)
+        if (msg.type === 'done' || msg.type === 'error') {
+          doneMsg = msg
+          break
+        }
+      }
       ws.close()
-      if (readyMsg.type !== 'ready') return null
+      if (doneMsg && doneMsg.type === 'error') return null
+
       writeTinyPng(`${docId}.jpg`)
       return docId
     })().catch(() => null)
