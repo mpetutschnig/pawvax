@@ -1039,6 +1039,58 @@ export default async function authRoutes(fastify) {
     return { token, account }
   }
 
+  // Supabase link proxy — prevents email clients from consuming one-time tokens
+  fastify.get('/auth/confirm', async (req, reply) => {
+    const { token, type, redirect_to } = req.query
+    if (!token || !type) return reply.code(400).send({ error: 'token und type sind erforderlich' })
+
+    const supabaseUrl = process.env.SUPABASE_URL
+    if (!supabaseUrl) return reply.code(500).send({ error: 'SUPABASE_URL nicht konfiguriert' })
+
+    const dest = new URL(`${supabaseUrl}/auth/v1/verify`)
+    dest.searchParams.set('token', token)
+    dest.searchParams.set('type', type)
+    dest.searchParams.set('redirect_to', redirect_to || process.env.PWA_URL || '/')
+
+    const labels = {
+      signup:       'E-Mail-Adresse bestätigen',
+      recovery:     'Passwort zurücksetzen',
+      email_change: 'Neue E-Mail-Adresse bestätigen',
+      invite:       'Einladung annehmen',
+    }
+    const label = labels[type] ?? 'Fortfahren'
+    const href = dest.toString()
+
+    reply.type('text/html').send(`<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Vetzsucht</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#000;color:#fff;font-family:'Arial Black',sans-serif;
+       display:flex;align-items:center;justify-content:center;min-height:100vh}
+  .card{text-align:center;padding:60px 80px;border:1px solid #222;border-radius:24px}
+  h1{font-size:clamp(20px,4vw,40px);margin-bottom:.4em;letter-spacing:-.02em}
+  p{color:#888;font-size:14px;margin-bottom:2em}
+  a{display:inline-block;background:#e8ff00;color:#000;font-weight:900;
+    font-size:18px;padding:16px 40px;border-radius:12px;text-decoration:none;
+    text-transform:uppercase;letter-spacing:-.01em}
+  a:hover{opacity:.85}
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>Vetzsucht</h1>
+    <p>Du wirst weitergeleitet…</p>
+    <a href="${href}">${label}</a>
+  </div>
+  <script>window.location.replace("${href}")</script>
+</body>
+</html>`)
+  })
+
   // Supabase Auth Handshake — POST /api/auth/supabase
   fastify.post('/api/auth/supabase', async (req, reply) => {
     const { token } = req.body || {}
