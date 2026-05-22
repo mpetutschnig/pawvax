@@ -1041,8 +1041,8 @@ export default async function authRoutes(fastify) {
 
   // Supabase link proxy — prevents email clients from consuming one-time tokens
   fastify.get('/api/auth/confirm', async (req, reply) => {
-    const { token, type, redirect_to } = req.query
-    if (!token || !type) return reply.code(400).send({ error: 'token und type sind erforderlich' })
+    const { token, token_hash, type, redirect_to } = req.query
+    if (!(token || token_hash) || !type) return reply.code(400).send({ error: 'Token und Type sind erforderlich' })
 
     const db = getDb()
 
@@ -1060,8 +1060,14 @@ export default async function authRoutes(fastify) {
     if (!supabaseUrl) return reply.code(500).send({ error: 'SUPABASE_URL nicht konfiguriert' })
 
     const dest = new URL(`${supabaseUrl}/auth/v1/verify`)
-    dest.searchParams.set('token', token)
-    dest.searchParams.set('type', type)
+    
+    // Alle relevanten Parameter (wie email, token, token_hash) 1:1 durchschleifen
+    for (const [key, value] of Object.entries(req.query)) {
+      if (key !== 'redirect_to' && value !== undefined) {
+        dest.searchParams.set(key, value)
+      }
+    }
+
     const defaultRedirect = type === 'recovery'
       ? (process.env.SUPABASE_RECOVERY_REDIRECT_URL || process.env.PWA_URL || '/')
       : (process.env.PWA_URL || '/')
