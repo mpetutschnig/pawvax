@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 
 const slides: React.ReactNode[] = [
+  <img src="/pow/slide-0.jpg" alt="" style={{ maxWidth: '100%', maxHeight: '100vh', objectFit: 'contain' }} />,
   <img src="/pow/Gandalf_1.jpg" alt="" style={{ maxWidth: '100%', maxHeight: '100vh', objectFit: 'contain' }} />,
   <><div className="word accent">Papier.</div><div className="word">Verloren.</div></>,
   <div className="word accent">Nie wieder.</div>,
