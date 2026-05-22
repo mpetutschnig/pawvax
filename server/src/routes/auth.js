@@ -1155,6 +1155,38 @@ export default async function authRoutes(fastify) {
     return createPawSession(db, payload, req.ip)
   })
 
+  // Supabase Password Reset — POST /api/auth/supabase/reset-password
+  fastify.post('/api/auth/supabase/reset-password', async (req, reply) => {
+    const { accessToken, password, confirmPassword } = req.body || {}
+    if (!accessToken || !password) return reply.code(400).send({ error: 'accessToken und password erforderlich' })
+    if (password !== confirmPassword) return reply.code(400).send({ error: 'Passwörter stimmen nicht überein' })
+    if (password.length < 8) return reply.code(400).send({ error: 'Passwort muss mindestens 8 Zeichen haben' })
+
+    const db = getDb()
+    const { rows: urlRows } = await db.query("SELECT value FROM settings WHERE key = 'supabase_url'")
+    const { rows: keyRows } = await db.query("SELECT value FROM settings WHERE key = 'supabase_anon_key'")
+    const supabaseUrl = urlRows[0]?.value || process.env.SUPABASE_URL
+    const supabaseAnonKey = keyRows[0]?.value
+    if (!supabaseUrl) return reply.code(503).send({ error: 'Supabase nicht konfiguriert' })
+
+    const res = await fetch(`${supabaseUrl}/auth/v1/user`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+        ...(supabaseAnonKey ? { apikey: supabaseAnonKey } : {}),
+      },
+      body: JSON.stringify({ password }),
+    })
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      return reply.code(400).send({ error: err.message || err.msg || 'Passwort konnte nicht aktualisiert werden' })
+    }
+
+    return { message: 'Passwort erfolgreich geändert' }
+  })
+
   // Pending background tasks (documents + voice memos not yet completed/failed)
   fastify.get('/api/accounts/me/pending-tasks', { onRequest: [fastify.authenticate] }, async (req, reply) => {
     const db = getDb()

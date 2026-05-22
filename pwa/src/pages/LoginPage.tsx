@@ -1,7 +1,7 @@
 import { useState, useEffect, FormEvent } from 'react'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { login, register, requestPasswordReset, resetPassword, verifyEmail, getOAuthUrl, supabaseLogin, supabasePasswordLogin } from '../api/rest'
+import { login, register, requestPasswordReset, resetPassword, verifyEmail, getOAuthUrl, supabaseLogin, supabasePasswordLogin, supabaseResetPassword } from '../api/rest'
 import { PawPrint, LogIn, UserPlus, ScanLine } from 'lucide-react'
 
 export default function LoginPage() {
@@ -32,6 +32,7 @@ export default function LoginPage() {
   const [supabasePwPassword, setSupabasePwPassword] = useState('')
   const [supabasePwError, setSupabasePwError] = useState<string | null>(null)
   const [supabasePwLoading, setSupabasePwLoading] = useState(false)
+  const [supabaseRecoveryToken, setSupabaseRecoveryToken] = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/settings').then(res => res.json()).then(data => {
@@ -52,8 +53,15 @@ export default function LoginPage() {
     if (hash.includes('access_token=')) {
       const params = new URLSearchParams(hash.slice(1))
       const accessToken = params.get('access_token')
+      const hashType = params.get('type')
       if (accessToken) {
         window.history.replaceState(null, '', window.location.pathname + window.location.search)
+        if (hashType === 'recovery') {
+          setSupabaseRecoveryToken(accessToken)
+          setMode('reset')
+          setInfo('Neues Passwort vergeben.')
+          return
+        }
         setTokenActionInProgress(true)
         ;(async () => {
           try {
@@ -192,16 +200,25 @@ export default function LoginPage() {
         setInfo(res.data.message || t('auth.resetRequestSuccess'))
         setMode('login')
       } else {
-        const resetToken = searchParams.get('resetToken')
-        if (!resetToken) {
-          throw new Error(t('auth.resetTokenMissing'))
+        if (supabaseRecoveryToken) {
+          await supabaseResetPassword(supabaseRecoveryToken, password, confirmPassword)
+          setInfo('Passwort erfolgreich geändert.')
+          setSupabaseRecoveryToken(null)
+          setMode('login')
+          setPassword('')
+          setConfirmPassword('')
+        } else {
+          const resetToken = searchParams.get('resetToken')
+          if (!resetToken) {
+            throw new Error(t('auth.resetTokenMissing'))
+          }
+          const res = await resetPassword(resetToken, password, confirmPassword)
+          setInfo(res.data.message || t('auth.resetSuccess'))
+          setSearchParams({}, { replace: true })
+          setMode('login')
+          setPassword('')
+          setConfirmPassword('')
         }
-        const res = await resetPassword(resetToken, password, confirmPassword)
-        setInfo(res.data.message || t('auth.resetSuccess'))
-        setSearchParams({}, { replace: true })
-        setMode('login')
-        setPassword('')
-        setConfirmPassword('')
       }
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error

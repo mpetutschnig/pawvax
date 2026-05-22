@@ -222,6 +222,9 @@ export const supabaseLogin = (token: string) =>
 export const supabasePasswordLogin = (email: string, password: string) =>
   api.post('/auth/supabase/password', { email, password })
 
+export const supabaseResetPassword = (accessToken: string, password: string, confirmPassword: string) =>
+  api.post('/auth/supabase/reset-password', { accessToken, password, confirmPassword })
+
 // Billing
 export const getBillingMe = () => api.get('/billing/me')
 export const postBillingConsent = () => api.post('/billing/consent')
