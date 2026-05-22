@@ -1044,7 +1044,9 @@ export default async function authRoutes(fastify) {
     const { token, type, redirect_to } = req.query
     if (!token || !type) return reply.code(400).send({ error: 'token und type sind erforderlich' })
 
-    const supabaseUrl = process.env.SUPABASE_URL
+    const db = getDb()
+    const { rows: urlRows } = await db.query("SELECT value FROM settings WHERE key = 'supabase_url'")
+    const supabaseUrl = urlRows[0]?.value || process.env.SUPABASE_URL
     if (!supabaseUrl) return reply.code(500).send({ error: 'SUPABASE_URL nicht konfiguriert' })
 
     const dest = new URL(`${supabaseUrl}/auth/v1/verify`)
