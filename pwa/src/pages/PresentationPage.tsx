@@ -28,7 +28,8 @@ const slides: React.ReactNode[] = [
   <><div className="word">Gast. Tierarzt.</div><div className="word">Behörde. Besitzer.</div><div className="word accent">Jeder sieht genau genug.</div></>,
   <><div className="word accent">Vetzsucht.</div><div className="word dim">Das ist unser USP.</div></>,
   <img src="/pow/Gandalf_2.jpg" alt="" style={{ maxWidth: '100%', maxHeight: '100vh', objectFit: 'contain' }} />,
-  <img src="/pow/Gandalf_3.jpg" alt="" style={{ maxWidth: '100%', maxHeight: '100vh', objectFit: 'contain' }} />,
+  <img src="/pow/Frodo_gandalf_usp.jpg" alt="" style={{ maxWidth: '100%', maxHeight: '100vh', objectFit: 'contain' }} />,
+  <img src="/pow/Frodo_demo.jpg" alt="" style={{ maxWidth: '100%', maxHeight: '100vh', objectFit: 'contain' }} />,
 ]
 
 export default function PresentationPage() {
@@ -36,7 +37,7 @@ export default function PresentationPage() {
   const [key, setKey] = useState(0)
 
   const go = useCallback((n: number) => {
-    setCurrent((c) => {
+    setCurrent((_c) => {
       const next = (n + slides.length) % slides.length
       setKey((k) => k + 1)
       return next
