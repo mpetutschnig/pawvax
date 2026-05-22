@@ -1089,20 +1089,38 @@ export default async function authRoutes(fastify) {
   .card{text-align:center;padding:60px 80px;border:1px solid #222;border-radius:24px}
   h1{font-size:clamp(20px,4vw,40px);margin-bottom:.4em;letter-spacing:-.02em}
   p{color:#888;font-size:14px;margin-bottom:2em}
-  a{display:inline-block;background:#e8ff00;color:#000;font-weight:900;
-    font-size:18px;padding:16px 40px;border-radius:12px;text-decoration:none;
-    text-transform:uppercase;letter-spacing:-.01em}
-  a:hover{opacity:.85}
+  button{display:inline-block;background:#e8ff00;color:#000;font-weight:900;
+    font-size:18px;padding:16px 40px;border-radius:12px;border:none;cursor:pointer;
+    text-transform:uppercase;letter-spacing:-.01em;font-family:inherit}
+  button:hover{opacity:.85}
 </style>
 </head>
 <body>
   <div class="card">
     <h1>Vetzsucht</h1>
     <p>Klicke auf den Button, um fortzufahren.</p>
-    <a href="${href}">${label}</a>
+    <form method="POST" action="/api/auth/confirm">
+      <input type="hidden" name="dest" value="${href}">
+      <button type="submit">${label}</button>
+    </form>
   </div>
 </body>
 </html>`)
+  })
+
+  fastify.post('/api/auth/confirm', async (req, reply) => {
+    const { dest } = req.body || {}
+    if (!dest) return reply.code(400).send({ error: 'Ungültige Anfrage' })
+    let destUrl
+    try { destUrl = new URL(dest) } catch { return reply.code(400).send({ error: 'Ungültige URL' }) }
+    const db = getDb()
+    const { rows: urlRows } = await db.query("SELECT value FROM settings WHERE key = 'supabase_url'")
+    const supabaseUrl = urlRows[0]?.value || process.env.SUPABASE_URL || ''
+    const allowedHost = supabaseUrl ? new URL(supabaseUrl).hostname : null
+    if (!allowedHost || destUrl.hostname !== allowedHost) {
+      return reply.code(400).send({ error: 'Ungültige Zieladresse' })
+    }
+    return reply.redirect(destUrl.toString())
   })
 
   // Supabase Auth Handshake — POST /api/auth/supabase
