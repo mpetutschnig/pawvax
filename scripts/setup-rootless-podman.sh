@@ -382,7 +382,7 @@ After=network-online.target
 Image=localhost/paw-pwa:latest
 ContainerName=paw-pwa
 Pod=paw-stack.pod
-Volume=%h/data/pwa/nginx.conf:/etc/nginx/nginx.conf:Z,ro
+Volume=%h/data/pwa/nginx.conf:/etc/nginx/nginx.conf.tpl:Z,ro
 
 [Service]
 Restart=always
