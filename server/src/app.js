@@ -30,6 +30,7 @@ import { setOcrLogger } from './services/ocr/index.js'
 import { logAudit } from './services/audit.js'
 
 const __dir = dirname(fileURLToPath(import.meta.url))
+const APP_VERSION = JSON.parse(readFileSync(join(__dir, '../package.json'), 'utf8')).version
 
 const fastify = Fastify({
   logger: {
@@ -246,6 +247,7 @@ fastify.addHook('onRequest', async (req) => {
 
 // Capture response body for structured logging and admin debugging
 fastify.addHook('onSend', async (req, reply, payload) => {
+  reply.header('X-App-Version', APP_VERSION)
   req.auditResponseBody = parseAuditPayload(payload)
   if (reply.statusCode >= 400) {
     try {

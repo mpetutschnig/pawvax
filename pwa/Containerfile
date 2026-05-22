@@ -4,25 +4,22 @@ FROM docker.io/node:22-alpine AS builder
 WORKDIR /app
 
 COPY package*.json ./
-
 RUN npm ci
-
 COPY . .
-
 RUN npm run build
+RUN node -e "process.stdout.write(require('./package.json').version)" > /version.txt
 
-# Production stage
 FROM docker.io/nginx:alpine
 
 RUN rm /etc/nginx/conf.d/default.conf
 
-COPY nginx-prod.conf /etc/nginx/conf.d/default.conf
-
+COPY nginx-prod.conf /etc/nginx/conf.d/default.conf.tpl
 COPY --from=builder /app/dist /usr/share/nginx/html
+COPY --from=builder /version.txt /version.txt
 
 EXPOSE 8080
 
 HEALTHCHECK --interval=10s --timeout=5s --retries=3 \
   CMD wget --quiet --tries=1 --spider http://localhost:8080/ || exit 1
 
-CMD ["nginx", "-g", "daemon off;"]
+CMD sh -c "export APP_VERSION=\$(cat /version.txt) && envsubst '\${APP_VERSION}' < /etc/nginx/conf.d/default.conf.tpl > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"
