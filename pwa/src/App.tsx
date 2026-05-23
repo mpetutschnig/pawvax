@@ -24,7 +24,6 @@ import PublicSharePage from './pages/PublicSharePage'
 import RemindersPage from './pages/RemindersPage'
 import BillingPage from './pages/BillingPage'
 import TosPage from './pages/TosPage'
-import PresentationPage from './pages/PresentationPage'
 import { Toaster } from 'sonner'
 import { PendingTasksChip } from './components/PendingTasksChip'
 
@@ -386,7 +385,6 @@ export default function App() {
         <Route path="/welcome" element={<WelcomePage />} />
         <Route path="/public-scan" element={<PublicScanPage />} />
         <Route path="/tos" element={<TosPage />} />
-        <Route path="/pow" element={<PresentationPage />} />
         <Route path="/t/:tagId" element={<PublicScanPage />} />
         <Route path="/share/:shareId" element={<PublicSharePage />} />
         <Route path="/" element={<RootRedirect />} />
