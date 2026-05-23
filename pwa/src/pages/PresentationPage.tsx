@@ -35,14 +35,9 @@ const slides: React.ReactNode[] = [
 
 export default function PresentationPage() {
   const [current, setCurrent] = useState(0)
-  const [key, setKey] = useState(0)
 
   const go = useCallback((n: number) => {
-    setCurrent((_c) => {
-      const next = (n + slides.length) % slides.length
-      setKey((k) => k + 1)
-      return next
-    })
+    setCurrent((_c) => (n + slides.length) % slides.length)
   }, [])
 
   const next = useCallback(() => go(current + 1), [current, go])
@@ -85,8 +80,11 @@ export default function PresentationPage() {
           background: #000; color: #fff;
           font-family: 'Arial Black', 'Helvetica Neue', sans-serif;
           display: flex; align-items: center; justify-content: center;
-          flex-direction: column; gap: 0.2em; text-align: center;
           padding: 60px; user-select: none; cursor: pointer;
+        }
+        .pres-slide {
+          display: flex; align-items: center; justify-content: center;
+          flex-direction: column; gap: 0.2em; text-align: center;
           animation: presIn 0.25s ease;
         }
         @keyframes presIn { from { opacity:0; transform:scale(0.97); } to { opacity:1; transform:scale(1); } }
@@ -105,8 +103,10 @@ export default function PresentationPage() {
         }
         .pres-dots span.on { background: #fff; }
       `}</style>
-      <div key={key} className="pres-wrap" onClick={onClick}>
-        {slides[current]}
+      <div className="pres-wrap" onClick={onClick}>
+        <div key={current} className="pres-slide">
+          {slides[current]}
+        </div>
       </div>
       <div className="pres-dots">
         {slides.map((_, i) => (
