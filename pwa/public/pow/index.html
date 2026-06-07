@@ -141,15 +141,38 @@
     color: #e8ff00;
     margin-bottom: 2px;
   }
-  .feature-col li {
-    list-style: none;
+  .feature-col p {
     font-size: clamp(13px, 1.5vw, 19px);
     font-weight: 600;
     color: #ddd;
-    line-height: 1.3;
+    line-height: 1.4;
+    margin: 0;
   }
   .slide.features .text-content { max-width: 94vw; padding: 32px 44px; }
   .slide.features .word { font-size: clamp(22px, 3.4vw, 46px); }
+
+  /* Tech Stack: Zeilen-Layout */
+  .tech-rows { display: flex; flex-direction: column; gap: 10px; width: 100%; margin-top: 0.8em; }
+  .tech-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .tech-cat {
+    font-size: clamp(11px, 1.1vw, 15px);
+    font-weight: 900;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #e8ff00;
+    min-width: 110px;
+    flex-shrink: 0;
+  }
+  .tech-chip {
+    font-size: clamp(13px, 1.4vw, 18px);
+    font-weight: 700;
+    color: #fff;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(232,255,0,0.4);
+    padding: 5px 14px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
 
   .dot {
     position: fixed;
@@ -244,65 +267,119 @@
   </div>
 </div>
 
-<!-- 06 — FEATURE-ÜBERSICHT: was alles drinsteckt, gruppiert -->
-<div class="slide bottom features">
-  <img src="slide-09.jpg" class="bg-img" alt="Löwe auf Felsen">
-  <div class="text-content">
-    <div class="word">Alles drin.</div>
-    <div class="feature-grid">
-      <div class="feature-col">
-        <h3>Pass</h3>
-        <li>Tiere, Impfungen, Behandlungen</li>
-        <li>Besitzer-Transfer</li>
-        <li>Archiv & Statistiken</li>
-      </div>
-      <div class="feature-col">
-        <h3>Zugang</h3>
-        <li>NFC · QR · Link</li>
-        <li>Öffentlicher Scan ohne Login</li>
-        <li>Scan-Verlauf</li>
-      </div>
-      <div class="feature-col">
-        <h3>KI</h3>
-        <li>Dokument-Analyse</li>
-        <li>Sprachnotiz → Text</li>
-        <li>Duplikat-Erkennung</li>
-      </div>
-      <div class="feature-col">
-        <h3>Teilen</h3>
-        <li>Temporär & dauerhaft</li>
-        <li>Share-Links</li>
-        <li>Rechte jederzeit widerrufen</li>
-      </div>
-      <div class="feature-col">
-        <h3>Konto</h3>
-        <li>OAuth & Supabase-Login</li>
-        <li>Datenexport</li>
-        <li>Persönliche API-Keys</li>
-      </div>
-      <div class="feature-col">
-        <h3>Tierarzt</h3>
-        <li>Organisationen & Teams</li>
-        <li>Einladungen</li>
-        <li>Vet-API v1</li>
-      </div>
-      <div class="feature-col">
-        <h3>Plattform</h3>
-        <li>Reminders & Billing</li>
-        <li>Audit-Log</li>
-        <li>Multi-Tenant · i18n · PWA</li>
-      </div>
-    </div>
-  </div>
-</div>
-
 <div class="slide">
   <img src="slide-20_1.png" class="bg-img" alt="Einsatzmöglichkeiten">
   <div class="text-content">
     <div class="word">Einsatzmöglichkeiten:</div>
     <div class="word accent">ohne Ende</div>
   </div>
+</div>
 
+<!-- 06 — FEATURE-ÜBERSICHT: was alles drinsteckt, gruppiert -->
+<div class="slide bottom">
+  <img src="slide-09.jpg" class="bg-img" alt="Löwe auf Felsen">
+  <div class="text-content" style="text-align:left; align-items:flex-start;">
+    <div class="word" style="font-size:clamp(22px,3.4vw,46px);">Alles drin.</div>
+    <div class="tech-rows">
+      <div class="tech-row">
+        <span class="tech-cat">Pass</span>
+        <span class="tech-chip">Tiere &amp; Impfungen</span>
+        <span class="tech-chip">Behandlungen</span>
+        <span class="tech-chip">Besitzer-Transfer</span>
+        <span class="tech-chip">Archiv</span>
+        <span class="tech-chip">Statistiken</span>
+      </div>
+      <div class="tech-row">
+        <span class="tech-cat">Zugang</span>
+        <span class="tech-chip">NFC</span>
+        <span class="tech-chip">QR</span>
+        <span class="tech-chip">Link</span>
+        <span class="tech-chip">Scan ohne Login</span>
+        <span class="tech-chip">Scan-Verlauf</span>
+      </div>
+      <div class="tech-row">
+        <span class="tech-cat">KI</span>
+        <span class="tech-chip">Dokument-Analyse</span>
+        <span class="tech-chip">Sprachnotiz → Text</span>
+        <span class="tech-chip">Duplikat-Erkennung</span>
+      </div>
+      <div class="tech-row">
+        <span class="tech-cat">Teilen</span>
+        <span class="tech-chip">Share-Links</span>
+        <span class="tech-chip">Temporär &amp; dauerhaft</span>
+        <span class="tech-chip">Rechte widerrufen</span>
+      </div>
+      <div class="tech-row">
+        <span class="tech-cat">Konto</span>
+        <span class="tech-chip">OAuth</span>
+        <span class="tech-chip">Supabase-Login</span>
+        <span class="tech-chip">Datenexport</span>
+        <span class="tech-chip">API-Keys</span>
+      </div>
+      <div class="tech-row">
+        <span class="tech-cat">Tierarzt</span>
+        <span class="tech-chip">Organisationen</span>
+        <span class="tech-chip">Teams</span>
+        <span class="tech-chip">Einladungen</span>
+        <span class="tech-chip">Vet-API v1</span>
+      </div>
+      <div class="tech-row">
+        <span class="tech-cat">Plattform</span>
+        <span class="tech-chip">Reminders</span>
+        <span class="tech-chip">Billing</span>
+        <span class="tech-chip">Audit-Log</span>
+        <span class="tech-chip">Multi-Tenant</span>
+        <span class="tech-chip">i18n</span>
+        <span class="tech-chip">PWA</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TECH STACK — vorletzte Folie -->
+<div class="slide bottom">
+  <img src="slide-12.jpg" class="bg-img" alt="Tech Stack Hintergrund">
+  <div class="text-content" style="text-align:left; align-items:flex-start;">
+    <div class="word">Gebaut auf.</div>
+    <div class="tech-rows">
+      <div class="tech-row">
+        <span class="tech-cat">Frontend</span>
+        <span class="tech-chip">React 18</span>
+        <span class="tech-chip">Vite</span>
+        <span class="tech-chip">TypeScript</span>
+        <span class="tech-chip">Tailwind CSS</span>
+        <span class="tech-chip">Shadcn UI</span>
+        <span class="tech-chip">PWA</span>
+      </div>
+      <div class="tech-row">
+        <span class="tech-cat">Backend</span>
+        <span class="tech-chip">Fastify</span>
+        <span class="tech-chip">Node.js</span>
+        <span class="tech-chip">ES Modules</span>
+        <span class="tech-chip">REST API</span>
+      </div>
+      <div class="tech-row">
+        <span class="tech-cat">Daten &amp; Auth</span>
+        <span class="tech-chip">Supabase</span>
+        <span class="tech-chip">PostgreSQL</span>
+        <span class="tech-chip">OAuth</span>
+        <span class="tech-chip">Magic Link</span>
+        <span class="tech-chip">RLS</span>
+      </div>
+      <div class="tech-row">
+        <span class="tech-cat">KI</span>
+        <span class="tech-chip">Claude API</span>
+        <span class="tech-chip">Anthropic</span>
+      </div>
+      <div class="tech-row">
+        <span class="tech-cat">Deploy</span>
+        <span class="tech-chip">Hetzner</span>
+        <span class="tech-chip">Podman</span>
+        <span class="tech-chip">Caddy</span>
+        <span class="tech-chip">Self-hosted</span>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- 07 — ABGANG: Antwort an den Gast (Gandalf-Bookend) -->
