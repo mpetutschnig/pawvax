@@ -137,12 +137,6 @@ await fastify.register(fastifyStatic, {
   prefix: '/uploads/'
 })
 
-await fastify.register(fastifyStatic, {
-  root: join(__dir, '..', 'public', 'pow'),
-  prefix: '/pow/',
-  decorateReply: false
-})
-
 await fastify.register(fastifySwagger, {
   openapi: {
     info: { title: 'PAW API', description: 'Digitaler Tierimpfpass REST API', version: '1.0.0' },
@@ -362,16 +356,6 @@ await fastify.register(vetApiRoutes)
 await fastify.register(reminderRoutes)
 await fastify.register(billingRoutes)
 await fastify.register(voiceMemoRoutes)
-
-// Presentation — serve HTML directly to avoid redirect with wrong port
-fastify.get('/pow', (_req, reply) => {
-  try {
-    const html = readFileSync(join(__dir, '..', 'public', 'pow', 'presentation.html'), 'utf-8')
-    return reply.type('text/html').send(html)
-  } catch {
-    return reply.code(404).send({ error: 'Not found' })
-  }
-})
 
 // Healthcheck
 fastify.get('/health', async () => ({ status: 'ok' }))

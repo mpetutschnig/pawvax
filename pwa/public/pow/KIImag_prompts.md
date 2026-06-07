@@ -1,6 +1,11 @@
-Slide 1: Dein Tierpass? Im Müll.
+Slide 0 (slide-00.jpg): HOOK — Chihuahua-Gandalf, Rauch formt die USP-Frage
 
-Prompt: Cinematic dark photography, a confused looking dog peeking out from the left edge of the frame, looking down at a crumpled old paper booklet in a dark trash can on the right. Vast dark empty space in the exact center for text layout. Dramatic side lighting, low key, heavy shadows, moody atmosphere. --ar 16:9 --style raw
+Prompt: Cinematic dark photography, a tiny Chihuahua dressed as the wizard Gandalf, flowing grey robe and tall pointed wizard hat, sitting on the bottom left edge, calmly smoking a long curved wooden pipe. The exhaled smoke swirls upward and curls into glowing legible handwritten cursive letters spelling »Und was ist euer USP?« across the dark center of the frame. Pitch black mystical background, dramatic rim light, volumetric smoke, high contrast, moody. --ar 16:9 --style raw
+(Hinweis: Schrift-im-Rauch ist für KI-Generatoren schwierig — mehrere Runs einplanen oder Schriftzug nachträglich in den Rauch retuschieren. Diese Folie hat KEINE Text-Overlay-Box, der Text lebt im Bild.)
+
+Slide 1: Dein Tierpass? Zerrissen.
+
+Prompt: Cinematic dark photography, a guilty looking dog peeking out from the left edge of the frame, a small paper pet vaccination passport booklet violently ripped in half lying on a dark floor on the right, torn paper shreds scattered around. Vast dark empty space in the exact center for text layout. Dramatic side lighting, low key, heavy shadows, moody atmosphere. --ar 16:9 --style raw
 
 Slide 2: Konkurrenz quasi digital / Schrott
 
