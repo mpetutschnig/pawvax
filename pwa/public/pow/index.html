@@ -123,6 +123,34 @@
     border-color: #e8ff00;
   }
 
+  /* Feature-Übersicht: gruppierte Spalten */
+  .feature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 18px 28px;
+    max-width: 90vw;
+    margin-top: 0.6em;
+    text-align: left;
+  }
+  .feature-col { display: flex; flex-direction: column; gap: 6px; }
+  .feature-col h3 {
+    font-size: clamp(13px, 1.4vw, 18px);
+    font-weight: 900;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #e8ff00;
+    margin-bottom: 2px;
+  }
+  .feature-col li {
+    list-style: none;
+    font-size: clamp(13px, 1.5vw, 19px);
+    font-weight: 600;
+    color: #ddd;
+    line-height: 1.3;
+  }
+  .slide.features .text-content { max-width: 94vw; padding: 32px 44px; }
+  .slide.features .word { font-size: clamp(22px, 3.4vw, 46px); }
+
   .dot {
     position: fixed;
     bottom: 24px;
@@ -159,7 +187,7 @@
 
 <!-- 01 — DAS PROBLEM (Pass = Papierheft, zusammengeführt) -->
 <div class="slide bottom">
-  <img src="slide-01.png" class="bg-img" alt="Zerrissener Tierpass">
+  <img src="slide-01_1.png" class="bg-img" alt="Zerrissener Tierpass">
   <div class="text-content">
     <div class="word">Der Tierimpfpass heute:</div>
     <div class="word accent">Papier.</div>
@@ -217,7 +245,59 @@
   </div>
 </div>
 
-<!-- 06 — ABGANG: Antwort an den Gast (Gandalf-Bookend) -->
+<!-- 06 — FEATURE-ÜBERSICHT: was alles drinsteckt, gruppiert -->
+<div class="slide features">
+  <img src="slide-09.jpg" class="bg-img" alt="Löwe auf Felsen">
+  <div class="text-content">
+    <div class="word">Alles drin.</div>
+    <div class="feature-grid">
+      <div class="feature-col">
+        <h3>Pass</h3>
+        <li>Tiere, Impfungen, Behandlungen</li>
+        <li>Besitzer-Transfer</li>
+        <li>Archiv & Statistiken</li>
+      </div>
+      <div class="feature-col">
+        <h3>Zugang</h3>
+        <li>NFC · QR · Link</li>
+        <li>Öffentlicher Scan ohne Login</li>
+        <li>Scan-Verlauf</li>
+      </div>
+      <div class="feature-col">
+        <h3>KI</h3>
+        <li>Dokument-Analyse</li>
+        <li>Sprachnotiz → Text</li>
+        <li>Duplikat-Erkennung</li>
+      </div>
+      <div class="feature-col">
+        <h3>Teilen</h3>
+        <li>Temporär & dauerhaft</li>
+        <li>Share-Links</li>
+        <li>Rechte jederzeit widerrufen</li>
+      </div>
+      <div class="feature-col">
+        <h3>Konto</h3>
+        <li>OAuth & Supabase-Login</li>
+        <li>DSGVO-Datenexport</li>
+        <li>Persönliche API-Keys</li>
+      </div>
+      <div class="feature-col">
+        <h3>Tierarzt</h3>
+        <li>Organisationen & Teams</li>
+        <li>Einladungen</li>
+        <li>Vet-API v1</li>
+      </div>
+      <div class="feature-col">
+        <h3>Plattform</h3>
+        <li>Reminders & Billing</li>
+        <li>Audit-Log</li>
+        <li>Multi-Tenant · i18n · PWA</li>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 07 — ABGANG: Antwort an den Gast (Gandalf-Bookend) -->
 <div class="slide bottom left w50">
   <img src="slide-17.jpg" class="bg-img" alt="Gandalf Hund">
   <div class="text-content">
