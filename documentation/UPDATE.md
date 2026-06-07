@@ -11,12 +11,11 @@ Alle Befehle laufen als `root` auf dem Hetzner-Server.
 ## 🎯 ARCHITEKTUR-ÜBERBLICK
 
 ```
-Single Pod (paw-stack) mit 5 Containern:
-├── PostgreSQL 16 (Port 5432 intern)
-├── Node.js API / Fastify (Port 3000 intern)
-├── Nginx PWA (Port 8080 intern)
-├── Caddy Reverse Proxy (Port 80/443 extern)
-└── [optional: Postgres Backup, Log Aggregation, etc.]
+Single Pod (paw-stack) mit 4 Containern:
+├── paw-postgres  → PostgreSQL 16 (Port 5432 intern)
+├── paw-api       → Node.js API / Fastify (Port 3000 intern)
+├── paw-pwa       → Nginx PWA (Port 8080 intern)
+└── paw-caddy     → Caddy Reverse Proxy (Port 80/443 extern, Let's Encrypt)
 
 Persistent Volumes:
 /home/paw-app/data/
@@ -246,7 +245,7 @@ su -s /bin/bash paw-git -c "cd /git/pawvax && git pull"
 grep '"version"' /git/pawvax/server/package.json /git/pawvax/pwa/package.json
 ```
 
-Sollte Format `YYYY-MM-DD_HHmm` sein (z.B. `2026-05-05_1752`)
+Sollte Format `YYYYMMDD_HHmm` sein (z.B. `20260607_2039`)
 
 ### Schritt 2: Pod rebuilden
 
@@ -258,6 +257,34 @@ bash scripts/setup-rootless-podman.sh deploy
 ```
 
 Das dauert ~2-5 Minuten je nach Image-Größe.
+
+#### Alternative: Nur einen einzelnen Service updaten (schneller)
+
+Wenn sich nur das Frontend (PWA) **oder** nur die API geändert hat, reicht es,
+das betroffene Image einzeln zu bauen und nur dessen Service neu zu starten —
+kein voller Pod-Rebuild nötig. `UID_` ist die UID von `paw-app` (z.B. 1001).
+
+```bash
+U=paw-app; UID_=$(id -u $U)
+```
+
+**Nur PWA (z.B. statische Assets, /pow Deck):**
+
+```bash
+su -s /bin/bash $U -c "export XDG_RUNTIME_DIR=/run/user/$UID_; podman --cgroup-manager=cgroupfs build --no-cache -t paw-pwa:latest -f /git/pawvax/pwa/Containerfile /git/pawvax/pwa"
+su -s /bin/bash $U -c "export XDG_RUNTIME_DIR=/run/user/$UID_; export DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$UID_/bus; systemctl --user restart paw-pwa"
+```
+
+**Nur API (server/src Änderungen):**
+
+```bash
+su -s /bin/bash $U -c "export XDG_RUNTIME_DIR=/run/user/$UID_; podman --cgroup-manager=cgroupfs build --no-cache -t paw-api:latest -f /git/pawvax/server/Dockerfile /git/pawvax/server"
+su -s /bin/bash $U -c "export XDG_RUNTIME_DIR=/run/user/$UID_; export DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$UID_/bus; systemctl --user restart paw-api"
+```
+
+> **SSH-Hinweis:** Der `hetzner`-Alias erzwingt eine tmux-`RemoteCommand`. Für
+> nicht-interaktive Befehle mit `ssh -o RemoteCommand=none -T hetzner '...'`
+> aufrufen.
 
 ### Schritt 3: Tests direkt gegen Produktivinstanz
 
@@ -289,7 +316,7 @@ Vor jedem Major Update:
 - [ ] Datenbank-Größe prüfen: `du -sh /home/paw-app/data/postgres/` (sollte nicht drastisch unterschiedlich sein)
 - [ ] Schema-Änderungen prüfen: `git log --oneline -- server/src/db/schema.sql`
 - [ ] Tests lokal bestätigt: `cd /git/pawvax/server && npm test` ✅
-- [ ] Version bumped: `grep '"version"' /git/pawvax/*/package.json` (Format: YYYY-MM-DD_HHmm)
+- [ ] Version bumped: `grep '"version"' /git/pawvax/*/package.json` (Format: YYYYMMDD_HHmm)
 - [ ] Deploy-Skript überprüft: `cat /git/pawvax/scripts/setup-rootless-podman.sh | head -20`
 
 **Wichtig**: Datenbank wird beim Update **NICHT** neu erstellt oder zurückgesetzt! Alle bestehenden Daten bleiben erhalten (siehe "Database Persistence Guarantee" oben).
@@ -341,14 +368,14 @@ Systemd User-Unit Status:
 
 ```bash
 su -s /bin/bash paw-app -c "XDG_RUNTIME_DIR=/run/user/\$(id -u paw-app) \
-  systemctl --user status pod-paw-stack.service"
+  systemctl --user status paw-stack-pod.service"
 ```
 
 Auto-Start überprüfen:
 
 ```bash
 su -s /bin/bash paw-app -c "XDG_RUNTIME_DIR=/run/user/\$(id -u paw-app) \
-  systemctl --user is-enabled pod-paw-stack.service"
+  systemctl --user is-enabled paw-stack-pod.service"
 ```
 
 ---
@@ -359,7 +386,7 @@ su -s /bin/bash paw-app -c "XDG_RUNTIME_DIR=/run/user/\$(id -u paw-app) \
 
 ```bash
 su -s /bin/bash paw-app -c "XDG_RUNTIME_DIR=/run/user/\$(id -u paw-app) \
-  systemctl --user restart pod-paw-stack.service"
+  systemctl --user restart paw-stack-pod.service"
 ```
 
 ### Alte Images & Layer löschen
@@ -400,7 +427,7 @@ watch -n 2 'bash scripts/setup-rootless-podman.sh status'
 ### Journalctl für systemd User-Unit
 
 ```bash
-journalctl --user -u pod-paw-stack.service -f
+journalctl --user -u paw-stack-pod.service -f
 ```
 
 ### HTTP-Traffic Logging (Caddy)
@@ -447,7 +474,7 @@ su -s /bin/bash paw-app -c "XDG_RUNTIME_DIR=/run/user/\$(id -u paw-app) \
 - [ ] `curl -k https://localhost/api/health` returnt `{"status":"ok"}`
 - [ ] Caddy-Logs zeigen: `certificate obtained successfully`
 - [ ] `npm test` läuft erfolgreich
-- [ ] `systemctl --user status pod-paw-stack.service` zeigt: active (running)
+- [ ] `systemctl --user status paw-stack-pod.service` zeigt: active (running)
 - [ ] DNS `paw.oxs.at` pointet auf Server IP
 - [ ] `curl https://paw.oxs.at/api/health` returnt `{"status":"ok"}`
 
@@ -458,7 +485,7 @@ su -s /bin/bash paw-app -c "XDG_RUNTIME_DIR=/run/user/\$(id -u paw-app) \
 **Pod komplett neustarten:**
 ```bash
 su -s /bin/bash paw-app -c "XDG_RUNTIME_DIR=/run/user/\$(id -u paw-app) \
-  systemctl --user restart pod-paw-stack.service"
+  systemctl --user restart paw-stack-pod.service"
 sleep 5
 bash scripts/setup-rootless-podman.sh status
 ```
@@ -477,6 +504,6 @@ curl -k https://localhost/api/health 2>/dev/null | jq . && \
 
 ---
 
-**Letzte Aktualisierung:** 2026-05-05  
-**Version Format:** `YYYY-MM-DD_HHmm` (beide package.json)  
+**Letzte Aktualisierung:** 2026-06-07  
+**Version Format:** `YYYYMMDD_HHmm` (beide package.json)  
 **Autor:** Deployment Automation Script

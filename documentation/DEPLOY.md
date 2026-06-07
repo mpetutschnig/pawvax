@@ -1,5 +1,18 @@
 # PAW Deployment mit Podman Quadlets (Alma Linux 10)
 
+> ⚠️ **VERALTET — nicht mehr verwenden.** Dieses Dokument beschreibt die alte
+> Architektur mit **getrennten User** (`paw-api`/`paw-pwa`/`paw-proxy`) und
+> **SQLite**. Das Produktivsystem läuft inzwischen als **ein Pod (`paw-stack`)
+> unter einem einzigen User `paw-app`** mit **PostgreSQL**.
+>
+> Aktuelle Anleitungen:
+> - **Updates laufender Systeme:** [UPDATE.md](./UPDATE.md)
+> - **Frisches Deployment:** [DEPLOY_FRESH_POSTGRES.md](./DEPLOY_FRESH_POSTGRES.md)
+>
+> Inhalt unten nur noch als historische Referenz.
+
+---
+
 Interaktives Deployment-Dokument. Jeder Befehl = eigener Code-Block.
 **User führt aus** → gibt Status zurück → **wir halten das Dokument aktuell**.
 Am Ende enthält dieses Dokument nur die Commands, die wirklich funktioniert haben.
