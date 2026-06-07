@@ -1,5 +1,7 @@
 # Plan: DRY-Refaktorierung & einheitlicher Dokument-Flow
 
+**Status: ABGESCHLOSSEN** (alle Phasen erledigt, Juni 2026)
+
 **Branch:** `refactor/comprehensive-cleanup`  
 **Ziel:** Code-Qualität erhöhen, DRY-Verstösse beheben, einheitlicher Scan-Flow für alle Rollen
 

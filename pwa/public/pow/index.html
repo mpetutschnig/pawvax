@@ -46,7 +46,7 @@
     inset: 0;
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
     z-index: 0;
   }
 
@@ -186,12 +186,13 @@
 </div>
 
 <!-- 01 — DAS PROBLEM (Pass = Papierheft, zusammengeführt) -->
-<div class="slide bottom">
+<div class="slide top">
   <img src="slide-01_1.png" class="bg-img" alt="Zerrissener Tierpass">
   <div class="text-content">
-    <div class="word">Der Tierimpfpass heute:</div>
+    <div class="word">Tierimpfpass heute</div>
     <div class="word accent">Papier.</div>
-    <div class="word dim">Zerrissen. Verloren. Von 1980.</div>
+    <div class="word dim">Zerrissen. Verloren.</div>
+    <div class="word dim">nicht verfügbar</div>
   </div>
 </div>
 
@@ -201,7 +202,7 @@
   <div class="text-content">
     <span class="pill">USP 1 · Zugang</span>
     <div class="word">Tier scannen.</div>
-    <div class="word accent">Zack, alles da.</div>
+    <div class="word accent">Alles da.</div>
   </div>
 </div>
 
@@ -210,7 +211,7 @@
   <img src="slide-11.jpg" class="bg-img" alt="Roboter Hund scannt">
   <div class="text-content">
     <span class="pill">USP 2 · Die KI</span>
-    <div class="word">Foto rein.</div>
+    <div class="word">Foto upload.</div>
     <div class="word accent">KI macht den Rest.</div>
   </div>
 </div>
@@ -227,7 +228,7 @@
 </div>
 
 <!-- 05 — FINALE: der Schlag. Alle USPs auf einen Blick -->
-<div class="slide">
+<div class="slide bottom">
   <img src="slide-16.jpg" class="bg-img" alt="Löwe auf Felsen">
   <div class="text-content">
     <div class="word accent">Das ist Vetzsucht.</div>
@@ -235,9 +236,8 @@
       <span class="chip key">Ohne Login</span>
       <span class="chip key">KI statt Abtippen</span>
       <span class="chip key">Deine Daten, deine Regeln</span>
-      <span class="chip">Tierarzt scannt sofort</span>
+      <span class="chip">Tierarzt scannt</span>
       <span class="chip">Sprachnotiz → Text</span>
-      <span class="chip">Auto-Übersetzung</span>
       <span class="chip">Rollen-Rechte</span>
       <span class="chip">NFC · QR · Link</span>
       <span class="chip">EU-DSGVO</span>
@@ -246,7 +246,7 @@
 </div>
 
 <!-- 06 — FEATURE-ÜBERSICHT: was alles drinsteckt, gruppiert -->
-<div class="slide features">
+<div class="slide bottom features">
   <img src="slide-09.jpg" class="bg-img" alt="Löwe auf Felsen">
   <div class="text-content">
     <div class="word">Alles drin.</div>
@@ -297,9 +297,18 @@
   </div>
 </div>
 
+<div class="slide">
+  <img src="slide-20_1.png" class="bg-img" alt="Einsatzmöglichkeiten">
+  <div class="text-content">
+    <div class="word">Einsatzmöglichkeiten:</div>
+    <div class="word accent">ohne Ende</div>
+  </div>
+
+</div>
+
 <!-- 07 — ABGANG: Antwort an den Gast (Gandalf-Bookend) -->
-<div class="slide bottom left w50">
-  <img src="slide-17.jpg" class="bg-img" alt="Gandalf Hund">
+<div class="slide bottom right w50">
+  <img src="slide-15.jpg" class="bg-img" alt="Gandalf Hund">
   <div class="text-content">
     <div class="word">Noch Fragen?</div>
     <div class="word accent">Oder gleich zur Demo?</div>

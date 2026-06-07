@@ -1,6 +1,6 @@
 # PAWVAX Architecture
 
-Stand: 2026-05-04
+Stand: 2026-06-07
 
 ## Zweck
 
@@ -17,28 +17,29 @@ Aktuell verwendete Hauptarchitekturen:
 - SPA/PWA-Architektur im Frontend
 - Layered Architecture mit Route-, Service- und Persistence-Schichten
 - Hybride Kommunikationsarchitektur aus REST und WebSocket
-- Relationale Datenarchitektur mit SQLite plus JSON-Feldern fuer flexible OCR-Nutzdaten
+- Relationale Datenarchitektur mit PostgreSQL plus JSON-Feldern fuer flexible OCR-Nutzdaten
 - Rollen- und Freigabe-basierte Sicherheitsarchitektur
-- Containerisierte Deployment-Architektur mit zwei Laufzeit-Containern
+- Containerisierte Deployment-Architektur mit rootless Podman Quadlets (drei Container plus PostgreSQL)
 - Deterministische API-Testarchitektur mit isoliertem Test-Runner
 
 ## 1. Systemarchitektur
 
 ### Form
 
-Das System ist aktuell als verteiltes Zwei-Komponenten-System aufgebaut:
+Das System ist aktuell als verteiltes Drei-Komponenten-System aufgebaut:
 
-- `paw-web`: Auslieferung der gebauten PWA ueber Nginx
-- `paw-server`: Fastify-Server fuer REST, WebSocket, OCR, Auth, DB und Business-Logik
+- `paw-pwa`: Container mit Caddy, liefert die gebaute React-PWA aus und proxied zur API
+- `paw-api`: Fastify-Server fuer REST, WebSocket, OCR, Auth, DB und Business-Logik
+- `paw-postgres`: PostgreSQL 16 Datenbank-Container
 
 ### Laufzeit-Topologie
 
 ```mermaid
 flowchart LR
-  User[Browser / Mobile Browser] --> Web[Nginx + PWA]
-  Web --> API[Fastify Server]
-  API --> DB[(SQLite)]
-  API --> Uploads[(Uploads Directory)]
+  User[Browser / Mobile Browser] --> PWA[Caddy + PWA :80/:443]
+  PWA --> API[Fastify Server :3000]
+  API --> DB[(PostgreSQL :5432)]
+  API --> Uploads[(Uploads Volume)]
   API --> OCR[OCR / AI Provider Layer]
 ```
 
@@ -155,8 +156,8 @@ Wichtige Route-Module sind aktuell:
 
 - Transportlogik und fachliche Rechtepruefung liegen weitgehend in den Route-Modulen.
 - Wiederverwendbare Kernlogik ist in Services ausgelagert.
-- Die Persistenz wird ueber direkte SQL-Zugriffe mit `better-sqlite3` umgesetzt.
-- Das Backend ist synchron nah am Datenmodell und vermeidet komplexe ORM-Abstraktionen.
+- Die Persistenz wird ueber direkte SQL-Zugriffe mit dem `pg`-Treiber (PostgreSQL) umgesetzt.
+- Das Backend vermeidet komplexe ORM-Abstraktionen und nutzt direktes SQL.
 
 ## 4. Kommunikationsarchitektur
 
@@ -198,7 +199,7 @@ PAWVAX verwendet damit aktuell bewusst eine hybride Kommunikationsarchitektur:
 
 ### Stil
 
-Die persistente Datenarchitektur ist relational und basiert auf SQLite.
+Die persistente Datenarchitektur ist relational und basiert auf PostgreSQL 16.
 
 ### Kernmodell
 
@@ -225,12 +226,13 @@ Zentrale Tabellen sind aktuell:
 Das Modell kombiniert zwei Ansatze:
 
 - Normalisierte relationale Kerndaten fuer Accounts, Tiere, Rollen, Freigaben und Audit
-- Flexible JSON-Payloads fuer OCR-Ergebnisse in `documents.extracted_json` und `analysis_history.extracted_json`
+- Flexible JSON-Payloads fuer OCR-Ergebnisse in `documents.extracted_json` und `analysis_history.extracted_json` (PostgreSQL JSONB)
 
 ### Vorteil dieser Hybridform
 
 - Feste Geschaeftsobjekte bleiben relational abfragbar.
 - Stark variierende OCR-Ausgaben koennen ohne hartes Tabellenmodell gespeichert werden.
+- PostgreSQL JSONB erlaubt effiziente Indizes und Abfragen auf JSON-Feldern.
 - Neue Dokumenttypen lassen sich schneller integrieren.
 
 ### Dokumentdaten-Architektur
@@ -411,29 +413,51 @@ Zusatzlich zur internen App gibt es zwei oeffentliche Zugriffsmuster:
 
 ### Stil
 
-Das Deployment ist aktuell containerisiert und bewusst einfach gehalten.
+Das Deployment ist containerisiert mit rootless Podman Quadlets auf einem einzelnen Hetzner-Server.
+
+### Container und Quadlets
+
+Drei Quadlet-Definitionen unter `podman/`:
+
+| Container | Image | Port | Rolle |
+|-----------|-------|------|-------|
+| `paw-postgres` | postgres:16-alpine | 5432 | PostgreSQL-Datenbank |
+| `paw-api` | localhost/paw-api | 3000 | Fastify REST/WebSocket API |
+| `paw-pwa` | localhost/paw-pwa | 80/443 | Caddy + React-PWA |
+
+Startreihenfolge: `paw-postgres` → `paw-api` → `paw-pwa` (Requires/After in Quadlets definiert).
 
 ### Build- und Laufzeitstruktur
 
-- Backend: Node 22 Alpine Container
-- Frontend: Multi-Stage-Build mit Node fuer Build und Nginx fuer Auslieferung
-- Persistenz: gemeinsames Volume fuer DB und Uploads
+- Backend: Node 22 Alpine Container, `paw-api`
+- Frontend: Multi-Stage-Build mit Node fuer Build, Caddy fuer Auslieferung und Reverse-Proxy, `paw-pwa`
+- Datenbank: PostgreSQL 16 Alpine, `paw-postgres`
+- Persistenz: `~/data/uploads` Volume fuer Uploads, `~/data/postgres` fuer DB-Daten
 
-### Compose-Architektur
+### Health Checks
+
+- `paw-api`: `wget http://localhost:3000/health` (10s Intervall)
+- `paw-pwa`: Port :8080 (Caddy-Metrik-Endpoint)
+- `paw-postgres`: `pg_isready -U pawvax`
+
+### Quadlet-Architektur
 
 ```mermaid
 flowchart LR
-  Browser --> Nginx[PWA Container :80]
-  Nginx --> API[Server Container :3000]
-  API --> Volume[(paw-data volume)]
+  Browser --> PWA[paw-pwa Caddy :80/:443]
+  PWA --> API[paw-api Fastify :3000]
+  API --> DB[(paw-postgres PostgreSQL :5432)]
+  API --> UploadsVol[(~/data/uploads)]
+  DB --> DBVol[(~/data/postgres)]
 ```
 
 ### Charakteristik
 
-- Kein Orchestrator noetig
-- Geringe Betriebs-Komplexitaet
-- Geeignet fuer kleine bis mittlere Single-Node-Deployments
-- State liegt lokal im persistenten Volume
+- Rootless Podman, kein Root noetig, kein Docker-Daemon
+- Systemd-Integration ueber Quadlets (automatischer Start, Restart)
+- Kein Compose-File oder Orchestrator noetig
+- Single-Node-Deployment geeignet fuer MVP bis mittlere Last
+- State liegt in persistenten Host-Volumes (`~/data/`)
 
 ## 11. Testarchitektur
 
@@ -460,22 +484,21 @@ Die Testarchitektur ist aktuell backendzentriert und API-orientiert.
 Die wichtigsten derzeit sichtbaren Architekturentscheidungen sind:
 
 - Modularer Monolith statt Microservices
-- SQLite statt externer Datenbank
+- PostgreSQL 16 als persistente Datenbank (migriert von SQLite)
 - React SPA/PWA statt SSR-Frontend
 - REST plus WebSocket statt reinem Polling
-- JSON-basierte OCR-Payloads statt voll normalisiertem Dokumenttabellenmodell
+- JSONB-basierte OCR-Payloads statt voll normalisiertem Dokumenttabellenmodell
 - Direkte SQL-Zugriffe statt ORM
-- Container-Deployment mit zwei Services statt komplexer Plattform
+- Rootless Podman Quadlets statt Docker Compose oder Kubernetes
 
 ## 13. Bekannte Architekturgrenzen
 
 Aktuell erkennbare Grenzen des Ist-Zustands:
 
-- SQLite ist einfach und robust, aber nicht fuer horizontale Schreibskalierung gedacht.
 - OCR, API und Dateiverarbeitung laufen in derselben Backend-Runtime.
 - Ein dedizierter Background-Job- oder Queue-Layer ist aktuell nicht vorhanden.
 - Die Frontend-Navigation ist primaer mobilzentriert und nicht als vollstaendige Desktop-Shell ausgepraegt.
-- OCR-Ergebnisse werden flexibel als JSON gespeichert, was starke Ad-hoc-Abfragen erschwert.
+- OCR-Ergebnisse werden flexibel als JSON gespeichert; komplexe Ad-hoc-Abfragen erfordern PostgreSQL-JSONB-Funktionen.
 
 ## 14. Zusammenfassung
 

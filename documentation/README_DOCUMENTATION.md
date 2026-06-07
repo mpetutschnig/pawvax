@@ -1,112 +1,139 @@
-# 📚 Documentation Index
+# Documentation Index
 
-Umfassende Dokumentation für das PAW (Pet Archive & Wellness) Projekt.
+PAW (Digitaler Tierimpfpass) — comprehensive project documentation.
 
----
-
-## 📖 Core Documentation
-
-### Architecture & Design
-- [**ARCHITECTURE.md**](ARCHITECTURE.md) — System Design, Database Schema, API Structure
-- [**Rollen.md**](Rollen.md) — User Roles & Permission Model (Deutsch)
-
-### Features & User Guide
-- [**PWA_FUNCTIONS_EN.md**](PWA_FUNCTIONS_EN.md) — Complete Feature Guide (English)
-- [**PWA_FUNKTIONEN.md**](PWA_FUNKTIONEN.md) — Funktionsübersicht (Deutsch)
-- [**FEATURES_GUIDE_EN.md**](../FEATURES_GUIDE_EN.md) — Detailed User & Developer Guide (English)
+**Last Updated:** June 2026
 
 ---
 
-## 🧪 Testing & Quality Assurance
+## User Guides
 
-- [**API_TESTS_MASTER.md**](API_TESTS_MASTER.md) — Complete API Test Suite Reference
-- [**TESTS.md**](TESTS.md) — Testing Overview & Strategy
-
----
-
-## 🚀 Deployment & Operations
-
-- [**DEPLOY.md**](DEPLOY.md) — Deployment Instructions
-- [**DEPLOYMENT.md**](DEPLOYMENT.md) — Deployment Details
-- [**DOCKER_DEPLOYMENT.md**](DOCKER_DEPLOYMENT.md) — Docker/Podman Deployment Guide
+| Document | Description | Audience |
+|----------|-------------|----------|
+| [PWA_FUNCTIONS_EN.md](PWA_FUNCTIONS_EN.md) | Feature guide — registration, animals, documents, sharing | Users |
+| [PWA_FUNKTIONEN.md](PWA_FUNKTIONEN.md) | Funktionsübersicht (Deutsch) | Benutzer |
+| [FEATURES.md](FEATURES.md) | Full feature matrix, USPs, comparison vs. paper passport | Decision makers |
+| [Rollen.md](Rollen.md) | User roles & permission matrix (Guest, User, Vet, Authority, Admin) | All |
 
 ---
 
-## 🛠️ Development & Debugging
+## Admin & Operations
 
-- [**DEBUG_TEMPLATE.md**](DEBUG_TEMPLATE.md) — Debugging Template & Checklist
-- [**SERVER_DEBUG.md**](SERVER_DEBUG.md) — Server-side Debugging Guide
-- [**CONVERSATION_SUMMARY.md**](CONVERSATION_SUMMARY.md) — Project Development History & Context
-
----
-
-## 📋 Project Management
-
-- [**plan.md**](plan.md) — Project Plan & Roadmap
-- [**UPDATE.md**](UPDATE.md) — Recent Updates & Changelog
-- [**CHANGELOG_ANDROID_TODOS.md**](CHANGELOG_ANDROID_TODOS.md) — Android Client Todos
-- [**errorhetzner.md**](errorhetzner.md) — Known Issues & Error Tracking
+| Document | Description | Audience |
+|----------|-------------|----------|
+| [UPDATE.md](UPDATE.md) | **Primary deployment & update runbook** (Hetzner, Podman quadlets) | Admins, Ops |
+| [DEPLOY_FRESH_POSTGRES.md](DEPLOY_FRESH_POSTGRES.md) | Fresh install: rootless Podman + PostgreSQL step-by-step | Admins |
+| [DATABASE_PERSISTENCE.md](DATABASE_PERSISTENCE.md) | Volume setup, idempotent migrations, data safety guarantees | Admins |
+| [SERVER_DEBUG.md](SERVER_DEBUG.md) | Live log commands, health checks, error mapping on server | Admins |
 
 ---
 
-## 🔧 OCR & Document Processing
+## Architecture & Technical
 
-- [**OCR_DOCUMENT_TYPES_TEMPLATE.md**](OCR_DOCUMENT_TYPES_TEMPLATE.md) — OCR Document Type Definitions & Templates
+| Document | Description | Audience |
+|----------|-------------|----------|
+| [ARCHITECTURE.md](ARCHITECTURE.md) | System architecture: frontend, backend, DB, OCR, security, deployment | Developers |
+| [PWA_WORKFLOWS_DETAILED.md](PWA_WORKFLOWS_DETAILED.md) | 9 detailed workflows (user lifecycle, NFC, documents, sharing, billing, audit) | Developers |
+| [OCR_DOCUMENT_TYPES_TEMPLATE.md](OCR_DOCUMENT_TYPES_TEMPLATE.md) | OCR document type definitions, field mappings, prompt templates | Developers |
+| [REFACTOR_DRY_2026.md](REFACTOR_DRY_2026.md) | DRY refactoring plan — all phases completed | Developers |
 
 ---
 
-## 📄 PDFs
+## Testing
 
-- [**PWA_FUNCTIONS_EN.pdf**](PWA_FUNCTIONS_EN.pdf) — Feature Guide (PDF Export)
+| Document | Description | Audience |
+|----------|-------------|----------|
+| [API_TESTS_MASTER.md](API_TESTS_MASTER.md) | Complete API test suite reference, tools, standard workflows | QA, Developers |
+| [TESTS.md](TESTS.md) | Smoke tests, test suites (Auth, Animals, Tags, Sharing), log parsing | QA, Developers |
+| [DEBUG_TEMPLATE.md](DEBUG_TEMPLATE.md) | Bug report template with real examples, DevTools checklist | All |
 
 ---
 
-## Quick Links
+## Security
+
+| Document | Description | Audience |
+|----------|-------------|----------|
+| [security.md](security.md) | Red team audit — 10+ vulnerabilities ranked by severity, task list | Admins, Developers |
+
+---
+
+## Strategy & Business
+
+| Document | Description | Audience |
+|----------|-------------|----------|
+| [MARKET_PLACEMENT_STRATEGY.md](MARKET_PLACEMENT_STRATEGY.md) | Market positioning, USPs, go-to-market strategy | Decision makers |
+| [CHANGELOG_ANDROID_TODOS.md](CHANGELOG_ANDROID_TODOS.md) | Android Kotlin integration guide, recent backend fixes | Developers |
+| [plan.md](plan.md) | Detailed project plan: responsive design, logging, API, design brief | All |
+| [2m2m/](2m2m/) | Pitch materials, enterprise security roadmap, market analysis | Decision makers |
+
+---
+
+## Legal
+
+| Document | Description | Audience |
+|----------|-------------|----------|
+| [../docs/TOS-de.md](../docs/TOS-de.md) | Nutzungsbedingungen (Deutsch) | Users, Legal |
+| [../docs/TOS-en.md](../docs/TOS-en.md) | Terms of Service (English) | Users, Legal |
+
+---
+
+## Quick Reference
 
 | Need | Document |
 |------|----------|
-| 🏗️ How is the system structured? | [ARCHITECTURE.md](ARCHITECTURE.md) |
-| 👤 Who can do what? | [Rollen.md](Rollen.md) |
-| 📖 How do I use the app? | [PWA_FUNCTIONS_EN.md](PWA_FUNCTIONS_EN.md) |
-| 🧪 How do we test? | [API_TESTS_MASTER.md](API_TESTS_MASTER.md) |
-| 🚀 How do I deploy? | [DEPLOY.md](DEPLOY.md) |
-| 🐛 Something's broken? | [DEBUG_TEMPLATE.md](DEBUG_TEMPLATE.md) |
-| 🔧 What changed? | [UPDATE.md](UPDATE.md) |
-| 📦 How do I add document types? | [OCR_DOCUMENT_TYPES_TEMPLATE.md](OCR_DOCUMENT_TYPES_TEMPLATE.md) |
+| How is the system structured? | [ARCHITECTURE.md](ARCHITECTURE.md) |
+| Who can do what? | [Rollen.md](Rollen.md) |
+| How do I use the app? | [PWA_FUNCTIONS_EN.md](PWA_FUNCTIONS_EN.md) |
+| How do I deploy? | [UPDATE.md](UPDATE.md) |
+| Fresh server install? | [DEPLOY_FRESH_POSTGRES.md](DEPLOY_FRESH_POSTGRES.md) |
+| Something's broken? | [DEBUG_TEMPLATE.md](DEBUG_TEMPLATE.md) + [SERVER_DEBUG.md](SERVER_DEBUG.md) |
+| Security issues? | [security.md](security.md) |
+| Add document types? | [OCR_DOCUMENT_TYPES_TEMPLATE.md](OCR_DOCUMENT_TYPES_TEMPLATE.md) |
+| What do users see? | [FEATURES.md](FEATURES.md) |
 
 ---
 
-## 📁 Folder Structure
+## Folder Structure
 
 ```
-documentation/           ← You are here
-├── README_DOCUMENTATION.md (this file)
-├── Architecture & Core  → ARCHITECTURE.md, Rollen.md
-├── Features             → PWA_FUNCTIONS_EN.md, PWA_FUNKTIONEN.md
-├── Testing              → API_TESTS_MASTER.md, TESTS.md
-├── Deployment           → DEPLOY.md, DOCKER_DEPLOYMENT.md
-├── Debugging            → DEBUG_TEMPLATE.md, SERVER_DEBUG.md
-├── Project Mgmt         → plan.md, UPDATE.md, CHANGELOG_ANDROID_TODOS.md
-└── OCR                  → OCR_DOCUMENT_TYPES_TEMPLATE.md
+documentation/
+├── README_DOCUMENTATION.md     ← this file
+│
+├── User Guides
+│   ├── PWA_FUNCTIONS_EN.md
+│   ├── PWA_FUNKTIONEN.md
+│   ├── FEATURES.md
+│   └── Rollen.md
+│
+├── Admin & Ops
+│   ├── UPDATE.md               ← primary deploy runbook
+│   ├── DEPLOY_FRESH_POSTGRES.md
+│   ├── DATABASE_PERSISTENCE.md
+│   └── SERVER_DEBUG.md
+│
+├── Architecture
+│   ├── ARCHITECTURE.md
+│   ├── PWA_WORKFLOWS_DETAILED.md
+│   ├── OCR_DOCUMENT_TYPES_TEMPLATE.md
+│   └── REFACTOR_DRY_2026.md
+│
+├── Testing
+│   ├── API_TESTS_MASTER.md
+│   ├── TESTS.md
+│   └── DEBUG_TEMPLATE.md
+│
+├── Security
+│   └── security.md
+│
+├── Strategy
+│   ├── MARKET_PLACEMENT_STRATEGY.md
+│   ├── CHANGELOG_ANDROID_TODOS.md
+│   ├── plan.md
+│   └── 2m2m/
+│
+└── PWA_FUNCTIONS_EN.pdf
 
-../handoff/              ← Design & Mobile Handoff
-├── design_handoff/      (Design System)
-└── kotlin_handoff/      (Kotlin Components)
-
-../scripts/              ← Utility Scripts
-└── tmp_export_public_scan_debug.ps1
+docs/
+├── TOS-de.md
+└── TOS-en.md
 ```
-
----
-
-## 🔗 Related Resources
-
-- **Main Project:** [../README.md](../README.md)
-- **PWA Source:** [../pwa/](../pwa/)
-- **Server Source:** [../server/](../server/)
-- **Handoff Materials:** [../handoff/](../handoff/)
-
----
-
-**Last Updated:** May 4, 2026  
-**Maintainer:** Marco Petutschnig
