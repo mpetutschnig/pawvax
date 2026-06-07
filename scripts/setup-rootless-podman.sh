@@ -362,6 +362,11 @@ Environment=PORT=3000
 Environment=NODE_ENV=production
 Environment=UPLOADS_DIR=/app/uploads
 Volume=%h/data/uploads:/app/uploads:Z
+HealthCmd=wget -q -O /dev/null http://127.0.0.1:3000/health || exit 1
+HealthInterval=10s
+HealthTimeout=5s
+HealthRetries=3
+HealthStartPeriod=20s
 
 [Service]
 Restart=always
