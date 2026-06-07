@@ -388,6 +388,11 @@ Image=localhost/paw-pwa:latest
 ContainerName=paw-pwa
 Pod=paw-stack.pod
 Volume=%h/data/pwa/nginx.conf:/etc/nginx/nginx.conf.tpl:Z,ro
+HealthCmd=wget -q -O /dev/null http://127.0.0.1:8080/ || exit 1
+HealthInterval=10s
+HealthTimeout=5s
+HealthRetries=3
+HealthStartPeriod=15s
 
 [Service]
 Restart=always
@@ -410,6 +415,11 @@ Pod=paw-stack.pod
 Volume=%h/data/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
 Volume=%h/data/caddy-data:/data:Z,U
 Volume=%h/data/caddy-config:/config:Z,U
+HealthCmd=wget -q -O /dev/null http://127.0.0.1:2019/config/ || exit 1
+HealthInterval=10s
+HealthTimeout=5s
+HealthRetries=3
+HealthStartPeriod=15s
 
 [Service]
 Restart=always
