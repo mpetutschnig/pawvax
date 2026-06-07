@@ -151,6 +151,60 @@
   .slide.features .text-content { max-width: 94vw; padding: 32px 44px; }
   .slide.features .word { font-size: clamp(22px, 3.4vw, 46px); }
 
+  /* USP-Kombination: Gleichungs-Layout */
+  .usp-equation {
+    display: flex;
+    align-items: center;
+    gap: 0.4em;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin: 0.5em 0;
+  }
+  .usp-eq-pill {
+    font-size: clamp(14px, 1.8vw, 22px);
+    font-weight: 900;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #000;
+    background: #e8ff00;
+    padding: 6px 18px;
+    border-radius: 999px;
+  }
+  .usp-eq-op {
+    font-size: clamp(20px, 2.5vw, 36px);
+    font-weight: 900;
+    color: #555;
+  }
+  .usp-eq-result {
+    font-size: clamp(18px, 2.4vw, 32px);
+    font-weight: 900;
+    color: #fff;
+    letter-spacing: -0.01em;
+  }
+
+  /* Fake-Check Tabelle */
+  .fake-check {
+    display: grid;
+    grid-template-columns: 1fr auto auto auto;
+    gap: 6px 20px;
+    margin-top: 0.8em;
+    font-size: clamp(12px, 1.3vw, 17px);
+    font-weight: 700;
+    width: 100%;
+  }
+  .fc-head {
+    font-size: clamp(10px, 1vw, 13px);
+    font-weight: 900;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #e8ff00;
+    padding-bottom: 4px;
+    border-bottom: 1px solid rgba(232,255,0,0.3);
+  }
+  .fc-name { color: #ddd; }
+  .fc-yes  { color: #e8ff00; text-align: center; }
+  .fc-no   { color: #555;    text-align: center; }
+
   /* Tech Stack: Zeilen-Layout */
   .tech-rows { display: flex; flex-direction: column; gap: 10px; width: 100%; margin-top: 0.8em; }
   .tech-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -247,6 +301,41 @@
     <div class="word">Deine Daten.</div>
     <div class="word accent">Gehören dir.</div>
     <div class="word dim">Nicht dem Tierarzt.</div>
+  </div>
+</div>
+
+<!-- 04b — USP 4: DIE KOMBINATION — gibt's so nicht -->
+<div class="slide bottom">
+  <img src="slide-17_1.jpg" class="bg-img" alt="Kombination">
+  <div class="text-content">
+    <span class="pill">USP 4 · Die Kombination</span>
+    <div class="usp-equation">
+      <span class="usp-eq-pill">Zugang</span>
+      <span class="usp-eq-op">+</span>
+      <span class="usp-eq-pill">KI</span>
+      <span class="usp-eq-op">+</span>
+      <span class="usp-eq-pill">Eigentum</span>
+      <span class="usp-eq-op">=</span>
+      <span class="usp-eq-result">Gibt's nicht.</span>
+    </div>
+    <div class="fake-check">
+      <span class="fc-head"></span>
+      <span class="fc-head">Zugang</span>
+      <span class="fc-head">KI</span>
+      <span class="fc-head">Eigentum</span>
+
+      <span class="fc-name">Tierarzt-Software</span>
+      <span class="fc-no">✗</span><span class="fc-no">✗</span><span class="fc-no">✗</span>
+
+      <span class="fc-name">Chip-Register</span>
+      <span class="fc-yes">✓</span><span class="fc-no">✗</span><span class="fc-no">✗</span>
+
+      <span class="fc-name">Dok-Scanner-Apps</span>
+      <span class="fc-no">✗</span><span class="fc-yes">~</span><span class="fc-no">✗</span>
+
+      <span class="fc-name" style="color:#e8ff00;font-weight:900;">Vetzsucht</span>
+      <span class="fc-yes">✓</span><span class="fc-yes">✓</span><span class="fc-yes">✓</span>
+    </div>
   </div>
 </div>
 
