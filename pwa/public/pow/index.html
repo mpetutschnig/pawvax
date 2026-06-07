@@ -28,8 +28,42 @@
   .slide.active { display: flex; }
 
   @keyframes fadeIn {
-    from { opacity: 0; transform: scale(0.97); }
-    to   { opacity: 1; transform: scale(1); }
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+
+  @keyframes punch {
+    0%   { opacity: 0; transform: translateY(20px) scale(1.06); }
+    60%  { opacity: 1; transform: translateY(-4px) scale(0.99); }
+    100% { opacity: 1; transform: translateY(0)    scale(1);    }
+  }
+
+  @keyframes flashIn {
+    0%   { opacity: 0; transform: scale(1.15); filter: brightness(4); }
+    50%  { filter: brightness(1.3); }
+    100% { opacity: 1; transform: scale(1);    filter: brightness(1); }
+  }
+
+  .slide.active .text-content > * {
+    animation: punch 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .slide.active .text-content > *:nth-child(1) { animation-delay: 0.07s; }
+  .slide.active .text-content > *:nth-child(2) { animation-delay: 0.27s; }
+  .slide.active .text-content > *:nth-child(3) { animation-delay: 0.47s; }
+  .slide.active .text-content > *:nth-child(4) { animation-delay: 0.67s; }
+  .slide.active .text-content > *:nth-child(5) { animation-delay: 0.87s; }
+  .slide.active .word.accent {
+    animation: flashIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .slide.photo .bg-img { object-fit: cover; }
+  .slide.photo::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.42);
+    z-index: 1;
+    pointer-events: none;
   }
 
   /* Dynamische Ausrichtung der Textboxen passend zu den KI-Bildern */
@@ -69,10 +103,10 @@
   }
 
   .word {
-    font-size: clamp(26px, 4.5vw, 64px);
+    font-size: clamp(30px, 5.5vw, 80px);
     font-weight: 900;
-    line-height: 1.1;
-    letter-spacing: -0.02em;
+    line-height: 1.05;
+    letter-spacing: -0.03em;
     text-transform: uppercase;
   }
 
@@ -274,7 +308,7 @@
 </div>
 
 <!-- 02 — USP 1: ZUGANG -->
-<div class="slide left">
+<div class="slide left photo">
   <img src="slide-07.jpg" class="bg-img" alt="NFC Halsband Katze">
   <div class="text-content">
     <span class="pill">USP 1 · Zugang</span>
@@ -284,7 +318,7 @@
 </div>
 
 <!-- 03 — USP 2: DIE KI -->
-<div class="slide right w50">
+<div class="slide right w50 photo">
   <img src="slide-11.jpg" class="bg-img" alt="Roboter Hund scannt">
   <div class="text-content">
     <span class="pill">USP 2 · Die KI</span>
@@ -294,7 +328,7 @@
 </div>
 
 <!-- 04 — USP 3: EIGENTUM (stärkster Konter) -->
-<div class="slide left w50">
+<div class="slide left w50 photo">
   <img src="slide-14.jpg" class="bg-img" alt="Pitbull Türsteher">
   <div class="text-content">
     <span class="pill">USP 3 · Eigentum</span>
@@ -305,7 +339,7 @@
 </div>
 
 <!-- 04b — USP 4: DIE KOMBINATION — gibt's so nicht -->
-<div class="slide bottom">
+<div class="slide bottom photo">
   <img src="slide-17_1.jpg" class="bg-img" alt="Kombination">
   <div class="text-content">
     <span class="pill">USP 4 · Die Kombination</span>
@@ -340,7 +374,7 @@
 </div>
 
 <!-- 05 — FINALE: der Schlag. Alle USPs auf einen Blick -->
-<div class="slide bottom">
+<div class="slide bottom photo">
   <img src="slide-16.jpg" class="bg-img" alt="Löwe auf Felsen">
   <div class="text-content">
     <div class="word accent">Das ist Vetzsucht.</div>
@@ -365,7 +399,7 @@
 </div>
 
 <!-- 06 — FEATURE-ÜBERSICHT: was alles drinsteckt, gruppiert -->
-<div class="slide bottom">
+<div class="slide bottom photo">
   <img src="slide-09.jpg" class="bg-img" alt="Löwe auf Felsen">
   <div class="text-content" style="text-align:left; align-items:flex-start;">
     <div class="word" style="font-size:clamp(22px,3.4vw,46px);">Alles drin.</div>
@@ -426,7 +460,7 @@
 </div>
 
 <!-- TECH STACK — vorletzte Folie -->
-<div class="slide bottom">
+<div class="slide bottom photo">
   <img src="slide-12.jpg" class="bg-img" alt="Tech Stack Hintergrund">
   <div class="text-content" style="text-align:left; align-items:flex-start;">
     <div class="word">Gebaut auf.</div>
@@ -472,7 +506,7 @@
 </div>
 
 <!-- 07 — ABGANG: Antwort an den Gast (Gandalf-Bookend) -->
-<div class="slide bottom right w50">
+<div class="slide bottom right w50 photo">
   <img src="slide-15.jpg" class="bg-img" alt="Gandalf Hund">
   <div class="text-content">
     <div class="word">Noch Fragen?</div>
@@ -496,7 +530,10 @@
   function show(n) {
     slides[current].classList.remove('active');
     current = (n + slides.length) % slides.length;
-    slides[current].classList.add('active');
+    const s = slides[current];
+    s.classList.remove('active');
+    void s.offsetWidth; // force reflow → CSS animations restart
+    s.classList.add('active');
     document.querySelectorAll('.dot span').forEach((d, i) => {
       d.classList.toggle('on', i === current);
     });
