@@ -20,229 +20,58 @@
     display: none;
     position: absolute;
     inset: 0;
-    align-items: center;
-    justify-content: center;
-    animation: fadeIn 0.25s ease;
-  }
-
-  .slide.active { display: flex; }
-
-  @keyframes fadeIn {
-    from { opacity: 0; }
-    to   { opacity: 1; }
-  }
-
-  @keyframes punch {
-    0%   { opacity: 0; transform: translateY(20px) scale(1.06); }
-    60%  { opacity: 1; transform: translateY(-4px) scale(0.99); }
-    100% { opacity: 1; transform: translateY(0)    scale(1);    }
-  }
-
-  @keyframes flashIn {
-    0%   { opacity: 0; transform: scale(1.15); filter: brightness(4); }
-    50%  { filter: brightness(1.3); }
-    100% { opacity: 1; transform: scale(1);    filter: brightness(1); }
-  }
-
-  .slide.active .text-content > * {
-    animation: punch 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
-  }
-  .slide.active .text-content > *:nth-child(1) { animation-delay: 0.07s; }
-  .slide.active .text-content > *:nth-child(2) { animation-delay: 0.27s; }
-  .slide.active .text-content > *:nth-child(3) { animation-delay: 0.47s; }
-  .slide.active .text-content > *:nth-child(4) { animation-delay: 0.67s; }
-  .slide.active .text-content > *:nth-child(5) { animation-delay: 0.87s; }
-  .slide.active .word.accent {
-    animation: flashIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
-  }
-
-  .slide.photo .bg-img { object-fit: cover; }
-  .slide.photo::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.42);
-    z-index: 1;
-    pointer-events: none;
-  }
-
-  /* Dynamische Ausrichtung der Textboxen passend zu den KI-Bildern */
-  .slide.top { align-items: flex-start; padding-top: 12vh; }
-  .slide.bottom { align-items: flex-end; padding-bottom: 12vh; }
-  .slide.left { justify-content: flex-start; padding-left: 8vw; }
-  .slide.right { justify-content: flex-end; padding-right: 8vw; }
-  .slide.left .text-content { text-align: left; align-items: flex-start; }
-  .slide.right .text-content { text-align: right; align-items: flex-end; }
-  .slide.w50 .text-content { max-width: 50vw; }
-
-  .slide img.bg-img {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    z-index: 0;
-  }
-
-  .text-content {
-    position: relative;
-    z-index: 10;
-    display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
+    gap: 0.08em;
+    padding: 8vw;
     text-align: center;
-    gap: 0.3em;
-    background: rgba(0, 0, 0, 0.25);
-    backdrop-filter: blur(5px);
-    -webkit-backdrop-filter: blur(5px);
-    padding: 40px 60px;
-    border-radius: 30px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: 0 30px 60px rgba(0,0,0,0.6);
-    max-width: 90vw;
   }
+  .slide.active { display: flex; }
 
-  .word {
-    font-size: clamp(30px, 5.5vw, 80px);
+  .xl {
+    font-size: clamp(50px, 10vw, 140px);
     font-weight: 900;
-    line-height: 1.05;
+    letter-spacing: -0.04em;
+    text-transform: uppercase;
+    line-height: 0.93;
+  }
+  .lg {
+    font-size: clamp(34px, 6.5vw, 92px);
+    font-weight: 900;
     letter-spacing: -0.03em;
     text-transform: uppercase;
+    line-height: 0.97;
   }
-
-  .word.accent { color: #e8ff00; }
-  .word.dim    { color: #aaa; font-size: clamp(18px, 3vw, 40px); font-weight: 700; }
-
-  /* USP-Säulen-Label über der Headline */
-  .pill {
-    display: inline-block;
-    align-self: center;
-    font-size: clamp(13px, 1.4vw, 18px);
+  .sm {
+    font-size: clamp(12px, 1.6vw, 22px);
     font-weight: 900;
-    letter-spacing: 0.18em;
+    letter-spacing: 0.22em;
     text-transform: uppercase;
-    color: #000;
-    background: #e8ff00;
-    padding: 4px 14px;
-    border-radius: 999px;
+    color: #444;
     margin-bottom: 0.4em;
   }
-  .slide.left .pill  { align-self: flex-start; }
-  .slide.right .pill { align-self: flex-end; }
 
-  /* Finale: vollständige USP-Liste als Chips */
-  .chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
-    justify-content: center;
-    max-width: 80vw;
-    margin-top: 0.6em;
-  }
-  .chip {
-    font-size: clamp(15px, 1.9vw, 26px);
-    font-weight: 800;
-    letter-spacing: 0.01em;
-    text-transform: none;
-    color: #fff;
-    background: rgba(255, 255, 255, 0.07);
-    border: 1px solid rgba(232, 255, 0, 0.55);
-    padding: 9px 18px;
-    border-radius: 999px;
-  }
-  /* Die drei Kern-USPs hervorgehoben */
-  .chip.key {
-    color: #000;
-    background: #e8ff00;
-    border-color: #e8ff00;
-  }
+  .y   { color: #e8ff00; }
+  .dim { color: #2a2a2a; }
 
-  /* Feature-Übersicht: gruppierte Spalten */
-  .feature-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 18px 28px;
-    max-width: 90vw;
-    margin-top: 0.6em;
-    text-align: left;
-  }
-  .feature-col { display: flex; flex-direction: column; gap: 6px; }
-  .feature-col h3 {
-    font-size: clamp(13px, 1.4vw, 18px);
-    font-weight: 900;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: #e8ff00;
-    margin-bottom: 2px;
-  }
-  .feature-col p {
-    font-size: clamp(13px, 1.5vw, 19px);
-    font-weight: 600;
-    color: #ddd;
-    line-height: 1.4;
-    margin: 0;
-  }
-  .slide.features .text-content { max-width: 94vw; padding: 32px 44px; }
-  .slide.features .word { font-size: clamp(22px, 3.4vw, 46px); }
-
-  /* USP-Kombination: Gleichungs-Layout */
-  .usp-equation {
-    display: flex;
+  /* Detail-Folien */
+  .detail {
+    justify-content: flex-end;
+    padding-bottom: 8vh;
     align-items: center;
-    gap: 0.4em;
-    flex-wrap: wrap;
-    justify-content: center;
-    margin: 0.5em 0;
   }
-  .usp-eq-pill {
-    font-size: clamp(14px, 1.8vw, 22px);
+  .detail-head {
+    font-size: clamp(26px, 4vw, 56px);
     font-weight: 900;
-    letter-spacing: 0.06em;
+    letter-spacing: -0.03em;
     text-transform: uppercase;
-    color: #000;
-    background: #e8ff00;
-    padding: 6px 18px;
-    border-radius: 999px;
-  }
-  .usp-eq-op {
-    font-size: clamp(20px, 2.5vw, 36px);
-    font-weight: 900;
-    color: #555;
-  }
-  .usp-eq-result {
-    font-size: clamp(18px, 2.4vw, 32px);
-    font-weight: 900;
-    color: #fff;
-    letter-spacing: -0.01em;
+    margin-bottom: 0.6em;
   }
 
-  /* Fake-Check Tabelle */
-  .fake-check {
-    display: grid;
-    grid-template-columns: 1fr auto auto auto;
-    gap: 6px 20px;
-    margin-top: 0.8em;
-    font-size: clamp(12px, 1.3vw, 17px);
-    font-weight: 700;
-    width: 100%;
-  }
-  .fc-head {
-    font-size: clamp(10px, 1vw, 13px);
-    font-weight: 900;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: #e8ff00;
-    padding-bottom: 4px;
-    border-bottom: 1px solid rgba(232,255,0,0.3);
-  }
-  .fc-name { color: #ddd; }
-  .fc-yes  { color: #e8ff00; text-align: center; }
-  .fc-no   { color: #555;    text-align: center; }
-
-  /* Tech Stack: Zeilen-Layout */
-  .tech-rows { display: flex; flex-direction: column; gap: 10px; width: 100%; margin-top: 0.8em; }
-  .tech-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-  .tech-cat {
+  .tech-rows { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 940px; }
+  .tech-row  { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  .tech-cat  {
     font-size: clamp(11px, 1.1vw, 15px);
     font-weight: 900;
     letter-spacing: 0.14em;
@@ -250,13 +79,14 @@
     color: #e8ff00;
     min-width: 110px;
     flex-shrink: 0;
+    text-align: right;
   }
   .tech-chip {
     font-size: clamp(13px, 1.4vw, 18px);
     font-weight: 700;
     color: #fff;
-    background: rgba(255,255,255,0.07);
-    border: 1px solid rgba(232,255,0,0.4);
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(232,255,0,0.35);
     padding: 5px 14px;
     border-radius: 999px;
     white-space: nowrap;
@@ -268,250 +98,232 @@
     left: 50%;
     transform: translateX(-50%);
     display: flex;
-    gap: 8px;
+    gap: 7px;
     z-index: 10;
   }
   .dot span {
-    width: 6px; height: 6px;
+    width: 5px; height: 5px;
     border-radius: 50%;
-    background: #333;
-    transition: background 0.2s;
+    background: #1a1a1a;
+    transition: background 0.15s;
   }
-  .dot span.on { background: #fff; }
+  .dot span.on { background: #555; }
 
   .nav-hint {
     position: fixed;
-    bottom: 50px;
-    right: 40px;
-    font-size: 12px;
-    color: #333;
+    bottom: 48px;
+    right: 36px;
+    font-size: 11px;
+    color: #1a1a1a;
     letter-spacing: 0.1em;
   }
 </style>
 </head>
 <body>
 
-<!-- 00 — HOOK: Die Frage des Gastes. Text lebt im Pfeifenrauch im Bild, keine Textbox -->
+<!-- HOOK -->
 <div class="slide active">
-  <img src="slide-00_1.png" class="bg-img" alt="Chihuahua-Gandalf, Rauch formt: Und was ist euer USP?">
+  <div class="sm">Und was ist euer</div>
+  <div class="xl y">USP?</div>
 </div>
 
-<!-- 01 — DAS PROBLEM (Pass = Papierheft, zusammengeführt) -->
-<div class="slide top">
-  <img src="slide-01_1.png" class="bg-img" alt="Zerrissener Tierpass">
-  <div class="text-content">
-    <div class="word">Tierimpfpass heute</div>
-    <div class="word accent">Papier.</div>
-    <div class="word dim">Zerrissen. Verloren.</div>
-    <div class="word dim">nicht verfügbar</div>
-  </div>
-</div>
-
-<!-- 02 — USP 1: ZUGANG -->
-<div class="slide left photo">
-  <img src="slide-07.jpg" class="bg-img" alt="NFC Halsband Katze">
-  <div class="text-content">
-    <span class="pill">USP 1 · Zugang</span>
-    <div class="word">Tier scannen.</div>
-    <div class="word accent">Alles da.</div>
-  </div>
-</div>
-
-<!-- 03 — USP 2: DIE KI -->
-<div class="slide right w50 photo">
-  <img src="slide-11.jpg" class="bg-img" alt="Roboter Hund scannt">
-  <div class="text-content">
-    <span class="pill">USP 2 · Die KI</span>
-    <div class="word">Foto upload.</div>
-    <div class="word accent">KI macht den Rest.</div>
-  </div>
-</div>
-
-<!-- 04 — USP 3: EIGENTUM (stärkster Konter) -->
-<div class="slide left w50 photo">
-  <img src="slide-14.jpg" class="bg-img" alt="Pitbull Türsteher">
-  <div class="text-content">
-    <span class="pill">USP 3 · Eigentum</span>
-    <div class="word">Deine Daten.</div>
-    <div class="word accent">Gehören dir.</div>
-    <div class="word dim">Nicht dem Tierarzt.</div>
-  </div>
-</div>
-
-<!-- 04b — USP 4: DIE KOMBINATION — gibt's so nicht -->
-<div class="slide bottom photo">
-  <img src="slide-17_1.jpg" class="bg-img" alt="Kombination">
-  <div class="text-content">
-    <span class="pill">USP 4 · Die Kombination</span>
-    <div class="usp-equation">
-      <span class="usp-eq-pill">Zugang</span>
-      <span class="usp-eq-op">+</span>
-      <span class="usp-eq-pill">KI</span>
-      <span class="usp-eq-op">+</span>
-      <span class="usp-eq-pill">Eigentum</span>
-      <span class="usp-eq-op">=</span>
-      <span class="usp-eq-result">Gibt's nicht.</span>
-    </div>
-    <div class="fake-check">
-      <span class="fc-head"></span>
-      <span class="fc-head">Zugang</span>
-      <span class="fc-head">KI</span>
-      <span class="fc-head">Eigentum</span>
-
-      <span class="fc-name">Tierarzt-Software</span>
-      <span class="fc-no">✗</span><span class="fc-no">✗</span><span class="fc-no">✗</span>
-
-      <span class="fc-name">Chip-Register</span>
-      <span class="fc-yes">✓</span><span class="fc-no">✗</span><span class="fc-no">✗</span>
-
-      <span class="fc-name">Dok-Scanner-Apps</span>
-      <span class="fc-no">✗</span><span class="fc-yes">~</span><span class="fc-no">✗</span>
-
-      <span class="fc-name" style="color:#e8ff00;font-weight:900;">Vetzsucht</span>
-      <span class="fc-yes">✓</span><span class="fc-yes">✓</span><span class="fc-yes">✓</span>
-    </div>
-  </div>
-</div>
-
-<!-- 05 — FINALE: der Schlag. Alle USPs auf einen Blick -->
-<div class="slide bottom photo">
-  <img src="slide-16.jpg" class="bg-img" alt="Löwe auf Felsen">
-  <div class="text-content">
-    <div class="word accent">Das ist Vetzsucht.</div>
-    <div class="chips">
-      <span class="chip key">Ohne Login</span>
-      <span class="chip key">KI statt Abtippen</span>
-      <span class="chip key">Deine Daten, deine Regeln</span>
-      <span class="chip">Tierarzt scannt</span>
-      <span class="chip">Sprachnotiz → Text</span>
-      <span class="chip">Rollen-Rechte</span>
-      <span class="chip">NFC · QR · Link</span>
-    </div>
-  </div>
+<!-- PROBLEM -->
+<div class="slide">
+  <div class="xl dim">Aktuell?</div>
 </div>
 
 <div class="slide">
-  <img src="slide-20_1.png" class="bg-img" alt="Einsatzmöglichkeiten">
-  <div class="text-content">
-    <div class="word">Einsatzmöglichkeiten:</div>
-    <div class="word accent">ohne Ende</div>
-  </div>
+  <div class="xl">Papier.</div>
 </div>
 
-<!-- 06 — FEATURE-ÜBERSICHT: was alles drinsteckt, gruppiert -->
-<div class="slide bottom photo">
-  <img src="slide-09.jpg" class="bg-img" alt="Löwe auf Felsen">
-  <div class="text-content" style="text-align:left; align-items:flex-start;">
-    <div class="word" style="font-size:clamp(22px,3.4vw,46px);">Alles drin.</div>
-    <div class="tech-rows">
-      <div class="tech-row">
-        <span class="tech-cat">Pass</span>
-        <span class="tech-chip">Tiere &amp; Impfungen</span>
-        <span class="tech-chip">Behandlungen</span>
-        <span class="tech-chip">Besitzer-Transfer</span>
-        <span class="tech-chip">Archiv</span>
-        <span class="tech-chip">Statistiken</span>
-      </div>
-      <div class="tech-row">
-        <span class="tech-cat">Zugang</span>
-        <span class="tech-chip">NFC</span>
-        <span class="tech-chip">QR</span>
-        <span class="tech-chip">Link</span>
-        <span class="tech-chip">Scan ohne Login</span>
-        <span class="tech-chip">Scan-Verlauf</span>
-      </div>
-      <div class="tech-row">
-        <span class="tech-cat">KI</span>
-        <span class="tech-chip">Dokument-Analyse</span>
-        <span class="tech-chip">Sprachnotiz → Text</span>
-        <span class="tech-chip">Duplikat-Erkennung</span>
-      </div>
-      <div class="tech-row">
-        <span class="tech-cat">Teilen</span>
-        <span class="tech-chip">Share-Links</span>
-        <span class="tech-chip">Temporär &amp; dauerhaft</span>
-        <span class="tech-chip">Rechte widerrufen</span>
-      </div>
-      <div class="tech-row">
-        <span class="tech-cat">Konto</span>
-        <span class="tech-chip">OAuth</span>
-        <span class="tech-chip">Supabase-Login</span>
-        <span class="tech-chip">Datenexport</span>
-        <span class="tech-chip">API-Keys</span>
-      </div>
-      <div class="tech-row">
-        <span class="tech-cat">Tierarzt</span>
-        <span class="tech-chip">Organisationen</span>
-        <span class="tech-chip">Teams</span>
-        <span class="tech-chip">Einladungen</span>
-        <span class="tech-chip">Vet-API v1</span>
-      </div>
-      <div class="tech-row">
-        <span class="tech-cat">Plattform</span>
-        <span class="tech-chip">Reminders</span>
-        <span class="tech-chip">Billing</span>
-        <span class="tech-chip">Audit-Log</span>
-        <span class="tech-chip">Multi-Tenant</span>
-        <span class="tech-chip">i18n</span>
-        <span class="tech-chip">PWA</span>
-      </div>
+<div class="slide">
+  <div class="lg">Nicht auffindbar.</div>
+</div>
+
+<div class="slide">
+  <div class="xl">Zerrissen.</div>
+</div>
+
+<div class="slide">
+  <div class="xl">Verloren.</div>
+</div>
+
+<div class="slide">
+  <div class="xl dim">Lösung?</div>
+</div>
+
+<div class="slide">
+  <div class="xl y">Digital.</div>
+</div>
+
+<!-- USP 1 -->
+<div class="slide">
+  <div class="sm">USP 1</div>
+  <div class="xl">Tier scannen.</div>
+  <div class="xl y">Daten da.</div>
+</div>
+
+<!-- USP 2 -->
+<div class="slide">
+  <div class="sm">USP 2</div>
+  <div class="xl">Foto upload.</div>
+  <div class="xl y">Daten importiert.</div>
+</div>
+
+<!-- USP 3 -->
+<div class="slide">
+  <div class="sm">USP 3</div>
+  <div class="lg">Dein Tier.</div>
+  <div class="lg">Deine Daten.</div>
+  <div class="lg y">Deine Freiheit.</div>
+</div>
+
+<!-- USP 4 -->
+<div class="slide">
+  <div class="sm">USP 4 · Die Kombination</div>
+  <div class="lg">1 + 2 + 3</div>
+  <div class="xl y">Einzigartig.</div>
+</div>
+
+<!-- DAS IST VETZSUCHT -->
+<div class="slide">
+  <div class="xl y">Das ist Vetzsucht.</div>
+</div>
+
+<div class="slide">
+  <div class="xl">Ohne Login.</div>
+</div>
+
+<div class="slide">
+  <div class="xl">KI statt Tippen.</div>
+</div>
+
+<div class="slide">
+  <div class="lg">Deine Daten.</div>
+  <div class="lg y">Deine Regeln.</div>
+</div>
+
+<div class="slide">
+  <div class="lg">Tierarzt scannt.</div>
+  <div class="lg y">Sofort. Ohne Login.</div>
+</div>
+
+<div class="slide">
+  <div class="xl">NFC.</div>
+  <div class="xl">QR.</div>
+  <div class="xl y">Link.</div>
+</div>
+
+<div class="slide">
+  <div class="lg">Einsatz?</div>
+  <div class="xl y">Ohne Ende.</div>
+</div>
+
+<!-- ALLES DRIN: Detail -->
+<div class="slide detail">
+  <div class="detail-head">Alles drin.</div>
+  <div class="tech-rows">
+    <div class="tech-row">
+      <span class="tech-cat">Pass</span>
+      <span class="tech-chip">Tiere &amp; Impfungen</span>
+      <span class="tech-chip">Behandlungen</span>
+      <span class="tech-chip">Besitzer-Transfer</span>
+      <span class="tech-chip">Archiv</span>
+      <span class="tech-chip">Statistiken</span>
+    </div>
+    <div class="tech-row">
+      <span class="tech-cat">Zugang</span>
+      <span class="tech-chip">NFC</span>
+      <span class="tech-chip">QR</span>
+      <span class="tech-chip">Link</span>
+      <span class="tech-chip">Scan ohne Login</span>
+      <span class="tech-chip">Scan-Verlauf</span>
+    </div>
+    <div class="tech-row">
+      <span class="tech-cat">KI</span>
+      <span class="tech-chip">Dokument-Analyse</span>
+      <span class="tech-chip">Sprachnotiz → Text</span>
+      <span class="tech-chip">Duplikat-Erkennung</span>
+    </div>
+    <div class="tech-row">
+      <span class="tech-cat">Teilen</span>
+      <span class="tech-chip">Share-Links</span>
+      <span class="tech-chip">Temporär &amp; dauerhaft</span>
+      <span class="tech-chip">Rechte widerrufen</span>
+    </div>
+    <div class="tech-row">
+      <span class="tech-cat">Konto</span>
+      <span class="tech-chip">OAuth</span>
+      <span class="tech-chip">Supabase-Login</span>
+      <span class="tech-chip">Datenexport</span>
+      <span class="tech-chip">API-Keys</span>
+    </div>
+    <div class="tech-row">
+      <span class="tech-cat">Tierarzt</span>
+      <span class="tech-chip">Organisationen</span>
+      <span class="tech-chip">Teams</span>
+      <span class="tech-chip">Einladungen</span>
+      <span class="tech-chip">Vet-API v1</span>
+    </div>
+    <div class="tech-row">
+      <span class="tech-cat">Plattform</span>
+      <span class="tech-chip">Reminders</span>
+      <span class="tech-chip">Billing</span>
+      <span class="tech-chip">Audit-Log</span>
+      <span class="tech-chip">Multi-Tenant</span>
+      <span class="tech-chip">i18n</span>
+      <span class="tech-chip">PWA</span>
     </div>
   </div>
 </div>
 
-<!-- TECH STACK — vorletzte Folie -->
-<div class="slide bottom photo">
-  <img src="slide-12.jpg" class="bg-img" alt="Tech Stack Hintergrund">
-  <div class="text-content" style="text-align:left; align-items:flex-start;">
-    <div class="word">Gebaut auf.</div>
-    <div class="tech-rows">
-      <div class="tech-row">
-        <span class="tech-cat">Frontend</span>
-        <span class="tech-chip">React 18</span>
-        <span class="tech-chip">Vite</span>
-        <span class="tech-chip">TypeScript</span>
-        <span class="tech-chip">Tailwind CSS</span>
-        <span class="tech-chip">Shadcn UI</span>
-        <span class="tech-chip">PWA</span>
-      </div>
-      <div class="tech-row">
-        <span class="tech-cat">Backend</span>
-        <span class="tech-chip">Fastify</span>
-        <span class="tech-chip">Node.js</span>
-        <span class="tech-chip">ES Modules</span>
-        <span class="tech-chip">REST API</span>
-      </div>
-      <div class="tech-row">
-        <span class="tech-cat">Daten &amp; Auth</span>
-        <span class="tech-chip">Supabase</span>
-        <span class="tech-chip">PostgreSQL</span>
-        <span class="tech-chip">OAuth</span>
-        <span class="tech-chip">Magic Link</span>
-        <span class="tech-chip">RLS</span>
-      </div>
-      <div class="tech-row">
-        <span class="tech-cat">KI</span>
-        <span class="tech-chip">Claude API</span>
-        <span class="tech-chip">Anthropic</span>
-      </div>
-      <div class="tech-row">
-        <span class="tech-cat">Deploy</span>
-        <span class="tech-chip">Hetzner</span>
-        <span class="tech-chip">Podman</span>
-        <span class="tech-chip">Caddy</span>
-        <span class="tech-chip">Self-hosted</span>
-      </div>
+<!-- TECH STACK: Detail -->
+<div class="slide detail">
+  <div class="detail-head">Gebaut auf.</div>
+  <div class="tech-rows">
+    <div class="tech-row">
+      <span class="tech-cat">Frontend</span>
+      <span class="tech-chip">React 18</span>
+      <span class="tech-chip">Vite</span>
+      <span class="tech-chip">TypeScript</span>
+      <span class="tech-chip">Tailwind CSS</span>
+      <span class="tech-chip">Shadcn UI</span>
+      <span class="tech-chip">PWA</span>
+    </div>
+    <div class="tech-row">
+      <span class="tech-cat">Backend</span>
+      <span class="tech-chip">Fastify</span>
+      <span class="tech-chip">Node.js</span>
+      <span class="tech-chip">ES Modules</span>
+      <span class="tech-chip">REST API</span>
+    </div>
+    <div class="tech-row">
+      <span class="tech-cat">Daten &amp; Auth</span>
+      <span class="tech-chip">Supabase</span>
+      <span class="tech-chip">PostgreSQL</span>
+      <span class="tech-chip">OAuth</span>
+      <span class="tech-chip">Magic Link</span>
+      <span class="tech-chip">RLS</span>
+    </div>
+    <div class="tech-row">
+      <span class="tech-cat">KI</span>
+      <span class="tech-chip">Claude API</span>
+      <span class="tech-chip">Anthropic</span>
+    </div>
+    <div class="tech-row">
+      <span class="tech-cat">Deploy</span>
+      <span class="tech-chip">Hetzner</span>
+      <span class="tech-chip">Podman</span>
+      <span class="tech-chip">Caddy</span>
+      <span class="tech-chip">Self-hosted</span>
     </div>
   </div>
 </div>
 
-<!-- 07 — ABGANG: Antwort an den Gast (Gandalf-Bookend) -->
-<div class="slide bottom right w50 photo">
-  <img src="slide-15.jpg" class="bg-img" alt="Gandalf Hund">
-  <div class="text-content">
-    <div class="word">Noch Fragen?</div>
-    <div class="word accent">Oder gleich zur Demo?</div>
-  </div>
+<!-- CLOSING -->
+<div class="slide">
+  <div class="lg">Noch Fragen?</div>
+  <div class="xl y">Demo.</div>
 </div>
 
 <div class="dot" id="dots"></div>
@@ -530,10 +342,7 @@
   function show(n) {
     slides[current].classList.remove('active');
     current = (n + slides.length) % slides.length;
-    const s = slides[current];
-    s.classList.remove('active');
-    void s.offsetWidth; // force reflow → CSS animations restart
-    s.classList.add('active');
+    slides[current].classList.add('active');
     document.querySelectorAll('.dot span').forEach((d, i) => {
       d.classList.toggle('on', i === current);
     });
