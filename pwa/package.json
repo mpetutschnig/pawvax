@@ -1,7 +1,7 @@
 {
   "name": "paw-pwa",
   "private": true,
-  "version": "20260608_0415",
+  "version": "20260608_1044",
   "type": "module",
   "scripts": {
     "dev": "vite",
