@@ -565,7 +565,7 @@ export default async function authRoutes(fastify) {
       has_mistral_token: !!fullAccount?.mistral_token,
       has_gladia_token: !!fullAccount?.gladia_token,
       ai_provider_priority: fullAccount?.ai_provider_priority ?? null,
-      has_system_ai: await getSystemAiKeys(db).then(k => !!(k.geminiKey || k.anthropicKey || k.openaiKey)).catch(() => false)
+      has_system_ai: await getSystemAiKeys(db).then(k => !!(k.geminiKey || k.anthropicKey || k.openaiKey || k.mistralKey)).catch(() => false)
     }
   })
 
