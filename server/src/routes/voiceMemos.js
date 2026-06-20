@@ -306,6 +306,8 @@ export default async function voiceMemoRoutes(fastify) {
       summary_roles: isCreator || isOwner ? parseRoles(memo.summary_roles) : undefined,
       transcription_roles: isCreator || isOwner ? parseRoles(memo.transcription_roles) : undefined,
       can_delete: isCreator && roleStr.includes('vet'),
+      // Managing the vet content itself (retry/reanalyze) is creator-vet only
+      can_manage: isCreator && roleStr.includes('vet'),
       error_message: (isCreator || isOwner) ? memo.error_message : undefined,
       gladia_debug_json: isCreator ? memo.gladia_debug_json : undefined,
       ai_debug_json: isCreator ? memo.ai_debug_json : undefined

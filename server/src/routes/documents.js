@@ -30,7 +30,11 @@ function canRoleSeeDocument(rawRoles, requestRole) {
 }
 
 function canManageReanalysis(doc, accountId, role) {
-  return doc.owner_id === accountId || doc.added_by_account === accountId || role === 'admin'
+  const isAdmin = role === 'admin'
+  const isUploader = doc.added_by_account === accountId
+  // Vet content may only be (re)analyzed by the uploading vet or an admin
+  if (String(doc.added_by_role || '').includes('vet')) return isUploader || isAdmin
+  return doc.owner_id === accountId || isUploader || isAdmin
 }
 
 export default async function documentRoutes(fastify) {
@@ -230,6 +234,9 @@ export default async function documentRoutes(fastify) {
     }
 
     if (doc_type !== undefined) {
+      if (doc.added_by_role === 'vet' && !isUploader) {
+        return reply.code(403).send({ error: 'Dieses verifizierte Dokument kann nur vom Tierarzt geändert werden' })
+      }
       const normalizedDocType = normalizeDocumentType(doc_type)
       await db.query('UPDATE documents SET doc_type = $1 WHERE id = $2', [normalizedDocType, doc.id])
       await logAudit(db, { accountId, role, action: 'update_document_type', resource: 'document', resourceId: doc.id,
@@ -349,7 +356,7 @@ export default async function documentRoutes(fastify) {
     `, [docId])
 
     if (!doc) return reply.code(404).send({ error: 'Dokument nicht gefunden' })
-    if (doc.owner_id !== accountId && doc.added_by_account !== accountId) {
+    if (!canManageReanalysis(doc, accountId, role)) {
       return reply.code(403).send({ error: 'Keine Berechtigung' })
     }
 

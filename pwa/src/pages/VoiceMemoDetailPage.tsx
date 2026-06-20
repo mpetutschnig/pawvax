@@ -148,12 +148,12 @@ export default function VoiceMemoDetailPage() {
           <StatusBadge status={memo.analysis_status} />
         </div>
         <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
-          {memo.analysis_status === 'failed' && (
+          {memo.can_manage && memo.analysis_status === 'failed' && (
             <button className="btn btn-outline" onClick={handleRetry} disabled={retrying} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
               <RefreshCw size={16} /> {retrying ? t('common.loading') : t('common.retry')}
             </button>
           )}
-          {memo.transcription_text && ['completed', 'failed'].includes(memo.analysis_status) && (
+          {memo.can_manage && memo.transcription_text && ['completed', 'failed'].includes(memo.analysis_status) && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', flexWrap: 'wrap' }}>
               <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{t('voiceMemo.reanalyzeLang')}:</span>
               <select
