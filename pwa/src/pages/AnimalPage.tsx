@@ -164,7 +164,10 @@ export default function AnimalPage() {
         const animalData = a.data as any
         setAnimal(animalData)
         setEditData(animalData)
-        addRecentlyViewedAnimal({ id: animalData.id, name: animalData.name, species: animalData.species, breed: animalData.breed, source: 'animal' })
+        // Own animals are tagged 'animal' (excluded from the recently-viewed list);
+        // foreign animals (vet/authority/admin viewing someone else's) are tagged
+        // 'scan' so they show up in "recently viewed".
+        addRecentlyViewedAnimal({ id: animalData.id, name: animalData.name, species: animalData.species, breed: animalData.breed, source: animalData.is_owner ? 'animal' : 'scan' })
         setDocuments(Array.isArray(d.data) ? d.data : [])
         setTags(Array.isArray(t.data) ? t.data : [])
         setVoiceMemos(Array.isArray(v.data) ? v.data : [])
