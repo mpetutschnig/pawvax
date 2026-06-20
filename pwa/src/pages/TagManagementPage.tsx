@@ -264,12 +264,12 @@ export default function TagManagementPage() {
               <QRCodeSVG value={tagScanUrl(qrTag.tag_id)} size={220} level="M" />
             </div>
             <p style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', wordBreak: 'break-all', margin: 'var(--space-4) 0 var(--space-3) 0' }}>{qrTag.tag_id}</p>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: 'var(--space-2) var(--space-3)' }}>
-              <span style={{ flex: 1, fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', wordBreak: 'break-all', textAlign: 'left' }}>{tagScanUrl(qrTag.tag_id)}</span>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 'var(--space-2)', background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: 'var(--space-2) var(--space-3)' }}>
+              <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', wordBreak: 'break-all', textAlign: 'left' }}>{tagScanUrl(qrTag.tag_id)}</span>
               <button
                 onClick={() => copyTagUrl(qrTag.tag_id)}
                 className="btn btn-sm btn-secondary"
-                style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0, whiteSpace: 'nowrap' }}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', whiteSpace: 'nowrap' }}
                 title={t('chip.copyLink')}
               >
                 {copied ? <><Check size={14} /> {t('common.copied')}</> : <><Copy size={14} /> {t('chip.copyLink')}</>}
