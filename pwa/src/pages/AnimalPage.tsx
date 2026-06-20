@@ -464,6 +464,9 @@ export default function AnimalPage() {
 
   const isOwner = animal.is_owner !== false
   const isVet = animal.request_role === 'vet'
+  // Only the owner (own animal) or a vet may add content. Normal users viewing
+  // a foreign animal (shared/scanned) must not see any add actions.
+  const canAddContent = isOwner || isVet
 
   const hasNfcTag = tags.some(t => t.tag_type === 'nfc' && t.active === 1)
   const isVetVerified = false // Placeholder for future implementation
@@ -2100,7 +2103,7 @@ export default function AnimalPage() {
       )}
 
       {/* FAB */}
-      {!loading && !animal?.is_archived && (
+      {!loading && !animal?.is_archived && canAddContent && (
         <div style={{
           position: 'fixed',
           bottom: 'calc(var(--bottom-nav-height) + 16px)',
