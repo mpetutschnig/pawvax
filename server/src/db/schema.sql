@@ -17,6 +17,8 @@ CREATE TABLE IF NOT EXISTS accounts (
   claude_model  TEXT DEFAULT 'claude-3-5-sonnet-20241022',
   openai_token  TEXT,
   openai_model  TEXT DEFAULT 'gpt-4o-mini',
+  mistral_token TEXT,
+  mistral_model TEXT DEFAULT 'mistral-small-latest',
   ai_provider_priority TEXT DEFAULT '["google", "anthropic", "openai"]',
   created_at    TEXT DEFAULT (CURRENT_TIMESTAMP)
 );

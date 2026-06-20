@@ -181,6 +181,12 @@ export async function initDb(connectionString) {
     await pool.query("ALTER TABLE animal_public_shares ADD COLUMN IF NOT EXISTS allowed_role TEXT NOT NULL DEFAULT 'guest'")
   } catch { /* column may already exist */ }
 
+  // Migration: add Mistral provider columns (per-user API key + model)
+  try {
+    await pool.query("ALTER TABLE accounts ADD COLUMN IF NOT EXISTS mistral_token TEXT")
+    await pool.query("ALTER TABLE accounts ADD COLUMN IF NOT EXISTS mistral_model TEXT DEFAULT 'mistral-small-latest'")
+  } catch { /* columns may already exist */ }
+
   // OAuth accounts table for social login
   try {
     await pool.query(`

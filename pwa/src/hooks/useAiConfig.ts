@@ -6,6 +6,7 @@ export interface AiConfigState {
   hasGemini: boolean
   hasAnthropic: boolean
   hasOpenai: boolean
+  hasMistral: boolean
   hasSystemAi: boolean
   systemFallbackEnabled: boolean
   billingConsentAccepted: boolean
@@ -26,6 +27,7 @@ export function useAiConfig(): AiConfigState {
   const [hasGemini, setHasGemini] = useState(false)
   const [hasAnthropic, setHasAnthropic] = useState(false)
   const [hasOpenai, setHasOpenai] = useState(false)
+  const [hasMistral, setHasMistral] = useState(false)
   const [hasSystemAi, setHasSystemAi] = useState(true)
   const [systemFallbackEnabled, setSystemFallbackEnabled] = useState(true)
   const [billingConsentAccepted, setBillingConsentAccepted] = useState(false)
@@ -35,7 +37,7 @@ export function useAiConfig(): AiConfigState {
   const [retryModel, setRetryModel] = useState(DEFAULT_MODEL_BY_PROVIDER.google)
   const [loading, setLoading] = useState(true)
 
-  const hasOwnKey = hasGemini || hasAnthropic || hasOpenai
+  const hasOwnKey = hasGemini || hasAnthropic || hasOpenai || hasMistral
   const usingFallback = !hasOwnKey && hasSystemAi && systemFallbackEnabled
   const hasAnyKey = hasOwnKey || usingFallback
 
@@ -48,6 +50,7 @@ export function useAiConfig(): AiConfigState {
       setHasGemini(!!me.has_gemini_token)
       setHasAnthropic(!!me.has_anthropic_token)
       setHasOpenai(!!me.has_openai_token)
+      setHasMistral(!!me.has_mistral_token)
       setHasSystemAi(!!me.has_system_ai)
       setSystemFallbackEnabled(!!(me.system_fallback_enabled ?? 1))
       setBillingConsentAccepted(!!billingRes.data.consentAcceptedAt)
@@ -63,6 +66,9 @@ export function useAiConfig(): AiConfigState {
       } else if (me.has_openai_token) {
         setRetryProvider('openai')
         setRetryModel(DEFAULT_MODEL_BY_PROVIDER.openai)
+      } else if (me.has_mistral_token) {
+        setRetryProvider('mistral')
+        setRetryModel(DEFAULT_MODEL_BY_PROVIDER.mistral)
       }
       setLoading(false)
     }).catch(() => {
@@ -74,7 +80,8 @@ export function useAiConfig(): AiConfigState {
       .then(data => setAvailableModels({
         google: data.google || DEFAULT_AVAILABLE_MODELS.google,
         anthropic: data.anthropic || DEFAULT_AVAILABLE_MODELS.anthropic,
-        openai: data.openai || DEFAULT_AVAILABLE_MODELS.openai
+        openai: data.openai || DEFAULT_AVAILABLE_MODELS.openai,
+        mistral: data.mistral || DEFAULT_AVAILABLE_MODELS.mistral
       }))
       .catch(() => {})
   }, [])
@@ -84,10 +91,11 @@ export function useAiConfig(): AiConfigState {
     if (provider === 'google') setRetryModel(DEFAULT_MODEL_BY_PROVIDER.google)
     else if (provider === 'anthropic') setRetryModel(DEFAULT_MODEL_BY_PROVIDER.anthropic)
     else if (provider === 'openai') setRetryModel(DEFAULT_MODEL_BY_PROVIDER.openai)
+    else if (provider === 'mistral') setRetryModel(DEFAULT_MODEL_BY_PROVIDER.mistral)
   }
 
   return {
-    hasGemini, hasAnthropic, hasOpenai, hasSystemAi, systemFallbackEnabled,
+    hasGemini, hasAnthropic, hasOpenai, hasMistral, hasSystemAi, systemFallbackEnabled,
     billingConsentAccepted, billingPricePerPage,
     availableModels, retryProvider, retryModel,
     hasOwnKey, usingFallback, hasAnyKey,

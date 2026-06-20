@@ -17,6 +17,11 @@ export const AI_MODEL_OPTIONS = {
     { id: 'gpt-4.1-mini', name: 'GPT-4.1 Mini' },
     { id: 'gpt-4-turbo', name: 'GPT-4 Turbo' }
   ],
+  mistral: [
+    { id: 'mistral-small-latest', name: 'Mistral Small 4 (günstig)' },
+    { id: 'mistral-medium-latest', name: 'Mistral Medium 3.5' },
+    { id: 'pixtral-large-latest', name: 'Pixtral Large' }
+  ],
   'mock-ocr': [
     { id: 'test', name: 'Mock OCR Test' }
   ]
@@ -26,12 +31,14 @@ export const AI_MODEL_OPTIONS = {
 export const ALLOWED_GEMINI_MODELS = ['gemini-3.1-flash-lite-preview', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']
 export const ALLOWED_CLAUDE_MODELS = ['claude-3-5-haiku-20241022', 'claude-3-5-sonnet-20241022', 'claude-3-7-sonnet-20250219', 'claude-3-opus-20240229']
 export const ALLOWED_OPENAI_MODELS = ['gpt-4o-mini', 'gpt-4o', 'gpt-4.1-mini', 'gpt-4-turbo']
+export const ALLOWED_MISTRAL_MODELS = ['mistral-small-latest', 'mistral-medium-latest', 'pixtral-large-latest']
 export const ALLOWED_MOCK_MODELS = ['test']
 
 export const DEFAULT_MODEL_BY_PROVIDER = {
   google: 'gemini-3.1-flash-lite-preview',
   anthropic: 'claude-3-5-haiku-20241022',
   openai: 'gpt-4o-mini',
+  mistral: 'mistral-small-latest',
   'mock-ocr': 'test'
 }
 
@@ -50,6 +57,7 @@ export function isAllowedModel(provider, model) {
   if (p === 'google') return ALLOWED_GEMINI_MODELS.includes(model)
   if (p === 'anthropic') return ALLOWED_CLAUDE_MODELS.includes(model)
   if (p === 'openai') return ALLOWED_OPENAI_MODELS.includes(model)
+  if (p === 'mistral') return ALLOWED_MISTRAL_MODELS.includes(model)
   if (p === 'mock-ocr') return ALLOWED_MOCK_MODELS.includes(model)
   
   return false

@@ -291,21 +291,23 @@ export default async function vetApiRoutes(fastify) {
     // Trigger OCR analysis asynchronously
     setImmediate(async () => {
       try {
-        const { rows: [account] } = await db.query('SELECT gemini_token, gemini_model, anthropic_token, claude_model, openai_token, openai_model, ai_provider_priority FROM accounts WHERE id = $1',
+        const { rows: [account] } = await db.query('SELECT gemini_token, gemini_model, anthropic_token, claude_model, openai_token, openai_model, mistral_token, mistral_model, ai_provider_priority FROM accounts WHERE id = $1',
           [req.apiKeyAccount.accountId])
 
-        let geminiKey = null, anthropicKey = null, openaiKey = null
+        let geminiKey = null, anthropicKey = null, openaiKey = null, mistralKey = null
         try { geminiKey = account?.gemini_token ? decrypt(account.gemini_token) : null } catch {}
         try { anthropicKey = account?.anthropic_token ? decrypt(account.anthropic_token) : null } catch {}
         try { openaiKey = account?.openai_token ? decrypt(account.openai_token) : null } catch {}
+        try { mistralKey = account?.mistral_token ? decrypt(account.mistral_token) : null } catch {}
 
         // Fallback to system keys (settings > env var)
         const sysKeys = await getSystemAiKeys(db)
         if (!geminiKey) geminiKey = sysKeys.geminiKey
         if (!anthropicKey) anthropicKey = sysKeys.anthropicKey
         if (!openaiKey) openaiKey = sysKeys.openaiKey
+        if (!mistralKey) mistralKey = sysKeys.mistralKey
 
-        const priority = account?.ai_provider_priority ? JSON.parse(account.ai_provider_priority) : ['google', 'anthropic', 'openai']
+        const priority = account?.ai_provider_priority ? JSON.parse(account.ai_provider_priority) : ['google', 'anthropic', 'openai', 'mistral']
 
         const result = await analyzeDocument(
           filename,
@@ -314,7 +316,9 @@ export default async function vetApiRoutes(fastify) {
           anthropicKey, resolveModel('anthropic', account?.claude_model),
           openaiKey, resolveModel('openai', account?.openai_model),
           priority,
-          language
+          language,
+          null,
+          mistralKey, resolveModel('mistral', account?.mistral_model)
         )
 
         await db.query('UPDATE documents SET extracted_json = $1, ocr_provider = $2, analysis_status = $3 WHERE id = $4',

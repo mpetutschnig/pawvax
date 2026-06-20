@@ -94,6 +94,37 @@ export async function analyzeImageWithProvider(provider, key, model, imagePath, 
     return { provider: 'openai', data: parseStructuredModelResponse(text, 'OpenAI', documentType, typeConfidence) }
   }
 
+  if (provider === 'mistral') {
+    if (onProgress) onProgress('Processing image for Mistral API...')
+    if (onProgress) onProgress(`Sending POST request to Mistral ${model} API...`)
+    // Mistral exposes an OpenAI-compatible chat completions API
+    const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+      body: JSON.stringify({
+        model,
+        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'system', content: 'You are a veterinary document analyzer. Always return valid JSON.' },
+          { role: 'user', content: [{ type: 'text', text: prompt }, { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64}` } }] }
+        ]
+      })
+    })
+    if (!response.ok) {
+      const errorText = await response.text()
+      log.error({ provider: 'mistral', statusCode: response.status, err: errorText }, 'Mistral API error')
+      const code = response.status === 429 ? 503 : response.status
+      const message = response.status === 429
+        ? 'Mistral API rate limit exceeded - please try again later'
+        : `Mistral API error (${response.status}): ${errorText}`
+      throw Object.assign(new Error(message), { code })
+    }
+    if (onProgress) onProgress('Mistral response received, processing JSON...')
+    const result = await response.json()
+    const text = result.choices?.[0]?.message?.content || ''
+    return { provider: 'mistral', data: parseStructuredModelResponse(text, 'Mistral', documentType, typeConfidence) }
+  }
+
   throw new Error(`Unknown provider: ${provider}`)
 }
 
@@ -139,6 +170,19 @@ export async function classifyImageWithProvider(provider, key, imagePath, langua
       })
     })
     if (!response.ok) throw new Error(`OpenAI classification failed: ${response.status}`)
+    const result = await response.json()
+    text = result.choices?.[0]?.message?.content || ''
+  } else if (provider === 'mistral') {
+    const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+      body: JSON.stringify({
+        model: DEFAULT_MODEL_BY_PROVIDER.mistral,
+        max_tokens: 50,
+        messages: [{ role: 'user', content: [{ type: 'text', text: classificationPrompt }, { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64}` } }] }]
+      })
+    })
+    if (!response.ok) throw new Error(`Mistral classification failed: ${response.status}`)
     const result = await response.json()
     text = result.choices?.[0]?.message?.content || ''
   }

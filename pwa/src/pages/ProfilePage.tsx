@@ -22,6 +22,9 @@ export default function ProfilePage() {
   const [openaiToken, setOpenaiToken] = useState('')
   const [openaiError, setOpenaiError] = useState('')
   const [openaiSuccess, setOpenaiSuccess] = useState('')
+  const [mistralToken, setMistralToken] = useState('')
+  const [mistralError, setMistralError] = useState('')
+  const [mistralSuccess, setMistralSuccess] = useState('')
   const [gladiaToken, setGladiaToken] = useState('')
   const [gladiaError, setGladiaError] = useState('')
   const [gladiaSuccess, setGladiaSuccess] = useState('')
@@ -32,7 +35,8 @@ export default function ProfilePage() {
   const [geminiModel, setGeminiModel] = useState('')
   const [claudeModel, setClaudeModel] = useState('')
   const [openaiModel, setOpenaiModel] = useState('')
-  const [aiPriority, setAiPriority] = useState<string[]>(['system', 'google', 'anthropic', 'openai'])
+  const [mistralModel, setMistralModel] = useState('')
+  const [aiPriority, setAiPriority] = useState<string[]>(['system', 'google', 'anthropic', 'openai', 'mistral'])
   const [modelSaving, setModelSaving] = useState(false)
   const [requestedRole, setRequestedRole] = useState<string>('vet')
   const [verificationNotes, setVerificationNotes] = useState('')
@@ -130,6 +134,7 @@ export default function ProfilePage() {
       setGeminiModel(res.data.gemini_model || DEFAULT_MODEL_BY_PROVIDER.google)
       setClaudeModel(res.data.claude_model || DEFAULT_MODEL_BY_PROVIDER.anthropic)
       setOpenaiModel(res.data.openai_model || DEFAULT_MODEL_BY_PROVIDER.openai)
+      setMistralModel(res.data.mistral_model || DEFAULT_MODEL_BY_PROVIDER.mistral)
       setSystemFallbackEnabled(!!(res.data.system_fallback_enabled ?? 1))
       setBillingConsentAcceptedAt(res.data.billing_consent_accepted_at || null)
       
@@ -418,6 +423,58 @@ export default function ProfilePage() {
     try {
       await patchMe({ openai_model: model })
       setOpenaiModel(model)
+      setSuccess(t('profile.modelSaved'))
+      setTimeout(() => setSuccess(null), 2000)
+    } catch (err) {
+      setError(t('profile.saveError'))
+    } finally {
+      setModelSaving(false)
+    }
+  }
+
+  const saveMistralToken = async () => {
+    if (!mistralToken) return
+    setSaving(true)
+    setMistralError('')
+    setMistralSuccess('')
+    try {
+      await patchMe({ mistral_token: mistralToken || null })
+      setMistralSuccess(t('profile.mistralSaved'))
+      setMistralToken('')
+      setTimeout(() => {
+        loadProfile()
+        setMistralSuccess('')
+      }, 3000)
+    } catch (err) {
+      setMistralError(err instanceof Error ? err.message : t('profile.saveError'))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const clearMistralToken = async () => {
+    setSaving(true)
+    try {
+      await patchMe({ mistral_token: null })
+      setSuccess(t('profile.deleteSuccess'))
+      setMistralToken('')
+      setTimeout(() => {
+        loadProfile()
+        setSuccess(null)
+      }, 1000)
+    } catch (err) {
+      setError(t('profile.saveError'))
+      console.error(err)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const saveMistralModel = async (model: string) => {
+    setModelSaving(true)
+    try {
+      await patchMe({ mistral_model: model })
+      setMistralModel(model)
       setSuccess(t('profile.modelSaved'))
       setTimeout(() => setSuccess(null), 2000)
     } catch (err) {
@@ -752,7 +809,7 @@ export default function ProfilePage() {
               {aiPriority.map((provider, index) => (
                 <div key={provider} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', background: 'var(--surface)', padding: 'var(--space-2)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
                   <span style={{ fontWeight: 600, width: '20px', color: 'var(--text-tertiary)' }}>{index + 1}.</span>
-                  <span style={{ flex: 1 }}>{provider === 'system' ? t('profile.systemAi') : provider === 'google' ? 'Google Gemini' : provider === 'anthropic' ? 'Anthropic Claude' : 'OpenAI'}</span>
+                  <span style={{ flex: 1 }}>{provider === 'system' ? t('profile.systemAi') : provider === 'google' ? 'Google Gemini' : provider === 'anthropic' ? 'Anthropic Claude' : provider === 'mistral' ? 'Mistral AI' : 'OpenAI'}</span>
                   <button className="btn btn-ghost" style={{ padding: '4px' }} disabled={index === 0} onClick={() => { const p = [...aiPriority]; [p[index-1],p[index]]=[p[index],p[index-1]]; updatePriority(p) }}>↑</button>
                   <button className="btn btn-ghost" style={{ padding: '4px' }} disabled={index === aiPriority.length-1} onClick={() => { const p = [...aiPriority]; [p[index+1],p[index]]=[p[index],p[index+1]]; updatePriority(p) }}>↓</button>
                 </div>
@@ -867,6 +924,43 @@ export default function ProfilePage() {
             </div>
             {openaiError && <div className="error-card" style={{ marginTop: 'var(--space-3)', padding: 'var(--space-3)' }}><p style={{ margin: 0 }}>{openaiError}</p></div>}
             {openaiSuccess && <div className="card" style={{ marginTop: 'var(--space-3)', padding: 'var(--space-3)', background: 'var(--success-50)', borderColor: 'var(--success-500)', display: 'flex', gap: 'var(--space-2)' }}><CheckCircle size={16} color="var(--success-600)" /><p style={{ margin: 0, color: 'var(--success-600)', fontWeight: 500, fontSize: 'var(--font-size-sm)' }}>{openaiSuccess}</p></div>}
+            <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-4)', padding: 'var(--space-3)', background: 'color-mix(in oklch, var(--warning-500) 12%, var(--surface))', borderRadius: 'var(--radius-md)', border: '1px solid color-mix(in oklch, var(--warning-500) 30%, transparent)' }}>
+              <AlertTriangle size={16} color="var(--warning-600)" style={{ flexShrink: 0, marginTop: '2px' }} />
+              <p style={{ fontSize: 'var(--font-size-xs)', margin: 0 }}>{t('profile.aiWarning')}</p>
+            </div>
+          </div>
+
+          {/* Mistral AI */}
+          <div className="card animate-fade-in" style={{ marginTop: 'var(--space-4)' }}>
+            <h3 style={{ marginTop: 0, marginBottom: 'var(--space-3)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+              <Key size={18} color="var(--primary-500)" /> Mistral AI
+            </h3>
+            <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-2)' }}>{t('profile.mistralDesc')}</p>
+            <p style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-4)' }}>
+              <a href="https://console.mistral.ai/api-keys" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary-500)', textDecoration: 'underline' }}>{t('profile.mistralCreateKey')}</a>
+            </p>
+            <div className="form-group">
+              <label className="form-label">{t('profile.model')}</label>
+              <p className="text-muted" style={{ fontSize: 'var(--font-size-xs)', marginBottom: 'var(--space-2)' }}>{t('profile.modelDesc')}</p>
+              <select className="form-select" value={mistralModel} onChange={(e) => saveMistralModel(e.target.value)} disabled={modelSaving}>
+                {DEFAULT_AVAILABLE_MODELS.mistral.map((model) => (
+                  <option key={model.id} value={model.id}>{model.id === DEFAULT_MODEL_BY_PROVIDER.mistral ? `${model.name} (Standard)` : model.name}</option>
+                ))}
+              </select>
+            </div>
+            {renderModelHint(t('profile.mistralModelHint'))}
+            {profile.has_mistral_token
+              ? <p style={{ color: 'var(--success-600)', marginTop: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontWeight: 500 }}><CheckCircle size={16} /> {t('profile.mistralSaved')}</p>
+              : <div className="form-group" style={{ marginTop: 'var(--space-4)' }}><input className="form-input" type="password" placeholder="..." value={mistralToken} onChange={e => setMistralToken(e.target.value)} /></div>
+            }
+            <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-3)' }}>
+              {!profile.has_mistral_token
+                ? <button className="btn btn-primary" onClick={saveMistralToken} disabled={saving || !mistralToken}>{saving ? t('profile.mistralChecking') : t('profile.mistralCheck')}</button>
+                : <button className="btn btn-danger" onClick={clearMistralToken} disabled={saving}>{saving ? t('profile.mistralDeleting') : t('profile.mistralDelete')}</button>
+              }
+            </div>
+            {mistralError && <div className="error-card" style={{ marginTop: 'var(--space-3)', padding: 'var(--space-3)' }}><p style={{ margin: 0 }}>{mistralError}</p></div>}
+            {mistralSuccess && <div className="card" style={{ marginTop: 'var(--space-3)', padding: 'var(--space-3)', background: 'var(--success-50)', borderColor: 'var(--success-500)', display: 'flex', gap: 'var(--space-2)' }}><CheckCircle size={16} color="var(--success-600)" /><p style={{ margin: 0, color: 'var(--success-600)', fontWeight: 500, fontSize: 'var(--font-size-sm)' }}>{mistralSuccess}</p></div>}
             <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-4)', padding: 'var(--space-3)', background: 'color-mix(in oklch, var(--warning-500) 12%, var(--surface))', borderRadius: 'var(--radius-md)', border: '1px solid color-mix(in oklch, var(--warning-500) 30%, transparent)' }}>
               <AlertTriangle size={16} color="var(--warning-600)" style={{ flexShrink: 0, marginTop: '2px' }} />
               <p style={{ fontSize: 'var(--font-size-xs)', margin: 0 }}>{t('profile.aiWarning')}</p>

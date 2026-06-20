@@ -8,7 +8,7 @@ import { getDb } from '../db/index.js'
 import { logAudit } from '../services/audit.js'
 import { saveImageChunks, getUploadPath } from '../services/storage.js'
 import { encrypt, decrypt } from '../utils/crypto.js'
-import { ALLOWED_CLAUDE_MODELS, ALLOWED_GEMINI_MODELS, ALLOWED_OPENAI_MODELS } from '../utils/aiModels.js'
+import { ALLOWED_CLAUDE_MODELS, ALLOWED_GEMINI_MODELS, ALLOWED_OPENAI_MODELS, ALLOWED_MISTRAL_MODELS } from '../utils/aiModels.js'
 import { sendAuthEmail, shouldExposeAuthTokens } from '../services/authMail.js'
 import { generateApiKey, hashApiKey } from '../utils/apikey.js'
 import { createVerify } from 'crypto'
@@ -554,14 +554,15 @@ export default async function authRoutes(fastify) {
   // Read own profile
   fastify.get('/api/accounts/me', { onRequest: [fastify.authenticate] }, async (req, reply) => {
     const db = getDb()
-    const { rows: [account] } = await db.query('SELECT id, name, email, pending_email, role, verified, verification_status, email_verified, email_verification_required, gemini_model, claude_model, created_at, system_fallback_enabled, billing_consent_accepted_at FROM accounts WHERE id = $1', [req.user.accountId])
+    const { rows: [account] } = await db.query('SELECT id, name, email, pending_email, role, verified, verification_status, email_verified, email_verification_required, gemini_model, claude_model, openai_model, mistral_model, created_at, system_fallback_enabled, billing_consent_accepted_at FROM accounts WHERE id = $1', [req.user.accountId])
     if (!account) return reply.code(404).send({ error: 'Account nicht gefunden' })
     const roles = (account.role ?? 'user').split(',').map(r => r.trim())
-    const { rows: [fullAccount] } = await db.query('SELECT gemini_token, anthropic_token, openai_token, gladia_token, ai_provider_priority FROM accounts WHERE id = $1', [account.id])
+    const { rows: [fullAccount] } = await db.query('SELECT gemini_token, anthropic_token, openai_token, mistral_token, gladia_token, ai_provider_priority FROM accounts WHERE id = $1', [account.id])
     return { ...account, roles,
       has_gemini_token: !!fullAccount?.gemini_token,
       has_anthropic_token: !!fullAccount?.anthropic_token,
       has_openai_token: !!fullAccount?.openai_token,
+      has_mistral_token: !!fullAccount?.mistral_token,
       has_gladia_token: !!fullAccount?.gladia_token,
       ai_provider_priority: fullAccount?.ai_provider_priority ?? null,
       has_system_ai: await getSystemAiKeys(db).then(k => !!(k.geminiKey || k.anthropicKey || k.openaiKey)).catch(() => false)
@@ -571,7 +572,7 @@ export default async function authRoutes(fastify) {
   // Update own profile
   fastify.patch('/api/accounts/me', { onRequest: [fastify.authenticate] }, async (req, reply) => {
     const db = getDb()
-    const { name, email, password, currentPassword, gemini_token, gemini_model, anthropic_token, claude_model, openai_token, openai_model, gladia_token, ai_provider_priority, system_fallback_enabled, billing_consent_accepted_at } = req.body
+    const { name, email, password, currentPassword, gemini_token, gemini_model, anthropic_token, claude_model, openai_token, openai_model, mistral_token, mistral_model, gladia_token, ai_provider_priority, system_fallback_enabled, billing_consent_accepted_at } = req.body
     const accountId = req.user.accountId
     const updates = []
     const vals = []
@@ -651,6 +652,17 @@ export default async function authRoutes(fastify) {
       }
       vals.push(openai_model)
       updates.push(`openai_model = $${vals.length}`)
+    }
+    if (mistral_token !== undefined) {
+      vals.push(mistral_token ? encrypt(mistral_token) : null)
+      updates.push(`mistral_token = $${vals.length}`)
+    }
+    if (mistral_model !== undefined) {
+      if (!ALLOWED_MISTRAL_MODELS.includes(mistral_model)) {
+        return reply.code(400).send({ error: 'Ungültiges Mistral-Modell' })
+      }
+      vals.push(mistral_model)
+      updates.push(`mistral_model = $${vals.length}`)
     }
     if (ai_provider_priority !== undefined) {
       vals.push(typeof ai_provider_priority === 'string' ? ai_provider_priority : JSON.stringify(ai_provider_priority))

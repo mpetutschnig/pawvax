@@ -110,6 +110,9 @@ describe('Analysis Regression & Permission Tests', () => {
      const res = await apiCallWithToken(ownerToken, 'GET', '/ai/models')
      expect(res.status).toBe(200)
      // Diagnostic check - if gemini-1.5-flash is not allowed, it will fail analysis tests
+     // Mistral provider must be advertised with its static model list
+     expect(Array.isArray(res.data.mistral)).toBe(true)
+     expect(res.data.mistral.some(m => m.id === 'mistral-small-latest')).toBe(true)
   })
 
   test('Vet analyzing treatment on foreign animal results in vet_report', async () => {

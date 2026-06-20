@@ -15,13 +15,19 @@ export const DEFAULT_AVAILABLE_MODELS = {
     { id: 'gpt-4o-mini', name: 'GPT-4o Mini' },
     { id: 'gpt-4o', name: 'GPT-4o' },
     { id: 'gpt-4.1-mini', name: 'GPT-4.1 Mini' }
+  ],
+  mistral: [
+    { id: 'mistral-small-latest', name: 'Mistral Small 4 (günstig)' },
+    { id: 'mistral-medium-latest', name: 'Mistral Medium 3.5' },
+    { id: 'pixtral-large-latest', name: 'Pixtral Large' }
   ]
 }
 
 export const DEFAULT_MODEL_BY_PROVIDER = {
   google: 'gemini-3.1-flash-lite-preview',
   anthropic: 'claude-3-5-haiku-20241022',
-  openai: 'gpt-4o-mini'
+  openai: 'gpt-4o-mini',
+  mistral: 'mistral-small-latest'
 }
 
 export const DOCUMENT_TYPE_OPTIONS = ['vaccination', 'treatment', 'vet_report', 'pet_passport', 'medical_product', 'pedigree', 'dog_certificate', 'general'] as const

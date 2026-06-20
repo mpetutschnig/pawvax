@@ -7,7 +7,7 @@ import { normalizeConfidenceValue, normalizeModelMetadata } from './imageUtils.j
 import { analyzeImageWithProvider, classifyImageWithProvider } from './providers.js'
 import { analyzeWithMockOcr } from './mock.js'
 
-export async function analyzeDocument(imagePath, userGeminiKey = null, model = null, onProgress = null, userAnthropicKey = null, claudeModel = null, userOpenAiKey = null, openAiModel = null, priority = ['google', 'anthropic', 'openai'], language = 'de', requestedDocumentType = null) {
+export async function analyzeDocument(imagePath, userGeminiKey = null, model = null, onProgress = null, userAnthropicKey = null, claudeModel = null, userOpenAiKey = null, openAiModel = null, priority = ['google', 'anthropic', 'openai'], language = 'de', requestedDocumentType = null, userMistralKey = null, mistralModel = null) {
   const log = getOcrLogger()
   if (onProgress) onProgress('Initializing OCR analysis...')
 
@@ -26,7 +26,7 @@ export async function analyzeDocument(imagePath, userGeminiKey = null, model = n
   try {
     const classificationResult = forcedDocumentType
       ? { type: forcedDocumentType, confidence: null }
-      : await classifyDocumentType(absolutePath, userGeminiKey, userAnthropicKey, userOpenAiKey, priority, normalizedLanguage)
+      : await classifyDocumentType(absolutePath, userGeminiKey, userAnthropicKey, userOpenAiKey, priority, normalizedLanguage, userMistralKey)
 
     const documentType = classificationResult.type
     const typeConfidence = classificationResult.confidence
@@ -35,7 +35,8 @@ export async function analyzeDocument(imagePath, userGeminiKey = null, model = n
     const providerKeyMap = {
       google: { key: userGeminiKey, model },
       anthropic: { key: userAnthropicKey, model: claudeModel },
-      openai: { key: userOpenAiKey, model: openAiModel }
+      openai: { key: userOpenAiKey, model: openAiModel },
+      mistral: { key: userMistralKey, model: mistralModel }
     }
 
     for (const provider of priority) {
@@ -50,6 +51,7 @@ export async function analyzeDocument(imagePath, userGeminiKey = null, model = n
     if (userGeminiKey) return await analyzeImageWithProvider('google', userGeminiKey, model, absolutePath, prompt, documentType, typeConfidence, onProgress)
     if (userAnthropicKey) return await analyzeImageWithProvider('anthropic', userAnthropicKey, claudeModel, absolutePath, prompt, documentType, typeConfidence, onProgress)
     if (userOpenAiKey) return await analyzeImageWithProvider('openai', userOpenAiKey, openAiModel, absolutePath, prompt, documentType, typeConfidence, onProgress)
+    if (userMistralKey) return await analyzeImageWithProvider('mistral', userMistralKey, mistralModel, absolutePath, prompt, documentType, typeConfidence, onProgress)
 
     throw Object.assign(new Error('Analysis not possible. No API tokens configured.'), { code: 401 })
   } catch (err) {
@@ -58,11 +60,11 @@ export async function analyzeDocument(imagePath, userGeminiKey = null, model = n
   }
 }
 
-export async function classifyDocumentType(imagePath, userGeminiKey = null, userAnthropicKey = null, userOpenAiKey = null, priority = ['google', 'anthropic', 'openai'], language = 'de') {
+export async function classifyDocumentType(imagePath, userGeminiKey = null, userAnthropicKey = null, userOpenAiKey = null, priority = ['google', 'anthropic', 'openai'], language = 'de', userMistralKey = null) {
   const log = getOcrLogger()
   try {
     const lang = language === 'en' ? 'en' : 'de'
-    const providerKeyMap = { google: userGeminiKey, anthropic: userAnthropicKey, openai: userOpenAiKey }
+    const providerKeyMap = { google: userGeminiKey, anthropic: userAnthropicKey, openai: userOpenAiKey, mistral: userMistralKey }
     for (const provider of priority) {
       const key = providerKeyMap[provider]
       if (key) return await classifyImageWithProvider(provider, key, imagePath, lang)

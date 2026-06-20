@@ -13,6 +13,7 @@ export default async function aiRoutes(fastify) {
     let geminiModels = []
     let openaiModels = []
     const anthropicModels = AI_MODEL_OPTIONS.anthropic
+    const mistralModels = AI_MODEL_OPTIONS.mistral
 
     let priority = ['system', 'google', 'anthropic', 'openai']
     try { if (acc?.ai_provider_priority) priority = JSON.parse(acc.ai_provider_priority) } catch {}
@@ -51,7 +52,8 @@ export default async function aiRoutes(fastify) {
     return {
       google: geminiModels.length > 0 ? geminiModels : null,
       anthropic: anthropicModels,
-      openai: openaiModels.length > 0 ? openaiModels : null
+      openai: openaiModels.length > 0 ? openaiModels : null,
+      mistral: mistralModels
     }
   })
 }

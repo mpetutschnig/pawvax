@@ -33,7 +33,9 @@ async function analyzeDocumentPages(pages, options) {
       options.userOpenAiModel,
       options.priority,
       options.language || 'de',
-      options.requestedDocumentType || null
+      options.requestedDocumentType || null,
+      options.userMistralKey,
+      options.userMistralModel
     )
 
     pageResults.push(result.data)
@@ -89,15 +91,17 @@ export async function runDocumentAnalysis(db, doc, accountId, options, log, reqI
   }
 
   // Get user's keys and models
-  const { rows: [acc] } = await db.query('SELECT role, gemini_token, gemini_model, anthropic_token, claude_model, openai_token, openai_model, ai_provider_priority, system_fallback_enabled, billing_budget_eur FROM accounts WHERE id = $1', [accountId])
+  const { rows: [acc] } = await db.query('SELECT role, gemini_token, gemini_model, anthropic_token, claude_model, openai_token, openai_model, mistral_token, mistral_model, ai_provider_priority, system_fallback_enabled, billing_budget_eur FROM accounts WHERE id = $1', [accountId])
 
   let userGeminiKey = null
   let userAnthropicKey = null
   let userOpenAiKey = null
+  let userMistralKey = null
 
   try { userGeminiKey = acc?.gemini_token ? decrypt(acc.gemini_token) : null } catch {}
   try { userAnthropicKey = acc?.anthropic_token ? decrypt(acc.anthropic_token) : null } catch {}
   try { userOpenAiKey = acc?.openai_token ? decrypt(acc.openai_token) : null } catch {}
+  try { userMistralKey = acc?.mistral_token ? decrypt(acc.mistral_token) : null } catch {}
 
   const userRole = acc?.role || 'user'
   const isVet = userRole.includes('vet')
@@ -110,8 +114,9 @@ export async function runDocumentAnalysis(db, doc, accountId, options, log, reqI
   const userGeminiModel = requestedProvider === 'google' && requestedModel ? requestedModel : resolveModel('google', acc?.gemini_model)
   const userClaudeModel = requestedProvider === 'anthropic' && requestedModel ? requestedModel : resolveModel('anthropic', acc?.claude_model)
   const userOpenAiModel = requestedProvider === 'openai' && requestedModel ? requestedModel : resolveModel('openai', acc?.openai_model)
+  let userMistralModel = requestedProvider === 'mistral' && requestedModel ? requestedModel : resolveModel('mistral', acc?.mistral_model)
 
-  let priority = ['system', 'google', 'anthropic', 'openai']
+  let priority = ['system', 'google', 'anthropic', 'openai', 'mistral']
   try {
     if (acc?.ai_provider_priority) {
       const parsed = JSON.parse(acc.ai_provider_priority)
@@ -125,7 +130,7 @@ export async function runDocumentAnalysis(db, doc, accountId, options, log, reqI
     priority = [requestedProvider]
   }
 
-  if (!Array.isArray(priority)) priority = ['system', 'google', 'anthropic', 'openai']
+  if (!Array.isArray(priority)) priority = ['system', 'google', 'anthropic', 'openai', 'mistral']
 
   const sysFallbackAllowed = (acc?.system_fallback_enabled ?? 1) === 1
 
@@ -134,11 +139,13 @@ export async function runDocumentAnalysis(db, doc, accountId, options, log, reqI
     if (!userGeminiKey) userGeminiKey = sysKeys.geminiKey
     if (!userAnthropicKey) userAnthropicKey = sysKeys.anthropicKey
     if (!userOpenAiKey) userOpenAiKey = sysKeys.openaiKey
-    
+    if (!userMistralKey) userMistralKey = sysKeys.mistralKey
+
     // Also use system models if user has none and no model requested
     if (!acc?.gemini_model && !requestedModel && sysKeys.geminiModel) userGeminiModel = sysKeys.geminiModel
     if (!acc?.claude_model && !requestedModel && sysKeys.anthropicModel) userClaudeModel = sysKeys.anthropicModel
     if (!acc?.openai_model && !requestedModel && sysKeys.openaiModel) userOpenAiModel = sysKeys.openaiModel
+    if (!acc?.mistral_model && !requestedModel && sysKeys.mistralModel) userMistralModel = sysKeys.mistralModel
   }
 
   const pages = await getDocumentPages(db, docId)
@@ -149,7 +156,7 @@ export async function runDocumentAnalysis(db, doc, accountId, options, log, reqI
   }
 
   // Budget/fallback check
-  const hasOwnKey = !!(acc?.gemini_token || acc?.anthropic_token || acc?.openai_token)
+  const hasOwnKey = !!(acc?.gemini_token || acc?.anthropic_token || acc?.openai_token || acc?.mistral_token)
   
   if (!hasOwnKey && !(acc?.system_fallback_enabled ?? 1)) {
     // AI disabled — save without analysis
@@ -197,7 +204,7 @@ export async function runDocumentAnalysis(db, doc, accountId, options, log, reqI
   }
 
   const result = await analyzeDocumentPages(analysisPages, {
-    userGeminiKey, userGeminiModel, userAnthropicKey, userClaudeModel, userOpenAiKey, userOpenAiModel,
+    userGeminiKey, userGeminiModel, userAnthropicKey, userClaudeModel, userOpenAiKey, userOpenAiModel, userMistralKey, userMistralModel,
     priority, language, requestedDocumentType,
     onProgress: (pageNumber, message) => log.debug({ docId, pageNumber, message }, 'Analysis page progress')
   })

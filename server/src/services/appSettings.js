@@ -30,6 +30,8 @@ export const AI_SETTINGS_KEYS = [
   'system_anthropic_model',
   'system_openai_token',
   'system_openai_model',
+  'system_mistral_token',
+  'system_mistral_model',
   'system_gladia_token',
 ]
 
@@ -62,6 +64,7 @@ export const SECRET_SETTINGS_KEYS = new Set([
   'system_gemini_token',
   'system_anthropic_token',
   'system_openai_token',
+  'system_mistral_token',
   'system_gladia_token',
   'supabase_jwt_secret',
 ])
@@ -174,10 +177,12 @@ function applySecretStatus(settings) {
   settings.has_system_gemini_token = !!settings.system_gemini_token
   settings.has_system_anthropic_token = !!settings.system_anthropic_token
   settings.has_system_openai_token = !!settings.system_openai_token
+  settings.has_system_mistral_token = !!settings.system_mistral_token
   settings.has_system_gladia_token = !!settings.system_gladia_token
   delete settings.system_gemini_token
   delete settings.system_anthropic_token
   delete settings.system_openai_token
+  delete settings.system_mistral_token
   delete settings.system_gladia_token
 
   settings.has_supabase_jwt_secret = !!settings.supabase_jwt_secret
@@ -207,6 +212,7 @@ export async function getAdminSettings(db = getDb()) {
     system_gemini_model: raw.system_gemini_model || '',
     system_anthropic_model: raw.system_anthropic_model || '',
     system_openai_model: raw.system_openai_model || '',
+    system_mistral_model: raw.system_mistral_model || '',
     maintenance_mode: normalizeBoolean(raw.maintenance_mode),
     audit_retention_days: Number(raw.audit_retention_days || 365),
     default_rate_limit_per_min: Number(raw.default_rate_limit_per_min || 60),
@@ -310,10 +316,12 @@ export async function getSystemAiKeys(db = getDb()) {
     geminiKey: decryptSetting(settings.system_gemini_token) || process.env.GEMINI_API_KEY || null,
     anthropicKey: decryptSetting(settings.system_anthropic_token) || process.env.ANTHROPIC_API_KEY || null,
     openaiKey: decryptSetting(settings.system_openai_token) || process.env.OPENAI_API_KEY || null,
+    mistralKey: decryptSetting(settings.system_mistral_token) || process.env.MISTRAL_API_KEY || null,
     gladiaKey: decryptSetting(settings.system_gladia_token) || null,
     geminiModel: settings.system_gemini_model || null,
     anthropicModel: settings.system_anthropic_model || null,
     openaiModel: settings.system_openai_model || null,
+    mistralModel: settings.system_mistral_model || null,
   }
 }
 

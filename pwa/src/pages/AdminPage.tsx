@@ -124,9 +124,12 @@ interface AdminSettingsState {
   system_anthropic_model?: string
   system_openai_token?: string
   system_openai_model?: string
+  system_mistral_token?: string
+  system_mistral_model?: string
   has_system_gemini_token?: boolean
   has_system_anthropic_token?: boolean
   has_system_openai_token?: boolean
+  has_system_mistral_token?: boolean
   maintenance_mode?: boolean
   audit_retention_days?: number
   default_rate_limit_per_min?: number
@@ -158,6 +161,8 @@ const defaultAdminSettings: AdminSettingsState = {
   system_anthropic_model: '',
   system_openai_token: '',
   system_openai_model: '',
+  system_mistral_token: '',
+  system_mistral_model: '',
 }
 
 export default function AdminPage() {
@@ -252,7 +257,7 @@ export default function AdminPage() {
         }
       } else if (section === 'settings-general' || section === 'settings-mail' || section === 'settings-ai' || section === 'settings-auth') {
         const res = await adminGetSettings()
-        setAppSettings({ ...defaultAdminSettings, ...res.data, smtp_password: '', oauth2_client_secret: '', oauth2_refresh_token: '', system_gemini_token: '', system_anthropic_token: '', system_openai_token: '' })
+        setAppSettings({ ...defaultAdminSettings, ...res.data, smtp_password: '', oauth2_client_secret: '', oauth2_refresh_token: '', system_gemini_token: '', system_anthropic_token: '', system_openai_token: '', system_mistral_token: '' })
       } else if (section === 'tests') {
         // Load test runs list (Level 1)
         const runsRes = await adminGetTestRuns(20, 0)
@@ -955,16 +960,17 @@ export default function AdminPage() {
             <h1 style={{ marginBottom: 'var(--space-2)' }}>{t('admin.settingsAi')}</h1>
             <p className="text-muted" style={{ marginBottom: 'var(--space-6)' }}>{t('admin.settingsAiDesc')}</p>
 
-            {(['gemini', 'anthropic', 'openai'] as const).map(provider => {
+            {(['gemini', 'anthropic', 'openai', 'mistral'] as const).map(provider => {
               const tokenKey = `system_${provider}_token` as keyof AdminSettingsState
               const modelKey = `system_${provider}_model` as keyof AdminSettingsState
               const hasKey = `has_system_${provider}_token` as keyof AdminSettingsState
-              const labels: Record<string, string> = { gemini: 'Google Gemini', anthropic: 'Anthropic Claude', openai: 'OpenAI' }
-              const placeholders: Record<string, string> = { gemini: 'AIza...', anthropic: 'sk-ant-...', openai: 'sk-...' }
+              const labels: Record<string, string> = { gemini: 'Google Gemini', anthropic: 'Anthropic Claude', openai: 'OpenAI', mistral: 'Mistral AI' }
+              const placeholders: Record<string, string> = { gemini: 'AIza...', anthropic: 'sk-ant-...', openai: 'sk-...', mistral: '...' }
               const modelHints: Record<string, string> = {
                 gemini: 'gemini-2.0-flash-lite',
                 anthropic: 'claude-haiku-4-5-20251001',
                 openai: 'gpt-4o-mini',
+                mistral: 'mistral-small-latest',
               }
               return (
                 <div key={provider} className="card" style={{ marginBottom: 'var(--space-4)' }}>

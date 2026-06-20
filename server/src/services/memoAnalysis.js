@@ -112,24 +112,50 @@ async function callProvider(provider, key, model, prompt) {
     return { provider: 'openai', text: data.choices?.[0]?.message?.content || '{}' }
   }
 
+  if (provider === 'mistral') {
+    // Mistral exposes an OpenAI-compatible chat completions API
+    const res = await fetch('https://api.mistral.ai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+      body: JSON.stringify({
+        model,
+        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'system', content: 'You are a veterinary assistant. Always return valid JSON.' },
+          { role: 'user', content: prompt }
+        ]
+      })
+    })
+    const body = await res.text()
+    let data
+    try { data = JSON.parse(body) } catch { data = { raw: body } }
+    if (!res.ok) {
+      const err = Object.assign(new Error(`Mistral memo error (${res.status}): ${body.slice(0, 300)}`), { aiDebug: { provider, status: res.status, model, response: data } })
+      throw err
+    }
+    return { provider: 'mistral', text: data.choices?.[0]?.message?.content || '{}' }
+  }
+
   throw new Error(`Unknown provider: ${provider}`)
 }
 
 export async function analyzeMemoWithAI(db, accountId, transcriptionText, languageMode = 'de') {
   const { rows: [acc] } = await db.query(
-    'SELECT gemini_token, gemini_model, anthropic_token, claude_model, openai_token, openai_model, ai_provider_priority, system_fallback_enabled, billing_budget_eur FROM accounts WHERE id = $1',
+    'SELECT gemini_token, gemini_model, anthropic_token, claude_model, openai_token, openai_model, mistral_token, mistral_model, ai_provider_priority, system_fallback_enabled, billing_budget_eur FROM accounts WHERE id = $1',
     [accountId]
   )
 
   let userGeminiKey = null
   let userAnthropicKey = null
   let userOpenAiKey = null
+  let userMistralKey = null
   try { userGeminiKey = acc?.gemini_token ? decrypt(acc.gemini_token) : null } catch {}
   try { userAnthropicKey = acc?.anthropic_token ? decrypt(acc.anthropic_token) : null } catch {}
   try { userOpenAiKey = acc?.openai_token ? decrypt(acc.openai_token) : null } catch {}
+  try { userMistralKey = acc?.mistral_token ? decrypt(acc.mistral_token) : null } catch {}
 
   const sysFallbackAllowed = (acc?.system_fallback_enabled ?? 1) === 1
-  let priority = ['google', 'anthropic', 'openai']
+  let priority = ['google', 'anthropic', 'openai', 'mistral']
   try { if (acc?.ai_provider_priority) priority = JSON.parse(acc.ai_provider_priority).filter(p => p !== 'system') } catch {}
 
   if (sysFallbackAllowed) {
@@ -137,17 +163,20 @@ export async function analyzeMemoWithAI(db, accountId, transcriptionText, langua
     if (!userGeminiKey) userGeminiKey = sysKeys.geminiKey
     if (!userAnthropicKey) userAnthropicKey = sysKeys.anthropicKey
     if (!userOpenAiKey) userOpenAiKey = sysKeys.openaiKey
+    if (!userMistralKey) userMistralKey = sysKeys.mistralKey
   }
 
   const providerKeys = {
     google: userGeminiKey,
     anthropic: userAnthropicKey,
-    openai: userOpenAiKey
+    openai: userOpenAiKey,
+    mistral: userMistralKey
   }
   const providerModels = {
     google: resolveModel('google', acc?.gemini_model),
     anthropic: resolveModel('anthropic', acc?.claude_model),
-    openai: resolveModel('openai', acc?.openai_model)
+    openai: resolveModel('openai', acc?.openai_model),
+    mistral: resolveModel('mistral', acc?.mistral_model)
   }
 
   console.log('[memoAnalysis] priority=%s sysFallback=%s keys=%s', priority.join(','), sysFallbackAllowed,
