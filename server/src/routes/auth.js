@@ -558,6 +558,7 @@ export default async function authRoutes(fastify) {
     if (!account) return reply.code(404).send({ error: 'Account nicht gefunden' })
     const roles = (account.role ?? 'user').split(',').map(r => r.trim())
     const { rows: [fullAccount] } = await db.query('SELECT gemini_token, anthropic_token, openai_token, mistral_token, gladia_token, ai_provider_priority FROM accounts WHERE id = $1', [account.id])
+    const systemKeys = await getSystemAiKeys(db).catch(() => ({}))
     return { ...account, roles,
       has_gemini_token: !!fullAccount?.gemini_token,
       has_anthropic_token: !!fullAccount?.anthropic_token,
@@ -565,7 +566,12 @@ export default async function authRoutes(fastify) {
       has_mistral_token: !!fullAccount?.mistral_token,
       has_gladia_token: !!fullAccount?.gladia_token,
       ai_provider_priority: fullAccount?.ai_provider_priority ?? null,
-      has_system_ai: await getSystemAiKeys(db).then(k => !!(k.geminiKey || k.anthropicKey || k.openaiKey || k.mistralKey)).catch(() => false)
+      // Per-provider system key presence, so the UI can offer only configured providers
+      has_system_gemini: !!systemKeys.geminiKey,
+      has_system_anthropic: !!systemKeys.anthropicKey,
+      has_system_openai: !!systemKeys.openaiKey,
+      has_system_mistral: !!systemKeys.mistralKey,
+      has_system_ai: !!(systemKeys.geminiKey || systemKeys.anthropicKey || systemKeys.openaiKey || systemKeys.mistralKey)
     }
   })
 

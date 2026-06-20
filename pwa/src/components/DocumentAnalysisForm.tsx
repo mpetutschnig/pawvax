@@ -17,6 +17,10 @@ interface DocumentAnalysisFormProps {
   hasAnthropic: boolean
   hasOpenai: boolean
   hasMistral: boolean
+  hasSystemGemini: boolean
+  hasSystemAnthropic: boolean
+  hasSystemOpenai: boolean
+  hasSystemMistral: boolean
   hasSystemAi: boolean
   systemFallbackEnabled?: boolean
   pricePerPage?: number
@@ -53,6 +57,10 @@ export function DocumentAnalysisForm({
   hasAnthropic,
   hasOpenai,
   hasMistral,
+  hasSystemGemini,
+  hasSystemAnthropic,
+  hasSystemOpenai,
+  hasSystemMistral,
   hasSystemAi,
   systemFallbackEnabled,
   pricePerPage,
@@ -191,10 +199,10 @@ export function DocumentAnalysisForm({
           <select className="form-select" value={hasOwnKey ? retryProvider : ''} onChange={e => onProviderChange(e.target.value)} disabled={!hasOwnKey}>
             {hasOwnKey ? (
               <>
-                {(hasGemini || hasSystemAi) && <option value="google">Google Gemini</option>}
-                {(hasAnthropic || hasSystemAi) && <option value="anthropic">Anthropic Claude</option>}
-                {(hasOpenai || hasSystemAi) && <option value="openai">OpenAI</option>}
-                {(hasMistral || hasSystemAi) && <option value="mistral">Mistral AI</option>}
+                {(hasGemini || hasSystemGemini) && <option value="google">Google Gemini</option>}
+                {(hasAnthropic || hasSystemAnthropic) && <option value="anthropic">Anthropic Claude</option>}
+                {(hasOpenai || hasSystemOpenai) && <option value="openai">OpenAI</option>}
+                {(hasMistral || hasSystemMistral) && <option value="mistral">Mistral AI</option>}
               </>
             ) : usingFallback ? (
               <option value="">{t('profile.systemAiFallback')}</option>

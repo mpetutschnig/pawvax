@@ -401,6 +401,10 @@ export default function DocumentScanPage() {
         hasAnthropic={ai.hasAnthropic}
         hasOpenai={ai.hasOpenai}
         hasMistral={ai.hasMistral}
+        hasSystemGemini={ai.hasSystemGemini}
+        hasSystemAnthropic={ai.hasSystemAnthropic}
+        hasSystemOpenai={ai.hasSystemOpenai}
+        hasSystemMistral={ai.hasSystemMistral}
         hasSystemAi={ai.hasSystemAi}
         systemFallbackEnabled={ai.systemFallbackEnabled}
         pricePerPage={ai.billingPricePerPage}
@@ -636,10 +640,10 @@ function ProviderSelect({ ai, t }: { ai: ReturnType<typeof useAiConfig>; t: Func
   }
   return (
     <select className="form-select" value={ai.retryProvider} onChange={e => ai.handleProviderChange(e.target.value)}>
-      {ai.hasGemini && <option value="google">Google Gemini</option>}
-      {ai.hasAnthropic && <option value="anthropic">Anthropic Claude</option>}
-      {ai.hasOpenai && <option value="openai">OpenAI</option>}
-      {ai.hasMistral && <option value="mistral">Mistral AI</option>}
+      {(ai.hasGemini || ai.hasSystemGemini) && <option value="google">Google Gemini</option>}
+      {(ai.hasAnthropic || ai.hasSystemAnthropic) && <option value="anthropic">Anthropic Claude</option>}
+      {(ai.hasOpenai || ai.hasSystemOpenai) && <option value="openai">OpenAI</option>}
+      {(ai.hasMistral || ai.hasSystemMistral) && <option value="mistral">Mistral AI</option>}
     </select>
   )
 }

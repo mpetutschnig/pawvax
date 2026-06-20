@@ -7,6 +7,10 @@ export interface AiConfigState {
   hasAnthropic: boolean
   hasOpenai: boolean
   hasMistral: boolean
+  hasSystemGemini: boolean
+  hasSystemAnthropic: boolean
+  hasSystemOpenai: boolean
+  hasSystemMistral: boolean
   hasSystemAi: boolean
   systemFallbackEnabled: boolean
   billingConsentAccepted: boolean
@@ -28,6 +32,10 @@ export function useAiConfig(): AiConfigState {
   const [hasAnthropic, setHasAnthropic] = useState(false)
   const [hasOpenai, setHasOpenai] = useState(false)
   const [hasMistral, setHasMistral] = useState(false)
+  const [hasSystemGemini, setHasSystemGemini] = useState(false)
+  const [hasSystemAnthropic, setHasSystemAnthropic] = useState(false)
+  const [hasSystemOpenai, setHasSystemOpenai] = useState(false)
+  const [hasSystemMistral, setHasSystemMistral] = useState(false)
   const [hasSystemAi, setHasSystemAi] = useState(true)
   const [systemFallbackEnabled, setSystemFallbackEnabled] = useState(true)
   const [billingConsentAccepted, setBillingConsentAccepted] = useState(false)
@@ -51,24 +59,29 @@ export function useAiConfig(): AiConfigState {
       setHasAnthropic(!!me.has_anthropic_token)
       setHasOpenai(!!me.has_openai_token)
       setHasMistral(!!me.has_mistral_token)
+      setHasSystemGemini(!!me.has_system_gemini)
+      setHasSystemAnthropic(!!me.has_system_anthropic)
+      setHasSystemOpenai(!!me.has_system_openai)
+      setHasSystemMistral(!!me.has_system_mistral)
       setHasSystemAi(!!me.has_system_ai)
       setSystemFallbackEnabled(!!(me.system_fallback_enabled ?? 1))
       setBillingConsentAccepted(!!billingRes.data.consentAcceptedAt)
       setBillingPricePerPage(billingRes.data.pricePerPage ?? 0)
 
-      // Auto-select first available provider (cheapest first: google → anthropic → openai)
-      if (me.has_gemini_token) {
-        setRetryProvider('google')
-        setRetryModel(DEFAULT_MODEL_BY_PROVIDER.google)
-      } else if (me.has_anthropic_token) {
-        setRetryProvider('anthropic')
-        setRetryModel(DEFAULT_MODEL_BY_PROVIDER.anthropic)
-      } else if (me.has_openai_token) {
-        setRetryProvider('openai')
-        setRetryModel(DEFAULT_MODEL_BY_PROVIDER.openai)
-      } else if (me.has_mistral_token) {
-        setRetryProvider('mistral')
-        setRetryModel(DEFAULT_MODEL_BY_PROVIDER.mistral)
+      // Auto-select first provider that has a key configured (own key OR system key),
+      // cheapest first: google → anthropic → openai → mistral
+      const fallbackEnabled = !!(me.system_fallback_enabled ?? 1)
+      const available = (own: boolean, sys: boolean) => own || (sys && fallbackEnabled)
+      const candidates: Array<[string, keyof typeof DEFAULT_MODEL_BY_PROVIDER, boolean]> = [
+        ['google', 'google', available(!!me.has_gemini_token, !!me.has_system_gemini)],
+        ['anthropic', 'anthropic', available(!!me.has_anthropic_token, !!me.has_system_anthropic)],
+        ['openai', 'openai', available(!!me.has_openai_token, !!me.has_system_openai)],
+        ['mistral', 'mistral', available(!!me.has_mistral_token, !!me.has_system_mistral)]
+      ]
+      const first = candidates.find(([, , ok]) => ok)
+      if (first) {
+        setRetryProvider(first[0])
+        setRetryModel(DEFAULT_MODEL_BY_PROVIDER[first[1]])
       }
       setLoading(false)
     }).catch(() => {
@@ -95,7 +108,9 @@ export function useAiConfig(): AiConfigState {
   }
 
   return {
-    hasGemini, hasAnthropic, hasOpenai, hasMistral, hasSystemAi, systemFallbackEnabled,
+    hasGemini, hasAnthropic, hasOpenai, hasMistral,
+    hasSystemGemini, hasSystemAnthropic, hasSystemOpenai, hasSystemMistral,
+    hasSystemAi, systemFallbackEnabled,
     billingConsentAccepted, billingPricePerPage,
     availableModels, retryProvider, retryModel,
     hasOwnKey, usingFallback, hasAnyKey,
