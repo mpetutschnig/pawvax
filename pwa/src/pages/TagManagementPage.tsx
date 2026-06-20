@@ -5,7 +5,8 @@ import { getAnimalTags, addTag, deactivateTag, activateTag, deleteTag } from '..
 import { useBarcode } from '../hooks/useBarcode'
 import { useNfc } from '../hooks/useNfc'
 import { PageHeader } from '../components/PageHeader'
-import { Camera, Radio, Tag as TagIcon, CheckCircle, XCircle } from 'lucide-react'
+import { Camera, Radio, Tag as TagIcon, CheckCircle, XCircle, QrCode, X } from 'lucide-react'
+import { QRCodeSVG } from 'qrcode.react'
 
 interface Tag { tag_id: string; tag_type: string; active: number; added_at: string }
 
@@ -17,6 +18,10 @@ export default function TagManagementPage() {
   const [scanning, setScanning] = useState<'none' | 'barcode' | 'nfc'>('none')
   const [error, setError] = useState<string | null>(null)
   const [conflictError, setConflictError] = useState<{ animalId: string } | null>(null)
+  const [qrTag, setQrTag] = useState<Tag | null>(null)
+
+  // Canonical public scan URL for a tag (matches the /t/:tagId route)
+  const tagScanUrl = (tagId: string) => `${window.location.origin}/t/${encodeURIComponent(tagId)}`
 
   const reload = useCallback(() => {
     if (!id) return
@@ -139,6 +144,13 @@ export default function TagManagementPage() {
                   ) : (
                     <span className="badge badge-warning"><XCircle size={10} /> {t('chip.inactive')}</span>
                   )}
+                  <button
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', fontWeight: 600, padding: 0, display: 'flex', alignItems: 'center', gap: '4px' }}
+                    onClick={() => setQrTag(tag)}
+                    title={t('chip.showQr')}
+                  >
+                    <QrCode size={14} /> {t('chip.showQr')}
+                  </button>
                   {tag.active ? (
                     <button
                       style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', fontWeight: 600, padding: 0 }}
@@ -217,6 +229,33 @@ export default function TagManagementPage() {
           </div>
 
           {scanning === 'barcode' && <div id="tag-barcode" style={{ marginTop: 'var(--space-4)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}></div>}
+        </div>
+      )}
+
+      {qrTag && (
+        <div
+          onClick={() => setQrTag(null)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 'var(--space-4)' }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className="card"
+            style={{ maxWidth: '340px', width: '100%', textAlign: 'center', position: 'relative', margin: 0 }}
+          >
+            <button
+              onClick={() => setQrTag(null)}
+              style={{ position: 'absolute', top: 'var(--space-3)', right: 'var(--space-3)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: 0 }}
+              title={t('common.close')}
+            >
+              <X size={20} />
+            </button>
+            <h3 style={{ marginTop: 0, marginBottom: 'var(--space-2)', fontSize: 'var(--font-size-base)' }}>{t('chip.qrTitle')}</h3>
+            <p className="text-muted" style={{ fontSize: 'var(--font-size-xs)', marginBottom: 'var(--space-4)' }}>{t('chip.qrHint')}</p>
+            <div style={{ display: 'inline-block', padding: 'var(--space-3)', background: '#fff', borderRadius: 'var(--radius-md)' }}>
+              <QRCodeSVG value={tagScanUrl(qrTag.tag_id)} size={220} level="M" />
+            </div>
+            <p style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', wordBreak: 'break-all', margin: 'var(--space-4) 0 0 0' }}>{qrTag.tag_id}</p>
+          </div>
         </div>
       )}
     </div>
