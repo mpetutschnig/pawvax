@@ -16,6 +16,7 @@ interface DocumentAnalysisFormProps {
   hasGemini: boolean
   hasAnthropic: boolean
   hasOpenai: boolean
+  hasMistral: boolean
   hasSystemAi: boolean
   systemFallbackEnabled?: boolean
   pricePerPage?: number
@@ -26,6 +27,7 @@ interface DocumentAnalysisFormProps {
     google: ModelOption[]
     anthropic: ModelOption[]
     openai: ModelOption[]
+    mistral: ModelOption[]
   }
   submitLabel: string
   cancelLabel: string
@@ -50,6 +52,7 @@ export function DocumentAnalysisForm({
   hasGemini,
   hasAnthropic,
   hasOpenai,
+  hasMistral,
   hasSystemAi,
   systemFallbackEnabled,
   pricePerPage,
@@ -72,7 +75,7 @@ export function DocumentAnalysisForm({
 }: DocumentAnalysisFormProps) {
   const { t } = useTranslation()
   const isPlaceholderSelected = !hideDocumentType && requestedDocumentType === DOCUMENT_TYPE_PLACEHOLDER
-  const hasOwnKey = hasGemini || hasAnthropic || hasOpenai
+  const hasOwnKey = hasGemini || hasAnthropic || hasOpenai || hasMistral
   const usingFallback = !hasOwnKey && hasSystemAi && systemFallbackEnabled
   const isConsentBlocking = consentRequired && !consentChecked
 
@@ -94,7 +97,9 @@ export function DocumentAnalysisForm({
     ? availableModels.google
     : retryProvider === 'anthropic'
       ? availableModels.anthropic
-      : availableModels.openai
+      : retryProvider === 'mistral'
+        ? availableModels.mistral
+        : availableModels.openai
 
   return (
     <div className="container page">
@@ -189,6 +194,7 @@ export function DocumentAnalysisForm({
                 {(hasGemini || hasSystemAi) && <option value="google">Google Gemini</option>}
                 {(hasAnthropic || hasSystemAi) && <option value="anthropic">Anthropic Claude</option>}
                 {(hasOpenai || hasSystemAi) && <option value="openai">OpenAI</option>}
+                {(hasMistral || hasSystemAi) && <option value="mistral">Mistral AI</option>}
               </>
             ) : usingFallback ? (
               <option value="">{t('profile.systemAiFallback')}</option>

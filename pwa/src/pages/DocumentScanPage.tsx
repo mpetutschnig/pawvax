@@ -400,6 +400,7 @@ export default function DocumentScanPage() {
         hasGemini={ai.hasGemini}
         hasAnthropic={ai.hasAnthropic}
         hasOpenai={ai.hasOpenai}
+        hasMistral={ai.hasMistral}
         hasSystemAi={ai.hasSystemAi}
         systemFallbackEnabled={ai.systemFallbackEnabled}
         pricePerPage={ai.billingPricePerPage}
@@ -638,6 +639,7 @@ function ProviderSelect({ ai, t }: { ai: ReturnType<typeof useAiConfig>; t: Func
       {ai.hasGemini && <option value="google">Google Gemini</option>}
       {ai.hasAnthropic && <option value="anthropic">Anthropic Claude</option>}
       {ai.hasOpenai && <option value="openai">OpenAI</option>}
+      {ai.hasMistral && <option value="mistral">Mistral AI</option>}
     </select>
   )
 }
