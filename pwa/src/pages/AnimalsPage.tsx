@@ -27,6 +27,11 @@ export default function AnimalsPage() {
     setRecentlyViewed(getRecentlyViewedAnimals())
   }, [])
 
+  // Recently viewed should only list foreign animals — exclude own animals
+  // (viewed directly, or scanned/shared) so they don't show up twice.
+  const ownAnimalIds = new Set((animals as any[]).map(a => a.id))
+  const foreignRecent = recentlyViewed.filter(i => i.source !== 'animal' && !ownAnimalIds.has(i.id))
+
   const loadAnimals = async () => {
     setLoading(true)
     try {
@@ -257,11 +262,11 @@ export default function AnimalsPage() {
         </>
       )}
 
-      {!showForm && !showTransferForm && recentlyViewed.filter(i => i.source !== 'animal').length > 0 && (
+      {!showForm && !showTransferForm && foreignRecent.length > 0 && (
         <div className="card" style={{ marginTop: 'var(--space-4)', marginBottom: 'var(--space-4)' }}>
           <h3 style={{ marginBottom: 'var(--space-3)' }}>{t('recent.title')}</h3>
           <div style={{ display: 'grid', gap: 'var(--space-2)' }}>
-            {recentlyViewed.filter(i => i.source !== 'animal').map((item) => (
+            {foreignRecent.map((item) => (
               <Link
                 key={item.id}
                 to={`/animals/${item.id}`}
