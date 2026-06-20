@@ -139,8 +139,12 @@ export default function ProfilePage() {
       setBillingConsentAcceptedAt(res.data.billing_consent_accepted_at || null)
       
       try {
+        const KNOWN_PROVIDERS = ['system', 'google', 'anthropic', 'openai', 'mistral']
         if (res.data.ai_provider_priority) {
-          setAiPriority(typeof res.data.ai_provider_priority === 'string' ? JSON.parse(res.data.ai_provider_priority) : res.data.ai_provider_priority)
+          const stored = typeof res.data.ai_provider_priority === 'string' ? JSON.parse(res.data.ai_provider_priority) : res.data.ai_provider_priority
+          // Append any known providers missing from a stored list saved before they existed (e.g. mistral)
+          const merged = [...stored, ...KNOWN_PROVIDERS.filter(p => !stored.includes(p))]
+          setAiPriority(merged)
         }
       } catch {}
 
