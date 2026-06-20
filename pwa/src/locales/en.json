@@ -341,6 +341,7 @@
   "chip.nfc": "NFC Tag",
   "chip.nfcNotSupported": "NFC not supported",
   "chip.nfcScanBtn": "Read NFC",
+  "chip.copyLink": "Copy link",
   "chip.noTags": "No chips assigned yet.",
   "chip.qrHint": "Scan this code to go straight to the animal's page.",
   "chip.qrTitle": "Chip QR code",

@@ -341,6 +341,7 @@
   "chip.nfc": "NFC-Tag",
   "chip.nfcNotSupported": "NFC nicht unterstützt",
   "chip.nfcScanBtn": "NFC lesen",
+  "chip.copyLink": "Link kopieren",
   "chip.noTags": "Noch keine Chips zugeordnet.",
   "chip.qrHint": "Scanne diesen Code, um direkt zur Tierseite zu gelangen.",
   "chip.qrTitle": "Chip-QR-Code",

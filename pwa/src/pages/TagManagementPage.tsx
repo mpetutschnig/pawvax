@@ -5,7 +5,7 @@ import { getAnimalTags, addTag, deactivateTag, activateTag, deleteTag } from '..
 import { useBarcode } from '../hooks/useBarcode'
 import { useNfc } from '../hooks/useNfc'
 import { PageHeader } from '../components/PageHeader'
-import { Camera, Radio, Tag as TagIcon, CheckCircle, XCircle, QrCode, X } from 'lucide-react'
+import { Camera, Radio, Tag as TagIcon, CheckCircle, XCircle, QrCode, X, Copy, Check } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 
 interface Tag { tag_id: string; tag_type: string; active: number; added_at: string }
@@ -19,9 +19,18 @@ export default function TagManagementPage() {
   const [error, setError] = useState<string | null>(null)
   const [conflictError, setConflictError] = useState<{ animalId: string } | null>(null)
   const [qrTag, setQrTag] = useState<Tag | null>(null)
+  const [copied, setCopied] = useState(false)
 
   // Canonical public scan URL for a tag (matches the /t/:tagId route)
   const tagScanUrl = (tagId: string) => `${window.location.origin}/t/${encodeURIComponent(tagId)}`
+
+  const copyTagUrl = async (tagId: string) => {
+    try {
+      await navigator.clipboard.writeText(tagScanUrl(tagId))
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch { /* clipboard unavailable */ }
+  }
 
   const reload = useCallback(() => {
     if (!id) return
@@ -254,7 +263,18 @@ export default function TagManagementPage() {
             <div style={{ display: 'inline-block', padding: 'var(--space-3)', background: '#fff', borderRadius: 'var(--radius-md)' }}>
               <QRCodeSVG value={tagScanUrl(qrTag.tag_id)} size={220} level="M" />
             </div>
-            <p style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', wordBreak: 'break-all', margin: 'var(--space-4) 0 0 0' }}>{qrTag.tag_id}</p>
+            <p style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', wordBreak: 'break-all', margin: 'var(--space-4) 0 var(--space-3) 0' }}>{qrTag.tag_id}</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: 'var(--space-2) var(--space-3)' }}>
+              <span style={{ flex: 1, fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', wordBreak: 'break-all', textAlign: 'left' }}>{tagScanUrl(qrTag.tag_id)}</span>
+              <button
+                onClick={() => copyTagUrl(qrTag.tag_id)}
+                className="btn btn-sm btn-secondary"
+                style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0, whiteSpace: 'nowrap' }}
+                title={t('chip.copyLink')}
+              >
+                {copied ? <><Check size={14} /> {t('common.copied')}</> : <><Copy size={14} /> {t('chip.copyLink')}</>}
+              </button>
+            </div>
           </div>
         </div>
       )}
