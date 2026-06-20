@@ -102,7 +102,7 @@ export default async function documentRoutes(fastify) {
     }
 
     const { rows: [doc] } = await db.query(`
-      SELECT d.record_permissions, a.account_id AS owner_id
+      SELECT d.record_permissions, d.added_by_role, a.account_id AS owner_id
       FROM documents d
       JOIN animals a ON a.id = d.animal_id
       WHERE d.id = $1
@@ -119,7 +119,11 @@ export default async function documentRoutes(fastify) {
     try { current = doc.record_permissions ? JSON.parse(doc.record_permissions) : {} } catch {}
 
     const validRoles = ['guest', 'vet', 'authority']
-    const normalized = [...new Set(allowed_roles.map(r => normalizeRole(r)).filter(r => validRoles.includes(r)))]
+    let normalized = [...new Set(allowed_roles.map(r => normalizeRole(r)).filter(r => validRoles.includes(r)))]
+    // Vet-created documents must always stay visible to vets.
+    if (String(doc.added_by_role || '').includes('vet') && !normalized.includes('vet')) {
+      normalized = ['vet', ...normalized]
+    }
     current[key] = normalized
 
     await db.query('UPDATE documents SET record_permissions = $1 WHERE id = $2', [JSON.stringify(current), req.params.id])
@@ -203,9 +207,14 @@ export default async function documentRoutes(fastify) {
 
     if (allowed_roles !== undefined) {
       if (!isOwner) return reply.code(403).send({ error: 'Nur der Besitzer kann die Sichtbarkeit ändern' })
-      const normalizedRoles = Array.isArray(allowed_roles)
+      let normalizedRoles = Array.isArray(allowed_roles)
         ? [...new Set(allowed_roles.map(normalizeRole))]
         : []
+      // Vet-created documents must always stay visible to vets (vets see each
+      // other's additions to the animal); the owner cannot remove the 'vet' role.
+      if (String(doc.added_by_role || '').includes('vet') && !normalizedRoles.includes('vet')) {
+        normalizedRoles = ['vet', ...normalizedRoles]
+      }
       await db.query('UPDATE documents SET allowed_roles = $1 WHERE id = $2', [JSON.stringify(normalizedRoles), doc.id])
       await logAudit(db, { accountId, role, action: 'update_document_sharing', resource: 'document', resourceId: doc.id,
         details: { allowed_roles: normalizedRoles }, ip: req.ip })

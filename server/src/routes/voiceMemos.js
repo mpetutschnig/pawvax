@@ -326,25 +326,54 @@ export default async function voiceMemoRoutes(fastify) {
     const roleStr = Array.isArray(role) ? role[0] : (role || 'user')
     const db = getDb()
 
-    const { rows: [memo] } = await db.query('SELECT account_id FROM voice_memos WHERE id = $1', [req.params.id])
+    const { rows: [memo] } = await db.query(
+      'SELECT vm.account_id, vm.added_by_role, a.account_id AS owner_id FROM voice_memos vm JOIN animals a ON a.id = vm.animal_id WHERE vm.id = $1',
+      [req.params.id]
+    )
     if (!memo) return reply.code(404).send({ error: 'Sprachnotiz nicht gefunden' })
-    if (memo.account_id !== accountId || !roleStr.includes('vet')) {
-      return reply.code(403).send({ error: 'Nur der erstellende Tierarzt kann Freigaben ändern' })
+
+    const isCreator = memo.account_id === accountId && roleStr.includes('vet')
+    const isOwner = memo.owner_id === accountId
+    // The animal owner may change the visibility of any record on their animal;
+    // the creating vet may change their own record.
+    if (!isCreator && !isOwner) {
+      return reply.code(403).send({ error: 'Du kannst nur Freigaben für deine eigenen Tiere ändern' })
     }
+
+    // Vet-created records must always stay visible to vets (vets see each other's
+    // additions to the animal). The 'vet' role can never be removed from any list.
+    const isVetRecord = String(memo.added_by_role || '').includes('vet')
+    const keepVet = (roles) => isVetRecord && !roles.includes('vet') ? ['vet', ...roles] : roles
 
     const updates = []
     const vals = []
     const { allowed_roles, summary_roles, transcription_roles } = req.body || {}
 
-    if (Array.isArray(allowed_roles)) { vals.push(JSON.stringify(allowed_roles)); updates.push(`allowed_roles = $${vals.length}`) }
-    if (Array.isArray(summary_roles)) { vals.push(JSON.stringify(summary_roles)); updates.push(`summary_roles = $${vals.length}`) }
-    if (Array.isArray(transcription_roles)) { vals.push(JSON.stringify(transcription_roles)); updates.push(`transcription_roles = $${vals.length}`) }
+    if (Array.isArray(allowed_roles)) { vals.push(JSON.stringify(keepVet(allowed_roles))); updates.push(`allowed_roles = $${vals.length}`) }
+    if (Array.isArray(summary_roles)) { vals.push(JSON.stringify(keepVet(summary_roles))); updates.push(`summary_roles = $${vals.length}`) }
+    if (Array.isArray(transcription_roles)) { vals.push(JSON.stringify(keepVet(transcription_roles))); updates.push(`transcription_roles = $${vals.length}`) }
 
     if (!updates.length) return reply.code(400).send({ error: 'Keine Änderungen' })
     vals.push(req.params.id)
     await db.query(`UPDATE voice_memos SET ${updates.join(', ')} WHERE id = $${vals.length}`, vals)
 
-    return reply.send({ success: true })
+    // Return the effective (vet-enforced) role lists so the client stays in sync
+    const result = {}
+    if (Array.isArray(allowed_roles)) result.allowed_roles = keepVet(allowed_roles)
+    if (Array.isArray(summary_roles)) result.summary_roles = keepVet(summary_roles)
+    if (Array.isArray(transcription_roles)) result.transcription_roles = keepVet(transcription_roles)
+
+    await logAudit(db, {
+      accountId,
+      role: roleStr,
+      action: 'update_voice_memo_permissions',
+      resource: 'voice_memo',
+      resourceId: req.params.id,
+      details: { by: isOwner && !isCreator ? 'owner' : 'creator', ...result },
+      ip: req.ip
+    })
+
+    return reply.send({ success: true, ...result })
   })
 
   // DELETE /api/voice-memos/:id — vet + creator only

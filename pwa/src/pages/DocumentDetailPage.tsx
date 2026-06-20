@@ -716,13 +716,16 @@ export default function DocumentDetailPage() {
                       {doc.isOwner && (
                         <div style={{ marginTop: 'var(--space-3)', paddingTop: 'var(--space-2)', borderTop: '1px solid var(--border-subtle)', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                           <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>{t('docDetail.sharingShort')}:</span>
-                          {(['guest', 'vet', 'authority'] as const).map(r => (
-                            <label key={r} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 'var(--font-size-xs)', cursor: 'pointer' }}>
-                              <input type="checkbox" checked={recPerms.includes(r)} disabled={updatingRecordKey === dbKey}
+                          {(['guest', 'vet', 'authority'] as const).map(r => {
+                            const lockVet = r === 'vet' && String(doc?.added_by_role || '').includes('vet')
+                            return (
+                            <label key={r} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 'var(--font-size-xs)', cursor: lockVet ? 'not-allowed' : 'pointer', opacity: lockVet ? 0.6 : 1 }}>
+                              <input type="checkbox" checked={lockVet ? true : recPerms.includes(r)} disabled={lockVet || updatingRecordKey === dbKey}
                                 onChange={() => handleToggleRecordRole(dbKey, r)} />
                               {r}
                             </label>
-                          ))}
+                            )
+                          })}
                           {updatingRecordKey === dbKey && <div className="spinner" style={{ width: 12, height: 12, borderWidth: 1 }} />}
                         </div>
                       )}
@@ -814,13 +817,16 @@ export default function DocumentDetailPage() {
                       {doc.isOwner && (
                         <div style={{ marginTop: 'var(--space-3)', paddingTop: 'var(--space-2)', borderTop: '1px solid var(--border-subtle)', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                           <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>{t('docDetail.sharingShort')}:</span>
-                          {(['guest', 'vet', 'authority'] as const).map(r => (
-                            <label key={r} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 'var(--font-size-xs)', cursor: 'pointer' }}>
-                              <input type="checkbox" checked={recPerms.includes(r)} disabled={updatingRecordKey === dbKey}
+                          {(['guest', 'vet', 'authority'] as const).map(r => {
+                            const lockVet = r === 'vet' && String(doc?.added_by_role || '').includes('vet')
+                            return (
+                            <label key={r} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 'var(--font-size-xs)', cursor: lockVet ? 'not-allowed' : 'pointer', opacity: lockVet ? 0.6 : 1 }}>
+                              <input type="checkbox" checked={lockVet ? true : recPerms.includes(r)} disabled={lockVet || updatingRecordKey === dbKey}
                                 onChange={() => handleToggleRecordRole(dbKey, r)} />
                               {r}
                             </label>
-                          ))}
+                            )
+                          })}
                           {updatingRecordKey === dbKey && <div className="spinner" style={{ width: 12, height: 12, borderWidth: 1 }} />}
                         </div>
                       )}
@@ -1008,20 +1014,25 @@ export default function DocumentDetailPage() {
               <div className="form-group" style={{ marginTop: 'var(--space-4)' }}>
                 <label className="form-label">{t('docScan.whoCanSee')}</label>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-                  {[{ id: 'vet', label: t('docScan.vet') }, { id: 'authority', label: t('docScan.authority') }, { id: 'guest', label: t('docScan.guestAccess') }].map(r => (
-                    <label key={r.id} style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
-                      <input 
-                        type="checkbox" 
-                        checked={visibility.includes(r.id)} 
+                  {[{ id: 'vet', label: t('docScan.vet') }, { id: 'authority', label: t('docScan.authority') }, { id: 'guest', label: t('docScan.guestAccess') }].map(r => {
+                    // Vet-created documents stay visible to vets; that can't be toggled off.
+                    const lockVet = r.id === 'vet' && String(doc?.added_by_role || '').includes('vet')
+                    return (
+                    <label key={r.id} style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center', opacity: lockVet ? 0.6 : 1, cursor: lockVet ? 'not-allowed' : 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={lockVet ? true : visibility.includes(r.id)}
+                        disabled={lockVet}
                         onChange={(e) => {
                           if (e.target.checked) setVisibility([...visibility, r.id])
                           else setVisibility(visibility.filter(role => role !== r.id))
-                        }} 
+                        }}
                         style={{ width: 16, height: 16, accentColor: 'var(--primary-500)' }}
                       />
                       <span style={{ fontSize: 'var(--font-size-sm)' }}>{r.label}</span>
                     </label>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
             )}

@@ -110,11 +110,14 @@ export default function VoiceMemoDetailPage() {
   }
 
   const savePermissions = async (field: string, roles: string[]) => {
+    setError('')
     try {
-      await patchVoiceMemo(memoId!, { [field]: roles })
-      setMemo((m: any) => ({ ...m, [field]: roles }))
-    } catch {
-      setError('Speichern fehlgeschlagen')
+      const res = await patchVoiceMemo(memoId!, { [field]: roles })
+      // Server may enforce roles (e.g. keep 'vet' on vet records); use what it saved
+      const saved = (res.data as any)?.[field] ?? roles
+      setMemo((m: any) => ({ ...m, [field]: saved }))
+    } catch (err: any) {
+      setError(err?.response?.data?.error || 'Speichern fehlgeschlagen')
     }
   }
 
@@ -206,7 +209,7 @@ export default function VoiceMemoDetailPage() {
           : <p className="text-muted" style={{ margin: 0, fontSize: 'var(--font-size-sm)' }}>{t('common.loading')}</p>
         }
         {memo.allowed_roles !== undefined && (
-          <PermissionRow label={t('voiceMemo.permAllowedRoles')} field="allowed_roles" current={memo.allowed_roles} onSave={savePermissions} />
+          <PermissionRow label={t('voiceMemo.permAllowedRoles')} field="allowed_roles" current={memo.allowed_roles} onSave={savePermissions} lockVet={String(memo.added_by_role || '').includes('vet')} />
         )}
       </div>
 
@@ -287,7 +290,7 @@ export default function VoiceMemoDetailPage() {
             </div>
           )}
           {memo.summary_roles !== undefined && (
-            <PermissionRow label={t('voiceMemo.permSummaryRoles')} field="summary_roles" current={memo.summary_roles} onSave={savePermissions} />
+            <PermissionRow label={t('voiceMemo.permSummaryRoles')} field="summary_roles" current={memo.summary_roles} onSave={savePermissions} lockVet={String(memo.added_by_role || '').includes('vet')} />
           )}
         </div>
       )}
@@ -298,7 +301,7 @@ export default function VoiceMemoDetailPage() {
           <h3 style={{ margin: '0 0 var(--space-3)' }}>{t('voiceMemo.transcription')}</h3>
           <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', whiteSpace: 'pre-wrap', color: 'var(--text-secondary)' }}>{memo.transcription_text}</p>
           {memo.transcription_roles !== undefined && (
-            <PermissionRow label={t('voiceMemo.permTranscriptionRoles')} field="transcription_roles" current={memo.transcription_roles} onSave={savePermissions} />
+            <PermissionRow label={t('voiceMemo.permTranscriptionRoles')} field="transcription_roles" current={memo.transcription_roles} onSave={savePermissions} lockVet={String(memo.added_by_role || '').includes('vet')} />
           )}
         </div>
       )}
@@ -317,16 +320,18 @@ export default function VoiceMemoDetailPage() {
   )
 }
 
-function PermissionRow({ label, field, current, onSave }: { label: string; field: string; current: string[]; onSave: (f: string, r: string[]) => void }) {
+function PermissionRow({ label, field, current, onSave, lockVet }: { label: string; field: string; current: string[]; onSave: (f: string, r: string[]) => void; lockVet?: boolean }) {
   return (
     <div style={{ borderTop: '1px solid var(--border)', paddingTop: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
       <p style={{ margin: '0 0 var(--space-1)', fontWeight: 500, fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>{label}</p>
       <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
         {(['vet', 'authority', 'guest'] as const).map(role => {
           const checked = (current || []).includes(role)
+          // Vet-created records stay visible to vets; that can't be toggled off.
+          const locked = role === 'vet' && lockVet
           return (
-            <label key={role} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', cursor: 'pointer', fontSize: 'var(--font-size-sm)' }}>
-              <input type="checkbox" checked={checked} onChange={() => {
+            <label key={role} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', cursor: locked ? 'not-allowed' : 'pointer', fontSize: 'var(--font-size-sm)', opacity: locked ? 0.6 : 1 }}>
+              <input type="checkbox" checked={locked ? true : checked} disabled={locked} onChange={() => {
                 const next = checked ? (current || []).filter(r => r !== role) : [...(current || []), role]
                 onSave(field, next)
               }} />
