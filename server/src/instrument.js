@@ -35,4 +35,8 @@ if (dsn) {
       return event
     }
   })
+  // Tag every event with the deployed git commit (sha + subject) for traceability
+  if (process.env.GIT_COMMIT) {
+    Sentry.setTag('git_commit', process.env.GIT_COMMIT)
+  }
 }

@@ -22,6 +22,10 @@ if (sentryDsn) {
       return event
     }
   })
+  // Tag every event with the deployed git commit (sha + subject) for traceability
+  if (import.meta.env.VITE_GIT_COMMIT) {
+    Sentry.setTag('git_commit', import.meta.env.VITE_GIT_COMMIT as string)
+  }
 }
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
