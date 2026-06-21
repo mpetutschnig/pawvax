@@ -1403,23 +1403,27 @@ html[data-theme="dark"] .nav-bar h2 {
   }
 }
 
-/* Animal Page Layout — profile | tables | actions | docs */
+/* Animal Page Layout — sticky summary top bar, full-width content below */
 .animal-page-layout {
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
+  gap: var(--space-4);
   min-width: 0;
 }
-@media (min-width: 1024px) {
-  .animal-page-layout {
-    display: grid;
-    grid-template-columns: 360px 1fr;
-    align-items: start;
-  }
-  .animal-section-profile { grid-column: 1; grid-row: 1; min-width: 0; }
-  .animal-section-tables  { grid-column: 2; grid-row: 1 / span 2; min-width: 0; }
-  .animal-section-actions { grid-column: 1; grid-row: 2; min-width: 0; }
-  .animal-section-docs    { grid-column: 1 / -1; min-width: 0; }
+.animal-section-profile,
+.animal-section-actions,
+.animal-section-tables,
+.animal-section-docs {
+  min-width: 0;
+  width: 100%;
+}
+/* Animal summary pinned as a top bar (below the sticky app header) */
+.animal-section-profile {
+  position: sticky;
+  top: var(--animal-topbar-offset, 48px);
+  z-index: 19;
+  background: var(--bg);
+  padding-bottom: var(--space-2);
 }
 
 /* ════════════════════════════════════════════════════════════════
