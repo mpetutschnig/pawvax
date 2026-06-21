@@ -489,7 +489,6 @@ export default function AnimalPage() {
   const canAddContent = isOwner || isVet
 
   const hasNfcTag = tags.some(t => t.tag_type === 'nfc' && t.active === 1)
-  const isVetVerified = false // Placeholder for future implementation
 
   // Removed showRetryModal block
 
@@ -654,25 +653,25 @@ export default function AnimalPage() {
           ) : null}
 
               <div style={{
-                borderRadius: 'var(--radius-lg)',
+                borderRadius: 'var(--radius-md)',
                 background: 'linear-gradient(135deg, var(--primary-500), var(--primary-700))',
-                padding: 'var(--space-3)',
+                padding: 'var(--space-2) var(--space-3)',
                 marginBottom: 'var(--space-2)',
                 boxShadow: 'var(--shadow-sm)',
               }}>
-                <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
                   <div style={{ position: 'relative', flexShrink: 0 }}>
                     <div style={{
-                      width: 40, height: 40, borderRadius: 'var(--radius-md)',
+                      width: 32, height: 32, borderRadius: 'var(--radius-sm)',
                       background: 'oklch(100% 0 0 / 0.18)',
                       border: '1.5px solid oklch(100% 0 0 / 0.28)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
-                      cursor: isOwner && !animal.is_archived ? 'pointer' : 'default', transition: 'opacity 0.2s'
+                      cursor: isOwner && !animal.is_archived ? 'pointer' : 'default'
                     }} onClick={isOwner && !animal.is_archived ? () => avatarInputRef.current?.click() : undefined}>
                       {animal.avatar_path ? (
                         <img src={`/uploads/${animal.avatar_path.split('/').pop()}`} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       ) : (
-                        animal.species === 'cat' ? <Cat size={20} color="white" strokeWidth={1.6} /> : <PawPrint size={20} color="white" strokeWidth={1.6} />
+                        animal.species === 'cat' ? <Cat size={18} color="white" strokeWidth={1.6} /> : <PawPrint size={18} color="white" strokeWidth={1.6} />
                       )}
                     </div>
                     <input
@@ -684,55 +683,34 @@ export default function AnimalPage() {
                       disabled={uploadingAvatar}
                     />
                     {uploadingAvatar && (
-                      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', borderRadius: 'var(--radius-lg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <div className="spinner spinner-sm" style={{ width: 20, height: 20 }}></div>
+                      <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <div className="spinner spinner-sm" style={{ width: 16, height: 16 }}></div>
                       </div>
                     )}
                   </div>
-                  <div style={{ minWidth: 0, overflow: 'hidden' }}>
-                    <h2 style={{ color: 'white', margin: 0, fontFamily: 'var(--font-display)', fontSize: 'var(--font-size-lg)', lineHeight: 1.2 }}>{animal.name}</h2>
-                    {animal.pedigree_name && (
-                      <p style={{ color: 'oklch(100% 0 0 / 0.55)', margin: 0, fontSize: 'var(--font-size-xs)', fontStyle: 'italic' }}>
-                        {t('animal.pedigreeName')}: {animal.pedigree_name}
-                      </p>
-                    )}
-                    <p style={{ color: 'oklch(100% 0 0 / 0.70)', margin: 0, fontSize: 'var(--font-size-sm)' }}>
-                      {animal.breed} {animal.birthdate ? `· ${new Date().getFullYear() - new Date(animal.birthdate).getFullYear()} ${t('animal.yearsOld')}` : ''}
-                      {(() => { const sexMap: Record<string, string> = { male: t('animal.sexMale'), female: t('animal.sexFemale'), castrated_male: t('animal.sexCastratedMale'), castrated_female: t('animal.sexCastratedFemale') }; const s = (animal as any).sex; return s && sexMap[s] ? ` · ${sexMap[s]}` : '' })()}
-                    </p>
-                    {animal.unique_id && (
-                      <p style={{ color: 'oklch(100% 0 0 / 0.60)', margin: 0, fontSize: 'var(--font-size-xs)', marginTop: 'var(--space-1)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', cursor: 'pointer' }} onClick={() => {
-                        navigator.clipboard.writeText(animal.unique_id || '');
-                        alert(t('common.copied'));
-                      }}>
-                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>ID: <code style={{ background: 'oklch(100% 0 0 / 0.12)', padding: '2px 6px', borderRadius: 'var(--radius-xs)', fontFamily: 'var(--font-mono)' }}>{animal.unique_id}</code></span>
-                      </p>
-                    )}
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    {/* Line 1: name + breed/age/sex */}
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-2)', minWidth: 0 }}>
+                      <span style={{ color: 'white', fontWeight: 700, fontFamily: 'var(--font-display)', fontSize: 'var(--font-size-base)', whiteSpace: 'nowrap' }}>{animal.name}</span>
+                      <span style={{ color: 'oklch(100% 0 0 / 0.70)', fontSize: 'var(--font-size-xs)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
+                        {animal.breed}{animal.birthdate ? ` · ${new Date().getFullYear() - new Date(animal.birthdate).getFullYear()}${t('animal.yearsOld') ? ' ' + t('animal.yearsOld') : ''}` : ''}
+                        {(() => { const sexMap: Record<string, string> = { male: t('animal.sexMale'), female: t('animal.sexFemale'), castrated_male: t('animal.sexCastratedMale'), castrated_female: t('animal.sexCastratedFemale') }; const s = (animal as any).sex; return s && sexMap[s] ? ` · ${sexMap[s]}` : '' })()}
+                      </span>
+                    </div>
+                    {/* Line 2: id + badges */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginTop: '2px', minWidth: 0 }}>
+                      {animal.unique_id && (
+                        <span style={{ color: 'oklch(100% 0 0 / 0.65)', fontSize: 'var(--font-size-xs)', cursor: 'pointer', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}
+                          onClick={() => { navigator.clipboard.writeText(animal.unique_id || ''); alert(t('common.copied')) }}>
+                          ID: <code style={{ background: 'oklch(100% 0 0 / 0.12)', padding: '1px 5px', borderRadius: 'var(--radius-xs)', fontFamily: 'var(--font-mono)' }}>{animal.unique_id}</code>
+                        </span>
+                      )}
+                      {hasNfcTag && (
+                        <span style={{ flexShrink: 0, background: 'oklch(100% 0 0 / 0.18)', borderRadius: 'var(--radius-full)', padding: '1px 8px', fontSize: 10, fontWeight: 600, color: 'white' }}>{t('animal.nfcActive')}</span>
+                      )}
+                    </div>
                   </div>
                 </div>
-                <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap', marginTop: 'var(--space-2)', marginBottom: animal.dynamic_fields ? 'var(--space-2)' : 0 }}>
-                  {isVetVerified && (
-                    <span style={{ background: 'var(--primary-100)', border: '1px solid var(--primary-200)', borderRadius: 'var(--radius-full)', padding: '3px 10px', fontSize: 11, fontWeight: 600, color: 'var(--primary-700)' }}>
-                      {t('animal.vetVerified')}
-                    </span>
-                  )}
-                  {hasNfcTag && (
-                    <span style={{ background: 'var(--primary-100)', border: '1px solid var(--primary-200)', borderRadius: 'var(--radius-full)', padding: '3px 10px', fontSize: 11, fontWeight: 600, color: 'var(--primary-700)' }}>
-                      {t('animal.nfcActive')}
-                    </span>
-                  )}
-                </div>
-                
-                {animal.dynamic_fields && (() => {
-                  try {
-                    const df = JSON.parse(animal.dynamic_fields);
-                    return Object.entries(df).map(([k, v]) => (
-                      <div key={k} style={{ color: 'var(--text-primary)', fontSize: 'var(--font-size-sm)', marginTop: 'var(--space-1)' }}>
-                        <strong>{k}:</strong> {String(v)}
-                      </div>
-                    ))
-                  } catch { return null; }
-                })()}
               </div>
         </div>
         <div className="animal-section-actions">
