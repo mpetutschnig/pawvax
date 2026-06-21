@@ -98,6 +98,11 @@ export async function initDb(connectionString) {
     await pool.query("DELETE FROM documents WHERE analysis_status = 'uploading'")
   } catch { /* column may not exist on very old schemas */ }
 
+  // GDPR: location reports older than 90 days are purged (also runs daily, see app.js)
+  try {
+    await pool.query("DELETE FROM animal_location_reports WHERE created_at < CURRENT_TIMESTAMP - INTERVAL '90 days'")
+  } catch { /* table may not exist yet */ }
+
   // Migration: add record_permissions column (idempotent)
   try {
     await pool.query("ALTER TABLE documents ADD COLUMN IF NOT EXISTS record_permissions TEXT DEFAULT NULL")

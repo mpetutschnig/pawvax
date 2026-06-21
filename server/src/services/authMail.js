@@ -90,6 +90,69 @@ export function buildResetUrl(token, req) {
   return `${getBaseUrl(req)}/login?resetToken=${encodeURIComponent(token)}`
 }
 
+function escapeHtml(str) {
+  return String(str ?? '').replace(/[&<>"']/g, (c) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ))
+}
+
+/**
+ * Notify an animal owner that someone reported its GPS location ("found pet").
+ * Returns { delivered, skipped? } and never throws.
+ */
+export async function sendLocationReportEmail({ to, ownerName, animalName, lat, lng, accuracyM, note, reporterName, reporterContact, fastify, req }) {
+  const db = getDb()
+  const config = await getMailTransportConfig(db)
+  const mapUrl = `https://www.google.com/maps?q=${encodeURIComponent(lat)},${encodeURIComponent(lng)}`
+  const animalUrl = `${getBaseUrl(req)}/`
+  const subject = `📍 Standortmeldung für ${animalName || 'dein Tier'}`
+
+  const lines = [
+    `Hallo ${ownerName || ''},`.trim(),
+    '',
+    `Es wurde ein Standort für ${animalName || 'dein Tier'} gemeldet.`,
+    '',
+    `Karte: ${mapUrl}`,
+    accuracyM ? `Genauigkeit: ca. ${Math.round(accuracyM)} m` : null,
+    note ? `Nachricht: ${note}` : null,
+    reporterName ? `Gemeldet von: ${reporterName}` : null,
+    reporterContact ? `Kontakt: ${reporterContact}` : null,
+    '',
+    `In der App: ${animalUrl}`
+  ].filter((l) => l !== null)
+
+  const html = `
+    <p>Hallo ${escapeHtml(ownerName || '')},</p>
+    <p>Es wurde ein Standort für <strong>${escapeHtml(animalName || 'dein Tier')}</strong> gemeldet.</p>
+    <p><a href="${mapUrl}">📍 Standort auf Karte öffnen</a></p>
+    ${accuracyM ? `<p>Genauigkeit: ca. ${Math.round(accuracyM)} m</p>` : ''}
+    ${note ? `<p>Nachricht: ${escapeHtml(note)}</p>` : ''}
+    ${reporterName ? `<p>Gemeldet von: ${escapeHtml(reporterName)}</p>` : ''}
+    ${reporterContact ? `<p>Kontakt: ${escapeHtml(reporterContact)}</p>` : ''}
+    <p><a href="${animalUrl}">In der App öffnen</a></p>`
+
+  try {
+    if (!isMailConfigured(config)) {
+      fastify?.log?.warn({ to }, 'Location report mail skipped — mail not configured')
+      return { delivered: false, skipped: true }
+    }
+    const nodemailer = await loadMailer()
+    const transport = nodemailer.createTransport(buildTransportOptions(config))
+    const info = await transport.sendMail({
+      from: buildFrom(config),
+      to,
+      replyTo: config.replyTo || undefined,
+      subject,
+      text: lines.join('\n'),
+      html
+    })
+    return { delivered: true, messageId: info.messageId }
+  } catch (error) {
+    fastify?.log?.error({ err: error, to }, 'Failed to deliver location report email')
+    return { delivered: false, error: error.message }
+  }
+}
+
 export async function sendAuthEmail({ type, to, name, token, fastify, req }) {
   const db = getDb()
   const config = await getMailTransportConfig(db)

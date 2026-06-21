@@ -21,10 +21,12 @@ export default function AnimalsPage() {
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [recentlyViewed, setRecentlyViewed] = useState<RecentlyViewedAnimal[]>([])
+  const [unseenLoc, setUnseenLoc] = useState<Record<string, number>>({})
 
   useEffect(() => {
     loadAnimals()
     setRecentlyViewed(getRecentlyViewedAnimals())
+    api.getUnseenLocationCounts().then(r => setUnseenLoc(r.data.counts || {})).catch(() => {})
   }, [])
 
   // Recently viewed should only list foreign animals — exclude own animals
@@ -233,7 +235,12 @@ export default function AnimalsPage() {
         <>
           <div style={{ display: 'grid', gap: 'var(--space-4)' }}>
             {filteredAnimals.map((animal) => (
-              <div key={animal.id} style={{ opacity: animal.is_archived ? 0.6 : 1, transition: 'opacity 0.3s' }}>
+              <div key={animal.id} style={{ position: 'relative', opacity: animal.is_archived ? 0.6 : 1, transition: 'opacity 0.3s' }}>
+                {unseenLoc[animal.id] > 0 && (
+                  <span title={t('locationReport.badgeTitle')} style={{ position: 'absolute', top: 8, right: 8, zIndex: 2, background: 'var(--warning-500, #f59e0b)', color: '#fff', borderRadius: 'var(--radius-full)', fontSize: 11, fontWeight: 700, padding: '2px 7px', display: 'inline-flex', alignItems: 'center', gap: 3, boxShadow: '0 1px 4px rgba(0,0,0,0.25)' }}>
+                    📍 {unseenLoc[animal.id]}
+                  </span>
+                )}
                 <PetCard
                   id={animal.id}
                   name={animal.name}

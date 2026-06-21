@@ -6,6 +6,7 @@ import { useNfc } from '../hooks/useNfc'
 import { PawPrint, Camera, LogIn, ShieldCheck, Syringe, Pill, FileText, Radio, ChevronDown, ChevronUp, Mic } from 'lucide-react'
 import { api } from '../api/rest'
 import { addRecentlyViewedAnimal } from '../hooks/useRecentlyViewed'
+import { LocationReportButton } from '../components/LocationReportButton'
 
 type Phase = 'scan' | 'result' | 'notfound'
 
@@ -205,6 +206,9 @@ export default function PublicScanPage() {
               <div style={{ fontWeight: 600 }}>{animal.contact.name}</div>
             </div>
           )}
+
+          {/* Standort melden ("Tier gefunden") */}
+          {animal.id && <LocationReportButton animalId={animal.id} animalName={animal.name} />}
 
           {/* Dokumente – Impfungen & Behandlungen als ausklappbare Record-Listen */}
           {animal.documents && animal.documents.length > 0 ? (() => {

@@ -388,6 +388,19 @@ setInterval(async () => {
   }
 }, 1000 * 60 * 60 * 24)
 
+// GDPR: purge location reports older than 90 days (daily)
+setInterval(async () => {
+  try {
+    const db = getDb()
+    const result = await db.query("DELETE FROM animal_location_reports WHERE created_at < CURRENT_TIMESTAMP - INTERVAL '90 days'")
+    if (result.rowCount > 0) {
+      fastify.log.info(`Retention: ${result.rowCount} alte Standortmeldungen gelöscht (> 90 Tage)`)
+    }
+  } catch (err) {
+    fastify.log.error({ err }, 'Fehler beim Cleanup der Standortmeldungen')
+  }
+}, 1000 * 60 * 60 * 24)
+
 try {
   await fastify.listen({ port, host: '0.0.0.0' })
   fastify.log.info({ port }, 'Server gestartet')

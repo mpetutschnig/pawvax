@@ -55,6 +55,7 @@ import { v4 as uuid } from 'uuid'
 import { randomBytes } from 'node:crypto'
 import { getDb } from '../db/index.js'
 import { logAudit } from '../services/audit.js'
+import { sendLocationReportEmail } from '../services/authMail.js'
 import { saveBase64Image, saveAvatarImage } from '../services/storage.js'
 import {
   normalizeRole,
@@ -916,6 +917,146 @@ export default async function animalRoutes(fastify) {
     await insertAnimalScan(db, scanId, id, accountId)
 
     return { success: true, scanId }
+  })
+
+  // ─── Location reports ("found pet" GPS) ──────────────────────────────────
+  // Public: anyone (any role, even not logged in) can report an animal's GPS
+  // location. Tag id is unguessable (UUID); responses are generic to avoid
+  // leaking whether an animal exists. IP-rate-limited + per-animal cap.
+  let lastLocationMailAt = new Map() // animalId -> epoch ms (mail throttle, 10 min)
+  fastify.post('/api/public/animals/:animalId/location', {
+    config: { rateLimit: { max: 5, timeWindow: '1 hour' } },
+    schema: {
+      body: {
+        type: 'object',
+        required: ['lat', 'lng'],
+        properties: {
+          lat: { type: 'number', minimum: -90, maximum: 90 },
+          lng: { type: 'number', minimum: -180, maximum: 180 },
+          accuracy_m: { type: 'number', minimum: 0 },
+          note: { type: 'string', maxLength: 500 },
+          reporter_name: { type: 'string', maxLength: 120 },
+          reporter_contact: { type: 'string', maxLength: 120 }
+        }
+      }
+    }
+  }, async (req, reply) => {
+    const db = getDb()
+    const { animalId } = req.params
+    const { lat, lng, accuracy_m = null, note = null, reporter_name = null, reporter_contact = null } = req.body || {}
+
+    // Optional auth: capture reporter account if a valid token is present
+    await fastify.authenticateOptional(req, reply)
+    const reporterAccountId = req.user?.accountId || null
+
+    const genericOk = { success: true }
+
+    const { rows: [animal] } = await db.query(
+      'SELECT a.id, a.name, a.account_id, acc.email AS owner_email, acc.name AS owner_name FROM animals a JOIN accounts acc ON acc.id = a.account_id WHERE a.id = $1',
+      [animalId]
+    )
+    // Unknown animal → respond generic (no existence disclosure)
+    if (!animal) return genericOk
+
+    // Per-animal cap: max 20 reports / 24h
+    const { rows: [{ cnt }] } = await db.query(
+      "SELECT COUNT(*)::int AS cnt FROM animal_location_reports WHERE animal_id = $1 AND created_at > CURRENT_TIMESTAMP - INTERVAL '24 hours'",
+      [animalId]
+    )
+    if (cnt >= 20) return genericOk // silently drop to avoid abuse feedback
+
+    const reportId = uuid()
+    await db.query(
+      `INSERT INTO animal_location_reports
+        (id, animal_id, lat, lng, accuracy_m, note, reporter_name, reporter_contact, reporter_account_id, source, ip, user_agent)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+      [reportId, animalId, lat, lng, accuracy_m, note, reporter_name, reporter_contact, reporterAccountId,
+        reporterAccountId ? 'auth' : 'public', req.ip, String(req.headers['user-agent'] || '').slice(0, 255)]
+    )
+
+    await logAudit(db, {
+      accountId: reporterAccountId, role: req.user?.role || 'guest',
+      action: 'location_report_created', resource: 'animal', resourceId: animalId,
+      details: { lat, lng, accuracy_m, has_contact: !!reporter_contact }, ip: req.ip
+    })
+
+    // Notify owner by email, throttled to 1 per 10 min per animal
+    const now = Date.now()
+    const last = lastLocationMailAt.get(animalId) || 0
+    if (animal.owner_email && now - last > 10 * 60 * 1000) {
+      lastLocationMailAt.set(animalId, now)
+      sendLocationReportEmail({
+        to: animal.owner_email, ownerName: animal.owner_name, animalName: animal.name,
+        lat, lng, accuracyM: accuracy_m, note, reporterName: reporter_name, reporterContact: reporter_contact,
+        fastify, req
+      }).catch(() => {})
+    }
+
+    return genericOk
+  })
+
+  // Owner/vet: list location reports for an animal (+ unseen count)
+  fastify.get('/api/animals/:id/location-reports', { onRequest: [fastify.authenticate] }, async (req, reply) => {
+    const db = getDb()
+    const { id } = req.params
+    const { accountId, role } = req.user
+    const isVet = (role || '').split(',').map(r => r.trim()).includes('vet')
+
+    const { rows: [animal] } = await db.query('SELECT account_id FROM animals WHERE id = $1', [id])
+    if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden' })
+    if (animal.account_id !== accountId && !isVet) {
+      return reply.code(403).send({ error: 'Kein Zugriff' })
+    }
+
+    const { rows } = await db.query(
+      `SELECT id, lat, lng, accuracy_m, note, reporter_name, reporter_contact, source, owner_seen_at, created_at
+       FROM animal_location_reports WHERE animal_id = $1 ORDER BY created_at DESC`,
+      [id]
+    )
+    const unseenCount = rows.filter(r => !r.owner_seen_at).length
+    return { reports: rows, unseen_count: unseenCount }
+  })
+
+  // Owner: unseen counts across all own animals (for overview badges)
+  fastify.get('/api/animals/location-reports/unseen-counts', { onRequest: [fastify.authenticate] }, async (req) => {
+    const db = getDb()
+    const { accountId } = req.user
+    const { rows } = await db.query(
+      `SELECT lr.animal_id, COUNT(*)::int AS unseen
+       FROM animal_location_reports lr
+       JOIN animals a ON a.id = lr.animal_id
+       WHERE a.account_id = $1 AND lr.owner_seen_at IS NULL
+       GROUP BY lr.animal_id`,
+      [accountId]
+    )
+    const counts = {}
+    for (const r of rows) counts[r.animal_id] = r.unseen
+    return { counts }
+  })
+
+  // Owner: mark a report as seen
+  fastify.patch('/api/animals/:id/location-reports/:reportId', { onRequest: [fastify.authenticate] }, async (req, reply) => {
+    const db = getDb()
+    const { id, reportId } = req.params
+    const { accountId } = req.user
+    const { rows: [animal] } = await db.query('SELECT account_id FROM animals WHERE id = $1', [id])
+    if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden' })
+    if (animal.account_id !== accountId) return reply.code(403).send({ error: 'Nur der Besitzer kann Meldungen verwalten' })
+    await db.query("UPDATE animal_location_reports SET owner_seen_at = CURRENT_TIMESTAMP WHERE id = $1 AND animal_id = $2", [reportId, id])
+    return { success: true }
+  })
+
+  // Owner: delete a report
+  fastify.delete('/api/animals/:id/location-reports/:reportId', { onRequest: [fastify.authenticate] }, async (req, reply) => {
+    const db = getDb()
+    const { id, reportId } = req.params
+    const { accountId, role } = req.user
+    const { rows: [animal] } = await db.query('SELECT account_id FROM animals WHERE id = $1', [id])
+    if (!animal) return reply.code(404).send({ error: 'Tier nicht gefunden' })
+    if (animal.account_id !== accountId) return reply.code(403).send({ error: 'Nur der Besitzer kann Meldungen löschen' })
+    await db.query('DELETE FROM animal_location_reports WHERE id = $1 AND animal_id = $2', [reportId, id])
+    await logAudit(db, { accountId, role, action: 'location_report_deleted', resource: 'animal', resourceId: id, details: { reportId }, ip: req.ip })
+    return { success: true }
   })
 
   // Add manual vaccination entry (no image required)

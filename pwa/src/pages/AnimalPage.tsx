@@ -1,10 +1,10 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { getAnimal, getAnimalDocuments, getAnimalTags, updateAnimal, deleteAnimal, uploadAnimalAvatar, deleteDocument, patchDocumentRecord, patchDocument, addVaccination, getAnimalVoiceMemos } from '../api/rest'
+import { getAnimal, getAnimalDocuments, getAnimalTags, updateAnimal, deleteAnimal, uploadAnimalAvatar, deleteDocument, patchDocumentRecord, patchDocument, addVaccination, getAnimalVoiceMemos, getLocationReports, markLocationReportSeen, deleteLocationReport } from '../api/rest'
 import { PageHeader } from '../components/PageHeader'
 import { addRecentlyViewedAnimal } from '../hooks/useRecentlyViewed'
-import { PawPrint, Cat, Edit2, Trash2, Search, Radio, ShieldAlert, AlertTriangle, RefreshCw, X, Syringe, FileText, CheckCircle, ArrowDownAZ, ArrowUpAZ, SlidersHorizontal, ArrowRightLeft, Share2, Plus, Pill, ChevronDown, ChevronUp, Landmark, Award, GraduationCap, Stethoscope, Mic } from 'lucide-react'
+import { PawPrint, Cat, Edit2, Trash2, Search, Radio, ShieldAlert, AlertTriangle, RefreshCw, X, Syringe, FileText, CheckCircle, ArrowDownAZ, ArrowUpAZ, SlidersHorizontal, ArrowRightLeft, Share2, Plus, Pill, ChevronDown, ChevronUp, Landmark, Award, GraduationCap, Stethoscope, Mic, MapPin } from 'lucide-react'
 import { VoiceRecordModal } from '../components/VoiceRecordModal'
 import { AnimalDTO } from '../types/animal'
 import { normalizeVaccinationRecord } from '../utils/vaccination'
@@ -81,6 +81,7 @@ export default function AnimalPage() {
   const [showFab, setShowFab] = useState(false)
   const [showVoiceMemo, setShowVoiceMemo] = useState(false)
   const [voiceMemos, setVoiceMemos] = useState<any[]>([])
+  const [locationReports, setLocationReports] = useState<any[]>([])
 
   // Manual entry modals
   const [showVaxModal, setShowVaxModal] = useState(false)
@@ -171,12 +172,31 @@ export default function AnimalPage() {
         setDocuments(Array.isArray(d.data) ? d.data : [])
         setTags(Array.isArray(t.data) ? t.data : [])
         setVoiceMemos(Array.isArray(v.data) ? v.data : [])
+        // Owner: load location reports ("found pet")
+        if (animalData.is_owner !== false) {
+          getLocationReports(id).then(r => setLocationReports(r.data.reports || [])).catch(() => {})
+        }
         // Load pending documents
         loadPendingDocuments(id)
       })
       .catch(() => setError(t('error.notFound')))
       .finally(() => setLoading(false))
   }, [id])
+
+  const handleMarkLocationSeen = async (reportId: string) => {
+    if (!id) return
+    try {
+      await markLocationReportSeen(id, reportId)
+      setLocationReports(prev => prev.map(r => r.id === reportId ? { ...r, owner_seen_at: new Date().toISOString() } : r))
+    } catch { /* ignore */ }
+  }
+  const handleDeleteLocationReport = async (reportId: string) => {
+    if (!id) return
+    try {
+      await deleteLocationReport(id, reportId)
+      setLocationReports(prev => prev.filter(r => r.id !== reportId))
+    } catch { /* ignore */ }
+  }
 
   // Poll voice memos while any are in non-final state
   useEffect(() => {
@@ -741,6 +761,45 @@ export default function AnimalPage() {
                   <button className="btn btn-ghost" style={{ minWidth: 0 }} onClick={() => setShowTransfer(true)}>
                     <ArrowRightLeft size={16} /> {t('animal.transferBtn')}
                   </button>
+                </div>
+              )}
+
+              {isOwner && locationReports.length > 0 && (
+                <div className="card animate-fade-in" style={{ marginBottom: 'var(--space-4)' }}>
+                  <h3 style={{ marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                    <MapPin size={18} color="var(--primary-500)" /> {t('locationReport.sectionTitle')}
+                    {locationReports.some(r => !r.owner_seen_at) && (
+                      <span className="badge badge-warning" style={{ fontSize: 10 }}>{locationReports.filter(r => !r.owner_seen_at).length}</span>
+                    )}
+                  </h3>
+                  <div style={{ display: 'grid', gap: 'var(--space-2)' }}>
+                    {locationReports.map(r => (
+                      <div key={r.id} style={{ padding: 'var(--space-3)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', background: r.owner_seen_at ? 'var(--surface)' : 'color-mix(in oklch, var(--warning-500) 8%, var(--surface))' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 'var(--space-2)' }}>
+                          <div style={{ minWidth: 0 }}>
+                            <a href={`https://www.google.com/maps?q=${r.lat},${r.lng}`} target="_blank" rel="noopener noreferrer" style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', color: 'var(--primary-600)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                              <MapPin size={14} /> {t('locationReport.openMap')}
+                            </a>
+                            <div className="text-tertiary" style={{ fontSize: 'var(--font-size-xs)', marginTop: 2 }}>
+                              {formatDate(r.created_at)}{r.accuracy_m ? ` · ±${Math.round(r.accuracy_m)} m` : ''}
+                            </div>
+                            {r.note && <div style={{ fontSize: 'var(--font-size-sm)', marginTop: 4 }}>{r.note}</div>}
+                            {(r.reporter_name || r.reporter_contact) && (
+                              <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)', marginTop: 2 }}>
+                                {r.reporter_name}{r.reporter_name && r.reporter_contact ? ' · ' : ''}{r.reporter_contact}
+                              </div>
+                            )}
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-end', flexShrink: 0 }}>
+                            {!r.owner_seen_at && (
+                              <button className="btn btn-ghost" style={{ fontSize: 'var(--font-size-xs)', padding: '2px 8px' }} onClick={() => handleMarkLocationSeen(r.id)}>{t('locationReport.markSeen')}</button>
+                            )}
+                            <button className="btn btn-ghost" style={{ fontSize: 'var(--font-size-xs)', padding: '2px 8px', color: 'var(--danger-500)' }} onClick={() => handleDeleteLocationReport(r.id)}>{t('common.delete')}</button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 

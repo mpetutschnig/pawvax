@@ -76,6 +76,27 @@ export const uploadAnimalAvatar = (id: string, base64Image: string) => api.patch
 export const deleteAnimal = (id: string, confirmationText: string) =>
   api.delete(`/animals/${id}`, { data: { confirmationText } })
 export const getAnimalByTag = (tagId: string) => api.get(`/animals/by-tag/${tagId}`)
+
+// Location reports ("found pet" GPS)
+export interface LocationReportInput {
+  lat: number
+  lng: number
+  accuracy_m?: number
+  note?: string
+  reporter_name?: string
+  reporter_contact?: string
+}
+export const sendLocationReport = (animalId: string, body: LocationReportInput) =>
+  api.post(`/public/animals/${animalId}/location`, body)
+export const getLocationReports = (animalId: string) =>
+  api.get(`/animals/${animalId}/location-reports`)
+export const getUnseenLocationCounts = () =>
+  api.get(`/animals/location-reports/unseen-counts`)
+export const markLocationReportSeen = (animalId: string, reportId: string) =>
+  api.patch(`/animals/${animalId}/location-reports/${reportId}`)
+export const deleteLocationReport = (animalId: string, reportId: string) =>
+  api.delete(`/animals/${animalId}/location-reports/${reportId}`)
+
 export const getAnimalDocuments = (id: string) => api.get(`/animals/${id}/documents`)
 export const getAnimalTags = (id: string) => api.get(`/animals/${id}/tags`)
 export const addTag = (id: string, tagId: string, tagType: 'barcode' | 'nfc' | 'chip') =>

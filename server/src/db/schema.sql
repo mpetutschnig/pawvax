@@ -195,6 +195,24 @@ CREATE TABLE IF NOT EXISTS animal_scans (
   scanned_at TEXT DEFAULT (CURRENT_TIMESTAMP)
 );
 
+CREATE TABLE IF NOT EXISTS animal_location_reports (
+  id            TEXT PRIMARY KEY,
+  animal_id     TEXT NOT NULL REFERENCES animals(id) ON DELETE CASCADE,
+  lat           REAL NOT NULL,
+  lng           REAL NOT NULL,
+  accuracy_m    REAL,
+  note          TEXT,
+  reporter_name TEXT,
+  reporter_contact TEXT,
+  reporter_account_id TEXT REFERENCES accounts(id) ON DELETE SET NULL,
+  source        TEXT NOT NULL DEFAULT 'public',
+  ip            TEXT,
+  user_agent    TEXT,
+  owner_seen_at TEXT,
+  created_at    TEXT DEFAULT (CURRENT_TIMESTAMP)
+);
+CREATE INDEX IF NOT EXISTS idx_loc_reports_animal ON animal_location_reports(animal_id);
+
 CREATE TABLE IF NOT EXISTS animal_transfers (
   code       TEXT PRIMARY KEY,
   animal_id  TEXT NOT NULL REFERENCES animals(id) ON DELETE CASCADE,

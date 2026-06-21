@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { PawPrint, Calendar, User, MapPin, Syringe, Pill, FileText, ChevronUp, ChevronDown, ShieldCheck, Mic } from 'lucide-react'
 import { api } from '../api/rest'
 import { addRecentlyViewedAnimal } from '../hooks/useRecentlyViewed'
+import { LocationReportButton } from '../components/LocationReportButton'
 
 export default function PublicSharePage() {
   const { shareId } = useParams<{ shareId: string }>()
@@ -133,6 +134,7 @@ export default function PublicSharePage() {
           {animal.species === 'dog' ? t('animals.dog') : animal.species === 'cat' ? t('animals.cat') : t('animals.other')}
           {animal.breed ? ` • ${animal.breed}` : ''}
         </p>
+        {animal.id && <LocationReportButton animalId={animal.id} animalName={animal.name} />}
       </div>
 
       {(animal.contact || animal.address || animal.birthdate) && (
