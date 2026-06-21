@@ -654,16 +654,16 @@ export default function AnimalPage() {
           ) : null}
 
               <div style={{
-                borderRadius: 'var(--radius-xl)',
+                borderRadius: 'var(--radius-lg)',
                 background: 'linear-gradient(135deg, var(--primary-500), var(--primary-700))',
-                padding: 'var(--space-5)',
-                marginBottom: 'var(--space-4)',
-                boxShadow: 'var(--shadow-lg)',
+                padding: 'var(--space-3)',
+                marginBottom: 'var(--space-2)',
+                boxShadow: 'var(--shadow-sm)',
               }}>
-                <div style={{ display: 'flex', gap: 'var(--space-4)', alignItems: 'center', marginBottom: 'var(--space-3)' }}>
-                  <div style={{ position: 'relative' }}>
+                <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
+                  <div style={{ position: 'relative', flexShrink: 0 }}>
                     <div style={{
-                      width: 56, height: 56, borderRadius: 'var(--radius-lg)',
+                      width: 40, height: 40, borderRadius: 'var(--radius-md)',
                       background: 'oklch(100% 0 0 / 0.18)',
                       border: '1.5px solid oklch(100% 0 0 / 0.28)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
@@ -672,7 +672,7 @@ export default function AnimalPage() {
                       {animal.avatar_path ? (
                         <img src={`/uploads/${animal.avatar_path.split('/').pop()}`} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       ) : (
-                        animal.species === 'cat' ? <Cat size={28} color="white" strokeWidth={1.6} /> : <PawPrint size={28} color="white" strokeWidth={1.6} />
+                        animal.species === 'cat' ? <Cat size={20} color="white" strokeWidth={1.6} /> : <PawPrint size={20} color="white" strokeWidth={1.6} />
                       )}
                     </div>
                     <input
@@ -690,7 +690,7 @@ export default function AnimalPage() {
                     )}
                   </div>
                   <div style={{ minWidth: 0, overflow: 'hidden' }}>
-                    <h2 style={{ color: 'white', margin: 0, fontFamily: 'var(--font-display)' }}>{animal.name}</h2>
+                    <h2 style={{ color: 'white', margin: 0, fontFamily: 'var(--font-display)', fontSize: 'var(--font-size-lg)', lineHeight: 1.2 }}>{animal.name}</h2>
                     {animal.pedigree_name && (
                       <p style={{ color: 'oklch(100% 0 0 / 0.55)', margin: 0, fontSize: 'var(--font-size-xs)', fontStyle: 'italic' }}>
                         {t('animal.pedigreeName')}: {animal.pedigree_name}
@@ -710,7 +710,7 @@ export default function AnimalPage() {
                     )}
                   </div>
                 </div>
-                <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap', marginBottom: animal.dynamic_fields ? 'var(--space-3)' : 0 }}>
+                <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap', marginTop: 'var(--space-2)', marginBottom: animal.dynamic_fields ? 'var(--space-2)' : 0 }}>
                   {isVetVerified && (
                     <span style={{ background: 'var(--primary-100)', border: '1px solid var(--primary-200)', borderRadius: 'var(--radius-full)', padding: '3px 10px', fontSize: 11, fontWeight: 600, color: 'var(--primary-700)' }}>
                       {t('animal.vetVerified')}
