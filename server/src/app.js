@@ -1,3 +1,4 @@
+import './instrument.js' // Sentry/GlitchTip — must be first; no-op unless SENTRY_DSN set
 import 'dotenv/config'
 import Fastify from 'fastify'
 import fastifyJwt from '@fastify/jwt'
@@ -40,6 +41,16 @@ const fastify = Fastify({
   trustProxy: true,
   bodyLimit: 10 * 1024 * 1024 // 10MB for image uploads
 })
+
+// Wire Sentry/GlitchTip error capture into Fastify (no-op unless DSN configured)
+if (process.env.SENTRY_DSN) {
+  try {
+    const Sentry = await import('@sentry/node')
+    Sentry.setupFastifyErrorHandler(fastify)
+  } catch (err) {
+    fastify.log.warn({ err }, 'Sentry Fastify handler setup failed')
+  }
+}
 
 const REDACTED_KEYS = ['password', 'token', 'authorization', 'cookie', 'secret', 'api_key', 'apikey', 'x-api-key', 'jwt']
 

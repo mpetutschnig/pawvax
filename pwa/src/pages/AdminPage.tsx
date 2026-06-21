@@ -13,7 +13,7 @@ import {
 import { 
   PawPrint, LogOut, LayoutDashboard, Users, Cat, ShieldCheck, FileClock, CheckCircle, 
   Menu, X, Settings, XCircle, FlaskConical, Trash2, AlertCircle, Mail, Cpu, Lock, 
-  Building2, Globe, Plus 
+  Building2, Globe, Plus, Activity, ExternalLink
 } from 'lucide-react'
 import { AdminAnimalDTO } from '../types/animal'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
@@ -133,6 +133,7 @@ interface AdminSettingsState {
   maintenance_mode?: boolean
   audit_retention_days?: number
   default_rate_limit_per_min?: number
+  glitchtip_url?: string
 }
 
 const defaultAdminSettings: AdminSettingsState = {
@@ -163,6 +164,7 @@ const defaultAdminSettings: AdminSettingsState = {
   system_openai_model: '',
   system_mistral_token: '',
   system_mistral_model: '',
+  glitchtip_url: '',
 }
 
 export default function AdminPage() {
@@ -477,6 +479,19 @@ export default function AdminPage() {
             )}
           </a>
         ))}
+        {appSettings.glitchtip_url && (
+          <a
+            href={appSettings.glitchtip_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="admin-sidebar-item"
+            style={{ cursor: 'pointer', position: 'relative' }}
+          >
+            <Activity size={18} />
+            <span>{t('admin.monitoring')}</span>
+            <ExternalLink size={14} style={{ marginLeft: 'auto', opacity: 0.6 }} />
+          </a>
+        )}
       </nav>
 
       {/* Main Content */}
@@ -819,6 +834,11 @@ export default function AdminPage() {
               <div className="form-group">
                 <label className="form-label">{t('admin.appName')}</label>
                 <input className="form-input" value={appSettings.app_name || ''} onChange={e => setAppSettings({...appSettings, app_name: e.target.value})} placeholder="z.B. Tierarztpraxis Huber" />
+              </div>
+              <div className="form-group">
+                <label className="form-label">{t('admin.monitoringUrl')}</label>
+                <input className="form-input" value={appSettings.glitchtip_url || ''} onChange={e => setAppSettings({...appSettings, glitchtip_url: e.target.value})} placeholder="https://glitchtip.oxs.at" />
+                <p className="text-muted" style={{ fontSize: 'var(--font-size-xs)', marginTop: 4 }}>{t('admin.monitoringUrlHint')}</p>
               </div>
               <div className="form-group">
                 <label className="form-label">{t('admin.themeColor')}</label>

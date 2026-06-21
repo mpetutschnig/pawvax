@@ -20,7 +20,8 @@ export const PUBLIC_SETTINGS_KEYS = new Set([
 export const GOVERNANCE_SETTINGS_KEYS = [
   'maintenance_mode',
   'audit_retention_days',
-  'default_rate_limit_per_min'
+  'default_rate_limit_per_min',
+  'glitchtip_url'
 ]
 
 export const AI_SETTINGS_KEYS = [
@@ -216,6 +217,7 @@ export async function getAdminSettings(db = getDb()) {
     maintenance_mode: normalizeBoolean(raw.maintenance_mode),
     audit_retention_days: Number(raw.audit_retention_days || 365),
     default_rate_limit_per_min: Number(raw.default_rate_limit_per_min || 60),
+    glitchtip_url: raw.glitchtip_url || '',
     supabase_url: raw.supabase_url || '',
     supabase_anon_key: raw.supabase_anon_key || '',
     supabase_oauth_providers: raw.supabase_oauth_providers || '',
