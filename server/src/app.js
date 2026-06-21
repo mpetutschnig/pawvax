@@ -392,7 +392,7 @@ setInterval(async () => {
 setInterval(async () => {
   try {
     const db = getDb()
-    const result = await db.query("DELETE FROM animal_location_reports WHERE created_at < CURRENT_TIMESTAMP - INTERVAL '90 days'")
+    const result = await db.query("DELETE FROM animal_location_reports WHERE created_at::timestamptz < CURRENT_TIMESTAMP - INTERVAL '90 days'")
     if (result.rowCount > 0) {
       fastify.log.info(`Retention: ${result.rowCount} alte Standortmeldungen gelöscht (> 90 Tage)`)
     }

@@ -100,7 +100,7 @@ export async function initDb(connectionString) {
 
   // GDPR: location reports older than 90 days are purged (also runs daily, see app.js)
   try {
-    await pool.query("DELETE FROM animal_location_reports WHERE created_at < CURRENT_TIMESTAMP - INTERVAL '90 days'")
+    await pool.query("DELETE FROM animal_location_reports WHERE created_at::timestamptz < CURRENT_TIMESTAMP - INTERVAL '90 days'")
   } catch { /* table may not exist yet */ }
 
   // Migration: add record_permissions column (idempotent)

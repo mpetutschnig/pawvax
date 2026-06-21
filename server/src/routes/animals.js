@@ -960,7 +960,7 @@ export default async function animalRoutes(fastify) {
 
     // Per-animal cap: max 20 reports / 24h
     const { rows: [{ cnt }] } = await db.query(
-      "SELECT COUNT(*)::int AS cnt FROM animal_location_reports WHERE animal_id = $1 AND created_at > CURRENT_TIMESTAMP - INTERVAL '24 hours'",
+      "SELECT COUNT(*)::int AS cnt FROM animal_location_reports WHERE animal_id = $1 AND created_at::timestamptz > CURRENT_TIMESTAMP - INTERVAL '24 hours'",
       [animalId]
     )
     if (cnt >= 20) return genericOk // silently drop to avoid abuse feedback
