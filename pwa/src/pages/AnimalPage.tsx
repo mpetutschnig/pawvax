@@ -662,7 +662,7 @@ export default function AnimalPage() {
                 <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
                   <div style={{ position: 'relative', flexShrink: 0 }}>
                     <div style={{
-                      width: 32, height: 32, borderRadius: 'var(--radius-sm)',
+                      width: 40, height: 40, borderRadius: 'var(--radius-md)',
                       background: 'oklch(100% 0 0 / 0.18)',
                       border: '1.5px solid oklch(100% 0 0 / 0.28)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
@@ -671,7 +671,7 @@ export default function AnimalPage() {
                       {animal.avatar_path ? (
                         <img src={`/uploads/${animal.avatar_path.split('/').pop()}`} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       ) : (
-                        animal.species === 'cat' ? <Cat size={18} color="white" strokeWidth={1.6} /> : <PawPrint size={18} color="white" strokeWidth={1.6} />
+                        animal.species === 'cat' ? <Cat size={22} color="white" strokeWidth={1.6} /> : <PawPrint size={22} color="white" strokeWidth={1.6} />
                       )}
                     </div>
                     <input
@@ -691,8 +691,8 @@ export default function AnimalPage() {
                   <div style={{ minWidth: 0, flex: 1 }}>
                     {/* Line 1: name + breed/age/sex */}
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-2)', minWidth: 0 }}>
-                      <span style={{ color: 'white', fontWeight: 700, fontFamily: 'var(--font-display)', fontSize: 'var(--font-size-base)', whiteSpace: 'nowrap' }}>{animal.name}</span>
-                      <span style={{ color: 'oklch(100% 0 0 / 0.70)', fontSize: 'var(--font-size-xs)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
+                      <span style={{ color: 'white', fontWeight: 700, fontFamily: 'var(--font-display)', fontSize: 'var(--font-size-lg)', whiteSpace: 'nowrap' }}>{animal.name}</span>
+                      <span style={{ color: 'oklch(100% 0 0 / 0.72)', fontSize: 'var(--font-size-sm)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
                         {animal.breed}{animal.birthdate ? ` · ${new Date().getFullYear() - new Date(animal.birthdate).getFullYear()}${t('animal.yearsOld') ? ' ' + t('animal.yearsOld') : ''}` : ''}
                         {(() => { const sexMap: Record<string, string> = { male: t('animal.sexMale'), female: t('animal.sexFemale'), castrated_male: t('animal.sexCastratedMale'), castrated_female: t('animal.sexCastratedFemale') }; const s = (animal as any).sex; return s && sexMap[s] ? ` · ${sexMap[s]}` : '' })()}
                       </span>
@@ -700,13 +700,13 @@ export default function AnimalPage() {
                     {/* Line 2: id + badges */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginTop: '2px', minWidth: 0 }}>
                       {animal.unique_id && (
-                        <span style={{ color: 'oklch(100% 0 0 / 0.65)', fontSize: 'var(--font-size-xs)', cursor: 'pointer', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}
+                        <span style={{ color: 'oklch(100% 0 0 / 0.70)', fontSize: 'var(--font-size-sm)', cursor: 'pointer', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}
                           onClick={() => { navigator.clipboard.writeText(animal.unique_id || ''); alert(t('common.copied')) }}>
-                          ID: <code style={{ background: 'oklch(100% 0 0 / 0.12)', padding: '1px 5px', borderRadius: 'var(--radius-xs)', fontFamily: 'var(--font-mono)' }}>{animal.unique_id}</code>
+                          ID: <code style={{ background: 'oklch(100% 0 0 / 0.12)', padding: '1px 6px', borderRadius: 'var(--radius-xs)', fontFamily: 'var(--font-mono)' }}>{animal.unique_id}</code>
                         </span>
                       )}
                       {hasNfcTag && (
-                        <span style={{ flexShrink: 0, background: 'oklch(100% 0 0 / 0.18)', borderRadius: 'var(--radius-full)', padding: '1px 8px', fontSize: 10, fontWeight: 600, color: 'white' }}>{t('animal.nfcActive')}</span>
+                        <span style={{ flexShrink: 0, background: 'oklch(100% 0 0 / 0.18)', borderRadius: 'var(--radius-full)', padding: '2px 9px', fontSize: 11, fontWeight: 600, color: 'white' }}>{t('animal.nfcActive')}</span>
                       )}
                     </div>
                   </div>
