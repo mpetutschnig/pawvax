@@ -78,7 +78,8 @@ async function syncChipTagFromDocument(db, animalId, extractedData) {
 
   const { rows: [existing] } = await db.query('SELECT animal_id FROM animal_tags WHERE tag_id = $1', [chipCode])
   if (!existing) {
-    await db.query('INSERT INTO animal_tags (tag_id, animal_id, tag_type) VALUES ($1, $2, $3)', [chipCode, animalId, 'chip'])
+    // ON CONFLICT guards against a race (concurrent analysis) inserting the same chip twice
+    await db.query('INSERT INTO animal_tags (tag_id, animal_id, tag_type) VALUES ($1, $2, $3) ON CONFLICT (tag_id) DO NOTHING', [chipCode, animalId, 'chip'])
   }
 }
 

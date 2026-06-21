@@ -322,7 +322,16 @@ export default async function animalRoutes(fastify) {
       }
     }
 
-    await createAnimalWithTagTransaction(db, animalId, accountId, name, species, breed, pedigree_name, birthdate, address, tagId, tagType, ensureDefaultSharing)
+    try {
+      await createAnimalWithTagTransaction(db, animalId, accountId, name, species, breed, pedigree_name, birthdate, address, tagId, tagType, ensureDefaultSharing)
+    } catch (err) {
+      // Unique violation on the tag PK (race between the pre-check and insert)
+      if (err?.code === '23505') {
+        const existingTag = tagId ? await findTagByTagId(db, tagId) : null
+        return reply.code(409).send({ error: 'Tag bereits vergeben', conflict: existingTag ? { animalId: existingTag.animal_id } : undefined })
+      }
+      throw err
+    }
 
     await logAudit(db, { accountId, role, action: 'create_animal', resource: 'animal', resourceId: animalId, ip: req.ip })
 
@@ -610,7 +619,16 @@ export default async function animalRoutes(fastify) {
       return reply.code(409).send({ error: 'Tag bereits vergeben', conflict: { animalId: existing.animal_id } })
     }
 
-    await insertAnimalTag(db, tagId, id, tagType)
+    try {
+      await insertAnimalTag(db, tagId, id, tagType)
+    } catch (err) {
+      // Unique violation (race between the pre-check and insert) → clean 409
+      if (err?.code === '23505') {
+        const conflictTag = await findTagByTagIdCaseInsensitive(db, tagId)
+        return reply.code(409).send({ error: 'Tag bereits vergeben', conflict: conflictTag ? { animalId: conflictTag.animal_id } : undefined })
+      }
+      throw err
+    }
 
     await logAudit(db, { accountId, role, action: 'add_tag', resource: 'tag', resourceId: tagId, ip: req.ip })
 
