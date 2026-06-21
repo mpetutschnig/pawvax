@@ -9,8 +9,10 @@ COPY . .
 # Sentry/GlitchTip — baked at build time (frontend DSN is public by design)
 ARG VITE_SENTRY_DSN=""
 ARG VITE_SENTRY_RELEASE=""
+ARG VITE_SENTRY_TRACES_SAMPLE_RATE=""
 ENV VITE_SENTRY_DSN=$VITE_SENTRY_DSN
 ENV VITE_SENTRY_RELEASE=$VITE_SENTRY_RELEASE
+ENV VITE_SENTRY_TRACES_SAMPLE_RATE=$VITE_SENTRY_TRACES_SAMPLE_RATE
 RUN npm run build
 RUN node -e "process.stdout.write(require('./package.json').version)" > /version.txt
 
