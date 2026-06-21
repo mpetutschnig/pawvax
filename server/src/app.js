@@ -1,4 +1,4 @@
-import './instrument.js' // Sentry/GlitchTip — must be first; no-op unless SENTRY_DSN set
+// Sentry/GlitchTip is loaded via `node --import ./src/instrument.js` (see Dockerfile)
 import 'dotenv/config'
 import Fastify from 'fastify'
 import fastifyJwt from '@fastify/jwt'

@@ -1,6 +1,6 @@
 {
   "name": "paw-server",
-  "version": "20260621_1059",
+  "version": "20260621_1106",
   "type": "module",
   "scripts": {
     "start": "node src/app.js",

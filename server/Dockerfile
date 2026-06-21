@@ -29,4 +29,6 @@ HEALTHCHECK --interval=10s --timeout=5s --retries=3 \
   CMD node -e "require('http').get('http://localhost:3000/health', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"
 
 # Start application
-CMD ["node", "src/app.js"]
+# --import loads Sentry/GlitchTip instrumentation before app code so OpenTelemetry
+# can auto-instrument fastify/http/pg (performance tracing). No-op unless SENTRY_DSN set.
+CMD ["node", "--import", "./src/instrument.js", "src/app.js"]
