@@ -86,11 +86,15 @@ export default function ScanPage() {
       trackAnimalScan(res.data.id).catch(() => {})
       navigate(`/animals/${res.data.id}`)
     } catch (err: any) {
-      if (err.response?.status === 409 && err.response?.data?.conflict?.animalId) {
-        const conflictId = err.response.data.conflict.animalId
-        // Tag is already assigned, navigate to the existing animal's page instead of showing an error.
-        trackAnimalScan(conflictId).catch(() => {})
-        navigate(`/animals/${conflictId}`)
+      if (err.response?.status === 409) {
+        // Own animal → it's already yours, go to it. Foreign → generic notice (no import path).
+        if (err.response.data?.owned && err.response.data?.conflict?.animalId) {
+          const conflictId = err.response.data.conflict.animalId
+          trackAnimalScan(conflictId).catch(() => {})
+          navigate(`/animals/${conflictId}`)
+        } else {
+          setError(t('chip.tagInUseForeign'))
+        }
       } else {
         setError(t('animals.createError'))
       }

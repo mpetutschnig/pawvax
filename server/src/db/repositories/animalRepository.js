@@ -215,7 +215,7 @@ export async function insertAnimalTag(db, tagId, animalId, tagType) {
 
 export async function findTagWithAccount(db, tagId) {
   const { rows } = await db.query(`
-      SELECT t.tag_id, a.account_id FROM animal_tags t
+      SELECT t.tag_id, t.animal_id, a.account_id FROM animal_tags t
       JOIN animals a ON a.id = t.animal_id
       WHERE t.tag_id = $1
     `, [tagId])

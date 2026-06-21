@@ -89,8 +89,13 @@ export default function TagManagementPage() {
       reload()
     } catch (err: unknown) {
       const response = (err as any)?.response
-      if (response?.status === 409 && response?.data?.conflict?.animalId) {
-        setConflictError({ animalId: response.data.conflict.animalId })
+      if (response?.status === 409) {
+        // Own animal → offer a link; foreign → generic, no link / no id leak
+        if (response.data?.owned && response.data?.conflict?.animalId) {
+          setConflictError({ animalId: response.data.conflict.animalId })
+        } else {
+          setError(t('chip.tagInUseForeign'))
+        }
       } else {
         setError(t('chip.addError'))
       }

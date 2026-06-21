@@ -73,6 +73,22 @@ import {
 
 export default async function animalRoutes(fastify) {
 
+  // Build an ownership-aware "tag already taken" 409. The conflicting animal id
+  // is only exposed when it belongs to the requester — a foreign chip must not
+  // leak its animal id or offer any action (transfer is owner-initiated only).
+  async function sendTagConflict(reply, db, accountId, animalId) {
+    let owned = false
+    if (animalId) {
+      const { rows: [a] } = await db.query('SELECT account_id FROM animals WHERE id = $1', [animalId])
+      owned = a?.account_id === accountId
+    }
+    return reply.code(409).send({
+      error: 'Tag bereits vergeben',
+      owned,
+      ...(owned ? { conflict: { animalId } } : {})
+    })
+  }
+
   // ──── Public endpoint (no login required) ────────────────────────────────
   fastify.get('/api/public/tag/:tagId', async (req, reply) => {
     const db = getDb()
@@ -318,7 +334,7 @@ export default async function animalRoutes(fastify) {
     if (tagId) {
       const existingTag = await findTagByTagId(db, tagId)
       if (existingTag) {
-        return reply.code(409).send({ error: 'Tag bereits vergeben', conflict: { animalId: existingTag.animal_id } })
+        return sendTagConflict(reply, db, accountId, existingTag.animal_id)
       }
     }
 
@@ -328,7 +344,7 @@ export default async function animalRoutes(fastify) {
       // Unique violation on the tag PK (race between the pre-check and insert)
       if (err?.code === '23505') {
         const existingTag = tagId ? await findTagByTagId(db, tagId) : null
-        return reply.code(409).send({ error: 'Tag bereits vergeben', conflict: existingTag ? { animalId: existingTag.animal_id } : undefined })
+        return sendTagConflict(reply, db, accountId, existingTag?.animal_id)
       }
       throw err
     }
@@ -616,7 +632,7 @@ export default async function animalRoutes(fastify) {
 
     const existing = await findTagByTagIdCaseInsensitive(db, tagId)
     if (existing) {
-      return reply.code(409).send({ error: 'Tag bereits vergeben', conflict: { animalId: existing.animal_id } })
+      return sendTagConflict(reply, db, accountId, existing.animal_id)
     }
 
     try {
@@ -625,7 +641,7 @@ export default async function animalRoutes(fastify) {
       // Unique violation (race between the pre-check and insert) → clean 409
       if (err?.code === '23505') {
         const conflictTag = await findTagByTagIdCaseInsensitive(db, tagId)
-        return reply.code(409).send({ error: 'Tag bereits vergeben', conflict: conflictTag ? { animalId: conflictTag.animal_id } : undefined })
+        return sendTagConflict(reply, db, accountId, conflictTag?.animal_id)
       }
       throw err
     }

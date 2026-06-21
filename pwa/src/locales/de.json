@@ -328,6 +328,7 @@
   "chip.active": "Aktiv",
   "chip.add": "Hinzufügen",
   "chip.addError": "Fehler beim Hinzufügen des Tags",
+  "chip.tagInUseForeign": "Dieser Chip ist bereits einem anderen Tier zugeordnet. Der aktuelle Besitzer muss einen Transfer einleiten.",
   "chip.addNew": "Neue Chips hinzufügen",
   "chip.addTag": "Tag hinzufügen",
   "chip.barcode": "Barcode/QR-Code",

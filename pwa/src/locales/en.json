@@ -328,6 +328,7 @@
   "chip.active": "Active",
   "chip.add": "Add",
   "chip.addError": "Error adding tag",
+  "chip.tagInUseForeign": "This chip is already assigned to another animal. The current owner must initiate a transfer.",
   "chip.addNew": "Add New Chips",
   "chip.addTag": "Add Tag",
   "chip.barcode": "Barcode/QR Code",
