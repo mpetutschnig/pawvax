@@ -714,7 +714,9 @@ export default function ProfilePage() {
               ) : isOrg ? (
                 <p style={{ color: 'var(--info-600)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', margin: 0, fontWeight: 500 }}><CheckCircle size={18} /> {t('profile.verifiedOrg')} (Zugriff aktiv)</p>
               ) : isPending ? (
-                <p className="text-muted" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', margin: 0 }}><Clock size={18} /> {t('profile.verificationPending')}</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', padding: 'var(--space-3)', background: 'var(--warning-50)', border: '1px solid var(--warning-500)', borderRadius: 'var(--radius-md)', color: 'var(--warning-700)', fontWeight: 600 }}>
+                  <Clock size={18} /> {t('profile.verificationPending')}
+                </div>
               ) : null}
 
               {verificationRequests.length > 0 && (

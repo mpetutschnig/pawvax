@@ -184,8 +184,16 @@ WICHTIGE REGELN:
 1. Extrahiere: Produktname, Wirkstoff(e), Packungsgröße, Dosierung/Einheit, Anwendungsart.
 2. Lies Hersteller, Chargennummer (falls vorhanden), Verfallsdatum.
 3. Kurze Anwendungshinweise extrahieren.
-4. "document_date": Datum auf dem Dokument oder Verfallsdatum im Format YYYY-MM-DD.
-5. "title": z.B. "Amoxicillin 500mg - Packungsbeilage".
+4. INHALTSSTOFFE: Erstelle ein Feld "ingredients" als Array aller Inhaltsstoffe.
+   - Trenne nach "active_ingredients" (Wirkstoffe mit Menge/Einheit, z.B. "Amoxicillin 500 mg") und "excipients" (Hilfsstoffe).
+   - Erfasse zusätzlich, falls vorhanden: ATC-Code, Darreichungsform, Zieltierarten, Wartezeit.
+5. INTERNET-/WISSENS-FALLBACK: Wenn die Inhaltsstoffe/Zusammensetzung NICHT auf dem Dokument
+   stehen, ergänze sie aus deinem pharmakologischen Wissen über das exakt benannte Produkt
+   (Standard-Zusammensetzung dieses Tierarzneimittels). Markiere solche ergänzten Felder mit
+   "ingredients_source": "inferred" (sonst "document"). Erfinde NICHTS bei unbekannten Produkten —
+   setze dann "ingredients_source": "unknown" und lasse die Felder leer.
+6. "document_date": Datum auf dem Dokument oder Verfallsdatum im Format YYYY-MM-DD.
+7. "title": z.B. "Amoxicillin 500mg - Packungsbeilage".
 
 Gib EXAKT diese JSON-Struktur zurück (nur valide JSON, kein Text davor/danach).
 `.trim(),
@@ -337,8 +345,16 @@ IMPORTANT RULES:
 1. Extract: product name, active substance(s), package size, dosage/unit, application method.
 2. Read manufacturer, batch number (if present), expiration date.
 3. Extract brief usage instructions.
-4. "document_date": date on document or expiration date in format YYYY-MM-DD.
-5. "title": e.g., "Amoxicillin 500mg - Package Insert".
+4. INGREDIENTS: Build an "ingredients" field as an array of all ingredients.
+   - Split into "active_ingredients" (substances with amount/unit, e.g. "Amoxicillin 500 mg") and "excipients" (inactive ingredients).
+   - Also capture, if present: ATC code, dosage form, target species, withdrawal period.
+5. INTERNET/KNOWLEDGE FALLBACK: If the ingredients/composition are NOT on the document,
+   supplement them from your pharmacological knowledge of the exact named product (its standard
+   composition as a veterinary medicine). Mark such supplemented fields with
+   "ingredients_source": "inferred" (otherwise "document"). Do NOT invent data for unknown
+   products — in that case set "ingredients_source": "unknown" and leave the fields empty.
+6. "document_date": date on document or expiration date in format YYYY-MM-DD.
+7. "title": e.g., "Amoxicillin 500mg - Package Insert".
 
 Return EXACTLY this JSON structure (only valid JSON, no text before/after).
 `.trim(),

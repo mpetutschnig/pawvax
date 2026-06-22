@@ -10,6 +10,7 @@ import { normalizeVaccinationRecord } from '../utils/vaccination'
 import { PageHeader } from '../components/PageHeader'
 import { Shield, Pill, FileText, PawPrint, Landmark, Calendar, Download, Mail, Tag, Save, X, Edit2, Trash2, CheckCircle, Award, GraduationCap, ChevronLeft, ChevronRight, Bell, AlertTriangle, Stethoscope } from 'lucide-react'
 import { TagCombobox } from '../components/TagCombobox'
+import { ImageLightbox } from '../components/ImageLightbox'
 
 
 
@@ -42,6 +43,7 @@ export default function DocumentDetailPage() {
   const [historyLoading, setHistoryLoading] = useState(false)
   
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
+  const [lightboxOpen, setLightboxOpen] = useState(false)
 
   // Per-record permissions
   const [updatingRecordKey, setUpdatingRecordKey] = useState<string | null>(null)
@@ -383,7 +385,8 @@ export default function DocumentDetailPage() {
               <img
                 src={`/uploads/${currentImage.split('/').pop()}`}
                 alt={`Dokumentseite ${currentImageIndex + 1}`}
-                style={{ width: '100%', display: 'block', maxHeight: '540px', objectFit: 'contain', background: 'var(--surface)' }}
+                onClick={() => setLightboxOpen(true)}
+                style={{ width: '100%', display: 'block', maxHeight: '540px', objectFit: 'contain', background: 'var(--surface)', cursor: 'zoom-in' }}
               />
 
               {documentImages.length > 1 && (
@@ -427,6 +430,15 @@ export default function DocumentDetailPage() {
                   </button>
                 ))}
               </div>
+            )}
+
+            {lightboxOpen && (
+              <ImageLightbox
+                images={documentImages}
+                index={currentImageIndex}
+                onIndexChange={setCurrentImageIndex}
+                onClose={() => setLightboxOpen(false)}
+              />
             )}
           </div>
         )}
@@ -911,6 +923,41 @@ export default function DocumentDetailPage() {
                   </div>
                 )}
               </div>
+              {(() => {
+                const ing = product.ingredients || {}
+                const active = ing.active_ingredients || product.active_ingredients || []
+                const excipients = ing.excipients || product.excipients || []
+                const source = ing.ingredients_source || product.ingredients_source
+                const norm = (v: any) => Array.isArray(v) ? v : (v ? [v] : [])
+                const a = norm(active), e = norm(excipients)
+                if (a.length === 0 && e.length === 0) return null
+                return (
+                  <div style={{ background: 'var(--surface)', padding: 'var(--space-3)', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 'var(--space-2)' }}>
+                      <p style={{ margin: 0, fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', fontWeight: 600 }}>{t('docDetail.ingredients')}</p>
+                      {source === 'inferred' && (
+                        <span className="badge" style={{ fontSize: 10, background: 'var(--info-100)', color: 'var(--info-700)' }} title={t('docDetail.ingredientsInferredHint')}>{t('docDetail.ingredientsInferred')}</span>
+                      )}
+                    </div>
+                    {a.length > 0 && (
+                      <div style={{ marginBottom: e.length > 0 ? 'var(--space-2)' : 0 }}>
+                        <p style={{ margin: '0 0 2px 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>{t('docDetail.activeIngredient')}</p>
+                        <ul style={{ margin: 0, paddingLeft: 18, fontSize: 'var(--font-size-sm)' }}>
+                          {a.map((x: any, i: number) => <li key={i}>{typeof x === 'string' ? x : [x.name, x.amount, x.unit].filter(Boolean).join(' ')}</li>)}
+                        </ul>
+                      </div>
+                    )}
+                    {e.length > 0 && (
+                      <div>
+                        <p style={{ margin: '0 0 2px 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>{t('docDetail.excipients')}</p>
+                        <ul style={{ margin: 0, paddingLeft: 18, fontSize: 'var(--font-size-sm)' }}>
+                          {e.map((x: any, i: number) => <li key={i}>{typeof x === 'string' ? x : [x.name, x.amount, x.unit].filter(Boolean).join(' ')}</li>)}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
             </div>
           )
         })()}

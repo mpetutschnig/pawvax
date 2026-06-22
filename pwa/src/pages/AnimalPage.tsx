@@ -4,8 +4,9 @@ import { useTranslation } from 'react-i18next'
 import { getAnimal, getAnimalDocuments, getAnimalTags, updateAnimal, deleteAnimal, uploadAnimalAvatar, deleteDocument, patchDocumentRecord, patchDocument, addVaccination, getAnimalVoiceMemos, getLocationReports, markLocationReportSeen, deleteLocationReport } from '../api/rest'
 import { PageHeader } from '../components/PageHeader'
 import { addRecentlyViewedAnimal } from '../hooks/useRecentlyViewed'
-import { PawPrint, Cat, Edit2, Trash2, Search, Radio, ShieldAlert, AlertTriangle, RefreshCw, X, Syringe, FileText, CheckCircle, ArrowDownAZ, ArrowUpAZ, SlidersHorizontal, ArrowRightLeft, Share2, Plus, Pill, ChevronDown, ChevronUp, Landmark, Award, GraduationCap, Stethoscope, Mic, MapPin } from 'lucide-react'
+import { PawPrint, Cat, Edit2, Trash2, Search, Radio, ShieldAlert, AlertTriangle, RefreshCw, X, Syringe, FileText, CheckCircle, ArrowDownAZ, ArrowUpAZ, SlidersHorizontal, ArrowRightLeft, Share2, Plus, Pill, ChevronDown, ChevronUp, Landmark, Award, GraduationCap, Stethoscope, Mic, MapPin, Lock } from 'lucide-react'
 import { VoiceRecordModal } from '../components/VoiceRecordModal'
+import { LocationReportButton } from '../components/LocationReportButton'
 import { AnimalDTO } from '../types/animal'
 import { normalizeVaccinationRecord } from '../utils/vaccination'
 import { formatDate, formatDateOnly } from '../utils/date'
@@ -168,7 +169,7 @@ export default function AnimalPage() {
         // Own animals are tagged 'animal' (excluded from the recently-viewed list);
         // foreign animals (vet/authority/admin viewing someone else's) are tagged
         // 'scan' so they show up in "recently viewed".
-        addRecentlyViewedAnimal({ id: animalData.id, name: animalData.name, species: animalData.species, breed: animalData.breed, source: animalData.is_owner ? 'animal' : 'scan' })
+        addRecentlyViewedAnimal({ id: animalData.id, name: animalData.name, species: animalData.species, breed: animalData.breed, source: animalData.is_owner ? 'animal' : 'scan', path: `/animals/${animalData.id}` })
         setDocuments(Array.isArray(d.data) ? d.data : [])
         setTags(Array.isArray(t.data) ? t.data : [])
         setVoiceMemos(Array.isArray(v.data) ? v.data : [])
@@ -546,7 +547,11 @@ export default function AnimalPage() {
         ...normalizeVaccinationRecord(record)
       }))
     })
-    .sort((a, b) => String(b.administrationDate || b.validUntil || '').localeCompare(String(a.administrationDate || a.validUntil || '')))
+    .sort((a, b) => {
+      const x = String(a.administrationDate || a.validUntil || '')
+      const y = String(b.administrationDate || b.validUntil || '')
+      return sortOrder === 'desc' ? y.localeCompare(x) : x.localeCompare(y)
+    })
 
   const treatmentRecords = documents
     .filter(d => d.analysis_status !== 'pending_analysis' && d.doc_type === 'treatment' && d.ocr_provider !== 'none')
@@ -565,7 +570,11 @@ export default function AnimalPage() {
         notes: record.notes || null
       }))
     })
-    .sort((a, b) => String(b.administeredAt || '').localeCompare(String(a.administeredAt || '')))
+    .sort((a, b) => {
+      const x = String(a.administeredAt || '')
+      const y = String(b.administeredAt || '')
+      return sortOrder === 'desc' ? y.localeCompare(x) : x.localeCompare(y)
+    })
 
   const vetReportRecords = documents
     .filter(d => d.analysis_status !== 'pending_analysis' && d.doc_type === 'vet_report' && d.ocr_provider !== 'none')
@@ -586,7 +595,11 @@ export default function AnimalPage() {
         addedByVerified: !!doc.added_by_verified
       }))
     })
-    .sort((a, b) => String(b.administeredAt || '').localeCompare(String(a.administeredAt || '')))
+    .sort((a, b) => {
+      const x = String(a.administeredAt || '')
+      const y = String(b.administeredAt || '')
+      return sortOrder === 'desc' ? y.localeCompare(x) : x.localeCompare(y)
+    })
 
   // Helfer: Parse allowed_roles eines Dokuments
   const getDocumentRoles = (doc: any): string[] => {
@@ -720,6 +733,12 @@ export default function AnimalPage() {
                 <div style={{ background: 'var(--surface)', padding: 'var(--space-3)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-4)', border: '1px solid var(--border)' }}>
                   <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>{t('publicScan.contact')}</div>
                   <div style={{ fontWeight: 600 }}>{animal.contact.name}</div>
+                </div>
+              )}
+
+              {!isOwner && animal.id && (
+                <div style={{ marginBottom: 'var(--space-4)' }}>
+                  <LocationReportButton animalId={animal.id} animalName={animal.name} />
                 </div>
               )}
 
@@ -1074,8 +1093,11 @@ export default function AnimalPage() {
                 <Syringe size={18} color="var(--primary-600)" />
                 <h3 style={{ margin: 0 }}>{t('animal.vaccinations')}</h3>
                 <span className="badge">{vaccinationRecords.length}</span>
+                <button className="btn btn-ghost" style={{ marginLeft: 'auto', fontSize: 'var(--font-size-xs)', padding: '2px 8px', display: 'flex', alignItems: 'center', gap: 4 }} onClick={() => setSortOrder(o => o === 'desc' ? 'asc' : 'desc')} title={t('animal.sortDate')} aria-label={t('animal.sortDate')}>
+                  {sortOrder === 'desc' ? <ArrowDownAZ size={14} /> : <ArrowUpAZ size={14} />}
+                </button>
                 {isOwner && (
-                  <button className="btn btn-outline" style={{ marginLeft: 'auto', fontSize: 'var(--font-size-xs)', padding: '4px 10px', display: 'flex', alignItems: 'center', gap: 4 }} onClick={() => setShowVaxModal(true)}>
+                  <button className="btn btn-outline" style={{ fontSize: 'var(--font-size-xs)', padding: '4px 10px', display: 'flex', alignItems: 'center', gap: 4 }} onClick={() => setShowVaxModal(true)}>
                     <Plus size={14} /> Eintragen
                   </button>
                 )}
@@ -1157,6 +1179,9 @@ export default function AnimalPage() {
                 <Stethoscope size={18} color="var(--success-600)" />
                 <h3 style={{ margin: 0 }}>Tierarzt-Berichte</h3>
                 <span className="badge badge-success">{vetReportRecords.length}</span>
+                <button className="btn btn-ghost" style={{ marginLeft: 'auto', fontSize: 'var(--font-size-xs)', padding: '2px 8px', display: 'flex', alignItems: 'center', gap: 4 }} onClick={() => setSortOrder(o => o === 'desc' ? 'asc' : 'desc')} title={t('animal.sortDate')} aria-label={t('animal.sortDate')}>
+                  {sortOrder === 'desc' ? <ArrowDownAZ size={14} /> : <ArrowUpAZ size={14} />}
+                </button>
               </div>
               <div>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)', minWidth: 0, tableLayout: 'fixed' }}>
@@ -1214,6 +1239,11 @@ export default function AnimalPage() {
                 <Pill size={18} color="var(--success-600)" />
                 <h3 style={{ margin: 0 }}>Behandlungen</h3>
                 {treatmentRecords.length > 0 && <span className="badge">{treatmentRecords.length}</span>}
+                {treatmentRecords.length > 0 && (
+                  <button className="btn btn-ghost" style={{ marginLeft: 'auto', fontSize: 'var(--font-size-xs)', padding: '2px 8px', display: 'flex', alignItems: 'center', gap: 4 }} onClick={() => setSortOrder(o => o === 'desc' ? 'asc' : 'desc')} title={t('animal.sortDate')} aria-label={t('animal.sortDate')}>
+                    {sortOrder === 'desc' ? <ArrowDownAZ size={14} /> : <ArrowUpAZ size={14} />}
+                  </button>
+                )}
               </div>
               {treatmentRecords.length === 0 ? (
                 <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', margin: 0 }}>Noch keine Behandlungen eingetragen.</p>
@@ -1351,9 +1381,11 @@ export default function AnimalPage() {
                                     <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Freigabe:</span>
                                     {(['guest', 'vet', 'authority'] as const).map(r => (
                                       <label key={r} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 'var(--font-size-xs)', cursor: 'pointer' }}>
-                                        <input type="checkbox" checked={docRoles.includes(r)} disabled={updatingRecord === `${doc.id}-doc`}
+                                        <input type="checkbox" checked={docRoles.includes(r)}
+                                          disabled={updatingRecord === `${doc.id}-doc` || (r === 'vet' && doc.added_by_role === 'vet' && !!doc.added_by_verified)}
+                                          title={r === 'vet' && doc.added_by_role === 'vet' && !!doc.added_by_verified ? t('animal.vetVisibilityLocked') : undefined}
                                           onChange={() => handleToggleDocumentRole(doc.id, docRoles, r)} />
-                                        {r}
+                                        {r}{r === 'vet' && doc.added_by_role === 'vet' && !!doc.added_by_verified && <Lock size={10} style={{ marginLeft: 2 }} />}
                                       </label>
                                     ))}
                                     {updatingRecord === `${doc.id}-doc` && <div className="spinner" style={{ width: 12, height: 12, borderWidth: 1 }} />}
@@ -1430,9 +1462,11 @@ export default function AnimalPage() {
                                     <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Freigabe:</span>
                                     {(['guest', 'vet', 'authority'] as const).map(r => (
                                       <label key={r} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 'var(--font-size-xs)', cursor: 'pointer' }}>
-                                        <input type="checkbox" checked={docRoles.includes(r)} disabled={updatingRecord === `${doc.id}-doc`}
+                                        <input type="checkbox" checked={docRoles.includes(r)}
+                                          disabled={updatingRecord === `${doc.id}-doc` || (r === 'vet' && doc.added_by_role === 'vet' && !!doc.added_by_verified)}
+                                          title={r === 'vet' && doc.added_by_role === 'vet' && !!doc.added_by_verified ? t('animal.vetVisibilityLocked') : undefined}
                                           onChange={() => handleToggleDocumentRole(doc.id, docRoles, r)} />
-                                        {r}
+                                        {r}{r === 'vet' && doc.added_by_role === 'vet' && !!doc.added_by_verified && <Lock size={10} style={{ marginLeft: 2 }} />}
                                       </label>
                                     ))}
                                     {updatingRecord === `${doc.id}-doc` && <div className="spinner" style={{ width: 12, height: 12, borderWidth: 1 }} />}

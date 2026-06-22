@@ -276,7 +276,7 @@ export default function AnimalsPage() {
             {foreignRecent.map((item) => (
               <Link
                 key={item.id}
-                to={`/animals/${item.id}`}
+                to={item.path || `/animals/${item.id}`}
                 style={{
                   display: 'flex',
                   justifyContent: 'space-between',

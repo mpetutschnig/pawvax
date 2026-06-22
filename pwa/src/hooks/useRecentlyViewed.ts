@@ -7,6 +7,8 @@ export interface RecentlyViewedAnimal {
   breed?: string
   viewedAt: number
   source: RecentlyViewedSource
+  /** Route to reopen the animal — public path (/t/.., /share/..) survives logout. */
+  path?: string
 }
 
 const RECENT_STORAGE_KEY = 'recentlyViewedAnimals'

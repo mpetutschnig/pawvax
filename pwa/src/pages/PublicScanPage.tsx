@@ -3,7 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useBarcode } from '../hooks/useBarcode'
 import { useNfc } from '../hooks/useNfc'
-import { PawPrint, Camera, LogIn, ShieldCheck, Syringe, Pill, FileText, Radio, ChevronDown, ChevronUp, Mic } from 'lucide-react'
+import { PawPrint, Camera, LogIn, ShieldCheck, Syringe, Pill, FileText, Radio, ChevronDown, ChevronUp, Mic, Calendar, User, MapPin } from 'lucide-react'
 import { api } from '../api/rest'
 import { addRecentlyViewedAnimal } from '../hooks/useRecentlyViewed'
 import { LocationReportButton } from '../components/LocationReportButton'
@@ -92,13 +92,16 @@ export default function PublicScanPage() {
 
     try {
       const res = await api.get(`/public/tag/${encodeURIComponent(tagId)}`)
-      if (localStorage.getItem('token') && res.data?.id) {
+      if (res.data?.id) {
+        // Record for the scan history (kept in localStorage, survives logout).
+        // Public path so a logged-out visitor can reopen it.
         addRecentlyViewedAnimal({
           id: res.data.id,
           name: res.data.name || 'Unknown',
           species: res.data.species,
           breed: res.data.breed,
-          source: 'scan'
+          source: 'scan',
+          path: `/t/${encodeURIComponent(tagId)}`
         })
       }
       setAnimal(res.data)
@@ -168,49 +171,78 @@ export default function PublicScanPage() {
     }
 
     return (
-      <div className="container page" style={{ maxWidth: 480, margin: '0 auto' }}>
-        <div className="card animate-slide-up" style={{ padding: 'var(--space-6)' }}>
-          {/* Header */}
-          <div style={{ textAlign: 'center', marginBottom: 'var(--space-6)' }}>
-            <div style={{
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              width: 80, height: 80, borderRadius: '50%',
-              background: 'var(--primary-50)', fontSize: '2.5rem',
-              marginBottom: 'var(--space-3)'
-            }}>
-              {speciesEmoji[animal.species] ?? '🐾'}
-            </div>
-            <h1 style={{ margin: '0 0 4px 0', fontSize: 'var(--font-size-xl)' }}>{animal.name}</h1>
-            <p className="text-muted" style={{ margin: 0 }}>
-              {animal.species} {animal.breed ? `· ${animal.breed}` : ''} {animal.birthdate ? `· ${t('publicScan.born')} ${animal.birthdate}` : ''}
-            </p>
-          </div>
-
-          {/* Readonly-Hinweis */}
+      <div className="container page" style={{ paddingTop: '2rem', maxWidth: 520, margin: '0 auto' }}>
+        {/* Header card */}
+        <div className="card text-center animate-slide-up" style={{ marginBottom: 'var(--space-4)' }}>
           <div style={{
-            display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-            padding: 'var(--space-3)', background: 'var(--success-100)',
-            borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-4)',
-            border: '1px solid var(--success-300)'
+            width: 80, height: 80, borderRadius: 'var(--radius-full)',
+            background: 'var(--primary-50)', margin: '0 auto var(--space-4)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', fontSize: '2.5rem'
           }}>
-            <ShieldCheck size={18} color="var(--success-700)" />
-            <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--success-900)', fontWeight: 500 }}>
+            {animal.avatar_path ? (
+              <img src={`/uploads/${animal.avatar_path.split('/').pop()}`} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+              speciesEmoji[animal.species] ?? <PawPrint size={40} color="var(--primary-500)" />
+            )}
+          </div>
+          <h1 style={{ marginBottom: 'var(--space-1)' }}>{animal.name}</h1>
+          <p className="text-muted" style={{ margin: '0 0 var(--space-3)', textTransform: 'capitalize' }}>
+            {animal.species === 'dog' ? t('animals.dog') : animal.species === 'cat' ? t('animals.cat') : animal.species}
+            {animal.breed ? ` • ${animal.breed}` : ''}
+          </p>
+
+          {/* Readonly badge */}
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)',
+            padding: 'var(--space-2) var(--space-3)', background: 'var(--success-100)',
+            borderRadius: 'var(--radius-full)', border: '1px solid var(--success-300)'
+          }}>
+            <ShieldCheck size={16} color="var(--success-700)" />
+            <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--success-900)', fontWeight: 500 }}>
               {t('publicScan.publicProfile')}
             </span>
           </div>
 
-          {/* Kontakt */}
-          {animal.contact && (
-            <div style={{ marginBottom: 'var(--space-4)', padding: 'var(--space-3)', background: 'var(--surface)', borderRadius: 'var(--radius-md)' }}>
-              <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)', marginBottom: 4 }}>{t('publicScan.contact')}</div>
-              <div style={{ fontWeight: 600 }}>{animal.contact.name}</div>
-            </div>
-          )}
-
-          {/* Standort melden ("Tier gefunden") */}
           {animal.id && <LocationReportButton animalId={animal.id} animalName={animal.name} />}
+        </div>
 
-          {/* Dokumente – Impfungen & Behandlungen als ausklappbare Record-Listen */}
+        {/* Details card */}
+        {(animal.contact || animal.birthdate) && (
+          <div className="card animate-fade-in" style={{ animationDelay: '100ms', marginBottom: 'var(--space-4)' }}>
+            <h3 style={{ marginBottom: 'var(--space-3)' }}>{t('animal.details')}</h3>
+            <div style={{ display: 'grid', gap: 'var(--space-3)' }}>
+              {animal.birthdate && (
+                <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
+                  <Calendar size={18} className="text-tertiary" />
+                  <div>
+                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>{t('animal.birthdate')}</div>
+                    <div style={{ fontWeight: 500 }}>{animal.birthdate}</div>
+                  </div>
+                </div>
+              )}
+              {animal.contact && (
+                <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
+                  <User size={18} className="text-tertiary" />
+                  <div>
+                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>{t('publicScan.contact')}</div>
+                    <div style={{ fontWeight: 500 }}>{animal.contact.name}</div>
+                  </div>
+                </div>
+              )}
+              {animal.address && (
+                <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
+                  <MapPin size={18} className="text-tertiary" />
+                  <div>
+                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>{t('publicScan.address')}</div>
+                    <div style={{ fontWeight: 500 }}>{animal.address}</div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Dokumente – Impfungen & Behandlungen als ausklappbare Record-Listen */}
           {animal.documents && animal.documents.length > 0 ? (() => {
             // Vaccination records
             const vaccinationRecords: any[] = []
@@ -426,7 +458,6 @@ export default function PublicScanPage() {
               {t('publicScan.rescan')}
             </button>
           </div>
-        </div>
       </div>
     )
   }

@@ -50,13 +50,14 @@ export default function PublicSharePage() {
     if (!shareId) return
     api.get(`/public/share/${shareId}`)
       .then(res => {
-        if (localStorage.getItem('token') && res.data?.id) {
+        if (res.data?.id) {
           addRecentlyViewedAnimal({
             id: res.data.id,
             name: res.data.name || 'Unknown',
             species: res.data.species,
             breed: res.data.breed,
-            source: 'share'
+            source: 'share',
+            path: `/share/${shareId}`
           })
         }
         setAnimal(res.data)

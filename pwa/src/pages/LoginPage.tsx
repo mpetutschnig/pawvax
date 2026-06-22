@@ -2,7 +2,8 @@ import { useState, useEffect, FormEvent } from 'react'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { login, register, requestPasswordReset, resetPassword, verifyEmail, getOAuthUrl, supabaseLogin, supabasePasswordLogin, supabaseResetPassword } from '../api/rest'
-import { PawPrint, LogIn, UserPlus, ScanLine } from 'lucide-react'
+import { PawPrint, LogIn, UserPlus, ScanLine, Clock } from 'lucide-react'
+import { getRecentlyViewedAnimals, RecentlyViewedAnimal } from '../hooks/useRecentlyViewed'
 
 export default function LoginPage() {
   const navigate = useNavigate()
@@ -33,6 +34,9 @@ export default function LoginPage() {
   const [supabasePwError, setSupabasePwError] = useState<string | null>(null)
   const [supabasePwLoading, setSupabasePwLoading] = useState(false)
   const [supabaseRecoveryToken, setSupabaseRecoveryToken] = useState<string | null>(null)
+  // Scan history survives logout (localStorage) — shown so visitors can return to scanned pets
+  const [scanHistory, setScanHistory] = useState<RecentlyViewedAnimal[]>([])
+  useEffect(() => { setScanHistory(getRecentlyViewedAnimals().filter(i => i.source !== 'animal')) }, [])
 
   useEffect(() => {
     fetch('/api/settings').then(res => res.json()).then(data => {
@@ -272,6 +276,29 @@ export default function LoginPage() {
         >
           <ScanLine size={18} /> {t('auth.scanWithoutLogin')}
         </button>
+
+        {scanHistory.length > 0 && (
+          <div style={{ marginBottom: 'var(--space-4)', padding: 'var(--space-3)', background: 'var(--surface)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-2)', color: 'var(--text-secondary)' }}>
+              <Clock size={14} />
+              <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>{t('recent.title')}</span>
+            </div>
+            <div style={{ display: 'grid', gap: 'var(--space-1)' }}>
+              {scanHistory.slice(0, 5).map(item => (
+                <Link
+                  key={item.id}
+                  to={item.path || `/animals/${item.id}`}
+                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 'var(--space-2)', borderRadius: 'var(--radius-sm)', textDecoration: 'none', color: 'inherit' }}
+                >
+                  <span style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>{item.name}</span>
+                  <span className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>
+                    {item.species || ''}{item.breed ? ` · ${item.breed}` : ''}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
 
         <button
           style={{
