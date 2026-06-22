@@ -303,7 +303,11 @@ export default function AdminPage() {
   const testMailSettings = async () => {
     setMailSettingsTesting(true)
     try {
-      const res = await adminTestMailSettings(appSettings)
+      // Never transmit secrets in the test payload — the server uses the
+      // stored (encrypted) credentials. Save first to test a new password.
+      const { smtp_password, oauth2_client_secret, oauth2_refresh_token, oauth2_access_token, ...mailSafe } = appSettings as any
+      void smtp_password; void oauth2_client_secret; void oauth2_refresh_token; void oauth2_access_token
+      const res = await adminTestMailSettings(mailSafe)
       alert(res.data.message || t('admin.mailSettingsTestSuccess'))
     } catch (e) {
       const err = e as { response?: { data?: { error?: string } } }
