@@ -63,6 +63,7 @@ export default function AnimalPage() {
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc')
   const [showAdvancedFilter, setShowAdvancedFilter] = useState(false)
   const [showTransfer, setShowTransfer] = useState(false)
+  const [showLocationShare, setShowLocationShare] = useState(false)
   const [transferCode, setTransferCode] = useState('')
   const [showShare, setShowShare] = useState(false)
   const [shareLink, setShareLink] = useState('')
@@ -758,6 +759,15 @@ export default function AnimalPage() {
                   <button className="btn btn-ghost" style={{ minWidth: 0 }} onClick={() => setShowTransfer(true)}>
                     <ArrowRightLeft size={16} /> {t('animal.transferBtn')}
                   </button>
+                  <button className="btn btn-ghost" style={{ minWidth: 0, gridColumn: 'span 2' }} onClick={() => setShowLocationShare(s => !s)}>
+                    <MapPin size={16} /> {t('animal.shareLocation')}
+                  </button>
+                </div>
+              )}
+
+              {isOwner && showLocationShare && animal.id && (
+                <div style={{ marginBottom: 'var(--space-4)' }}>
+                  <LocationReportButton animalId={animal.id} animalName={animal.name} />
                 </div>
               )}
 

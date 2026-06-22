@@ -124,6 +124,7 @@
   "animal.analyzeBtn": "Analysieren",
   "animal.analyzeFailedRetry": "Fehler beim Analysieren. Bitte versuchen Sie es später erneut.",
   "animal.archiveAnimal": "Tier archivieren",
+  "animal.shareLocation": "Standort teilen",
   "animal.vetVisibilityLocked": "Von einem verifizierten Tierarzt hinzugefügt – für andere Tierärzte immer sichtbar, kann nicht ausgeblendet werden.",
   "animal.archiveConfirm": "Möchtest du dieses Tier archivieren? Es wechselt in einen Read-Only Status.",
   "animal.archiveDialog": "Archivierungsgrund wählen",
