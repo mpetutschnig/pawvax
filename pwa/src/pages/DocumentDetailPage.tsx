@@ -903,7 +903,7 @@ export default function DocumentDetailPage() {
           const ingSource = ing.ingredients_source
           const confidence = typeof pa.confidence === 'number' ? pa.confidence : undefined
 
-          const infoFields: [string, any][] = [
+          const infoFields = ([
             [t('docDetail.manufacturer'), pi.manufacturer || extracted.manufacturer],
             [t('docDetail.dosageUnit'), pi.dosage_unit || extracted.dosage],
             [t('docDetail.administration'), pi.administration],
@@ -915,7 +915,7 @@ export default function DocumentDetailPage() {
             [t('docDetail.washoutPeriod'), pi.washout_period],
             [t('vaccine.batchNumber'), batch.batch_number || extracted.batch_number],
             [t('docDetail.expiryDate'), batch.expiry_date],
-          ].filter(([, v]) => v)
+          ] as [string, any][]).filter(([, v]) => v)
 
           const Field = ({ label, value }: { label: string; value: any }) => (
             <div style={{ background: 'var(--surface)', padding: 'var(--space-3)', borderRadius: 'var(--radius-md)' }}>
