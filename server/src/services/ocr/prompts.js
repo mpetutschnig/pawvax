@@ -178,24 +178,55 @@ Gib EXAKT diese JSON-Struktur zurück (nur valide JSON, kein Text davor/danach).
 `.trim(),
 
     medical_product: `
-Du bist ein Veterinär-Dokumentenanalyst. Analysiere diese Medikamenten-/Produktbeschreibung und gib strukturierte JSON-Daten zurück.
+Du bist ein Veterinär-Dokumentenanalyst. Analysiere diese Medikamenten-/Produktbeschreibung (Packungsbeilage, Produktdatenblatt) und gib AUSSCHLIESSLICH valides JSON in EXAKT folgender Struktur zurück (kein Text davor/danach):
 
-WICHTIGE REGELN:
-1. Extrahiere: Produktname, Wirkstoff(e), Packungsgröße, Dosierung/Einheit, Anwendungsart.
-2. Lies Hersteller, Chargennummer (falls vorhanden), Verfallsdatum.
-3. Kurze Anwendungshinweise extrahieren.
-4. INHALTSSTOFFE: Erstelle ein Feld "ingredients" als Array aller Inhaltsstoffe.
-   - Trenne nach "active_ingredients" (Wirkstoffe mit Menge/Einheit, z.B. "Amoxicillin 500 mg") und "excipients" (Hilfsstoffe).
-   - Erfasse zusätzlich, falls vorhanden: ATC-Code, Darreichungsform, Zieltierarten, Wartezeit.
-5. INTERNET-/WISSENS-FALLBACK: Wenn die Inhaltsstoffe/Zusammensetzung NICHT auf dem Dokument
-   stehen, ergänze sie aus deinem pharmakologischen Wissen über das exakt benannte Produkt
-   (Standard-Zusammensetzung dieses Tierarzneimittels). Markiere solche ergänzten Felder mit
-   "ingredients_source": "inferred" (sonst "document"). Erfinde NICHTS bei unbekannten Produkten —
-   setze dann "ingredients_source": "unknown" und lasse die Felder leer.
-6. "document_date": Datum auf dem Dokument oder Verfallsdatum im Format YYYY-MM-DD.
-7. "title": z.B. "Amoxicillin 500mg - Packungsbeilage".
+{
+  "type": "medical_product",
+  "title": "<Produktname + Stärke + Dokumenttyp, z.B. 'Milbeguard Duo 12,5mg/125mg - Packungsbeilage'>",
+  "document_date": "<YYYY-MM-DD oder null>",
+  "summary": "<1 Satz Kurzbeschreibung>",
+  "suggested_tags": ["<stichworte>"],
+  "product_analysis": {
+    "confidence": <0.0-1.0>,
+    "product_info": {
+      "product_name": "<Name oder null>",
+      "manufacturer": "<Hersteller oder null>",
+      "pack_size": "<Packungsgröße oder null>",
+      "dosage_unit": "<Stärke pro Einheit oder null>",
+      "administration": "<Anwendungsart, z.B. 'Kautabletten (oral)' oder null>",
+      "target_species": ["<Tierart>"],
+      "minimum_weight": "<min. Körpergewicht oder null>",
+      "atcvet_code": "<ATCvet-Code oder null>",
+      "formulation": "<Darreichungsform oder null>",
+      "washout_period": "<Wartezeit oder null>"
+    },
+    "ingredients": {
+      "ingredients_source": "<document | inferred | unknown>",
+      "active_ingredients": [ { "name": "<Wirkstoff>", "amount": "<Menge>", "unit": "<Einheit>" } ],
+      "excipients": ["<Hilfsstoff>"]
+    },
+    "usage_instructions": {
+      "indication": "<Anwendungsgebiet oder null>",
+      "dosage": "<Dosierung oder null>",
+      "administration_details": "<Hinweise zur Verabreichung oder null>",
+      "contraindications": ["<Gegenanzeige>"],
+      "side_effects": ["<Nebenwirkung>"],
+      "storage": "<Lagerung oder null>"
+    },
+    "batch_info": { "batch_number": "<oder null>", "expiry_date": "<YYYY-MM-DD oder null>" },
+    "additional_notes": { "notes": "<sonstige Hinweise oder null>" }
+  }
+}
 
-Gib EXAKT diese JSON-Struktur zurück (nur valide JSON, kein Text davor/danach).
+REGELN:
+0. SPRACHE: ALLE Freitext-Werte (title, summary, indication, dosage, contraindications, side_effects, notes, Hilfsstoffe usw.) auf DEUTSCH ausgeben — unabhängig von der Dokumentsprache.
+1. Felder, die nicht ermittelbar sind, auf null bzw. leeres Array setzen — KEINE Platzhalter.
+2. "title", "document_date", "summary", "suggested_tags" IMMER auf oberster Ebene füllen (für Listen/Sortierung).
+3. INHALTSSTOFFE: Wirkstoffe (mit Menge/Einheit) in "active_ingredients", Hilfsstoffe in "excipients".
+4. WISSENS-FALLBACK: Stehen Inhaltsstoffe/Zusammensetzung NICHT auf dem Dokument, ergänze sie aus
+   deinem pharmakologischen Wissen über das exakt benannte Produkt und setze
+   "ingredients_source": "inferred". Stehen sie auf dem Dokument: "document". Unbekanntes Produkt:
+   "ingredients_source": "unknown" und Inhaltsstoff-Felder leer lassen — NICHTS erfinden.
 `.trim(),
 
     general: `
@@ -339,24 +370,54 @@ Return EXACTLY this JSON structure (only valid JSON, no text before/after).
 `.trim(),
 
     medical_product: `
-You are a veterinary document analyst. Analyze this medication/product description and return structured JSON data.
+You are a veterinary document analyst. Analyze this medication/product description (package insert, product datasheet) and return ONLY valid JSON in EXACTLY this structure (no text before/after):
 
-IMPORTANT RULES:
-1. Extract: product name, active substance(s), package size, dosage/unit, application method.
-2. Read manufacturer, batch number (if present), expiration date.
-3. Extract brief usage instructions.
-4. INGREDIENTS: Build an "ingredients" field as an array of all ingredients.
-   - Split into "active_ingredients" (substances with amount/unit, e.g. "Amoxicillin 500 mg") and "excipients" (inactive ingredients).
-   - Also capture, if present: ATC code, dosage form, target species, withdrawal period.
-5. INTERNET/KNOWLEDGE FALLBACK: If the ingredients/composition are NOT on the document,
-   supplement them from your pharmacological knowledge of the exact named product (its standard
-   composition as a veterinary medicine). Mark such supplemented fields with
-   "ingredients_source": "inferred" (otherwise "document"). Do NOT invent data for unknown
-   products — in that case set "ingredients_source": "unknown" and leave the fields empty.
-6. "document_date": date on document or expiration date in format YYYY-MM-DD.
-7. "title": e.g., "Amoxicillin 500mg - Package Insert".
+{
+  "type": "medical_product",
+  "title": "<product name + strength + doc type, e.g. 'Milbeguard Duo 12.5mg/125mg - Package Insert'>",
+  "document_date": "<YYYY-MM-DD or null>",
+  "summary": "<1-sentence summary>",
+  "suggested_tags": ["<keywords>"],
+  "product_analysis": {
+    "confidence": <0.0-1.0>,
+    "product_info": {
+      "product_name": "<or null>",
+      "manufacturer": "<or null>",
+      "pack_size": "<or null>",
+      "dosage_unit": "<strength per unit or null>",
+      "administration": "<e.g. 'chewable tablets (oral)' or null>",
+      "target_species": ["<species>"],
+      "minimum_weight": "<min body weight or null>",
+      "atcvet_code": "<ATCvet code or null>",
+      "formulation": "<dosage form or null>",
+      "washout_period": "<withdrawal period or null>"
+    },
+    "ingredients": {
+      "ingredients_source": "<document | inferred | unknown>",
+      "active_ingredients": [ { "name": "<substance>", "amount": "<amount>", "unit": "<unit>" } ],
+      "excipients": ["<excipient>"]
+    },
+    "usage_instructions": {
+      "indication": "<or null>",
+      "dosage": "<or null>",
+      "administration_details": "<or null>",
+      "contraindications": ["<contraindication>"],
+      "side_effects": ["<side effect>"],
+      "storage": "<or null>"
+    },
+    "batch_info": { "batch_number": "<or null>", "expiry_date": "<YYYY-MM-DD or null>" },
+    "additional_notes": { "notes": "<other notes or null>" }
+  }
+}
 
-Return EXACTLY this JSON structure (only valid JSON, no text before/after).
+RULES:
+1. Unknown fields → null or empty array. NO placeholders.
+2. Always fill top-level "title", "document_date", "summary", "suggested_tags" (used for lists/sorting).
+3. INGREDIENTS: active substances (with amount/unit) in "active_ingredients", inactive ones in "excipients".
+4. KNOWLEDGE FALLBACK: If ingredients/composition are NOT on the document, supplement them from your
+   pharmacological knowledge of the exact named product and set "ingredients_source": "inferred".
+   If on the document: "document". Unknown product: "ingredients_source": "unknown" and leave the
+   ingredient fields empty — do NOT invent anything.
 `.trim(),
 
     general: `

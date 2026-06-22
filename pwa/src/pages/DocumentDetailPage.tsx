@@ -891,73 +891,119 @@ export default function DocumentDetailPage() {
         })()}
 
         {doc.doc_type === 'medical_product' && (() => {
-          const product = extracted
-          return product && (
-            <div style={{ marginBottom: 'var(--space-6)' }}>
-              <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0, display: 'flex', gap: '8px', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
-                <Pill size={18} /> {product.title || 'Medizinisches Produkt'}
+          const pa = extracted.product_analysis || {}
+          const pi = pa.product_info || {}
+          const ing = pa.ingredients || extracted.ingredients || {}
+          const usage = pa.usage_instructions || {}
+          const batch = pa.batch_info || {}
+          const notes = pa.additional_notes?.notes
+          const norm = (v: any) => Array.isArray(v) ? v.filter(Boolean) : (v ? [v] : [])
+          const activeIng = norm(ing.active_ingredients || extracted.active_ingredients)
+          const excip = norm(ing.excipients || extracted.excipients)
+          const ingSource = ing.ingredients_source
+          const confidence = typeof pa.confidence === 'number' ? pa.confidence : undefined
+
+          const infoFields: [string, any][] = [
+            [t('docDetail.manufacturer'), pi.manufacturer || extracted.manufacturer],
+            [t('docDetail.dosageUnit'), pi.dosage_unit || extracted.dosage],
+            [t('docDetail.administration'), pi.administration],
+            [t('docDetail.formulation'), pi.formulation],
+            [t('docDetail.packSize'), pi.pack_size],
+            [t('docDetail.targetSpecies'), Array.isArray(pi.target_species) ? pi.target_species.join(', ') : pi.target_species],
+            [t('docDetail.minWeight'), pi.minimum_weight],
+            [t('docDetail.atcvet'), pi.atcvet_code],
+            [t('docDetail.washoutPeriod'), pi.washout_period],
+            [t('vaccine.batchNumber'), batch.batch_number || extracted.batch_number],
+            [t('docDetail.expiryDate'), batch.expiry_date],
+          ].filter(([, v]) => v)
+
+          const Field = ({ label, value }: { label: string; value: any }) => (
+            <div style={{ background: 'var(--surface)', padding: 'var(--space-3)', borderRadius: 'var(--radius-md)' }}>
+              <p style={{ margin: '0 0 4px 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>{label}</p>
+              <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', fontWeight: 500 }}>{value}</p>
+            </div>
+          )
+          const sectionTitle = (txt: string) => (
+            <p style={{ margin: '0 0 var(--space-2) 0', fontSize: 'var(--font-size-xs)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-tertiary)' }}>{txt}</p>
+          )
+
+          return (
+            <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
+              <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: '0 0 var(--space-4) 0', display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <Pill size={18} color="var(--primary-600)" /> {pi.product_name || extracted.title || t('animal.docTypeMedicalProduct')}
+                {confidence !== undefined && (
+                  <span className="badge" style={{ fontSize: 10, marginLeft: 'auto', background: 'var(--surface-alt)', color: 'var(--text-secondary)' }}>{Math.round(confidence * 100)}%</span>
+                )}
               </h3>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)', marginBottom: 'var(--space-3)' }}>
-                {product.active_ingredient && (
-                  <div style={{ background: 'var(--surface)', padding: 'var(--space-3)', borderRadius: 'var(--radius-md)' }}>
-                    <p style={{ margin: '0 0 4px 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>{t('docDetail.activeIngredient')}</p>
-                    <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', fontWeight: 500 }}>{product.active_ingredient}</p>
+
+              {/* Produkt-Infos */}
+              {infoFields.length > 0 && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 'var(--space-2)', marginBottom: 'var(--space-4)' }}>
+                  {infoFields.map(([label, value], i) => <Field key={i} label={label} value={value} />)}
+                </div>
+              )}
+
+              {/* Inhaltsstoffe */}
+              {(activeIng.length > 0 || excip.length > 0) && (
+                <div style={{ background: 'var(--surface)', padding: 'var(--space-3)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-4)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 'var(--space-2)' }}>
+                    {sectionTitle(t('docDetail.ingredients'))}
+                    {ingSource === 'inferred' && (
+                      <span className="badge" style={{ fontSize: 10, marginBottom: 'var(--space-2)', background: 'var(--info-100)', color: 'var(--info-700)' }} title={t('docDetail.ingredientsInferredHint')}>{t('docDetail.ingredientsInferred')}</span>
+                    )}
                   </div>
-                )}
-                {product.dosage && (
-                  <div style={{ background: 'var(--surface)', padding: 'var(--space-3)', borderRadius: 'var(--radius-md)' }}>
-                    <p style={{ margin: '0 0 4px 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>{t('docDetail.dosage')}</p>
-                    <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', fontWeight: 500 }}>{product.dosage}</p>
-                  </div>
-                )}
-                {product.batch_number && (
-                  <div style={{ background: 'var(--surface)', padding: 'var(--space-3)', borderRadius: 'var(--radius-md)' }}>
-                    <p style={{ margin: '0 0 4px 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>{t('vaccine.batchNumber')}</p>
-                    <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', fontWeight: 500 }}>{product.batch_number}</p>
-                  </div>
-                )}
-                {product.manufacturer && (
-                  <div style={{ background: 'var(--surface)', padding: 'var(--space-3)', borderRadius: 'var(--radius-md)' }}>
-                    <p style={{ margin: '0 0 4px 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>{t('vaccine.manufacturer')}</p>
-                    <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', fontWeight: 500 }}>{product.manufacturer}</p>
-                  </div>
-                )}
-              </div>
-              {(() => {
-                const ing = product.ingredients || {}
-                const active = ing.active_ingredients || product.active_ingredients || []
-                const excipients = ing.excipients || product.excipients || []
-                const source = ing.ingredients_source || product.ingredients_source
-                const norm = (v: any) => Array.isArray(v) ? v : (v ? [v] : [])
-                const a = norm(active), e = norm(excipients)
-                if (a.length === 0 && e.length === 0) return null
-                return (
-                  <div style={{ background: 'var(--surface)', padding: 'var(--space-3)', borderRadius: 'var(--radius-md)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 'var(--space-2)' }}>
-                      <p style={{ margin: 0, fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', fontWeight: 600 }}>{t('docDetail.ingredients')}</p>
-                      {source === 'inferred' && (
-                        <span className="badge" style={{ fontSize: 10, background: 'var(--info-100)', color: 'var(--info-700)' }} title={t('docDetail.ingredientsInferredHint')}>{t('docDetail.ingredientsInferred')}</span>
-                      )}
+                  {activeIng.length > 0 && (
+                    <div style={{ marginBottom: excip.length > 0 ? 'var(--space-3)' : 0 }}>
+                      <p style={{ margin: '0 0 4px 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>{t('docDetail.activeIngredient')}</p>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+                        {activeIng.map((x: any, i: number) => (
+                          <span key={i} style={{ background: 'var(--primary-50)', color: 'var(--primary-700)', border: '1px solid var(--primary-200)', borderRadius: 'var(--radius-full)', padding: '2px 10px', fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>
+                            {typeof x === 'string' ? x : [x.name, x.amount, x.unit].filter(Boolean).join(' ')}
+                          </span>
+                        ))}
+                      </div>
                     </div>
-                    {a.length > 0 && (
-                      <div style={{ marginBottom: e.length > 0 ? 'var(--space-2)' : 0 }}>
-                        <p style={{ margin: '0 0 2px 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>{t('docDetail.activeIngredient')}</p>
-                        <ul style={{ margin: 0, paddingLeft: 18, fontSize: 'var(--font-size-sm)' }}>
-                          {a.map((x: any, i: number) => <li key={i}>{typeof x === 'string' ? x : [x.name, x.amount, x.unit].filter(Boolean).join(' ')}</li>)}
-                        </ul>
-                      </div>
-                    )}
-                    {e.length > 0 && (
-                      <div>
-                        <p style={{ margin: '0 0 2px 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>{t('docDetail.excipients')}</p>
-                        <ul style={{ margin: 0, paddingLeft: 18, fontSize: 'var(--font-size-sm)' }}>
-                          {e.map((x: any, i: number) => <li key={i}>{typeof x === 'string' ? x : [x.name, x.amount, x.unit].filter(Boolean).join(' ')}</li>)}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
-                )
-              })()}
+                  )}
+                  {excip.length > 0 && (
+                    <div>
+                      <p style={{ margin: '0 0 4px 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>{t('docDetail.excipients')}</p>
+                      <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
+                        {excip.map((x: any) => typeof x === 'string' ? x : [x.name, x.amount, x.unit].filter(Boolean).join(' ')).join(' · ')}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Anwendung */}
+              {(usage.indication || usage.dosage || usage.administration_details || norm(usage.contraindications).length > 0 || norm(usage.side_effects).length > 0 || usage.storage) && (
+                <div style={{ display: 'grid', gap: 'var(--space-3)', marginBottom: notes ? 'var(--space-4)' : 0 }}>
+                  {usage.indication && (<div>{sectionTitle(t('docDetail.indication'))}<p style={{ margin: 0, fontSize: 'var(--font-size-sm)' }}>{usage.indication}</p></div>)}
+                  {usage.dosage && (<div>{sectionTitle(t('docDetail.dosage'))}<p style={{ margin: 0, fontSize: 'var(--font-size-sm)' }}>{usage.dosage}</p></div>)}
+                  {usage.administration_details && (<div>{sectionTitle(t('docDetail.administrationDetails'))}<p style={{ margin: 0, fontSize: 'var(--font-size-sm)' }}>{usage.administration_details}</p></div>)}
+                  {norm(usage.contraindications).length > 0 && (
+                    <div style={{ background: 'color-mix(in oklch, var(--danger-500) 8%, var(--surface))', border: '1px solid color-mix(in oklch, var(--danger-500) 25%, transparent)', borderRadius: 'var(--radius-md)', padding: 'var(--space-3)' }}>
+                      {sectionTitle(t('docDetail.contraindications'))}
+                      <ul style={{ margin: 0, paddingLeft: 18, fontSize: 'var(--font-size-sm)' }}>{norm(usage.contraindications).map((x: string, i: number) => <li key={i}>{x}</li>)}</ul>
+                    </div>
+                  )}
+                  {norm(usage.side_effects).length > 0 && (
+                    <div style={{ background: 'color-mix(in oklch, var(--warning-500) 10%, var(--surface))', border: '1px solid color-mix(in oklch, var(--warning-500) 28%, transparent)', borderRadius: 'var(--radius-md)', padding: 'var(--space-3)' }}>
+                      {sectionTitle(t('docDetail.sideEffects'))}
+                      <ul style={{ margin: 0, paddingLeft: 18, fontSize: 'var(--font-size-sm)' }}>{norm(usage.side_effects).map((x: string, i: number) => <li key={i}>{x}</li>)}</ul>
+                    </div>
+                  )}
+                  {usage.storage && (<div>{sectionTitle(t('docDetail.storage'))}<p style={{ margin: 0, fontSize: 'var(--font-size-sm)' }}>{usage.storage}</p></div>)}
+                </div>
+              )}
+
+              {/* Hinweise */}
+              {notes && (
+                <div style={{ background: 'var(--surface)', padding: 'var(--space-3)', borderRadius: 'var(--radius-md)' }}>
+                  {sectionTitle(t('docDetail.notes'))}
+                  <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>{notes}</p>
+                </div>
+              )}
             </div>
           )
         })()}

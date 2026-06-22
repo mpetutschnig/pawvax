@@ -1420,10 +1420,14 @@ html[data-theme="dark"] .nav-bar h2 {
 /* Animal summary pinned as a top bar (below the sticky app header) */
 .animal-section-profile {
   position: sticky;
-  top: var(--animal-topbar-offset, 48px);
+  top: var(--animal-topbar-offset, 56px);
   z-index: 19;
   background: var(--bg);
+  /* padding-top so the pinned card isn't clipped by the app header; the band
+     above also masks content scrolling underneath at the seam */
+  padding-top: var(--space-2);
   padding-bottom: var(--space-2);
+  margin-top: calc(var(--space-2) * -1);
 }
 
 /* ════════════════════════════════════════════════════════════════
