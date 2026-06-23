@@ -411,6 +411,7 @@ You are a veterinary document analyst. Analyze this medication/product descripti
 }
 
 RULES:
+0. LANGUAGE: Output ALL free-text values (title, summary, indication, dosage, contraindications, side_effects, notes, excipients, etc.) in GERMAN — regardless of the document's language. This is a German veterinary app.
 1. Unknown fields → null or empty array. NO placeholders.
 2. Always fill top-level "title", "document_date", "summary", "suggested_tags" (used for lists/sorting).
 3. INGREDIENTS: active substances (with amount/unit) in "active_ingredients", inactive ones in "excipients".

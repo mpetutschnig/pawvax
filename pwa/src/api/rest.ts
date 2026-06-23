@@ -97,6 +97,11 @@ export const markLocationReportSeen = (animalId: string, reportId: string) =>
 export const deleteLocationReport = (animalId: string, reportId: string) =>
   api.delete(`/animals/${animalId}/location-reports/${reportId}`)
 
+// Web-Push
+export const getVapidPublicKey = () => api.get<{ publicKey: string | null }>(`/push/vapid-public-key`)
+export const pushSubscribe = (sub: PushSubscriptionJSON) => api.post(`/push/subscribe`, sub)
+export const pushUnsubscribe = (endpoint: string) => api.post(`/push/unsubscribe`, { endpoint })
+
 export const getAnimalDocuments = (id: string) => api.get(`/animals/${id}/documents`)
 export const getAnimalTags = (id: string) => api.get(`/animals/${id}/tags`)
 export const addTag = (id: string, tagId: string, tagType: 'barcode' | 'nfc' | 'chip') =>

@@ -1153,9 +1153,11 @@ export default function AnimalPage() {
                                     <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Freigabe:</span>
                                     {(['guest', 'vet', 'authority'] as const).map(r => (
                                       <label key={r} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 'var(--font-size-xs)', cursor: 'pointer' }}>
-                                        <input type="checkbox" checked={recPerms.includes(r)} disabled={updatingRecord === `${record.documentId}-${record.recordKey}`}
+                                        <input type="checkbox" checked={recPerms.includes(r)}
+                                          disabled={updatingRecord === `${record.documentId}-${record.recordKey}` || (r === 'vet' && record.doc?.added_by_role === 'vet')}
+                                          title={r === 'vet' && record.doc?.added_by_role === 'vet' ? t('animal.vetVisibilityLocked') : undefined}
                                           onChange={() => handleToggleRecordRole(record.documentId, record.recordKey, recPerms, r)} />
-                                        {r}
+                                        {r}{r === 'vet' && record.doc?.added_by_role === 'vet' && <Lock size={10} style={{ marginLeft: 2 }} />}
                                       </label>
                                     ))}
                                     {updatingRecord === `${record.documentId}-${record.recordKey}` && <div className="spinner" style={{ width: 12, height: 12, borderWidth: 1 }} />}
@@ -1299,9 +1301,11 @@ export default function AnimalPage() {
                                       <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Freigabe:</span>
                                       {(['guest', 'vet', 'authority'] as const).map(r => (
                                         <label key={r} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 'var(--font-size-xs)', cursor: 'pointer' }}>
-                                          <input type="checkbox" checked={recPerms.includes(r)} disabled={updatingRecord === `${record.documentId}-${record.recordKey}`}
+                                          <input type="checkbox" checked={recPerms.includes(r)}
+                                            disabled={updatingRecord === `${record.documentId}-${record.recordKey}` || (r === 'vet' && record.doc?.added_by_role === 'vet')}
+                                            title={r === 'vet' && record.doc?.added_by_role === 'vet' ? t('animal.vetVisibilityLocked') : undefined}
                                             onChange={() => handleToggleRecordRole(record.documentId, record.recordKey, recPerms, r)} />
-                                          {r}
+                                          {r}{r === 'vet' && record.doc?.added_by_role === 'vet' && <Lock size={10} style={{ marginLeft: 2 }} />}
                                         </label>
                                       ))}
                                       {updatingRecord === `${record.documentId}-${record.recordKey}` && <div className="spinner" style={{ width: 12, height: 12, borderWidth: 1 }} />}
@@ -1382,10 +1386,10 @@ export default function AnimalPage() {
                                     {(['guest', 'vet', 'authority'] as const).map(r => (
                                       <label key={r} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 'var(--font-size-xs)', cursor: 'pointer' }}>
                                         <input type="checkbox" checked={docRoles.includes(r)}
-                                          disabled={updatingRecord === `${doc.id}-doc` || (r === 'vet' && doc.added_by_role === 'vet' && !!doc.added_by_verified)}
-                                          title={r === 'vet' && doc.added_by_role === 'vet' && !!doc.added_by_verified ? t('animal.vetVisibilityLocked') : undefined}
+                                          disabled={updatingRecord === `${doc.id}-doc` || (r === 'vet' && doc.added_by_role === 'vet')}
+                                          title={r === 'vet' && doc.added_by_role === 'vet' ? t('animal.vetVisibilityLocked') : undefined}
                                           onChange={() => handleToggleDocumentRole(doc.id, docRoles, r)} />
-                                        {r}{r === 'vet' && doc.added_by_role === 'vet' && !!doc.added_by_verified && <Lock size={10} style={{ marginLeft: 2 }} />}
+                                        {r}{r === 'vet' && doc.added_by_role === 'vet' && <Lock size={10} style={{ marginLeft: 2 }} />}
                                       </label>
                                     ))}
                                     {updatingRecord === `${doc.id}-doc` && <div className="spinner" style={{ width: 12, height: 12, borderWidth: 1 }} />}
@@ -1416,9 +1420,6 @@ export default function AnimalPage() {
                   <thead>
                     <tr style={{ borderBottom: '1px solid var(--border)' }}>
                       <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) 0', whiteSpace: 'nowrap' }}>Produkt</th>
-                      <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Wirkstoff</th>
-                      <th className="col-mobile-hidden" style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Charge</th>
-                      <th style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Datum</th>
                       {isOwner && <th className="col-mobile-hidden" style={{ textAlign: 'left', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>Rollen</th>}
                     </tr>
                   </thead>
@@ -1429,13 +1430,12 @@ export default function AnimalPage() {
                       const extracted = doc.extracted_json || {}
                       return (
                         <>
-                          <tr key={doc.id} style={{ borderBottom: isExpanded ? 'none' : '1px solid var(--border-subtle)', cursor: 'pointer' }} onClick={() => setExpandedRecord(isExpanded ? null : doc.id)}>
+                          <tr key={doc.id} style={{ borderBottom: isExpanded ? 'none' : '1px solid var(--border-subtle)', cursor: isOwner ? 'pointer' : undefined }} onClick={isOwner ? () => setExpandedRecord(isExpanded ? null : doc.id) : undefined}>
                             <td style={{ padding: 'var(--space-2) 0' }}>
-                              <span style={{ fontWeight: 600 }}>{extracted.title || 'Medizinisches Produkt'}</span>
+                              <Link to={`/animals/${id}/documents/${doc.id}`} style={{ color: 'var(--text-primary)', textDecoration: 'none', fontWeight: 600 }} onClick={e => e.stopPropagation()}>
+                                {extracted.product_analysis?.product_info?.product_name || extracted.title || 'Medizinisches Produkt'}
+                              </Link>
                             </td>
-                            <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{extracted.active_ingredient || '—'}</td>
-                            <td className="col-mobile-hidden" style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{extracted.batch_number || '—'}</td>
-                            <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{extracted.document_date || formatDateOnly(doc.created_at, i18n.language === 'de' ? 'de-AT' : 'en-GB')}</td>
                             {isOwner && (
                               <td className="col-mobile-hidden" style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>
                                 <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
@@ -1449,24 +1449,17 @@ export default function AnimalPage() {
                           </tr>
                           {isExpanded && (
                             <tr key={`${doc.id}-expand`} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                              <td colSpan={6} style={{ padding: 'var(--space-2) 0 var(--space-3) 0' }}>
-                                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 'var(--space-2)' }}>
-                                  <Link to={`/animals/${id}/documents/${doc.id}`} className="btn btn-outline" style={{ fontSize: 'var(--font-size-xs)', padding: '3px 10px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                                    <FileText size={12} /> {t('animal.openDocument')}
-                                  </Link>
-                                  {extracted.active_ingredient && <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Wirkstoff: <strong>{extracted.active_ingredient}</strong></span>}
-                                  {extracted.batch_number && <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Charge: <strong>{extracted.batch_number}</strong></span>}
-                                </div>
+                              <td colSpan={2} style={{ padding: 'var(--space-2) 0 var(--space-3) 0' }}>
                                 {isOwner && (
                                   <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                                     <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Freigabe:</span>
                                     {(['guest', 'vet', 'authority'] as const).map(r => (
                                       <label key={r} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 'var(--font-size-xs)', cursor: 'pointer' }}>
                                         <input type="checkbox" checked={docRoles.includes(r)}
-                                          disabled={updatingRecord === `${doc.id}-doc` || (r === 'vet' && doc.added_by_role === 'vet' && !!doc.added_by_verified)}
-                                          title={r === 'vet' && doc.added_by_role === 'vet' && !!doc.added_by_verified ? t('animal.vetVisibilityLocked') : undefined}
+                                          disabled={updatingRecord === `${doc.id}-doc` || (r === 'vet' && doc.added_by_role === 'vet')}
+                                          title={r === 'vet' && doc.added_by_role === 'vet' ? t('animal.vetVisibilityLocked') : undefined}
                                           onChange={() => handleToggleDocumentRole(doc.id, docRoles, r)} />
-                                        {r}{r === 'vet' && doc.added_by_role === 'vet' && !!doc.added_by_verified && <Lock size={10} style={{ marginLeft: 2 }} />}
+                                        {r}{r === 'vet' && doc.added_by_role === 'vet' && <Lock size={10} style={{ marginLeft: 2 }} />}
                                       </label>
                                     ))}
                                     {updatingRecord === `${doc.id}-doc` && <div className="spinner" style={{ width: 12, height: 12, borderWidth: 1 }} />}

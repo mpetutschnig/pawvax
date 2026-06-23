@@ -4,12 +4,14 @@ import { useTranslation } from 'react-i18next'
 import { getMe, patchMe, deleteMe, requestVerification, getMyVerifications, getUserApiKeys, createUserApiKey, deleteUserApiKey } from '../api/rest'
 import { PageHeader } from '../components/PageHeader'
 import { formatDate, formatDateOnly } from '../utils/date'
-import { User, Shield, Stethoscope, Settings, Trash2, CheckCircle, Clock, AlertTriangle, Key, BookOpen, Download, Upload, X, Cpu } from 'lucide-react'
+import { User, Shield, Stethoscope, Settings, Trash2, CheckCircle, Clock, AlertTriangle, Key, BookOpen, Download, Upload, X, Cpu, Bell } from 'lucide-react'
+import { usePushSubscription } from '../hooks/usePushSubscription'
 import { DEFAULT_AVAILABLE_MODELS, DEFAULT_MODEL_BY_PROVIDER } from '../utils/documentAnalysis'
 
 export default function ProfilePage() {
   const navigate = useNavigate()
   const { t, i18n } = useTranslation()
+  const push = usePushSubscription()
   const [profile, setProfile] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -705,6 +707,26 @@ export default function ProfilePage() {
               <button className={`btn ${i18n.language === 'en' ? 'btn-primary' : 'btn-outline'}`} onClick={() => i18n.changeLanguage('en')}>{t('profile.english')}</button>
             </div>
           </div>
+
+          {push.supported && push.state !== 'unsupported' && (
+            <div className="card animate-fade-in" style={{ marginTop: 'var(--space-4)' }}>
+              <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginTop: 0, marginBottom: 'var(--space-2)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                <Bell size={18} /> {t('profile.pushTitle')}
+              </h3>
+              <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-3)' }}>{t('profile.pushDesc')}</p>
+              {push.state === 'denied' ? (
+                <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', color: 'var(--warning-700)' }}>{t('profile.pushDenied')}</p>
+              ) : push.state === 'subscribed' ? (
+                <button className="btn btn-outline" disabled={push.busy} onClick={() => push.unsubscribe()}>
+                  {push.busy ? t('common.loading') : t('profile.pushDisable')}
+                </button>
+              ) : (
+                <button className="btn btn-primary" disabled={push.busy || push.state === 'loading'} onClick={() => push.subscribe()}>
+                  <Bell size={16} /> {push.busy ? t('common.loading') : t('profile.pushEnable')}
+                </button>
+              )}
+            </div>
+          )}
 
           {!isAdmin && (
             <div className="card animate-fade-in" style={{ marginTop: 'var(--space-4)' }}>

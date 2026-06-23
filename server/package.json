@@ -1,6 +1,6 @@
 {
   "name": "paw-server",
-  "version": "20260622_1957",
+  "version": "20260623_0608",
   "type": "module",
   "scripts": {
     "start": "node src/app.js",
@@ -35,6 +35,7 @@
     "nodemailer": "^6.10.0",
     "pg": "^8.13.0",
     "sharp": "^0.34.5",
-    "uuid": "^14.0.0"
+    "uuid": "^14.0.0",
+    "web-push": "^3.6.7"
   }
 }

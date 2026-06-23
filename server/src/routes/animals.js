@@ -56,6 +56,7 @@ import { randomBytes } from 'node:crypto'
 import { getDb } from '../db/index.js'
 import { logAudit } from '../services/audit.js'
 import { sendLocationReportEmail } from '../services/authMail.js'
+import { sendToAccount as sendPushToAccount } from '../services/pushService.js'
 import { saveBase64Image, saveAvatarImage } from '../services/storage.js'
 import {
   normalizeRole,
@@ -1025,6 +1026,13 @@ export default async function animalRoutes(fastify) {
         fastify, req
       }).catch(() => {})
     }
+
+    // Web-Push to the owner (no GPS in payload — details after login). Fire-and-forget.
+    sendPushToAccount(animal.account_id, {
+      title: `📍 ${animal.name}`,
+      body: 'Neue Standortmeldung erhalten.',
+      url: `/animals/${animalId}`
+    }, fastify.log).catch(() => {})
 
     return genericOk
   })

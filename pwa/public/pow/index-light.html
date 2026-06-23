@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vetzsucht — eCard for pets</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #ffffff;
+    color: #1a1a1a;
+    font-family: 'Arial Black', 'Helvetica Neue', sans-serif;
+    height: 100vh;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  .slide {
+    display: none;
+    position: absolute;
+    inset: 0;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.08em;
+    padding: 8vw;
+    text-align: center;
+  }
+  .slide.active { display: flex; }
+
+  .xl {
+    font-size: clamp(44px, 8vw, 110px);
+    font-weight: 900;
+    letter-spacing: -0.04em;
+    text-transform: uppercase;
+    line-height: 0.93;
+  }
+  .lg {
+    font-size: clamp(30px, 5.5vw, 76px);
+    font-weight: 900;
+    letter-spacing: -0.03em;
+    text-transform: uppercase;
+    line-height: 0.97;
+  }
+  .sm {
+    font-size: clamp(12px, 1.6vw, 22px);
+    font-weight: 900;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: #76b82a;
+    margin-bottom: 0.4em;
+  }
+
+  /* Detail-Folien */
+  .detail {
+    justify-content: flex-end;
+    padding-bottom: 8vh;
+    align-items: center;
+  }
+  .detail-head {
+    font-size: clamp(26px, 4vw, 56px);
+    font-weight: 900;
+    letter-spacing: -0.03em;
+    text-transform: uppercase;
+    margin-bottom: 0.6em;
+  }
+
+  .tech-rows { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 940px; }
+  .tech-row  { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  .tech-cat  {
+    font-size: clamp(11px, 1.1vw, 15px);
+    font-weight: 900;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #76b82a;
+    min-width: 110px;
+    flex-shrink: 0;
+    text-align: right;
+  }
+  .tech-chip {
+    font-size: clamp(13px, 1.4vw, 18px);
+    font-weight: 700;
+    color: #1a1a1a;
+    background: rgba(118,184,42,0.12);
+    border: 1px solid rgba(118,184,42,0.5);
+    padding: 5px 14px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+
+  .dot {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 7px;
+    z-index: 10;
+  }
+  .dot span {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: #d7ebc2;
+    transition: background 0.15s;
+  }
+  .dot span.on { background: #d70a0a; }
+
+  .nav-hint {
+    position: fixed;
+    bottom: 48px;
+    right: 36px;
+    font-size: 11px;
+    color: #aacb8a;
+    letter-spacing: 0.1em;
+  }
+</style>
+</head>
+<body>
+
+<!-- PROBLEM: STAKES -->
+<div class="slide active">
+  <div class="xl">Aktuell?</div>
+</div>
+
+<div class="slide">
+  <div class="xl">bei</div>
+  <div class="xl" style="color:#76b82a">Notfall.</div>
+  <div class="lg">oder</div>
+  <div class="xl" style="color:#76b82a">Reise.</div>
+</div>
+
+<div class="slide">
+  <div class="xl" style="color:#1a1a1a">Du brauchst die Daten</div>
+  <div class="lg" style="color:#1a1a1a"></div>
+  <div class="xl" style="color:#d70a0a">Sofort.</div>
+</div>
+
+<!-- PROBLEM: PAIN -->
+<div class="slide">
+  <div class="xl">Und dann?</div>
+</div>
+
+<div class="slide">
+  <div class="xl" style="color:#76b82a">Papier.</div>
+</div>
+
+<div class="slide">
+  <div class="xl">Zerrissen.</div>
+  <div class="xl" style="color:#d70a0a">Verloren.</div>
+  <div class="xl">Nicht zur Hand.</div>
+</div>
+
+<div class="slide">
+  <div class="xl" style="color:#76b82a">bei über 40 Mio. Tieren</div>
+  <div class="">Katzen ~ 20 MIO | Hunde ~ 11,4 MIO | Kleinsäuger ~ 5 MIO | Ziervögel ~ 3,5 MIO | Reptilien ~ 1,5 MIO</div>
+</div>
+
+<div class="slide">
+  <div class="xl">immer noch Papier.</div>
+</div>
+
+<div class="slide">
+  <div class="lg">und genau da</div>
+  <div class="xl" style="color:#76b82a">kommen wir:</div>
+</div>
+<div class="slide">
+  <div class="xl" style="color:#76b82a">Vetzsucht</div>
+</div>
+
+<!-- REVEAL -->
+<div class="slide">
+  <img src="slide-00_1.png" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;z-index:0;">
+</div>
+
+<!-- VERSPRECHEN -->
+<div class="slide">
+  <div class="xl">Hund.</div>
+  <div class="xl">Katze.</div>
+  <div class="xl">Maus.</div>
+</div>
+
+<div class="slide">
+  <div class="xl" style="color:#76b82a">egal für welches Tier.</div>
+</div>
+
+<div class="slide">
+  <div class="xl" style="color:#1a1a1a">Daten</div>
+  <div class="xl" style="color:#76b82a">immer und überall da.</div>
+</div>
+
+<!-- FEATURE: ZUGANG -->
+<div class="slide">
+  <div class="xl">NFC, QR-Code, Link oder Login.</div>
+    <div class="lg" style="color:#1a1a1a">reicht</div>
+</div>
+
+<!-- FEATURE: KI -->
+<div class="slide">
+  <div class="xl" style="color:#1a1a1a">Erfassung:</div>
+  <div class="xl">OCR mit KI</div>
+</div>
+
+<div class="slide">
+  <div class="xl" style="color:#1a1a1a">Tierarzt spricht.</div>
+  <div class="xl">KI transkribiert.</div>
+</div>
+
+<!-- FEATURE: DATEN -->
+<div class="slide">
+  <div class="xl">Dein Tier.</div>
+</div>
+
+<div class="slide">
+  <div class="xl">Deine Regeln.</div>
+</div>
+
+<div class="slide">
+  <div class="xl" style="color:#76b82a">Deine Daten.</div>
+</div>
+
+<!-- DER MOAT -->
+<div class="slide">
+  <div class="lg" style="color:#1a1a1a">Rollen:</div>
+  <div class="xl">Gast.</div>
+  <div class="xl">Besitzer.</div>
+  <div class="xl">Behörde.</div>
+</div>
+
+<div class="slide">
+  <div class="xl" style="color:#76b82a">Tierarzt.</div>
+</div>
+
+<div class="slide">
+  <div class="xl" style="color:#1a1a1a">Der Unterschied:</div>
+  <div class="xl" style="color:#d70a0a">Das Siegel.</div>
+</div>
+
+<!-- FEATURES -->
+<div class="slide">
+  <div class="xl">Keine Installation.</div>
+</div>
+
+<div class="slide">
+  <div class="xl">Einfach scannen</div>
+</div>
+
+<!-- ALLES DRIN: Detail -->
+<div class="slide detail">
+  <div class="detail-head">Was ist enthalten?</div>
+  <div class="tech-rows">
+    <div class="tech-row">
+      <span class="tech-cat">Pass</span>
+      <span class="tech-chip">Tiere &amp; Impfungen</span>
+      <span class="tech-chip">Behandlungen</span>
+      <span class="tech-chip">Besitzer-Transfer</span>
+      <span class="tech-chip">Archiv</span>
+      <span class="tech-chip">Statistiken</span>
+    </div>
+    <div class="tech-row">
+      <span class="tech-cat">Zugang</span>
+      <span class="tech-chip">NFC</span>
+      <span class="tech-chip">QR</span>
+      <span class="tech-chip">Link</span>
+      <span class="tech-chip">Scan ohne Login</span>
+      <span class="tech-chip">Scan-Verlauf</span>
+    </div>
+    <div class="tech-row">
+      <span class="tech-cat">KI</span>
+      <span class="tech-chip">Dokument-Analyse</span>
+      <span class="tech-chip">Sprachnotiz → Text</span>
+      <span class="tech-chip">Duplikat-Erkennung</span>
+    </div>
+    <div class="tech-row">
+      <span class="tech-cat">Teilen</span>
+      <span class="tech-chip">Share-Links</span>
+      <span class="tech-chip">Temporär &amp; dauerhaft</span>
+      <span class="tech-chip">Rechte widerrufen</span>
+    </div>
+    <div class="tech-row">
+      <span class="tech-cat">Konto</span>
+      <span class="tech-chip">OAuth</span>
+      <span class="tech-chip">Supabase-Login</span>
+      <span class="tech-chip">Datenexport</span>
+      <span class="tech-chip">API-Keys</span>
+    </div>
+    <div class="tech-row">
+      <span class="tech-cat">Tierarzt</span>
+      <span class="tech-chip">Organisationen</span>
+      <span class="tech-chip">Teams</span>
+      <span class="tech-chip">Einladungen</span>
+      <span class="tech-chip">Vet-API v1</span>
+    </div>
+    <div class="tech-row">
+      <span class="tech-cat">Plattform</span>
+      <span class="tech-chip">Reminders</span>
+      <span class="tech-chip">Billing</span>
+      <span class="tech-chip">Audit-Log</span>
+      <span class="tech-chip">Multi-Tenant</span>
+      <span class="tech-chip">i18n</span>
+      <span class="tech-chip">PWA</span>
+    </div>
+  </div>
+</div>
+
+<!-- TECH STACK: Detail -->
+<div class="slide detail">
+  <div class="detail-head">Gebaut auf.</div>
+  <div class="tech-rows">
+    <div class="tech-row">
+      <span class="tech-cat">Frontend</span>
+      <span class="tech-chip">React 18</span>
+      <span class="tech-chip">Vite</span>
+      <span class="tech-chip">TypeScript</span>
+      <span class="tech-chip">Tailwind CSS</span>
+      <span class="tech-chip">Shadcn UI</span>
+      <span class="tech-chip">PWA</span>
+    </div>
+    <div class="tech-row">
+      <span class="tech-cat">Backend</span>
+      <span class="tech-chip">Fastify</span>
+      <span class="tech-chip">Node.js</span>
+      <span class="tech-chip">ES Modules</span>
+      <span class="tech-chip">REST API</span>
+    </div>
+    <div class="tech-row">
+      <span class="tech-cat">Daten &amp; Auth</span>
+      <span class="tech-chip">Supabase</span>
+      <span class="tech-chip">PostgreSQL</span>
+      <span class="tech-chip">OAuth</span>
+      <span class="tech-chip">Magic Link</span>
+      <span class="tech-chip">RLS</span>
+    </div>
+    <div class="tech-row">
+      <span class="tech-cat">KI</span>
+      <span class="tech-chip">Claude API</span>
+      <span class="tech-chip">Anthropic</span>
+    </div>
+    <div class="tech-row">
+      <span class="tech-cat">Deploy</span>
+      <span class="tech-chip">Hetzner</span>
+      <span class="tech-chip">Podman</span>
+      <span class="tech-chip">Caddy</span>
+      <span class="tech-chip">Self-hosted</span>
+    </div>
+  </div>
+</div>
+
+<!-- BUSINESS MODEL -->
+<div class="slide">
+  <div class="lg" style="color:#1a1a1a">Wie verdienen wir?</div>
+</div>
+
+<div class="slide">
+  <div class="xl" style="color:#76b82a">Abo-Modell für</div>
+  <div class="xl">Tierarzt.</div>
+</div>
+
+<div class="slide">
+  <div class="xl" style="color:#76b82a">KI</div>
+</div>
+
+<div class="slide">
+  <div class="xl" style="color:#76b82a">Schnittstelle für Connectivität</div>
+</div>
+
+
+<div class="slide">
+  <div class="xl" style="color:#1a1a1a">und natürlich</div>
+</div>
+
+
+<div class="slide">
+  <div class="xl" style="color:#1a1a1a">Merch.</div>
+  <div class="sm">Halsband · Anhänger · Sticker · eCard · ...</div>
+</div>
+
+<div class="slide">
+  <div class="xl">Noch Fragen?</div>
+  <div class="xl" style="color:#76b82a">oder gleich zur Demo?</div>
+</div>
+
+
+<div class="dot" id="dots"></div>
+<div class="nav-hint">← →</div>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  const dotsEl = document.getElementById('dots');
+  let current = 0;
+
+  slides.forEach(() => {
+    const s = document.createElement('span');
+    dotsEl.appendChild(s);
+  });
+
+  function show(n) {
+    slides[current].classList.remove('active');
+    current = (n + slides.length) % slides.length;
+    slides[current].classList.add('active');
+    document.querySelectorAll('.dot span').forEach((d, i) => {
+      d.classList.toggle('on', i === current);
+    });
+  }
+
+  show(0);
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') show(current + 1);
+    if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')                    show(current - 1);
+  });
+
+  document.addEventListener('click', e => {
+    if (e.clientX > window.innerWidth / 2) show(current + 1);
+    else show(current - 1);
+  });
+
+  let tx = 0;
+  document.addEventListener('touchstart', e => tx = e.touches[0].clientX);
+  document.addEventListener('touchend',   e => {
+    const dx = tx - e.changedTouches[0].clientX;
+    if (Math.abs(dx) > 40) dx > 0 ? show(current + 1) : show(current - 1);
+  });
+</script>
+</body>
+</html>

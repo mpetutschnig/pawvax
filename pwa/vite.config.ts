@@ -28,7 +28,9 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
         globIgnores: ['pow/**'],
-        navigateFallbackDenylist: [/^\/pow/, /^\/api\//]
+        navigateFallbackDenylist: [/^\/pow/, /^\/api\//],
+        // Custom push/notificationclick handlers (Workbox generateSW imports this)
+        importScripts: ['/push-sw.js']
       }
     })
   ],

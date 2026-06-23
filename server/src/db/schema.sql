@@ -213,6 +213,18 @@ CREATE TABLE IF NOT EXISTS animal_location_reports (
 );
 CREATE INDEX IF NOT EXISTS idx_loc_reports_animal ON animal_location_reports(animal_id);
 
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  id           TEXT PRIMARY KEY,
+  account_id   TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  endpoint     TEXT NOT NULL UNIQUE,
+  p256dh       TEXT NOT NULL,
+  auth         TEXT NOT NULL,
+  user_agent   TEXT,
+  created_at   TEXT DEFAULT (CURRENT_TIMESTAMP),
+  last_used_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_push_subs_account ON push_subscriptions(account_id);
+
 CREATE TABLE IF NOT EXISTS animal_transfers (
   code       TEXT PRIMARY KEY,
   animal_id  TEXT NOT NULL REFERENCES animals(id) ON DELETE CASCADE,
