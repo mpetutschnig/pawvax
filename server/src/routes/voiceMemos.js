@@ -240,7 +240,9 @@ export default async function voiceMemoRoutes(fastify) {
     }).map(m => {
       const extracted = m.extracted_json ? (() => { try { return JSON.parse(m.extracted_json) } catch { return {} } })() : {}
       const summaryRoles = parseRoles(m.summary_roles, ['vet', 'authority', 'guest'])
+      const transcriptionRoles = parseRoles(m.transcription_roles, ['vet'])
       const canSeeSummary = isOwner || summaryRoles.includes(roleStr)
+      const canSeeTranscription = isOwner || transcriptionRoles.includes(roleStr)
       return {
         id: m.id,
         animal_id: m.animal_id,
@@ -249,8 +251,10 @@ export default async function voiceMemoRoutes(fastify) {
         language_mode: m.language_mode,
         added_by_name: m.added_by_name,
         added_by_verified: m.added_by_verified,
-        title: canSeeSummary ? (extracted.title || extracted.title_de || null) : null,
-        summary: canSeeSummary ? (extracted.summary || extracted.summary_de || null) : null
+        title: canSeeSummary ? (extracted.title || extracted.title_de || extracted.title_en || null) : null,
+        summary: canSeeSummary ? (extracted.summary || extracted.summary_de || extracted.summary_en || null) : null,
+        transcription_text: canSeeTranscription ? (m.transcription_text || null) : null,
+        error_message: isOwner ? (m.error_message || null) : null
       }
     })
 

@@ -1997,24 +1997,46 @@ export default function AnimalPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)', tableLayout: 'fixed' }}>
             <tbody>
               {voiceMemos.map((memo: any) => {
-                const title = memo.title || formatDateOnly(memo.created_at)
-                const diagnose = memo.summary || null
+                const snip = (s: string | null, n: number) => s ? (s.length > n ? s.slice(0, n).trim() + '…' : s) : null
+                const status = memo.analysis_status
+                const isDone = status === 'completed'
+                const statusLabel: Record<string, string> = {
+                  transcribing: t('voiceMemo.statusTranscribing'),
+                  analyzing: t('voiceMemo.statusAnalyzing'),
+                  failed: t('voiceMemo.statusFailed'),
+                  pending: t('voiceMemo.statusPendingTranscription'),
+                  pending_transcription: t('voiceMemo.statusPendingTranscription'),
+                  pending_analysis: t('voiceMemo.statusPendingAnalysis')
+                }
+                // Title: AI title → transcription snippet → status (while processing) → date
+                const title = memo.title
+                  || snip(memo.transcription_text, 60)
+                  || (!isDone ? statusLabel[status] : null)
+                  || formatDateOnly(memo.created_at)
+                // Subtitle: AI summary → transcription snippet → error → nothing
+                const subtitle = memo.summary
+                  || (memo.title ? snip(memo.transcription_text, 120) : null)
+                  || (status === 'failed' ? (memo.error_message || t('voiceMemo.statusFailed')) : null)
                 const statusColor: Record<string, string> = {
                   completed: 'var(--success-500)', failed: 'var(--danger-500)',
-                  transcribing: 'var(--primary-500)', analyzing: 'var(--primary-500)'
+                  transcribing: 'var(--primary-500)', analyzing: 'var(--primary-500)', pending: 'var(--text-tertiary)'
                 }
                 return (
                   <tr key={memo.id} style={{ borderBottom: '1px solid var(--border-subtle)', cursor: 'pointer' }}
                     onClick={() => navigate(`/animals/${id}/voice-memos/${memo.id}`)}>
-                    <td style={{ padding: 'var(--space-2) 0' }}>
+                    <td style={{ padding: 'var(--space-2) 0', minWidth: 0 }}>
                       <div style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</div>
-                      {diagnose && (
-                        <div style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-size-xs)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 2 }}>{diagnose}</div>
+                      {subtitle && (
+                        <div style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-size-xs)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 2 }}>{subtitle}</div>
                       )}
+                      <div style={{ color: 'var(--text-tertiary)', fontSize: 'var(--font-size-xs)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span>{formatDateOnly(memo.created_at)}</span>
+                        {!isDone && <span style={{ color: statusColor[status] || 'var(--text-tertiary)' }}>· {statusLabel[status] || status}</span>}
+                      </div>
                     </td>
-                    <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', textAlign: 'right', width: '20px' }}>
-                      <span style={{ color: statusColor[memo.analysis_status] || 'var(--text-tertiary)', fontSize: 'var(--font-size-xs)' }}>
-                        {memo.analysis_status === 'completed' ? '✓' : memo.analysis_status === 'failed' ? '✕' : '⟳'}
+                    <td style={{ padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', textAlign: 'right', width: '20px', verticalAlign: 'top' }}>
+                      <span style={{ color: statusColor[status] || 'var(--text-tertiary)', fontSize: 'var(--font-size-xs)' }}>
+                        {isDone ? '✓' : status === 'failed' ? '✕' : '⟳'}
                       </span>
                     </td>
                   </tr>
