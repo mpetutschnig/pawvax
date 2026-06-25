@@ -158,7 +158,9 @@ await fastify.register(fastifySwagger, {
     ],
     components: {
       securitySchemes: {
-        bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' }
+        bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
+        // Developer API key (created in Profile) — sent as X-Api-Key header
+        apiKeyAuth: { type: 'apiKey', in: 'header', name: 'X-Api-Key' }
       }
     },
     security: [{ bearerAuth: [] }]

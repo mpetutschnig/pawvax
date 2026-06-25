@@ -14,6 +14,11 @@ export default async function vetApiRoutes(fastify) {
       }
     },
     schema: {
+      summary: 'Add a document to an animal (Developer API)',
+      description: 'Requires a developer API key (created in Profile) sent via the X-Api-Key header. The key must belong to a verified vet account.',
+      tags: ['VET API'],
+      security: [{ apiKeyAuth: [] }],
+      params: { type: 'object', properties: { animalId: { type: 'string' } } },
       body: {
         type: 'object',
         required: ['doc_type', 'extracted_json'],
