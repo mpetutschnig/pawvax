@@ -282,7 +282,7 @@ export default async function authRoutes(fastify) {
     },
     config: {
       rateLimit: {
-        max: 5,
+        max: 50,
         timeWindow: '15 minutes'
       }
     }
@@ -375,7 +375,7 @@ export default async function authRoutes(fastify) {
     },
     config: {
       rateLimit: {
-        max: 5,
+        max: 50,
         timeWindow: '5 minutes'
       }
     }
