@@ -9,7 +9,7 @@ export default async function vetApiRoutes(fastify) {
   fastify.post('/api/v1/animals/:animalId/documents', {
     config: {
       rateLimit: {
-        max: 60,
+        max: 600,
         timeWindow: '1 minute'
       }
     },

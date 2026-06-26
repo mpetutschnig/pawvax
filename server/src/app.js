@@ -130,7 +130,7 @@ await fastify.register(fastifyHelmet, {
 })
 await fastify.register(fastifyJwt, { secret: jwtSecret, sign: { expiresIn: '7d' } })
 await fastify.register(fastifyRateLimit, {
-  max: 100,
+  max: 1000,
   timeWindow: '1 minute',
   allowList: ['127.0.0.1', '::1', '::ffff:127.0.0.1']
 })
